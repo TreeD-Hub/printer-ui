@@ -289,7 +289,7 @@ body {
 }
 
 .stats-actions-row {
-  --action-square-size: 84px;
+  --action-square-size: 90px;
   --action-stack-gap: var(--space-xs);
   min-height: 0;
   display: grid;
@@ -383,7 +383,7 @@ body {
 }
 
 .temp-grid .meter {
-  margin-top: var(--space-xs);
+  margin-top: var(--space-sm);
 }
 
 .fill {
