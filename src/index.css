@@ -1,4 +1,5 @@
 @import './styles/foundation.css';
+@import './styles/ui-kit.css';
 
 :root {
   font-family: var(--font-family-ui);
@@ -20,4 +21,3 @@ body {
   min-height: 100vh;
   background: var(--color-background);
 }
-

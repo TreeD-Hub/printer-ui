@@ -65,6 +65,8 @@ npm run lint
 npm run typecheck
 npm run test
 npm run test:visual
+npm run test:visual:layout
+npm run verify:ui
 ```
 
 Tauri runtime:
@@ -96,6 +98,7 @@ ssh -N -L 7125:127.0.0.1:7125 pi@192.168.0.21
 
 - Целевое разрешение интерфейса: `960x544`.
 - В e2e есть smoke-проверка размеров shell-контейнера.
+- В e2e есть проверка геометрии layout (без наездов/выходов за контейнер) и обязательное снятие скрина `dashboard-shell.png` как артефакта прогона.
 
 ## Home v1 (текущий функционал)
 

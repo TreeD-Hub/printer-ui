@@ -91,17 +91,6 @@ body {
   color: var(--color-primary);
 }
 
-.top-icons svg {
-  width: 22px;
-  height: 22px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  shape-rendering: geometricPrecision;
-}
-
 .top-icon-btn {
   width: 56px;
   height: 56px;
@@ -131,18 +120,7 @@ body {
 }
 
 .notification-icon {
-  width: 22px;
-  height: 22px;
   display: block;
-  background: currentColor;
-  -webkit-mask-image: url('./assets/icons/status-notification.svg');
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  mask-image: url('./assets/icons/status-notification.svg');
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
 }
 
 .power-btn {
@@ -155,12 +133,6 @@ body {
   display: grid;
   place-items: center;
   cursor: pointer;
-}
-
-.power-btn svg {
-  width: 20px;
-  height: 20px;
-  stroke-width: 2.1;
 }
 
 .content-grid {
@@ -427,26 +399,7 @@ body {
 }
 
 .action-icon {
-  width: 40px;
-  height: 40px;
   display: block;
-  background: currentColor;
-  -webkit-mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: contain;
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
-}
-
-.icon-pause {
-  -webkit-mask-image: url('./assets/icons/action-pause.svg');
-  mask-image: url('./assets/icons/action-pause.svg');
-}
-
-.icon-stop-critical {
-  -webkit-mask-image: url('./assets/icons/action-stop-critical.svg');
-  mask-image: url('./assets/icons/action-stop-critical.svg');
 }
 
 .stack-action:active {
@@ -617,17 +570,6 @@ body {
   height: 28px;
   display: grid;
   place-items: center;
-}
-
-.nav-icon svg {
-  width: 24px;
-  height: 24px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  shape-rendering: geometricPrecision;
 }
 
 @media (max-width: 920px) {

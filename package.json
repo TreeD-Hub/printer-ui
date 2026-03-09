@@ -17,6 +17,8 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "test:visual": "playwright test",
+    "test:visual:layout": "playwright test e2e/shell-layout.spec.ts",
+    "verify:ui": "npm run lint && npm run typecheck && npm run test -- --run && npm run test:visual:layout",
     "preview": "vite preview",
     "preview:960": "vite preview --host 127.0.0.1 --port 4173",
     "preview:960:5in": "vite preview --host 127.0.0.1 --port 4173 --open /?view=physical-5",

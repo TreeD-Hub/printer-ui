@@ -21,6 +21,17 @@ export default defineConfig([
     },
   },
   {
+    files: ['e2e/**/*.ts'],
+    extends: [js.configs.recommended, tseslint.configs.recommended],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+  },
+  {
     files: ['src/**/*.test.{ts,tsx}', 'e2e/**/*.ts'],
     languageOptions: {
       globals: {
