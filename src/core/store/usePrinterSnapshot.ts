@@ -10,6 +10,7 @@ const FALLBACK_SNAPSHOT: PrinterSnapshot = {
   state: 'unknown',
   extruderTemp: 0,
   bedTemp: 0,
+  modelFanPercent: 0,
   updatedAt: new Date(0).toISOString(),
   message: 'Ожидание данных...',
 }

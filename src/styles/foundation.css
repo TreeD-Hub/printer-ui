@@ -1,0 +1,42 @@
+:root {
+  /* 00_Foundation: colors */
+  --color-background: #0e0f12;
+  --color-surface: #171a1f;
+  --color-surface-elevated: #1f2229;
+  --color-primary: #9163ff;
+  --color-primary-light: #a881ff;
+  --color-primary-dark: #7b4eea;
+  --color-success: #2ecc71;
+  --color-warning: #f5a623;
+  --color-error: #e74c3c;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a0a6b0;
+
+  /* 00_Foundation: typography */
+  --font-size-heading-large: 28px;
+  --font-size-heading-medium: 22px;
+  --font-size-body-large: 20px;
+  --font-size-body: 16px;
+  --font-size-small: 14px;
+  --font-size-tiny: 12px;
+
+  --font-weight-medium: 500;
+  --font-weight-regular: 400;
+
+  --font-family-ui: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+  /* 00_Foundation: grid */
+  --grid-base: 8px;
+  --grid-landscape-columns: 12;
+  --grid-landscape-gutter: 16px;
+  --grid-landscape-margin: 24px;
+  --grid-safe-area: 16px;
+
+  --grid-portrait-columns: 4;
+  --grid-portrait-gutter: 16px;
+  --grid-portrait-margin: 20px;
+
+  /* device contract */
+  --screen-width: 960px;
+  --screen-height: 544px;
+}

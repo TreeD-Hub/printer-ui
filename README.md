@@ -38,13 +38,25 @@ npm install
 ```bash
 npm run dev:mock
 npm run dev:live
+npm run dev:mock:5in
+npm run dev:mock:6in
+npm run dev:live:5in
+npm run dev:live:6in
 ```
 
 Предпросмотр:
 
 ```bash
 npm run preview:960
+npm run preview:960:5in
+npm run preview:960:6in
 ```
+
+Флаг диагонали:
+
+- используются `?view=physical-5` и `?view=physical-6`;
+- shell рендерится в точном контейнере `960x544` без центрирующей рамки;
+- применяется компенсация `devicePixelRatio`, чтобы визуальный размер был ближе к физическому экрану принтера.
 
 Тесты:
 

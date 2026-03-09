@@ -1,4 +1,4 @@
-﻿import { type ReactNode, useMemo } from 'react'
+﻿import { type CSSProperties, type ReactNode, useMemo } from 'react'
 import { usePrinterCommands } from './core/commands'
 import { usePrinterSnapshot } from './core/store/usePrinterSnapshot'
 import './App.css'
@@ -7,7 +7,15 @@ const NOZZLE_TARGET = 220
 const BED_TARGET = 60
 const SPEED_PERCENT = 100
 const FLOW_PERCENT = 95
-const REMAINING_TIME = '2h 15m'
+const FILE_NAME = 'test_cube_v2.gcode'
+const PROGRESS_PERCENT = 67
+const ETA_TIME = '12:34'
+const LAYER_CURRENT = 145
+const LAYER_TOTAL = 218
+const SCREEN_WIDTH = 960
+const SCREEN_HEIGHT = 544
+const CSS_PPI = 96
+const DEFAULT_PHYSICAL_DIAGONAL = 5
 
 function clampPercent(current: number, target: number): number {
   if (target <= 0) {
@@ -58,6 +66,15 @@ function CloudIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M7 18h9a4 4 0 0 0 .2-8 5.4 5.4 0 0 0-10.5 1.7A3.5 3.5 0 0 0 7 18Z" />
+    </svg>
+  )
+}
+
+function PowerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3.5v7.1" />
+      <path d="M7 6.2a8.5 8.5 0 1 0 10 0" />
     </svg>
   )
 }
@@ -136,15 +153,81 @@ function NavItem({ label, active = false, icon }: NavItemProps) {
   )
 }
 
+type PreviewMode = 'none' | '1x1' | 'physical'
+
+type PreviewSettings = {
+  mode: PreviewMode
+  diagonalInches?: number
+}
+
+function resolvePreviewSettings(): PreviewSettings {
+  if (typeof window === 'undefined') {
+    return { mode: 'none' }
+  }
+
+  const params = new URLSearchParams(window.location.search)
+  const view = (params.get('view') ?? '').toLowerCase()
+
+  if (view === '1x1') {
+    return { mode: '1x1' }
+  }
+
+  if (view === 'physical-5') {
+    return { mode: 'physical', diagonalInches: 5 }
+  }
+
+  if (view === 'physical-6') {
+    return { mode: 'physical', diagonalInches: 6 }
+  }
+
+  if (view === 'physical') {
+    const rawDiagonal = Number(params.get('diag'))
+    if (Number.isFinite(rawDiagonal) && rawDiagonal > 0) {
+      return { mode: 'physical', diagonalInches: rawDiagonal }
+    }
+    return { mode: 'physical', diagonalInches: DEFAULT_PHYSICAL_DIAGONAL }
+  }
+
+  return { mode: 'none' }
+}
+
+function calculatePreviewZoom(settings: PreviewSettings): number {
+  if (settings.mode === 'none' || typeof window === 'undefined') {
+    return 1
+  }
+
+  const ratio = window.devicePixelRatio || 1
+  if (!Number.isFinite(ratio) || ratio <= 0) {
+    return 1
+  }
+
+  if (settings.mode === '1x1') {
+    return 1 / ratio
+  }
+
+  const diagonalInches = settings.diagonalInches ?? DEFAULT_PHYSICAL_DIAGONAL
+  const targetPpi = Math.sqrt(SCREEN_WIDTH ** 2 + SCREEN_HEIGHT ** 2) / diagonalInches
+  const desktopPpiApprox = CSS_PPI * ratio
+  const zoom = desktopPpiApprox / targetPpi
+  return Math.max(0.2, Math.min(2, zoom))
+}
+
 function App() {
   const { snapshot, refresh } = usePrinterSnapshot()
   const { pendingCommand, executeCommand } = usePrinterCommands()
+  const previewSettings = useMemo(() => resolvePreviewSettings(), [])
+  const hasPreviewScale = previewSettings.mode !== 'none'
+  const previewZoom = useMemo(() => calculatePreviewZoom(previewSettings), [previewSettings])
+  const previewStyle: CSSProperties | undefined = hasPreviewScale
+    ? ({ '--preview-zoom': String(previewZoom) } as CSSProperties)
+    : undefined
 
   const nozzleFill = useMemo(
     () => clampPercent(snapshot.extruderTemp, NOZZLE_TARGET),
     [snapshot.extruderTemp],
   )
   const bedFill = useMemo(() => clampPercent(snapshot.bedTemp, BED_TARGET), [snapshot.bedTemp])
+  const printFill = useMemo(() => Math.max(0, Math.min(100, PROGRESS_PERCENT)), [])
 
   const isBusy = pendingCommand !== null
 
@@ -163,7 +246,7 @@ function App() {
   }
 
   return (
-    <main className="app-root">
+    <main className={`app-root ${hasPreviewScale ? 'is-one-to-one' : ''}`} style={previewStyle}>
       <section className="screen-shell" data-testid="screen-shell">
         <header className="top-bar">
           <div className="brand-wrap">
@@ -173,80 +256,114 @@ function App() {
           <div className="top-icons" aria-label="status icons">
             <WifiIcon />
             <CloudIcon />
+            <button type="button" className="power-btn" aria-label="Power actions">
+              <PowerIcon />
+            </button>
           </div>
         </header>
 
         <div className="content-grid">
-          <section className="preview-panel">
-            <div className="preview-inner">
-              <PrintPreviewIcon />
+          <section className="job-card">
+            <div className="preview-panel">
+              <div className="preview-inner">
+                <PrintPreviewIcon />
+              </div>
+            </div>
+
+            <div className="job-info">
+              <p className="job-name">{FILE_NAME}</p>
+
+              <div className="job-metrics">
+                <div>
+                  <p className="label">Progress</p>
+                  <p className="job-main-value">{PROGRESS_PERCENT}%</p>
+                </div>
+                <div className="job-metrics-right">
+                  <p className="label">ETA</p>
+                  <p className="job-main-value">{ETA_TIME}</p>
+                </div>
+              </div>
+
+              <div className="job-meter">
+                <div className="job-meter-fill" style={{ width: `${printFill}%` }} />
+              </div>
+
+              <div className="job-layer-row">
+                <span className="label">Layer</span>
+                <strong>
+                  {LAYER_CURRENT} / {LAYER_TOTAL}
+                </strong>
+              </div>
             </div>
           </section>
 
-          <section className="stats-column">
-            <article className="stats-card">
-              <div className="temp-grid">
-                <div className="metric">
-                  <p className="label">Nozzle</p>
-                  <p className="value temp">
-                    {rounded(snapshot.extruderTemp)}<span>°C</span>
-                  </p>
-                  <p className="hint">Target: {NOZZLE_TARGET}°C</p>
-                  <div className="meter orange">
-                    <div className="fill" style={{ width: `${nozzleFill}%` }} />
+          <section className="right-column">
+            <div className="stats-actions-row">
+              <article className="stats-card">
+                <div className="temp-grid">
+                  <div className="metric">
+                    <p className="label">Nozzle</p>
+                    <p className="value temp">
+                      {rounded(snapshot.extruderTemp)}<span>°C</span>
+                    </p>
+                    <p className="hint">Target: {NOZZLE_TARGET}°C</p>
+                    <div className="meter orange">
+                      <div className="fill" style={{ width: `${nozzleFill}%` }} />
+                    </div>
+                  </div>
+
+                  <div className="metric">
+                    <p className="label">Bed</p>
+                    <p className="value temp">
+                      {rounded(snapshot.bedTemp)}<span>°C</span>
+                    </p>
+                    <p className="hint">Target: {BED_TARGET}°C</p>
+                    <div className="meter green">
+                      <div className="fill" style={{ width: `${bedFill}%` }} />
+                    </div>
                   </div>
                 </div>
 
-                <div className="metric">
-                  <p className="label">Bed</p>
-                  <p className="value temp">
-                    {rounded(snapshot.bedTemp)}<span>°C</span>
-                  </p>
-                  <p className="hint">Target: {BED_TARGET}°C</p>
-                  <div className="meter green">
-                    <div className="fill" style={{ width: `${bedFill}%` }} />
+                <div className="three-up-grid">
+                  <div className="metric compact">
+                    <p className="label">Speed</p>
+                    <p className="value percent">
+                      {SPEED_PERCENT}<span>%</span>
+                    </p>
+                  </div>
+                  <div className="metric compact">
+                    <p className="label">Model Fan</p>
+                    <p className="value percent">
+                      {rounded(snapshot.modelFanPercent)}<span>%</span>
+                    </p>
+                  </div>
+                  <div className="metric compact">
+                    <p className="label">Flow</p>
+                    <p className="value percent">
+                      {FLOW_PERCENT}<span>%</span>
+                    </p>
                   </div>
                 </div>
-              </div>
+              </article>
 
-              <div className="two-up-grid">
-                <div className="metric compact">
-                  <p className="label">Speed</p>
-                  <p className="value percent">
-                    {SPEED_PERCENT}<span>%</span>
-                  </p>
-                </div>
-                <div className="metric compact">
-                  <p className="label">Flow</p>
-                  <p className="value percent">
-                    {FLOW_PERCENT}<span>%</span>
-                  </p>
-                </div>
+              <div className="action-stack" role="group" aria-label="print actions">
+                <button
+                  type="button"
+                  className="stack-action action-pause"
+                  onClick={() => void handlePause()}
+                  disabled={isBusy}
+                >
+                  {pendingCommand === 'pause' ? 'Pausing' : 'Pause'}
+                </button>
+                <button
+                  type="button"
+                  className="stack-action action-cancel"
+                  onClick={() => void handleStop()}
+                  disabled={isBusy}
+                >
+                  {pendingCommand === 'cancel' ? 'Canceling' : 'Cancel Print'}
+                </button>
               </div>
-
-              <div className="metric remaining">
-                <p className="label">Remaining</p>
-                <p className="value">{REMAINING_TIME}</p>
-              </div>
-            </article>
-
-            <div className="dual-actions" role="group" aria-label="print actions">
-              <button
-                type="button"
-                className="action action-pause"
-                onClick={() => void handlePause()}
-                disabled={isBusy}
-              >
-                {pendingCommand === 'pause' ? 'Pausing' : 'Pause'}
-              </button>
-              <button
-                type="button"
-                className="action action-stop"
-                onClick={() => void handleStop()}
-                disabled={isBusy}
-              >
-                {pendingCommand === 'cancel' ? 'Stopping' : 'Stop'}
-              </button>
             </div>
           </section>
         </div>
@@ -264,4 +381,5 @@ function App() {
 }
 
 export default App
+
 

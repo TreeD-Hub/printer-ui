@@ -17,6 +17,9 @@ type ObjectsQueryResult = {
     heater_bed?: {
       temperature?: number
     }
+    fan?: {
+      speed?: number
+    }
     print_stats?: {
       state?: string
     }
@@ -45,7 +48,7 @@ export function createMoonrakerClient(): TransportClient {
       const [info, objects] = await Promise.all([
         fetchMoonraker<PrinterInfoResult>('/printer/info'),
         fetchMoonraker<ObjectsQueryResult>(
-          '/printer/objects/query?extruder&heater_bed&print_stats',
+          '/printer/objects/query?extruder&heater_bed&fan&print_stats',
         ),
       ])
 
@@ -57,6 +60,7 @@ export function createMoonrakerClient(): TransportClient {
         state,
         extruderTemp: Number(objects.status?.extruder?.temperature ?? 0),
         bedTemp: Number(objects.status?.heater_bed?.temperature ?? 0),
+        modelFanPercent: Math.max(0, Math.min(100, Number(objects.status?.fan?.speed ?? 0) * 100)),
         updatedAt: new Date().toISOString(),
         message: `Moonraker: ${moonrakerUrl}`,
       }

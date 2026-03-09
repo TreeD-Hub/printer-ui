@@ -13,6 +13,7 @@ export function createMockClient(): TransportClient {
         state: 'printing',
         extruderTemp: 215,
         bedTemp: 58,
+        modelFanPercent: 78,
         updatedAt: nowIso(),
         message: 'Design preview mode',
       }
