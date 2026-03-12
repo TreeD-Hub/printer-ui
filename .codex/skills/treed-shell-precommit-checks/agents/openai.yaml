@@ -1,0 +1,3 @@
+interface:
+  display_name: "Treed Precommit Checks"
+  short_description: "Матрица обязательных проверок перед commit для treed-shell"

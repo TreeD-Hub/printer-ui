@@ -81,6 +81,28 @@
 - Комментарии объясняют цель и контракт блока (почему/когда), а не пересказывают синтаксис.
 - При задаче «причесывание комментариев» не менять поведение кода: только комментарии/документация/пустые строки.
 
+## 2.6) Явное применение skills (обязательно)
+
+- `treed-shell-precommit-checks`:
+  - обязательный skill для задач с правками перед рекомендацией commit;
+  - источник матрицы pre-commit проверок: `.codex/skills/treed-shell-precommit-checks/SKILL.md`.
+- `playwright-interactive`:
+  - использовать по умолчанию для итеративной проверки UI/e2e и визуальных регрессий;
+  - применять в задачах, где фигурируют `verify:ui`, `test:visual`, `test:visual:layout`, проверка `960x544`, интерактивная отладка браузера/Electron.
+- `comment-style`:
+  - использовать при любых задачах на комментарии в `src/**`, `src-tauri/**`, `e2e/**`, `mocks/**`, `tools/**`;
+  - перед правками и после правок запускать проверку профиля:
+    `python C:/Users/Yawllen/.codex/skills/comment-style/scripts/check_comment_style.py --root .`.
+- `readme-coverage`:
+  - использовать при изменениях структуры каталогов и документации, а также при проверке готовности к commit;
+  - запускать проверку покрытия:
+    `python C:/Users/Yawllen/.codex/skills/readme-coverage/scripts/readme_coverage.py --root .`;
+  - генерацию шаблонов (`--create`) делать только по явному запросу пользователя.
+- `screenshot`:
+  - использовать как fallback для системных скриншотов (окно/регион/экран), когда tool-specific захват недоступен или нужен снимок состояния ОС;
+  - на Windows использовать helper:
+    `powershell -ExecutionPolicy Bypass -File C:/Users/Yawllen/.codex/skills/screenshot/scripts/take_screenshot.ps1 -Mode temp`.
+
 ## 3) Ветки и Git-дисциплина
 
 - Основная рабочая ветка: `dev`, если пользователь не указал другую.
@@ -109,20 +131,13 @@
 
 ## 5) Минимальные проверки перед commit
 
-- Для правок в `src/**`:
-  - `npm run lint`;
-  - `npm run typecheck`;
-  - `npm run test` (или ближайший эквивалент).
-- Для правок UI/верстки/компонентов:
-  - `npm run verify:ui` (полный цикл: lint + typecheck + unit + browser screenshot/layout analysis);
-  - `npm run test:visual` (если настроено);
-  - `npm run test:visual:layout` (обязательный скрин `dashboard-shell.png` + геометрический анализ layout в браузере);
-  - проверка предпросмотра `960x544` (`preview:960`).
-- Для правок в `src-tauri/**`:
-  - проверка сборки/рантайма `tauri:dev` или `tauri build` в доступной среде.
-- Для правок shell/systemd-интеграции:
-  - синтакс-проверка shell (`bash -n`) в Linux-среде или CI.
-- Если часть проверок невозможно выполнить локально, явно это указывать.
+- Перед рекомендацией commit для любых правок обязательно применять локальный skill `treed-shell-precommit-checks`.
+- Каноничное описание матрицы проверок хранится в:
+  `.codex/skills/treed-shell-precommit-checks/SKILL.md`.
+- В отчете перед commit обязательно указывать:
+  - что было запущено;
+  - что не запускалось;
+  - почему не запускалось (ограничения среды).
 
 ## 6) Правила для UI-оболочки
 
