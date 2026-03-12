@@ -45,6 +45,13 @@ async function fetchMoonraker<T>(path: string): Promise<T> {
 export function createMoonrakerClient(): TransportClient {
   return {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
+      const endpointHost = (() => {
+        try {
+          return new URL(moonrakerUrl).hostname || 'unknown'
+        } catch {
+          return 'unknown'
+        }
+      })()
       const [info, objects] = await Promise.all([
         fetchMoonraker<PrinterInfoResult>('/printer/info'),
         fetchMoonraker<ObjectsQueryResult>(
@@ -57,6 +64,8 @@ export function createMoonrakerClient(): TransportClient {
       return {
         source: 'live',
         connection: 'online',
+        wifiSsid: 'Moonraker Network',
+        ipAddress: endpointHost,
         state,
         extruderTemp: Number(objects.status?.extruder?.temperature ?? 0),
         bedTemp: Number(objects.status?.heater_bed?.temperature ?? 0),

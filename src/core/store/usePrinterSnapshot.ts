@@ -7,6 +7,8 @@ import type { PrinterSnapshot } from '../transport/types'
 const FALLBACK_SNAPSHOT: PrinterSnapshot = {
   source: dataMode,
   connection: 'offline',
+  wifiSsid: 'Не подключено',
+  ipAddress: '—',
   state: 'unknown',
   extruderTemp: 0,
   bedTemp: 0,

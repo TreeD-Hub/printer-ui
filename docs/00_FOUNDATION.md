@@ -15,14 +15,15 @@
 - `Industrial & Minimal`:
   `Технологичный минималистичный стиль без маркетинговых градиентов`
 - `AMOLED Optimized`:
-  `Глубокий чёрный фон (#0E0F12) для контрастности и энергоэффективности`
+  `Глубокий чёрный фон (#000000) для контрастности и энергоэффективности`
 - `Touch-First`:
   `Все элементы минимум 56px высотой, оптимизированы для тач-управления`
 
 ## 2) TreeD Brand Colors (токены)
 
-- `Background`: `#0E0F12`
-- `Surface`: `#171A1F`
+- `Background`: `#000000`
+- `Surface`: `#000000`
+- `Block Surface`: `#171A1F`
 - `Surface Elevated`: `#1F2229`
 - `Primary`: `#9163FF`
 - `Primary Light`: `#A881FF`
@@ -31,7 +32,23 @@
 - `Warning`: `#F5A623`
 - `Error`: `#E74C3C`
 - `Text Primary`: `#FFFFFF`
-- `Text Secondary`: `#A0A6B0`
+- `Text Secondary`: `#959799`
+
+### Support UI Tokens
+
+- `Window Background`: `#2B2F36`
+- `Border Subtle`: `#242B3C`
+- `Border Default`: `#2B3347`
+- `Surface Track`: `#0F131D`
+- `Text Soft`: `#959799`
+- `Overlay`: `rgba(5, 8, 14, 0.68)`
+
+### Правило оптимизации палитры
+
+- Близкие тёмные оттенки не размножать локально по компонентам.
+- Для поверхностей использовать `Background / Surface / Block Surface / Surface Elevated`.
+- Для контуров использовать только `Border Subtle` и `Border Default`, если нет явно согласованного исключения.
+- Для вторичного числового текста и unit-частей использовать `Text Soft`, а не новые одноразовые оттенки.
 
 ## 3) Typography Scale
 

@@ -1,4 +1,4 @@
-import { type ButtonHTMLAttributes } from 'react'
+import { forwardRef, type ButtonHTMLAttributes } from 'react'
 import { IconMask } from './IconMask'
 import { joinClassNames } from './classNames'
 import type { UiIconName } from './iconAssets'
@@ -10,18 +10,22 @@ type StatusIconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'chil
   showNotificationDot?: boolean
 }
 
-export function StatusIconButton({
-  icon,
-  label,
-  tone = 'default',
-  showNotificationDot = false,
-  className,
-  ...buttonProps
-}: StatusIconButtonProps) {
+export const StatusIconButton = forwardRef<HTMLButtonElement, StatusIconButtonProps>(function StatusIconButton(
+  {
+    icon,
+    label,
+    tone = 'default',
+    showNotificationDot = false,
+    className,
+    ...buttonProps
+  },
+  ref,
+) {
   const isDanger = tone === 'danger'
 
   return (
     <button
+      ref={ref}
       type="button"
       className={joinClassNames(
         'top-icon-btn',
@@ -39,7 +43,7 @@ export function StatusIconButton({
       />
     </button>
   )
-}
+})
 
 type ActionSquareButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> & {
   icon: UiIconName

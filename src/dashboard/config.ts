@@ -29,7 +29,10 @@ export const DASHBOARD_VALUES = {
 
 export const BABYSTEP_STEP_OPTIONS = [0.1, 0.05, 0.025] as const
 
+export type TopStatusButtonId = 'wifi' | 'cloud' | 'notifications' | 'power'
+
 export type StatusButtonAsset = {
+  id: TopStatusButtonId
   icon: UiIconName
   label: string
   tone?: 'default' | 'danger'
@@ -37,24 +40,26 @@ export type StatusButtonAsset = {
 }
 
 export const TOP_STATUS_BUTTONS: readonly StatusButtonAsset[] = [
-  { icon: 'statusWifi', label: 'Статус Wi-Fi' },
-  { icon: 'statusCloud', label: 'Статус облака' },
-  { icon: 'statusNotification', label: 'Уведомления', showNotificationDot: true },
-  { icon: 'statusPower', label: 'Питание', tone: 'danger' },
+  { id: 'wifi', icon: 'statusWifi', label: 'Статус Wi-Fi' },
+  { id: 'cloud', icon: 'statusCloud', label: 'Статус облака' },
+  { id: 'notifications', icon: 'statusNotification', label: 'Уведомления', showNotificationDot: true },
+  { id: 'power', icon: 'statusPower', label: 'Питание', tone: 'danger' },
 ]
 
+export type ScreenId = 'dashboard' | 'control' | 'files' | 'macros' | 'settings'
+
 export type NavItemAsset = {
+  id: ScreenId
   icon: UiIconName
   label: string
-  active?: boolean
 }
 
 export const BOTTOM_NAV_ITEMS: readonly NavItemAsset[] = [
-  { icon: 'menuDashboard', label: 'Главная', active: true },
-  { icon: 'menuControl', label: 'Управление' },
-  { icon: 'menuFiles', label: 'Файлы' },
-  { icon: 'menuMacros', label: 'Макросы' },
-  { icon: 'menuSettings', label: 'Настройки' },
+  { id: 'dashboard', icon: 'menuDashboard', label: 'Главная' },
+  { id: 'control', icon: 'menuControl', label: 'Управление' },
+  { id: 'files', icon: 'menuFiles', label: 'Файлы' },
+  { id: 'macros', icon: 'menuMacros', label: 'Макросы' },
+  { id: 'settings', icon: 'menuSettings', label: 'Настройки' },
 ]
 
 export type QuickMetricDefinition = {

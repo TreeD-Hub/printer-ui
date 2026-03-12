@@ -1,16 +1,34 @@
 :root {
   /* 00_Foundation: colors */
-  --color-background: #0e0f12;
-  --color-surface: #171a1f;
-  --color-surface-elevated: #1f2229;
-  --color-primary: #9163ff;
-  --color-primary-light: #a881ff;
-  --color-primary-dark: #7b4eea;
-  --color-success: #2ecc71;
-  --color-warning: #f5a623;
-  --color-error: #e74c3c;
-  --color-text-primary: #ffffff;
-  --color-text-secondary: #a0a6b0;
+  --color-window-background: #2b2f36; /* Фон самого окна Tauri вокруг макета. */
+  --color-background: #000000; /* Запасной очень тёмный фон приложения. */
+  --color-surface: #1e222b; /* Фон верхнего и нижнего баров. */
+  --color-block-surface: #1e222b; /* Отдельная заливка карточек и больших блоков. */
+  --color-surface-elevated: #202635; /* Контрастная заливка вложенных контролов и вложенных поверхностей на фоне карточек. */
+  --color-border-subtle: #242b3c; /* Мягкие разделители, например линии у баров. */
+  --color-border-default: #2b3347; /* Основные рамки карточек, popup и контролов. */
+  --color-surface-track: #000000; /* Фон дорожек прогресса и температурных шкал. */
+  --color-primary: #9163ff; /* Главный фиолетовый акцент для статусов и активных границ. */
+  --color-primary-light: #a881ff; /* Светлый акцент для активного текста и кнопок. */
+  --color-primary-dark: #7b4eea; /* Тёмный запасной акцент для редких декоративных состояний. */
+  --color-success: #2ecc71; /* Зелёный для нормальных и успешных индикаторов. */
+  --color-warning: #f5a623; /* Оранжевый для warning и нагрева. */
+  --color-error: #e74c3c; /* Красный для ошибок, питания и отмены действия. */
+  --color-text-primary: #ffffff; /* Основной яркий текст и светлые иконки. */
+  --color-text-secondary: #a0a6b0; /* Подписи и менее важный текст. */
+  --color-text-soft: #b5c0d6; /* Единицы измерения и мягкий вспомогательный текст. */
+  --color-overlay: rgba(5, 8, 14, 0.68); /* Затемнение контента под popup. */
+  --color-shadow-strong: rgba(0, 0, 0, 0.38); /* Глубокая тень popup и всплывающих слоёв. */
+  --color-primary-surface: rgba(145, 99, 255, 0.24); /* Фон активной иконки в верхнем баре. */
+  --color-primary-surface-soft: rgba(145, 99, 255, 0.2); /* Мягкая активная подложка у step-кнопок. */
+  --color-primary-ring: rgba(145, 99, 255, 0.58); /* Внутренний фиолетовый контур активной иконки. */
+  --color-primary-glow: rgba(145, 99, 255, 0.32); /* Фиолетовое свечение индикаторов и прогресса. */
+  --color-power-active-ring: rgba(255, 255, 255, 0.34); /* Светлый контур активной кнопки питания. */
+  --color-preview-frame-stroke: rgba(145, 99, 255, 0.38); /* Внешняя линия иконки превью модели. */
+  --color-preview-cube-stroke: rgba(145, 99, 255, 0.56); /* Основная линия куба в превью модели. */
+  --gradient-progress-print: linear-gradient(90deg, #7c55ee 0%, #a881ff 52%, #8fc8ff 100%); /* Градиент полосы общего прогресса печати. */
+  --gradient-meter-nozzle: linear-gradient(90deg, #f5a623 0%, #ffbf47 55%, #ffd36c 100%); /* Градиент полосы нагрева сопла. */
+  --gradient-meter-bed: linear-gradient(90deg, #2ecc71 0%, #3fdb84 52%, #65e69e 100%); /* Градиент полосы нагрева стола. */
 
   /* 00_Foundation: typography */
   --font-size-heading-large: 28px;

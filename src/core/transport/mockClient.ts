@@ -10,6 +10,8 @@ export function createMockClient(): TransportClient {
       return {
         source: 'mock',
         connection: 'online',
+        wifiSsid: 'TreeD-Lab',
+        ipAddress: '192.168.0.21',
         state: 'printing',
         extruderTemp: 215,
         bedTemp: 58,
