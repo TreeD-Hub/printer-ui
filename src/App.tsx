@@ -26,7 +26,7 @@ import {
   StatusIconButton,
   TemperatureMetric,
 } from './ui'
-import { PRINT_FILE_LIBRARY } from './printFiles'
+import { PRINT_FILE_LIBRARY, type PrintFileItem } from './printFiles'
 import './App.css'
 
 const DEFAULT_SCREEN: ScreenId = 'dashboard'
@@ -40,6 +40,7 @@ const FALLBACK_SCREEN_WIDTH = 960
 const TOP_BAR_BUTTON_SIZE = 56
 const TOP_BAR_BUTTON_GAP = 8
 const TOP_BAR_RIGHT_PADDING = 24
+const FILE_MODAL_TITLE_ID = 'print-file-modal-title'
 type FilesSortKey = 'name' | 'addedAt'
 const TOP_BAR_POPUP_TITLES: Record<TopStatusButtonId, string> = {
   wifi: 'Состояние Wi-Fi',
@@ -100,6 +101,8 @@ function App() {
   const [topPopupPosition, setTopPopupPosition] = useState<TopPopupPosition | null>(null)
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
   const [filesSortKey, setFilesSortKey] = useState<FilesSortKey>('name')
+  const [filesLibrary, setFilesLibrary] = useState<PrintFileItem[]>(() => [...PRINT_FILE_LIBRARY])
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
 
   const printFill = Math.max(0, Math.min(100, DASHBOARD_VALUES.progressPercent))
   const isBusy = pendingCommand !== null
@@ -107,6 +110,10 @@ function App() {
   const activeNavIndex = Math.max(
     0,
     BOTTOM_NAV_ITEMS.findIndex((item) => item.id === activeScreen),
+  )
+  const babystepActiveIndex = Math.max(
+    0,
+    BABYSTEP_STEP_OPTIONS.findIndex((step) => step === babystepStep),
   )
   const formattedSnapshotTime = useMemo(() => {
     const parsed = new Date(snapshot.updatedAt)
@@ -120,7 +127,7 @@ function App() {
   const wifiIpLabel = snapshot.connection === 'online' ? snapshot.ipAddress : '—'
   const cloudStatusLabel = snapshot.connection === 'online' ? 'В сети' : 'Не в сети'
   const sortedPrintFiles = useMemo(() => {
-    const nextItems = [...PRINT_FILE_LIBRARY]
+    const nextItems = [...filesLibrary]
 
     if (filesSortKey === 'addedAt') {
       nextItems.sort((left, right) => Date.parse(right.addedAt) - Date.parse(left.addedAt))
@@ -129,7 +136,14 @@ function App() {
 
     nextItems.sort((left, right) => left.name.localeCompare(right.name, 'en'))
     return nextItems
-  }, [filesSortKey])
+  }, [filesLibrary, filesSortKey])
+  const selectedPrintFile = useMemo(() => {
+    if (selectedFileId === null) {
+      return null
+    }
+
+    return filesLibrary.find((item) => item.id === selectedFileId) ?? null
+  }, [filesLibrary, selectedFileId])
 
   const temperatureValueByKey = {
     nozzle: snapshot.extruderTemp,
@@ -228,6 +242,38 @@ function App() {
     setFilesSortKey(nextSortKey)
   }
 
+  const closeFileModal = useCallback(() => {
+    setSelectedFileId(null)
+  }, [])
+
+  function handlePrintFileSelect(fileId: string): void {
+    setSelectedFileId(fileId)
+  }
+
+  function handleDeleteSelectedFile(): void {
+    if (selectedPrintFile === null) {
+      return
+    }
+
+    setFilesLibrary((currentItems) => currentItems.filter((item) => item.id !== selectedPrintFile.id))
+    closeFileModal()
+  }
+
+  async function handleStartSelectedFile(): Promise<void> {
+    if (selectedPrintFile === null) {
+      return
+    }
+
+    const ok = await executeCommand({
+      command: 'start',
+      filename: selectedPrintFile.name,
+    })
+    if (ok) {
+      await refresh()
+      closeFileModal()
+    }
+  }
+
   useEffect(() => {
     if (activeTopPopup === null || typeof window === 'undefined') {
       return
@@ -250,6 +296,29 @@ function App() {
       window.removeEventListener('resize', handleResize)
     }
   }, [activeTopPopup, closeTopPopup, resolveTopPopupPosition])
+
+  useEffect(() => {
+    if (selectedFileId === null || typeof window === 'undefined') {
+      return
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeFileModal()
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => {
+      window.removeEventListener('keydown', handleEscape)
+    }
+  }, [closeFileModal, selectedFileId])
+
+  useEffect(() => {
+    if (activeScreen !== 'files' && selectedFileId !== null) {
+      closeFileModal()
+    }
+  }, [activeScreen, closeFileModal, selectedFileId])
 
   function setTopButtonRef(id: TopStatusButtonId, node: HTMLButtonElement | null): void {
     topButtonRefs.current[id] = node
@@ -408,7 +477,9 @@ function App() {
                       className="step-selector"
                       role="group"
                       aria-label="шаг babystep"
+                      style={{ '--step-active-index': String(babystepActiveIndex) } as CSSProperties}
                     >
+                      <span className="step-selector-indicator" aria-hidden="true" />
                       {BABYSTEP_STEP_OPTIONS.map((step) => (
                         <button
                           key={step}
@@ -467,14 +538,19 @@ function App() {
                 </header>
 
                 <div className="files-grid" data-testid="file-card-grid">
-                  {sortedPrintFiles.map((item) => (
-                    <PrintFileCard
-                      key={item.id}
-                      name={item.name}
-                      printTime={item.printTime}
-                      weight={item.weight}
-                    />
-                  ))}
+                  {sortedPrintFiles.length > 0 ? (
+                    sortedPrintFiles.map((item) => (
+                      <PrintFileCard
+                        key={item.id}
+                        name={item.name}
+                        printTime={item.printTime}
+                        weight={item.weight}
+                        onClick={() => handlePrintFileSelect(item.id)}
+                      />
+                    ))
+                  ) : (
+                    <p className="files-empty">Список файлов пуст.</p>
+                  )}
                 </div>
               </div>
             </section>
@@ -503,6 +579,68 @@ function App() {
             />
           ))}
         </nav>
+
+        {selectedPrintFile !== null ? (
+          <div className="file-modal-layer" role="presentation" onClick={closeFileModal}>
+            <section
+              className="file-modal-dialog"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={FILE_MODAL_TITLE_ID}
+              data-testid="print-file-modal"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header className="file-modal-head">
+                <h2 id={FILE_MODAL_TITLE_ID}>Файл печати</h2>
+                <button type="button" className="file-modal-close" aria-label="Закрыть окно файла" onClick={closeFileModal}>
+                  ×
+                </button>
+              </header>
+
+              <div className="file-modal-preview" aria-hidden="true">
+                <PrintPreviewIcon />
+              </div>
+
+              <p className="file-modal-name">{selectedPrintFile.name}</p>
+
+              <dl className="file-modal-meta">
+                <div>
+                  <dt>Время печати</dt>
+                  <dd>{selectedPrintFile.printTime}</dd>
+                </div>
+                <div>
+                  <dt>Масса</dt>
+                  <dd>{selectedPrintFile.weight}</dd>
+                </div>
+                <div>
+                  <dt>Материал</dt>
+                  <dd>{selectedPrintFile.material}</dd>
+                </div>
+              </dl>
+
+              <div className="file-modal-actions">
+                <button
+                  type="button"
+                  className="file-modal-action"
+                  data-testid="print-file-start-button"
+                  onClick={() => void handleStartSelectedFile()}
+                  disabled={isBusy}
+                >
+                  {pendingCommand === 'start' ? 'Запуск...' : 'Старт печати'}
+                </button>
+                <button
+                  type="button"
+                  className="file-modal-action file-modal-action-danger"
+                  data-testid="print-file-delete-button"
+                  onClick={handleDeleteSelectedFile}
+                  disabled={isBusy}
+                >
+                  Удалить файл
+                </button>
+              </div>
+            </section>
+          </div>
+        ) : null}
 
         {activeTopPopup !== null ? (
           <div className="top-popup-layer" role="presentation" onClick={closeTopPopup}>

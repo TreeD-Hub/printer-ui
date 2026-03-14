@@ -5,12 +5,18 @@ type PrintFileCardProps = {
   name: string
   printTime: string
   weight: string
+  onClick?: () => void
   className?: string
 }
 
-export function PrintFileCard({ name, printTime, weight, className }: PrintFileCardProps) {
+export function PrintFileCard({ name, printTime, weight, onClick, className }: PrintFileCardProps) {
   return (
-    <article className={joinClassNames('print-file-card', className)} data-testid="print-file-card">
+    <button
+      type="button"
+      className={joinClassNames('print-file-card', className)}
+      data-testid="print-file-card"
+      onClick={onClick}
+    >
       <div className="print-file-preview" aria-hidden="true">
         <PrintPreviewIcon />
       </div>
@@ -20,7 +26,7 @@ export function PrintFileCard({ name, printTime, weight, className }: PrintFileC
 
         <dl className="print-file-meta">
           <div className="print-file-meta-row">
-            <dt>Время</dt>
+            <dt>Время печати</dt>
             <dd>{printTime}</dd>
           </div>
           <div className="print-file-meta-row">
@@ -29,6 +35,6 @@ export function PrintFileCard({ name, printTime, weight, className }: PrintFileC
           </div>
         </dl>
       </div>
-    </article>
+    </button>
   )
 }

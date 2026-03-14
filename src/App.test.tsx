@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 
 describe('App', () => {
@@ -67,6 +67,37 @@ describe('App', () => {
     expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('fan_shroud_prototype.gcode')
     expect(screen.getByText('2 ч 15 мин')).toBeInTheDocument()
     expect(screen.getByText('34 г')).toBeInTheDocument()
+  })
+
+  it('opens print file modal and handles start and delete actions', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+
+    const initialCards = screen.getAllByTestId('print-file-card')
+    fireEvent.click(initialCards[0])
+
+    const fileDialog = screen.getByRole('dialog', { name: 'Файл печати' })
+    expect(fileDialog).toBeInTheDocument()
+    expect(within(fileDialog).getByText('Время печати')).toBeInTheDocument()
+    expect(within(fileDialog).getByText('Масса')).toBeInTheDocument()
+    expect(within(fileDialog).getByText('Материал')).toBeInTheDocument()
+    expect(within(fileDialog).getByRole('button', { name: 'Старт печати' })).toBeInTheDocument()
+    expect(within(fileDialog).getByRole('button', { name: 'Удалить файл' })).toBeInTheDocument()
+
+    fireEvent.click(within(fileDialog).getByRole('button', { name: 'Старт печати' }))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить файл' }))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+      expect(screen.getAllByTestId('print-file-card')).toHaveLength(initialCards.length - 1)
+    })
   })
 
   it('opens Wi-Fi popup with network details and navigates to settings', () => {

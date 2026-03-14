@@ -3,6 +3,7 @@ export type PrintFileItem = {
   name: string
   printTime: string
   weight: string
+  material: string
   addedAt: string
 }
 
@@ -12,6 +13,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'bearing_bracket_mk2.gcode',
     printTime: '1 ч 40 мин',
     weight: '22 г',
+    material: 'PLA',
     addedAt: '2026-03-13T09:15:00+03:00',
   },
   {
@@ -19,6 +21,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'cable_clip_set.gcode',
     printTime: '32 мин',
     weight: '8 г',
+    material: 'PETG',
     addedAt: '2026-03-10T16:12:00+03:00',
   },
   {
@@ -26,6 +29,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'corner_brace_v2.gcode',
     printTime: '54 мин',
     weight: '15 г',
+    material: 'ABS',
     addedAt: '2026-03-11T11:48:00+03:00',
   },
   {
@@ -33,6 +37,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'display_mount_rev4.gcode',
     printTime: '1 ч 12 мин',
     weight: '18 г',
+    material: 'PLA',
     addedAt: '2026-03-09T20:03:00+03:00',
   },
   {
@@ -40,6 +45,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'door_hinge_left.gcode',
     printTime: '42 мин',
     weight: '11 г',
+    material: 'PETG',
     addedAt: '2026-03-12T13:40:00+03:00',
   },
   {
@@ -47,6 +53,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'fan_shroud_prototype.gcode',
     printTime: '48 мин',
     weight: '12 г',
+    material: 'ASA',
     addedAt: '2026-03-14T08:05:00+03:00',
   },
   {
@@ -54,6 +61,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'filament_guide_v5.gcode',
     printTime: '37 мин',
     weight: '9 г',
+    material: 'PLA',
     addedAt: '2026-03-11T18:24:00+03:00',
   },
   {
@@ -61,6 +69,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'gearbox_cover_v3.gcode',
     printTime: '2 ч 15 мин',
     weight: '34 г',
+    material: 'PETG-CF',
     addedAt: '2026-03-12T19:27:00+03:00',
   },
   {
@@ -68,6 +77,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'leveling_blocks_pack.gcode',
     printTime: '26 мин',
     weight: '7 г',
+    material: 'PLA',
     addedAt: '2026-03-08T14:57:00+03:00',
   },
   {
@@ -75,6 +85,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'nozzle_box_insert.gcode',
     printTime: '1 ч 05 мин',
     weight: '16 г',
+    material: 'ABS',
     addedAt: '2026-03-07T21:31:00+03:00',
   },
   {
@@ -82,6 +93,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'spool_lock_mini.gcode',
     printTime: '29 мин',
     weight: '6 г',
+    material: 'PLA',
     addedAt: '2026-03-13T06:55:00+03:00',
   },
   {
@@ -89,6 +101,7 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     name: 'tool_tray_grid.gcode',
     printTime: '1 ч 22 мин',
     weight: '20 г',
+    material: 'PETG',
     addedAt: '2026-03-10T09:02:00+03:00',
   },
 ]
