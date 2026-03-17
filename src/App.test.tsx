@@ -17,7 +17,7 @@ describe('App', () => {
     fireEvent.focus(idleNotesInput)
     expect(screen.getByTestId('idle-notes-keyboard')).toBeInTheDocument()
     idleNotesInput.setSelectionRange(idleNotesInput.value.length, idleNotesInput.value.length)
-    fireEvent.click(screen.getByRole('button', { name: 'Символ О' }))
+    fireEvent.click(screen.getByRole('button', { name: /Символ о/i }))
     expect(idleNotesInput.value.endsWith('о')).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Скрыть клавиатуру' }))
     expect(screen.queryByTestId('idle-notes-keyboard')).not.toBeInTheDocument()
@@ -184,7 +184,82 @@ describe('App', () => {
 
     expect(screen.getByTestId('screen-settings')).toBeInTheDocument()
     expect(screen.getByTestId('top-bar-screen-label')).toHaveTextContent('Настройки')
+    expect(screen.getByTestId('settings-group-network')).toHaveAttribute('aria-pressed', 'true')
+    const wifiSearchInput = screen.getByTestId('settings-network-search') as HTMLInputElement
+    fireEvent.focus(wifiSearchInput)
+    expect(screen.getByTestId('settings-console-keyboard')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('settings-keyboard-layer'))
+    expect(screen.queryByTestId('settings-console-keyboard')).not.toBeInTheDocument()
+
+    fireEvent.change(wifiSearchInput, { target: { value: 'Office' } })
+    fireEvent.click(screen.getByTestId('settings-network-item-office-main-5g'))
+    const wifiPasswordInput = screen.getByTestId('settings-network-password-input') as HTMLInputElement
+    fireEvent.change(wifiPasswordInput, { target: { value: '12345678' } })
+    fireEvent.focus(wifiPasswordInput)
+    expect(screen.getByTestId('settings-wifi-keyboard')).toBeInTheDocument()
+    expect(screen.getByTestId('settings-keyboard-layer')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Символ q/i }))
+    expect(wifiPasswordInput.value).toBe('12345678q')
+    expect(screen.getByTestId('settings-wifi-keyboard-preview')).toHaveTextContent('12345678q')
+    fireEvent.click(screen.getByTestId('settings-keyboard-layer'))
+    expect(screen.queryByTestId('settings-wifi-keyboard')).not.toBeInTheDocument()
+    expect(screen.queryByText('Текущая сеть')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('settings-network-connect-button'))
+    expect(screen.getByTestId('settings-network-notice')).toHaveTextContent('Подключено к Office_Main_5G.')
     expect(wifiButton).not.toHaveClass('is-active')
+  })
+
+  it('renders extended settings sections and handles interactions', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Настройки' }))
+    expect(screen.getByTestId('screen-settings')).toBeInTheDocument()
+    const settingsMenu = screen.getByRole('navigation', { name: 'Группы настроек' })
+    expect(within(settingsMenu).getAllByRole('button')[0]).toHaveTextContent('Сеть')
+
+    fireEvent.click(screen.getByTestId('settings-group-interface'))
+    expect(screen.getByRole('heading', { name: 'Интерфейс' })).toBeInTheDocument()
+    expect(screen.getByTestId('settings-dark-theme-toggle')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('settings-max-performance-toggle')).toHaveAttribute('aria-pressed', 'false')
+    expect((screen.getByRole('combobox', { name: 'Спящий режим' }) as HTMLSelectElement).value).toBe('5 мин')
+    expect(
+      within(screen.getByRole('combobox', { name: 'Временная зона UTC' })).getAllByRole('option').length,
+    ).toBeGreaterThan(20)
+
+    fireEvent.click(screen.getByTestId('settings-max-performance-toggle'))
+    expect(document.querySelector('.app-root')).toHaveClass('is-performance-mode')
+
+    fireEvent.click(screen.getByTestId('settings-group-notifications'))
+    expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument()
+    expect(screen.getByTestId('settings-notifications-enabled-toggle')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Печать завершена')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-group-cloud'))
+    fireEvent.click(screen.getByTestId('settings-cloud-connect-toggle'))
+    fireEvent.click(screen.getByTestId('settings-cloud-ai-toggle'))
+    expect(screen.getByText('Подключение к сервису AI-контроля ошибок активно.')).toBeInTheDocument()
+    expect(screen.getByText('Включен')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-group-device'))
+    expect(screen.getByRole('heading', { name: 'Об устройстве' })).toBeInTheDocument()
+    expect(screen.getByText('TreeD Shell Controller')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-group-updates'))
+    fireEvent.click(screen.getByTestId('settings-check-updates-button'))
+    expect(screen.getByText('Доступна версия 0.1.1.')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-group-console'))
+    const consoleInput = screen.getByTestId('settings-console-input') as HTMLTextAreaElement
+    fireEvent.focus(consoleInput)
+    expect(screen.getByTestId('settings-console-keyboard')).toBeInTheDocument()
+    expect(screen.getByTestId('settings-keyboard-layer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-console-quick-0'))
+    expect(consoleInput.value).toBe('G28')
+
+    fireEvent.click(screen.getByTestId('settings-console-send-button'))
+    expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('Команда отправлена: G28')
+    expect(screen.getByText('G28', { selector: 'strong' })).toBeInTheDocument()
   })
 
   it('shows cloud connectivity status and QR redirect to treed.pro', () => {

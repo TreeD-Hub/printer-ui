@@ -13,4 +13,13 @@ export {
 } from './controlWidgets'
 export { PlainMetric, TemperatureMetric } from './metrics'
 export { PrintFileCard } from './printFileCard'
+export {
+  SettingsInfoCard,
+  SettingsSelectField,
+  SettingsSidebarMenu,
+  SettingsToggleRow,
+  SettingsVirtualKeyboard,
+  type SettingsMenuOption,
+  type VirtualKeyboardLanguage,
+} from './settingsWidgets'
 export { UI_ICON_ASSETS, type UiIconName } from './iconAssets'

@@ -26,6 +26,13 @@ import {
   PrintFileCard,
   PrintPreviewIcon,
   SegmentedToggle,
+  SettingsInfoCard,
+  SettingsSelectField,
+  SettingsSidebarMenu,
+  SettingsToggleRow,
+  SettingsVirtualKeyboard,
+  type SettingsMenuOption,
+  type VirtualKeyboardLanguage,
   StatusIconButton,
   TemperatureMetric,
   type AxisId,
@@ -54,6 +61,32 @@ type FilesSortKey = 'name' | 'addedAt'
 type ParkingMode = 'all' | 'axis'
 type MovementMode = 'buttons' | 'joystick'
 type MoveStepKey = '1' | '10' | '25' | '100'
+type KeyboardTarget = 'idleNotes' | 'wifiSearch' | 'wifiPassword' | 'consoleCommand'
+type SettingsGroupId =
+  | 'system'
+  | 'interface'
+  | 'network'
+  | 'notifications'
+  | 'cloud'
+  | 'device'
+  | 'updates'
+  | 'language'
+  | 'console'
+type WifiNetworkSecurity = 'open' | 'wpa2' | 'wpa3'
+type WifiNetworkItem = {
+  id: string
+  ssid: string
+  signalPercent: number
+  security: WifiNetworkSecurity
+  saved: boolean
+  connected: boolean
+}
+type SettingsNotificationItem = {
+  id: string
+  title: string
+  details: string
+  createdAt: string
+}
 type PrintHeadPosition = {
   x: number
   y: number
@@ -94,6 +127,138 @@ const MOVE_STEP_OPTIONS: Array<{ id: MoveStepKey; label: string; valueMm: number
   { id: '25', label: '25 мм', valueMm: 25 },
   { id: '100', label: '100 мм', valueMm: 100 },
 ]
+const SETTINGS_GROUP_OPTIONS: Array<SettingsMenuOption<SettingsGroupId>> = [
+  { id: 'network', label: 'Сеть', icon: 'statusWifi' },
+  { id: 'system', label: 'Система', icon: 'menuSettings' },
+  { id: 'interface', label: 'Интерфейс', icon: 'menuDashboard' },
+  { id: 'notifications', label: 'Уведомления', icon: 'statusNotification' },
+  { id: 'cloud', label: 'Облако', icon: 'statusCloud' },
+  { id: 'device', label: 'Об устройстве', icon: 'menuSettings' },
+  { id: 'updates', label: 'Обновления', icon: 'menuMacros' },
+  { id: 'language', label: 'Язык', icon: 'menuFiles' },
+  { id: 'console', label: 'Консоль', icon: 'menuControl' },
+]
+const SLEEP_MODE_OPTIONS = ['30 сек', '1 мин', '5 мин', '10 мин'] as const
+const TIMEZONE_OPTIONS = [
+  '(UTC-12:00) Международная линия перемены дат (запад)',
+  '(UTC-11:00) Самоа',
+  '(UTC-10:00) Гавайи',
+  '(UTC-09:00) Аляска',
+  '(UTC-08:00) Тихоокеанское время (США и Канада)',
+  '(UTC-07:00) Горное время (США и Канада)',
+  '(UTC-06:00) Центральное время (США и Канада)',
+  '(UTC-05:00) Восточное время (США и Канада)',
+  '(UTC-04:00) Атлантическое время (Канада)',
+  '(UTC-03:00) Бразилиа, Буэнос-Айрес',
+  '(UTC-02:00) Среднеатлантическое время',
+  '(UTC-01:00) Азорские острова',
+  '(UTC+00:00) Лондон, Лиссабон',
+  '(UTC+01:00) Берлин, Париж, Рим',
+  '(UTC+02:00) Афины, Киев, Калининград',
+  '(UTC+03:00) Москва, Санкт-Петербург',
+  '(UTC+04:00) Дубай, Баку',
+  '(UTC+05:00) Ташкент, Карачи',
+  '(UTC+05:30) Нью-Дели, Мумбаи',
+  '(UTC+06:00) Дакка, Алма-Ата',
+  '(UTC+07:00) Бангкок, Ханой',
+  '(UTC+08:00) Пекин, Сингапур',
+  '(UTC+09:00) Токио, Сеул',
+  '(UTC+10:00) Сидней, Владивосток',
+  '(UTC+11:00) Магадан, Соломоновы острова',
+  '(UTC+12:00) Окленд, Фиджи',
+  '(UTC+13:00) Нукуалофа',
+  '(UTC+14:00) Киритимати',
+] as const
+const DEFAULT_TIMEZONE_OPTION = '(UTC+03:00) Москва, Санкт-Петербург'
+const LANGUAGE_OPTIONS = ['Русский', 'English'] as const
+const UPDATE_CURRENT_VERSION = '0.1.0'
+const UPDATE_AVAILABLE_VERSION = '0.1.1'
+const SETTINGS_NOTIFICATION_HISTORY: SettingsNotificationItem[] = [
+  {
+    id: 'notif-001',
+    title: 'Печать завершена',
+    details: 'fan_shroud_prototype.gcode завершён успешно.',
+    createdAt: '11:42',
+  },
+  {
+    id: 'notif-002',
+    title: 'Температура сопла',
+    details: 'Достигнут целевой нагрев 215°C.',
+    createdAt: '11:31',
+  },
+  {
+    id: 'notif-003',
+    title: 'Сервисное напоминание',
+    details: 'До планового ТО осталось 126 часов.',
+    createdAt: '10:08',
+  },
+]
+const DEVICE_INFO_LINES = [
+  ['Модель', 'TreeD Shell Controller'],
+  ['Серийный номер', 'TRD-PI-240315-01'],
+  ['CPU', 'Raspberry Pi 4B (armv7l)'],
+  ['Память', '4 GB'],
+  ['MCU', 'STM32F446XX'],
+  ['Uptime', '2 д 7 ч 14 м'],
+] as const
+const CONSOLE_QUICK_COMMANDS = [
+  'G28',
+  'BED_MESH_CALIBRATE',
+  'M104 S200',
+  'M140 S60',
+  'START_PRINT',
+] as const
+const SETTINGS_VIRTUAL_KEYBOARD_ROWS: string[][] = [
+  ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'],
+  ['I', 'O', 'P', 'A', 'S', 'D', 'F'],
+  ['G', 'H', 'J', 'K', 'L', 'Z', 'X'],
+  ['C', 'V', 'B', 'N', 'M', '.', '@'],
+  ['_', '-', '1', '2', '3', '4', '5'],
+  ['6', '7', '8', '9', '0', '/', '+'],
+]
+const WIFI_NETWORK_LIBRARY: WifiNetworkItem[] = [
+  {
+    id: 'home-2f-5g',
+    ssid: 'Home_2F_5G',
+    signalPercent: 86,
+    security: 'wpa2',
+    saved: true,
+    connected: true,
+  },
+  {
+    id: 'office-main-5g',
+    ssid: 'Office_Main_5G',
+    signalPercent: 73,
+    security: 'wpa2',
+    saved: true,
+    connected: false,
+  },
+  {
+    id: 'treed-workshop',
+    ssid: 'TreeD_Workshop',
+    signalPercent: 64,
+    security: 'wpa3',
+    saved: false,
+    connected: false,
+  },
+  {
+    id: 'guest-open',
+    ssid: 'Guest_Open',
+    signalPercent: 52,
+    security: 'open',
+    saved: false,
+    connected: false,
+  },
+  {
+    id: 'phone-hotspot',
+    ssid: 'Phone_Hotspot',
+    signalPercent: 38,
+    security: 'wpa2',
+    saved: false,
+    connected: false,
+  },
+]
+const DEFAULT_SELECTED_WIFI_NETWORK_ID = WIFI_NETWORK_LIBRARY.find((item) => item.connected)?.id ?? WIFI_NETWORK_LIBRARY[0]?.id ?? null
 const HEAD_X_BOUNDS_MM = { min: 0, max: 250 } as const
 const HEAD_Y_BOUNDS_MM = { min: 0, max: 250 } as const
 const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
@@ -137,6 +302,14 @@ function formatAxisCoordinate(value: number): string {
   return value.toFixed(1)
 }
 
+function wifiSecurityLabel(security: WifiNetworkSecurity): string {
+  if (security === 'open') {
+    return 'Открытая'
+  }
+
+  return security.toUpperCase()
+}
+
 function resolveFallbackAnchorCenterX(id: TopStatusButtonId, screenWidth: number): number {
   const buttonIndex = TOP_STATUS_BUTTONS.findIndex((item) => item.id === id)
   const buttonsFromRight = TOP_STATUS_BUTTONS.length - 1 - Math.max(0, buttonIndex)
@@ -148,7 +321,7 @@ function resolveFallbackAnchorCenterX(id: TopStatusButtonId, screenWidth: number
   )
 }
 
-const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'files'>, { title: string; description: string }> = {
+const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'files' | 'settings'>, { title: string; description: string }> = {
   control: {
     title: 'Управление',
     description: 'Раздел управления принтером подключен в навигацию и готов к наполнению рабочими блоками.',
@@ -156,10 +329,6 @@ const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'files'>, { ti
   macros: {
     title: 'Макросы',
     description: 'Экран макросов подключен в каркас маршрутизации. Здесь будут быстрые сценарии и сервисные команды.',
-  },
-  settings: {
-    title: 'Настройки',
-    description: 'Экран настроек подключен в каркас маршрутизации. Здесь будут параметры UI и подключения к Moonraker.',
   },
 }
 
@@ -184,7 +353,36 @@ function App() {
   const [activePrintFileName, setActivePrintFileName] = useState<string | null>(null)
   const [isPrintCancelConfirmOpen, setIsPrintCancelConfirmOpen] = useState<boolean>(false)
   const [idleNotesText, setIdleNotesText] = useState<string>(IDLE_NOTES_DEFAULT_TEXT)
-  const [isIdleNotesKeyboardOpen, setIsIdleNotesKeyboardOpen] = useState<boolean>(false)
+  const [activeKeyboardTarget, setActiveKeyboardTarget] = useState<KeyboardTarget | null>(null)
+  const [keyboardLanguage, setKeyboardLanguage] = useState<VirtualKeyboardLanguage>('ru')
+  const [isKeyboardCapsEnabled, setIsKeyboardCapsEnabled] = useState<boolean>(false)
+  const [activeSettingsGroup, setActiveSettingsGroup] = useState<SettingsGroupId>('system')
+  const [isDarkThemeEnabled, setIsDarkThemeEnabled] = useState<boolean>(true)
+  const [isMaxPerformanceModeEnabled, setIsMaxPerformanceModeEnabled] = useState<boolean>(false)
+  const [sleepModeValue, setSleepModeValue] = useState<string>(SLEEP_MODE_OPTIONS[2])
+  const [timezoneValue, setTimezoneValue] = useState<string>(
+    TIMEZONE_OPTIONS.find((option) => option === DEFAULT_TIMEZONE_OPTION) ?? TIMEZONE_OPTIONS[0],
+  )
+  const [languageValue, setLanguageValue] = useState<string>(LANGUAGE_OPTIONS[0])
+  const [isExternalVoiceEnabled, setIsExternalVoiceEnabled] = useState<boolean>(false)
+  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState<boolean>(true)
+  const [isNotificationSoundsEnabled, setIsNotificationSoundsEnabled] = useState<boolean>(true)
+  const [notificationHistory] = useState<SettingsNotificationItem[]>(SETTINGS_NOTIFICATION_HISTORY)
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false)
+  const [isCloudAiMonitoringEnabled, setIsCloudAiMonitoringEnabled] = useState<boolean>(false)
+  const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Сервис облака не подключен.')
+  const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
+  const [availableUpdateVersion, setAvailableUpdateVersion] = useState<string | null>(null)
+  const [updateNotice, setUpdateNotice] = useState<string>('Проверьте наличие новых версий.')
+  const [consoleCommandValue, setConsoleCommandValue] = useState<string>('')
+  const [consoleHistory, setConsoleHistory] = useState<Array<{ id: string; command: string; createdAt: string }>>([])
+  const [consoleNotice, setConsoleNotice] = useState<string>('Введите G-code или макрос и отправьте команду.')
+  const [wifiNetworks, setWifiNetworks] = useState<WifiNetworkItem[]>(() => [...WIFI_NETWORK_LIBRARY])
+  const [wifiSearchQuery, setWifiSearchQuery] = useState<string>('')
+  const [selectedWifiNetworkId, setSelectedWifiNetworkId] = useState<string | null>(DEFAULT_SELECTED_WIFI_NETWORK_ID)
+  const [wifiPasswordValue, setWifiPasswordValue] = useState<string>('')
+  const [isWifiPasswordVisible, setIsWifiPasswordVisible] = useState<boolean>(false)
+  const [wifiConnectionNotice, setWifiConnectionNotice] = useState<string>('')
   const [parkingMode, setParkingMode] = useState<ParkingMode>('all')
   const [parkingAxis, setParkingAxis] = useState<AxisId>('X')
   const [movementMode, setMovementMode] = useState<MovementMode>('buttons')
@@ -202,6 +400,9 @@ function App() {
     }),
   )
   const idleNotesInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const wifiSearchInputRef = useRef<HTMLInputElement | null>(null)
+  const wifiPasswordInputRef = useRef<HTMLInputElement | null>(null)
+  const consoleInputRef = useRef<HTMLTextAreaElement | null>(null)
 
   const printFill = Math.max(0, Math.min(100, DASHBOARD_VALUES.progressPercent))
   const isBusy = pendingCommand !== null
@@ -253,6 +454,30 @@ function App() {
 
     return filesLibrary.find((item) => item.id === selectedFileId) ?? null
   }, [filesLibrary, selectedFileId])
+  const selectedWifiNetwork = useMemo(() => {
+    if (selectedWifiNetworkId === null) {
+      return null
+    }
+
+    return wifiNetworks.find((item) => item.id === selectedWifiNetworkId) ?? null
+  }, [selectedWifiNetworkId, wifiNetworks])
+  const filteredWifiNetworks = useMemo(() => {
+    const normalizedQuery = wifiSearchQuery.trim().toLocaleLowerCase('ru-RU')
+    const nextItems = wifiNetworks
+      .filter((item) => item.ssid.toLocaleLowerCase('ru-RU').includes(normalizedQuery))
+      .sort((left, right) => {
+        if (left.connected !== right.connected) {
+          return left.connected ? -1 : 1
+        }
+        return right.signalPercent - left.signalPercent
+      })
+
+    return nextItems
+  }, [wifiNetworks, wifiSearchQuery])
+  const connectedWifiNetwork = useMemo(
+    () => wifiNetworks.find((item) => item.connected) ?? null,
+    [wifiNetworks],
+  )
   const moveStepMm = useMemo(() => {
     const selectedStep = MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)
     return selectedStep?.valueMm ?? 1
@@ -262,6 +487,25 @@ function App() {
     [joystickVector.x, joystickVector.y],
   )
   const axisCoordinatesLabel = `X ${formatAxisCoordinate(printHeadPosition.x)}  Y ${formatAxisCoordinate(printHeadPosition.y)}  Z ${formatAxisCoordinate(printHeadPosition.z)}`
+  const activeSettingsKeyboardTarget = activeKeyboardTarget === 'idleNotes' ? 'consoleCommand' : activeKeyboardTarget
+  const isConsoleSettingsKeyboardOpen = activeKeyboardTarget === 'idleNotes' || activeKeyboardTarget === 'consoleCommand'
+  const settingsKeyboardValue = activeKeyboardTarget === 'idleNotes'
+    ? idleNotesText
+    : activeKeyboardTarget === 'wifiPassword'
+      ? wifiPasswordValue
+      : consoleCommandValue
+  const settingsKeyboardLabel = activeSettingsKeyboardTarget === 'wifiPassword' ? 'Ввод пароля' : 'Ввод команды'
+  const settingsKeyboardPlaceholder = activeSettingsKeyboardTarget === 'wifiPassword' ? 'Введите пароль...' : 'Введите команду...'
+  const settingsKeyboardTestId = activeSettingsKeyboardTarget === 'wifiPassword' ? 'settings-wifi-keyboard' : 'settings-console-keyboard'
+  const settingsKeyboardPreviewTestId = activeSettingsKeyboardTarget === 'wifiPassword'
+    ? 'settings-wifi-keyboard-preview'
+    : 'settings-console-keyboard-preview'
+  const keyboardLabel = activeKeyboardTarget === 'idleNotes' ? 'Ввод заметок' : settingsKeyboardLabel
+  const keyboardPlaceholder = activeKeyboardTarget === 'idleNotes' ? 'Введите заметку...' : settingsKeyboardPlaceholder
+  const keyboardTestId = activeKeyboardTarget === 'idleNotes' ? 'idle-notes-keyboard' : settingsKeyboardTestId
+  const keyboardPreviewTestId = activeKeyboardTarget === 'idleNotes'
+    ? 'idle-notes-keyboard-preview'
+    : settingsKeyboardPreviewTestId
 
   const temperatureValueByKey = {
     nozzle: snapshot.extruderTemp,
@@ -348,6 +592,7 @@ function App() {
   )
 
   const openWifiSettings = useCallback(() => {
+    setActiveSettingsGroup('network')
     setActiveScreen('settings')
     closeTopPopup()
   }, [closeTopPopup])
@@ -390,13 +635,19 @@ function App() {
     setIsPrintCancelConfirmOpen(false)
   }, [])
 
-  const setIdleNotesCaret = useCallback((nextCaret: number) => {
+  const setKeyboardCaret = useCallback((target: KeyboardTarget, nextCaret: number) => {
     if (typeof window === 'undefined') {
       return
     }
 
     window.requestAnimationFrame(() => {
-      const input = idleNotesInputRef.current
+      const input = target === 'idleNotes'
+        ? idleNotesInputRef.current
+        : target === 'wifiSearch'
+          ? wifiSearchInputRef.current
+        : target === 'wifiPassword'
+          ? wifiPasswordInputRef.current
+          : consoleInputRef.current
       if (input === null) {
         return
       }
@@ -410,59 +661,16 @@ function App() {
   }, [])
 
   const handleIdleNotesKeyboardOpen = useCallback(() => {
-    setIsIdleNotesKeyboardOpen(true)
+    setActiveKeyboardTarget('idleNotes')
   }, [])
 
-  const handleIdleNotesKeyboardClose = useCallback(() => {
-    setIsIdleNotesKeyboardOpen(false)
+  const handleKeyboardClose = useCallback(() => {
+    setActiveKeyboardTarget(null)
   }, [])
 
-  const handleIdleNotesKeyMouseDown = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+  function handleVirtualKeyboardKeyMouseDown(event: MouseEvent<HTMLButtonElement>): void {
     event.preventDefault()
-  }, [])
-
-  const handleIdleNotesVirtualKey = useCallback((key: string) => {
-    const input = idleNotesInputRef.current
-    if (input === null) {
-      return
-    }
-
-    if (key === 'close') {
-      setIsIdleNotesKeyboardOpen(false)
-      return
-    }
-
-    const selectionStart = input.selectionStart ?? idleNotesText.length
-    const selectionEnd = input.selectionEnd ?? idleNotesText.length
-    let nextText = idleNotesText
-    let nextCaret = selectionStart
-
-    if (key === 'backspace') {
-      if (selectionStart !== selectionEnd) {
-        nextText = `${idleNotesText.slice(0, selectionStart)}${idleNotesText.slice(selectionEnd)}`
-        nextCaret = selectionStart
-      } else if (selectionStart > 0) {
-        nextText = `${idleNotesText.slice(0, selectionStart - 1)}${idleNotesText.slice(selectionStart)}`
-        nextCaret = selectionStart - 1
-      }
-    } else {
-      const value = key === 'space'
-        ? ' '
-        : key === 'enter'
-          ? '\n'
-          : key
-      nextText = `${idleNotesText.slice(0, selectionStart)}${value}${idleNotesText.slice(selectionEnd)}`
-      nextCaret = selectionStart + value.length
-    }
-
-    if (nextText === idleNotesText) {
-      setIdleNotesCaret(nextCaret)
-      return
-    }
-
-    setIdleNotesText(nextText)
-    setIdleNotesCaret(nextCaret)
-  }, [idleNotesText, setIdleNotesCaret])
+  }
 
   function handlePrintFileSelect(fileId: string): void {
     setSelectedFileId(fileId)
@@ -558,6 +766,242 @@ function App() {
     // Команда отключения моторов будет подключена после интеграции backend.
   }
 
+  function handleWifiSearchQueryChange(event: ChangeEvent<HTMLInputElement>): void {
+    setWifiSearchQuery(event.target.value)
+  }
+
+  function handleWifiSearchInputFocus(): void {
+    setActiveKeyboardTarget('wifiSearch')
+  }
+
+  function handleWifiScan(): void {
+    setWifiNetworks((current) => current.map((item, index) => ({
+      ...item,
+      signalPercent: clampAxisValue(item.signalPercent + (index % 2 === 0 ? 3 : -2), 18, 100),
+    })))
+    setWifiConnectionNotice('Список Wi-Fi сетей обновлен.')
+  }
+
+  function handleWifiNetworkSelect(networkId: string): void {
+    setSelectedWifiNetworkId(networkId)
+    setWifiConnectionNotice('')
+    setWifiPasswordValue('')
+    setIsWifiPasswordVisible(false)
+  }
+
+  function handleWifiPasswordChange(event: ChangeEvent<HTMLInputElement>): void {
+    setWifiPasswordValue(event.target.value)
+  }
+
+  function handleWifiPasswordVisibilityToggle(): void {
+    setIsWifiPasswordVisible((prevValue) => !prevValue)
+  }
+
+  function handleWifiConnect(): void {
+    if (selectedWifiNetwork === null) {
+      return
+    }
+
+    if (selectedWifiNetwork.security !== 'open' && wifiPasswordValue.trim().length < 8) {
+      setWifiConnectionNotice('Введите пароль (минимум 8 символов).')
+      return
+    }
+
+    setWifiNetworks((current) => current.map((item) => {
+      if (item.id === selectedWifiNetwork.id) {
+        return {
+          ...item,
+          connected: true,
+          saved: true,
+        }
+      }
+
+      return {
+        ...item,
+        connected: false,
+      }
+    }))
+
+    setWifiConnectionNotice(`Подключено к ${selectedWifiNetwork.ssid}.`)
+    setWifiPasswordValue('')
+    setIsWifiPasswordVisible(false)
+  }
+
+  function handleWifiForgetSelected(): void {
+    if (selectedWifiNetwork === null) {
+      return
+    }
+
+    setWifiNetworks((current) => current.map((item) => {
+      if (item.id !== selectedWifiNetwork.id) {
+        return item
+      }
+
+      return {
+        ...item,
+        connected: false,
+        saved: false,
+      }
+    }))
+    setWifiConnectionNotice(`Сеть ${selectedWifiNetwork.ssid} удалена из сохраненных.`)
+    setWifiPasswordValue('')
+    setIsWifiPasswordVisible(false)
+  }
+
+  function handleCloudConnectionToggle(): void {
+    setIsCloudConnected((prevValue) => {
+      const nextValue = !prevValue
+      setCloudConnectionNotice(
+        nextValue
+          ? 'Подключение к сервису AI-контроля ошибок активно.'
+          : 'Сервис облака отключен.',
+      )
+      if (!nextValue) {
+        setIsCloudAiMonitoringEnabled(false)
+      }
+      return nextValue
+    })
+  }
+
+  function handleCloudAiMonitoringToggle(nextValue: boolean): void {
+    if (!isCloudConnected) {
+      setCloudConnectionNotice('Сначала подключите облачный сервис.')
+      return
+    }
+    setIsCloudAiMonitoringEnabled(nextValue)
+  }
+
+  function handleCheckUpdates(): void {
+    setIsCheckingUpdates(true)
+    setAvailableUpdateVersion(UPDATE_AVAILABLE_VERSION)
+    setUpdateNotice(`Доступна версия ${UPDATE_AVAILABLE_VERSION}.`)
+    setIsCheckingUpdates(false)
+  }
+
+  function handleConsoleInputChange(event: ChangeEvent<HTMLTextAreaElement>): void {
+    setConsoleCommandValue(event.target.value)
+  }
+
+  const handleConsoleKeyboardOpen = useCallback(() => {
+    setActiveKeyboardTarget('consoleCommand')
+  }, [])
+
+  function handleWifiPasswordInputFocus(): void {
+    setActiveKeyboardTarget('wifiPassword')
+  }
+
+  function handleConsoleQuickCommandInsert(command: string): void {
+    setConsoleCommandValue(command)
+    setConsoleNotice(`Команда подготовлена: ${command}`)
+    setActiveKeyboardTarget('consoleCommand')
+    setKeyboardCaret('consoleCommand', command.length)
+  }
+
+  const handleVirtualKeyboardLanguageToggle = useCallback(() => {
+    setKeyboardLanguage((prevValue) => (prevValue === 'ru' ? 'en' : 'ru'))
+  }, [])
+
+  const handleVirtualKeyboardCapsToggle = useCallback(() => {
+    setIsKeyboardCapsEnabled((prevValue) => !prevValue)
+  }, [])
+
+  const handleVirtualKeyboardKey = useCallback((key: string) => {
+    if (activeKeyboardTarget === null) {
+      return
+    }
+
+    if (key === 'close') {
+      setActiveKeyboardTarget(null)
+      return
+    }
+
+    const input = activeKeyboardTarget === 'idleNotes'
+      ? idleNotesInputRef.current
+      : activeKeyboardTarget === 'wifiSearch'
+        ? wifiSearchInputRef.current
+      : activeKeyboardTarget === 'wifiPassword'
+        ? wifiPasswordInputRef.current
+        : consoleInputRef.current
+    const currentValue = activeKeyboardTarget === 'idleNotes'
+      ? idleNotesText
+      : activeKeyboardTarget === 'wifiSearch'
+        ? wifiSearchQuery
+      : activeKeyboardTarget === 'wifiPassword'
+        ? wifiPasswordValue
+        : consoleCommandValue
+    const selectionStart = input?.selectionStart ?? currentValue.length
+    const selectionEnd = input?.selectionEnd ?? currentValue.length
+    let nextValue = currentValue
+    let nextCaret = selectionStart
+    const isMultilineTarget = activeKeyboardTarget === 'idleNotes' || activeKeyboardTarget === 'consoleCommand'
+
+    if (key === 'enter' && !isMultilineTarget) {
+      setActiveKeyboardTarget(null)
+      return
+    }
+
+    if (key === 'backspace') {
+      if (selectionStart !== selectionEnd) {
+        nextValue = `${currentValue.slice(0, selectionStart)}${currentValue.slice(selectionEnd)}`
+        nextCaret = selectionStart
+      } else if (selectionStart > 0) {
+        nextValue = `${currentValue.slice(0, selectionStart - 1)}${currentValue.slice(selectionStart)}`
+        nextCaret = selectionStart - 1
+      }
+    } else {
+      const insertValue = key === 'space'
+        ? ' '
+        : key === 'enter'
+          ? '\n'
+          : key
+      nextValue = `${currentValue.slice(0, selectionStart)}${insertValue}${currentValue.slice(selectionEnd)}`
+      nextCaret = selectionStart + insertValue.length
+    }
+
+    if (nextValue === currentValue) {
+      setKeyboardCaret(activeKeyboardTarget, nextCaret)
+      return
+    }
+
+    if (activeKeyboardTarget === 'idleNotes') {
+      setIdleNotesText(nextValue)
+    } else if (activeKeyboardTarget === 'wifiSearch') {
+      setWifiSearchQuery(nextValue)
+    } else if (activeKeyboardTarget === 'consoleCommand') {
+      setConsoleCommandValue(nextValue)
+    } else {
+      setWifiPasswordValue(nextValue)
+    }
+    setKeyboardCaret(activeKeyboardTarget, nextCaret)
+  }, [activeKeyboardTarget, consoleCommandValue, idleNotesText, setKeyboardCaret, wifiPasswordValue, wifiSearchQuery])
+  const isIdleNotesKeyboardOpen = false
+  const handleIdleNotesKeyboardClose = handleKeyboardClose
+  const handleIdleNotesKeyMouseDown = handleVirtualKeyboardKeyMouseDown
+  const handleIdleNotesVirtualKey = handleVirtualKeyboardKey
+  const handleSettingsKeyboardClose = handleKeyboardClose
+  const handleSettingsKeyboardKeyMouseDown = handleVirtualKeyboardKeyMouseDown
+  const handleSettingsVirtualKey = handleVirtualKeyboardKey
+
+  function handleConsoleSubmit(): void {
+    const trimmed = consoleCommandValue.trim()
+    if (trimmed.length === 0) {
+      setConsoleNotice('Введите команду перед отправкой.')
+      return
+    }
+
+    const now = new Date().toLocaleTimeString('ru-RU')
+    setConsoleHistory((current) => [
+      {
+        id: `${Date.now()}-${current.length}`,
+        command: trimmed,
+        createdAt: now,
+      },
+      ...current,
+    ])
+    setConsoleNotice(`Команда отправлена: ${trimmed}`)
+    setConsoleCommandValue('')
+  }
+
   useEffect(() => {
     if (activeTopPopup === null || typeof window === 'undefined') {
       return
@@ -616,13 +1060,13 @@ function App() {
   }, [closePrintCancelConfirm, isPrintCancelConfirmOpen])
 
   useEffect(() => {
-    if (!isIdleNotesKeyboardOpen || typeof window === 'undefined') {
+    if (activeKeyboardTarget === null || typeof window === 'undefined') {
       return
     }
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        handleIdleNotesKeyboardClose()
+        handleKeyboardClose()
       }
     }
 
@@ -630,13 +1074,43 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleEscape)
     }
-  }, [handleIdleNotesKeyboardClose, isIdleNotesKeyboardOpen])
+  }, [activeKeyboardTarget, handleKeyboardClose])
 
   useEffect(() => {
-    if (activeScreen !== 'dashboard' || hasActivePrint) {
-      setIsIdleNotesKeyboardOpen(false)
+    if (activeKeyboardTarget === null) {
+      return
     }
-  }, [activeScreen, hasActivePrint])
+
+    if (activeKeyboardTarget === 'idleNotes') {
+      if (activeScreen !== 'dashboard' || hasActivePrint) {
+        setActiveKeyboardTarget(null)
+      }
+      return
+    }
+
+    if (activeScreen !== 'settings') {
+      setActiveKeyboardTarget(null)
+      return
+    }
+
+    if ((activeKeyboardTarget === 'wifiSearch' || activeKeyboardTarget === 'wifiPassword') && activeSettingsGroup !== 'network') {
+      setActiveKeyboardTarget(null)
+    }
+
+    if (activeKeyboardTarget === 'consoleCommand' && activeSettingsGroup !== 'console') {
+      setActiveKeyboardTarget(null)
+    }
+  }, [activeKeyboardTarget, activeScreen, activeSettingsGroup, hasActivePrint])
+
+  useEffect(() => {
+    if (activeKeyboardTarget === null) {
+      setIsKeyboardCapsEnabled(false)
+      return
+    }
+
+    setIsKeyboardCapsEnabled(false)
+    setKeyboardLanguage(activeKeyboardTarget === 'idleNotes' ? 'ru' : 'en')
+  }, [activeKeyboardTarget])
 
   useEffect(() => {
     if (activeScreen !== 'files' && selectedFileId !== null) {
@@ -739,7 +1213,7 @@ function App() {
   }
 
   return (
-    <main className="app-root">
+    <main className={`app-root ${isMaxPerformanceModeEnabled ? 'is-performance-mode' : ''}`}>
       <section className="screen-shell" data-testid="screen-shell" ref={screenShellRef}>
         <header className="top-bar">
           <div className="brand-wrap">
@@ -1212,6 +1686,430 @@ function App() {
 
               </div>
             </section>
+          ) : activeScreen === 'settings' ? (
+            <section className="settings-screen" data-testid="screen-settings">
+              <div className="settings-layout">
+                <aside className="settings-menu-shell">
+                  <SettingsSidebarMenu
+                    options={SETTINGS_GROUP_OPTIONS}
+                    value={activeSettingsGroup}
+                    onChange={setActiveSettingsGroup}
+                    ariaLabel="Группы настроек"
+                    testIdPrefix="settings-group"
+                  />
+                </aside>
+
+                <div className="settings-content-shell">
+                  {activeSettingsGroup === 'system' ? (
+                    <div className="settings-group-stack">
+                      <header className="settings-group-head">
+                        <h3>Система</h3>
+                        <p>Состояние контроллера и хост-системы.</p>
+                      </header>
+
+                      <div className="settings-system-list">
+                        <SettingsInfoCard
+                          title="mcu"
+                          subtitle="stm32f446xx"
+                          details={[
+                            'Версия: 1.7.7-1-gd825857',
+                            'Загрузка: 0.00, Время активности: 0.00',
+                            'Частота: 180 MHz',
+                          ]}
+                          loadPercent={0}
+                        />
+                        <SettingsInfoCard
+                          title="Host"
+                          subtitle="armv7l"
+                          details={[
+                            'Версия: ?',
+                            'ОС: Raspbian GNU/Linux 10 (buster)',
+                            'Загрузка: 1.52, Память: 414.4 / 636.6 MB',
+                            'Температура: 52°C',
+                          ]}
+                          loadPercent={38}
+                        />
+                      </div>
+                    </div>
+                  ) : activeSettingsGroup === 'interface' ? (
+                    <div className="settings-group-stack">
+                      <header className="settings-group-head">
+                        <h3>Интерфейс</h3>
+                        <p>Базовые параметры отображения и поведения экрана.</p>
+                      </header>
+
+                      <SettingsToggleRow
+                        label="Включить темную тему"
+                        checked={isDarkThemeEnabled}
+                        onChange={setIsDarkThemeEnabled}
+                        testId="settings-dark-theme-toggle"
+                      />
+                      <SettingsToggleRow
+                        label="Режим максимальной производительности"
+                        checked={isMaxPerformanceModeEnabled}
+                        onChange={setIsMaxPerformanceModeEnabled}
+                        testId="settings-max-performance-toggle"
+                      />
+                      <SettingsSelectField
+                        label="Спящий режим"
+                        value={sleepModeValue}
+                        options={SLEEP_MODE_OPTIONS}
+                        onChange={setSleepModeValue}
+                      />
+                      <SettingsSelectField
+                        label="Временная зона UTC"
+                        value={timezoneValue}
+                        options={TIMEZONE_OPTIONS}
+                        onChange={setTimezoneValue}
+                      />
+                    </div>
+                  ) : activeSettingsGroup === 'network' ? (
+                    <div className="settings-group-stack settings-group-stack-network">
+                      <header className="settings-group-head">
+                        <h3>Сеть</h3>
+                        <p>Поиск и подключение к Wi-Fi сети.</p>
+                      </header>
+
+                      <div className="settings-network-layout">
+                        <section className="settings-network-panel settings-network-panel-list">
+                          <div className="settings-network-toolbar">
+                            <label className="settings-network-search">
+                              <span>Поиск сети</span>
+                              <input
+                                ref={wifiSearchInputRef}
+                                type="search"
+                                value={wifiSearchQuery}
+                                onChange={handleWifiSearchQueryChange}
+                                onFocus={handleWifiSearchInputFocus}
+                                onClick={handleWifiSearchInputFocus}
+                                placeholder="Введите имя сети"
+                                data-testid="settings-network-search"
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              className="settings-network-btn settings-network-btn-primary"
+                              onClick={handleWifiScan}
+                              data-testid="settings-network-scan"
+                            >
+                              Поиск
+                            </button>
+                          </div>
+
+                          <div className="settings-network-list" role="listbox" aria-label="Список Wi-Fi сетей">
+                            {filteredWifiNetworks.length > 0 ? (
+                              filteredWifiNetworks.map((network) => (
+                                <button
+                                  key={network.id}
+                                  type="button"
+                                  className={`settings-network-item ${selectedWifiNetworkId === network.id ? 'is-active' : ''}`}
+                                  aria-pressed={selectedWifiNetworkId === network.id}
+                                  onClick={() => handleWifiNetworkSelect(network.id)}
+                                  data-testid={`settings-network-item-${network.id}`}
+                                >
+                                  <div className="settings-network-item-copy">
+                                    <strong>{network.ssid}</strong>
+                                    <span>{wifiSecurityLabel(network.security)}</span>
+                                  </div>
+                                  <div className="settings-network-item-meta">
+                                    <span>{network.signalPercent}%</span>
+                                    {network.connected ? <em>Подключена</em> : network.saved ? <em>Сохранена</em> : null}
+                                  </div>
+                                </button>
+                              ))
+                            ) : (
+                              <p className="settings-network-empty">Сети не найдены.</p>
+                            )}
+                          </div>
+                        </section>
+
+                        <section className="settings-network-panel settings-network-panel-connect">
+                          {selectedWifiNetwork !== null ? (
+                            <>
+                              <div className="settings-network-selected">
+                                <p className="settings-network-selected-title">{selectedWifiNetwork.ssid}</p>
+                                <p className="settings-network-selected-meta">
+                                  Защита: {wifiSecurityLabel(selectedWifiNetwork.security)} • Сигнал: {selectedWifiNetwork.signalPercent}%
+                                </p>
+                              </div>
+
+                              {selectedWifiNetwork.security !== 'open' ? (
+                                <label className="settings-network-password-field">
+                                  <span>Пароль</span>
+                                  <div className="settings-network-password-control">
+                                    <input
+                                      ref={wifiPasswordInputRef}
+                                      type={isWifiPasswordVisible ? 'text' : 'password'}
+                                      value={wifiPasswordValue}
+                                      onChange={handleWifiPasswordChange}
+                                      onFocus={handleWifiPasswordInputFocus}
+                                      onClick={handleWifiPasswordInputFocus}
+                                      placeholder="Введите пароль"
+                                      data-testid="settings-network-password-input"
+                                    />
+                                    <button
+                                      type="button"
+                                      className="settings-network-btn"
+                                      onClick={handleWifiPasswordVisibilityToggle}
+                                      data-testid="settings-network-password-visibility"
+                                    >
+                                      {isWifiPasswordVisible ? 'Скрыть' : 'Показать'}
+                                    </button>
+                                  </div>
+                                </label>
+                              ) : (
+                                <p className="settings-network-open-note">Сеть открытая, пароль не требуется.</p>
+                              )}
+
+                              <div className="settings-network-actions">
+                                <button
+                                  type="button"
+                                  className="settings-network-btn settings-network-btn-primary"
+                                  onClick={handleWifiConnect}
+                                  data-testid="settings-network-connect-button"
+                                >
+                                  Подключить
+                                </button>
+                                <button
+                                  type="button"
+                                  className="settings-network-btn"
+                                  onClick={handleWifiForgetSelected}
+                                  data-testid="settings-network-forget-button"
+                                >
+                                  Забыть сеть
+                                </button>
+                              </div>
+
+                              <article className="settings-description-card settings-network-status-card">
+                                <p><span>IP адрес</span><strong>{wifiIpLabel}</strong></p>
+                                <p><span>Статус</span><strong>{connectedWifiNetwork ? 'Подключено' : connectionLabel}</strong></p>
+                              </article>
+
+                              <p className="settings-network-notice" data-testid="settings-network-notice">
+                                {wifiConnectionNotice.length > 0 ? wifiConnectionNotice : 'Выберите сеть и выполните подключение.'}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="settings-network-empty">Выберите сеть слева.</p>
+                          )}
+                        </section>
+                      </div>
+                    </div>
+                  ) : activeSettingsGroup === 'notifications' ? (
+                    <div className="settings-group-stack settings-group-stack-notifications">
+                      <header className="settings-group-head">
+                        <h3>Уведомления</h3>
+                        <p>Включение/отключение уведомлений и журнал последних событий.</p>
+                      </header>
+                      <SettingsToggleRow
+                        label="Уведомления"
+                        checked={isNotificationsEnabled}
+                        onChange={setIsNotificationsEnabled}
+                        testId="settings-notifications-enabled-toggle"
+                      />
+                      <SettingsToggleRow
+                        label="Звуки уведомлений"
+                        checked={isNotificationSoundsEnabled}
+                        onChange={setIsNotificationSoundsEnabled}
+                        testId="settings-notification-sound-toggle"
+                      />
+                      <div className="settings-notification-list">
+                        {notificationHistory.map((item) => (
+                          <article className="settings-notification-item" key={item.id}>
+                            <p className="settings-notification-title">
+                              <strong>{item.title}</strong>
+                              <span>{item.createdAt}</span>
+                            </p>
+                            <p className="settings-notification-details">{item.details}</p>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  ) : activeSettingsGroup === 'cloud' ? (
+                    <div className="settings-group-stack">
+                      <header className="settings-group-head">
+                        <h3>Облако</h3>
+                        <p>Подключение сервиса для AI-контроля ошибок и удалённого мониторинга.</p>
+                      </header>
+                      <div className="settings-cloud-actions">
+                        <button
+                          type="button"
+                          className="settings-network-btn settings-network-btn-primary"
+                          onClick={handleCloudConnectionToggle}
+                          data-testid="settings-cloud-connect-toggle"
+                        >
+                          {isCloudConnected ? 'Отключить облако' : 'Подключить облако'}
+                        </button>
+                      </div>
+                      <SettingsToggleRow
+                        label="AI контроль ошибок"
+                        checked={isCloudAiMonitoringEnabled}
+                        onChange={handleCloudAiMonitoringToggle}
+                        testId="settings-cloud-ai-toggle"
+                      />
+                      <article className="settings-description-card">
+                        <p><span>Статус</span><strong>{isCloudConnected ? 'Подключено' : 'Не подключено'}</strong></p>
+                        <p><span>Сервис</span><strong>TreeD Cloud Guard</strong></p>
+                        <p><span>Режим AI</span><strong>{isCloudAiMonitoringEnabled ? 'Включен' : 'Выключен'}</strong></p>
+                      </article>
+                      <p className="settings-cloud-notice">{cloudConnectionNotice}</p>
+                    </div>
+                  ) : activeSettingsGroup === 'device' ? (
+                    <div className="settings-group-stack">
+                      <header className="settings-group-head">
+                        <h3>Об устройстве</h3>
+                        <p>Основная информация о контроллере и программной конфигурации.</p>
+                      </header>
+                      <article className="settings-description-card">
+                        {DEVICE_INFO_LINES.map(([label, value]) => (
+                          <p key={label}><span>{label}</span><strong>{value}</strong></p>
+                        ))}
+                      </article>
+                    </div>
+                  ) : activeSettingsGroup === 'updates' ? (
+                    <div className="settings-group-stack">
+                      <header className="settings-group-head">
+                        <h3>Обновления</h3>
+                        <p>Проверка актуальности версии и доступных обновлений.</p>
+                      </header>
+                      <article className="settings-description-card">
+                        <p><span>Текущая версия</span><strong>{UPDATE_CURRENT_VERSION}</strong></p>
+                        <p><span>Доступная версия</span><strong>{availableUpdateVersion ?? 'Нет данных'}</strong></p>
+                      </article>
+                      <div className="settings-cloud-actions">
+                        <button
+                          type="button"
+                          className="settings-network-btn settings-network-btn-primary"
+                          onClick={handleCheckUpdates}
+                          data-testid="settings-check-updates-button"
+                          disabled={isCheckingUpdates}
+                        >
+                          {isCheckingUpdates ? 'Проверка...' : 'Проверить обновления'}
+                        </button>
+                      </div>
+                      <p className="settings-cloud-notice">{updateNotice}</p>
+                    </div>
+                  ) : activeSettingsGroup === 'language' ? (
+                    <div className="settings-group-stack">
+                      <header className="settings-group-head">
+                        <h3>Язык</h3>
+                        <p>Локализация интерфейса и голосовых подсказок.</p>
+                      </header>
+                      <SettingsSelectField
+                        label="Язык интерфейса"
+                        value={languageValue}
+                        options={LANGUAGE_OPTIONS}
+                        onChange={setLanguageValue}
+                      />
+                      <SettingsToggleRow
+                        label="Внешний голосовой ассистент"
+                        checked={isExternalVoiceEnabled}
+                        onChange={setIsExternalVoiceEnabled}
+                        testId="settings-external-voice-toggle"
+                      />
+                    </div>
+                  ) : (
+                    <div className="settings-group-stack settings-group-stack-console">
+                      <header className="settings-group-head">
+                        <h3>Консоль</h3>
+                        <p>Отправка G-code и макросов через виртуальную клавиатуру.</p>
+                      </header>
+
+                      <div className="settings-console-quick">
+                        {CONSOLE_QUICK_COMMANDS.map((command, index) => (
+                          <button
+                            key={command}
+                            type="button"
+                            className="settings-console-chip"
+                            onClick={() => handleConsoleQuickCommandInsert(command)}
+                            data-testid={`settings-console-quick-${index}`}
+                          >
+                            {command}
+                          </button>
+                        ))}
+                      </div>
+
+                      <label className="settings-console-input-wrap">
+                        <span>Команда</span>
+                        <textarea
+                          ref={consoleInputRef}
+                          className="settings-console-input"
+                          value={consoleCommandValue}
+                          onChange={handleConsoleInputChange}
+                          onFocus={handleConsoleKeyboardOpen}
+                          placeholder="Например: G28 или START_PRINT"
+                          spellCheck={false}
+                          data-testid="settings-console-input"
+                        />
+                      </label>
+
+                      <div className="settings-console-actions">
+                        <button
+                          type="button"
+                          className="settings-network-btn settings-network-btn-primary"
+                          onClick={handleConsoleSubmit}
+                          data-testid="settings-console-send-button"
+                        >
+                          Отправить
+                        </button>
+                        <button
+                          type="button"
+                          className="settings-network-btn"
+                          onClick={handleConsoleKeyboardOpen}
+                          data-testid="settings-console-keyboard-open-button"
+                        >
+                          Клавиатура
+                        </button>
+                      </div>
+
+                      <p className="settings-console-notice" data-testid="settings-console-notice">{consoleNotice}</p>
+
+                      <div className="settings-console-history">
+                        {consoleHistory.length > 0 ? (
+                          consoleHistory.map((item) => (
+                            <article className="settings-console-history-item" key={item.id}>
+                              <p><strong>{item.command}</strong><span>{item.createdAt}</span></p>
+                            </article>
+                          ))
+                        ) : (
+                          <p className="settings-network-empty">История команд пока пуста.</p>
+                        )}
+                      </div>
+
+                    </div>
+                  )}
+                </div>
+              </div>
+              {false ? (
+                <div
+                  className="settings-keyboard-layer"
+                  role="presentation"
+                  onClick={handleSettingsKeyboardClose}
+                  data-testid="settings-keyboard-layer"
+                >
+                  <div
+                    className="settings-keyboard-popup"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={settingsKeyboardLabel}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <SettingsVirtualKeyboard
+                      valueLabel={settingsKeyboardLabel}
+                      value={settingsKeyboardValue}
+                      placeholder={settingsKeyboardPlaceholder}
+                      rows={SETTINGS_VIRTUAL_KEYBOARD_ROWS}
+                      onKeyPress={handleSettingsVirtualKey}
+                      onClose={handleSettingsKeyboardClose}
+                      onKeyMouseDown={handleSettingsKeyboardKeyMouseDown}
+                      showEnterKey={isConsoleSettingsKeyboardOpen}
+                      testId={settingsKeyboardTestId}
+                      previewTestId={settingsKeyboardPreviewTestId}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </section>
           ) : (
             <section className="screen-placeholder" data-testid={`screen-${activeScreen}`}>
               <p className="screen-placeholder-body">{SCREEN_PLACEHOLDERS[activeScreen].description}</p>
@@ -1236,6 +2134,39 @@ function App() {
             />
           ))}
         </nav>
+
+        {activeKeyboardTarget !== null ? (
+          <div
+            className="app-virtual-keyboard-layer"
+            role="presentation"
+            onClick={handleKeyboardClose}
+            data-testid="settings-keyboard-layer"
+          >
+            <div
+              className="app-virtual-keyboard-popup"
+              role="dialog"
+              aria-modal="true"
+              aria-label={keyboardLabel}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <SettingsVirtualKeyboard
+                valueLabel={keyboardLabel}
+                value={activeKeyboardTarget === 'wifiSearch' ? wifiSearchQuery : settingsKeyboardValue}
+                placeholder={keyboardPlaceholder}
+                language={keyboardLanguage}
+                isCapsEnabled={isKeyboardCapsEnabled}
+                onToggleLanguage={handleVirtualKeyboardLanguageToggle}
+                onToggleCaps={handleVirtualKeyboardCapsToggle}
+                onKeyPress={handleVirtualKeyboardKey}
+                onClose={handleKeyboardClose}
+                onKeyMouseDown={handleVirtualKeyboardKeyMouseDown}
+                showEnterKey={isConsoleSettingsKeyboardOpen}
+                testId={keyboardTestId}
+                previewTestId={keyboardPreviewTestId}
+              />
+            </div>
+          </div>
+        ) : null}
 
         {selectedPrintFile !== null ? (
           <div className="file-modal-layer" role="presentation" onClick={closeFileModal}>
