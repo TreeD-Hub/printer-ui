@@ -69,6 +69,8 @@ type MoveStepKey = '1' | '10' | '25' | '100'
 type MacrosGroupId = 'bedMesh'
 type BedCalibrationStage = 'launch' | 'manual' | 'zOffset'
 type ActivePrintUiState = 'printing' | 'paused'
+type TemperatureKeyboardTarget = 'nozzle' | 'bed'
+type PrintTuneNumericKeyboardTarget = 'volumetricFlow' | 'flow' | 'speed' | 'accel' | 'kFactor' | 'retract' | 'layers'
 type PrintTuneGroupId =
   | 'nozzle'
   | 'bed'
@@ -381,6 +383,16 @@ function snapValueByStep(value: number, min: number, max: number, step: number):
   return clampAxisValue(min + (steps * safeStep), min, max)
 }
 
+function formatTuneKeyboardValue(value: number, fractionDigits: number): string {
+  if (fractionDigits <= 0) {
+    return String(Math.round(value))
+  }
+
+  return value
+    .toFixed(fractionDigits)
+    .replace(/\.?0+$/, '')
+}
+
 function normalizeHeadPosition(position: PrintHeadPosition): PrintHeadPosition {
   return {
     x: clampAxisValue(position.x, HEAD_X_BOUNDS_MM.min, HEAD_X_BOUNDS_MM.max),
@@ -478,6 +490,10 @@ function App() {
   const [printProgressOffsetMin, setPrintProgressOffsetMin] = useState<number>(0)
   const [pauseAtLayer, setPauseAtLayer] = useState<number>(Math.max(1, DASHBOARD_VALUES.layerCurrent + 5))
   const [temperatureChartMode, setTemperatureChartMode] = useState<TemperatureChartMode>('both')
+  const [temperatureKeyboardTarget, setTemperatureKeyboardTarget] = useState<TemperatureKeyboardTarget | null>(null)
+  const [temperatureKeyboardValue, setTemperatureKeyboardValue] = useState<string>('')
+  const [printTuneKeyboardTarget, setPrintTuneKeyboardTarget] = useState<PrintTuneNumericKeyboardTarget | null>(null)
+  const [printTuneKeyboardValue, setPrintTuneKeyboardValue] = useState<string>('')
   const [idleNotesText, setIdleNotesText] = useState<string>(IDLE_NOTES_DEFAULT_TEXT)
   const [activeKeyboardTarget, setActiveKeyboardTarget] = useState<KeyboardTarget | null>(null)
   const [keyboardLanguage, setKeyboardLanguage] = useState<VirtualKeyboardLanguage>('ru')
@@ -549,6 +565,7 @@ function App() {
   const hasActivePrint = activePrintFileName !== null
   const activePrintTuneMeta = activePrintTuneGroup === null ? null : PRINT_TUNE_GROUP_META[activePrintTuneGroup]
   const isTemperatureTuneGroup = activePrintTuneGroup === 'nozzle' || activePrintTuneGroup === 'bed'
+  const isCompactTuneKeyboardOpen = !isTemperatureTuneGroup && printTuneKeyboardTarget !== null
   const isFilesScreenActive = activeScreen === 'files'
   const activeNavIndex = Math.max(
     0,
@@ -1666,20 +1683,188 @@ function App() {
   function handlePrintTuneGroupClose(): void {
     setActivePrintTuneGroup(null)
     setTemperatureChartMode('both')
+    closeTemperatureKeyboard()
+    closePrintTuneKeyboard()
   }
 
   function handlePrintTuneApply(): void {
     handlePrintTuneGroupClose()
   }
 
-  function handlePauseLayerChange(event: ChangeEvent<HTMLInputElement>): void {
-    const parsed = Number(event.target.value)
+  function setTemperatureTargetValue(target: TemperatureKeyboardTarget, value: number): void {
+    if (target === 'nozzle') {
+      setPrintNozzleTargetTemp(value)
+      return
+    }
+
+    setPrintBedTargetTemp(value)
+  }
+
+  function openTemperatureKeyboard(target: TemperatureKeyboardTarget): void {
+    closePrintTuneKeyboard()
+    setTemperatureKeyboardTarget(target)
+    setTemperatureKeyboardValue('')
+  }
+
+  function closeTemperatureKeyboard(): void {
+    setTemperatureKeyboardTarget(null)
+    setTemperatureKeyboardValue('')
+  }
+
+  function handleTemperatureKeyboardDigit(digit: string): void {
+    setTemperatureKeyboardValue((current) => {
+      const next = `${current}${digit}`.replace(/^0+(?=\d)/, '')
+      return next.slice(0, 3)
+    })
+  }
+
+  function handleTemperatureKeyboardBackspace(): void {
+    setTemperatureKeyboardValue((current) => current.slice(0, -1))
+  }
+
+  function handleTemperatureKeyboardSubmit(): void {
+    if (temperatureKeyboardTarget === null) {
+      return
+    }
+
+    if (temperatureKeyboardValue.trim().length === 0) {
+      return
+    }
+
+    const parsed = Number(temperatureKeyboardValue)
     if (Number.isNaN(parsed)) {
       return
     }
 
-    const normalized = Math.round(clampAxisValue(parsed, 1, DASHBOARD_VALUES.layerTotal))
-    setPauseAtLayer(normalized)
+    const normalized = Math.round(clampAxisValue(parsed, 0, 300))
+    setTemperatureTargetValue(temperatureKeyboardTarget, normalized)
+    closeTemperatureKeyboard()
+  }
+
+  function resolvePrintTuneKeyboardMeta(target: PrintTuneNumericKeyboardTarget): {
+    label: string
+    unit: string
+    min: number
+    max: number
+    fractionDigits: number
+    allowDecimal: boolean
+  } {
+    if (target === 'volumetricFlow') {
+      return { label: 'Объемный расход', unit: 'мм³/с', min: 1, max: 30, fractionDigits: 1, allowDecimal: true }
+    }
+    if (target === 'flow') {
+      return { label: 'Поток', unit: '%', min: 50, max: 150, fractionDigits: 0, allowDecimal: false }
+    }
+    if (target === 'speed') {
+      return { label: 'Скорость', unit: 'мм/с', min: 30, max: 300, fractionDigits: 0, allowDecimal: false }
+    }
+    if (target === 'accel') {
+      return { label: 'Ускорение', unit: 'мм/с²', min: 500, max: 12000, fractionDigits: 0, allowDecimal: false }
+    }
+    if (target === 'kFactor') {
+      return { label: 'K-factor', unit: '', min: 0, max: 0.2, fractionDigits: 3, allowDecimal: true }
+    }
+    if (target === 'retract') {
+      return { label: 'Откат', unit: 'мм', min: 0, max: 8, fractionDigits: 1, allowDecimal: true }
+    }
+
+    return { label: 'Пауза на слое', unit: '', min: 1, max: DASHBOARD_VALUES.layerTotal, fractionDigits: 0, allowDecimal: false }
+  }
+
+  function setPrintTuneKeyboardTargetValue(target: PrintTuneNumericKeyboardTarget, value: number): void {
+    if (target === 'volumetricFlow') {
+      setPrintVolumetricFlowMm3S(value)
+      return
+    }
+    if (target === 'flow') {
+      setPrintFlowPercent(value)
+      return
+    }
+    if (target === 'speed') {
+      setPrintSpeedMmS(value)
+      return
+    }
+    if (target === 'accel') {
+      setPrintAccelMmS2(value)
+      return
+    }
+    if (target === 'kFactor') {
+      setPrintKFactor(value)
+      return
+    }
+    if (target === 'retract') {
+      setPrintRetractMm(value)
+      return
+    }
+
+    setPauseAtLayer(Math.round(clampAxisValue(value, 1, DASHBOARD_VALUES.layerTotal)))
+  }
+
+  function openPrintTuneKeyboard(target: PrintTuneNumericKeyboardTarget): void {
+    closeTemperatureKeyboard()
+    setPrintTuneKeyboardTarget(target)
+    setPrintTuneKeyboardValue('')
+  }
+
+  function closePrintTuneKeyboard(): void {
+    setPrintTuneKeyboardTarget(null)
+    setPrintTuneKeyboardValue('')
+  }
+
+  function handlePrintTuneKeyboardDigit(digit: string): void {
+    setPrintTuneKeyboardValue((current) => {
+      const nextValue = `${current}${digit}`.replace(/^0+(?=\d)/, '')
+      return nextValue.slice(0, 7)
+    })
+  }
+
+  function handlePrintTuneKeyboardDecimal(): void {
+    if (printTuneKeyboardTarget === null) {
+      return
+    }
+
+    const { allowDecimal } = resolvePrintTuneKeyboardMeta(printTuneKeyboardTarget)
+    if (!allowDecimal) {
+      return
+    }
+
+    setPrintTuneKeyboardValue((current) => {
+      if (current.includes('.')) {
+        return current
+      }
+      if (current.length === 0) {
+        return '0.'
+      }
+      return `${current}.`
+    })
+  }
+
+  function handlePrintTuneKeyboardBackspace(): void {
+    setPrintTuneKeyboardValue((current) => current.slice(0, -1))
+  }
+
+  function handlePrintTuneKeyboardSubmit(): void {
+    if (printTuneKeyboardTarget === null) {
+      return
+    }
+
+    if (printTuneKeyboardValue.trim().length === 0) {
+      return
+    }
+
+    const targetMeta = resolvePrintTuneKeyboardMeta(printTuneKeyboardTarget)
+    const parsed = Number(printTuneKeyboardValue.replace(',', '.'))
+    if (Number.isNaN(parsed)) {
+      return
+    }
+
+    const normalized = Number(
+      clampAxisValue(parsed, targetMeta.min, targetMeta.max)
+        .toFixed(targetMeta.fractionDigits),
+    )
+
+    setPrintTuneKeyboardTargetValue(printTuneKeyboardTarget, normalized)
+    closePrintTuneKeyboard()
   }
 
   function renderPrintTuneGroupContent(): ReactNode {
@@ -1691,6 +1876,7 @@ function App() {
       const temperatureRows = [
         {
           id: 'nozzle' as const,
+          keyboardTarget: 'nozzle' as const,
           sensorLabel: 'Extruder',
           uiLabel: 'Сопло',
           tone: 'orange' as const,
@@ -1701,6 +1887,7 @@ function App() {
         },
         {
           id: 'bed' as const,
+          keyboardTarget: 'bed' as const,
           sensorLabel: 'Heater Bed',
           uiLabel: 'Стол',
           tone: 'green' as const,
@@ -1733,95 +1920,317 @@ function App() {
       })
 
       return (
-        <div className="print-tune-modal-stack print-tune-modal-stack-temperature">
-          <section className="print-temp-table" aria-label="Параметры температуры">
-            <header className="print-temp-table-head">
-              <span>Датчик</span>
-              <span>Текущая</span>
-              <span>Заданная</span>
-            </header>
+        <div
+          className={`print-tune-modal-stack print-tune-modal-stack-temperature ${temperatureKeyboardTarget !== null ? 'is-keyboard-open' : ''}`}
+        >
+          <div className="print-temp-workspace">
+            <section className="print-temp-main-panel">
+              <section className="print-temp-table" aria-label="Параметры температуры">
+                <header className="print-temp-table-head">
+                  <span>Датчик</span>
+                  <span>Текущая</span>
+                  <span>Заданная</span>
+                </header>
 
-            {temperatureRows.map((row) => {
-              const isActiveRow =
-                temperatureChartMode === 'both'
-                  ? row.id === activePrintTuneGroup
-                  : row.id === temperatureChartMode
+                {temperatureRows.map((row) => {
+                  const isActiveRow =
+                    temperatureChartMode === 'both'
+                      ? row.id === activePrintTuneGroup
+                      : row.id === temperatureChartMode
+                  const displayTargetValue =
+                    temperatureKeyboardTarget === row.keyboardTarget
+                      ? temperatureKeyboardValue
+                      : String(Math.round(row.target))
 
-              return (
-                <div
-                  key={row.id}
-                  className={`print-temp-table-row ${isActiveRow ? 'is-active' : ''}`}
-                >
-                  <div className="print-temp-table-sensor">
-                    <span className={`print-temp-table-marker ${row.tone === 'orange' ? 'is-orange' : 'is-green'}`} />
-                    <div className="print-temp-table-sensor-text">
-                      <strong>{row.sensorLabel}</strong>
-                      <span>{row.uiLabel}</span>
+                  return (
+                    <div
+                      key={row.id}
+                      className={`print-temp-table-row ${isActiveRow ? 'is-active' : ''}`}
+                    >
+                      <div className="print-temp-table-sensor">
+                        <span className={`print-temp-table-marker ${row.tone === 'orange' ? 'is-orange' : 'is-green'}`} />
+                        <div className="print-temp-table-sensor-text">
+                          <strong>{row.sensorLabel}</strong>
+                          <span>{row.uiLabel}</span>
+                        </div>
+                      </div>
+                      <div className="print-temp-table-value">
+                        {rounded(row.current)} <span>°C</span>
+                      </div>
+                      <TuneCompactStepperInput
+                        value={row.target}
+                        min={0}
+                        max={300}
+                        step={5}
+                        unit="°C"
+                        onChange={row.onTargetChange}
+                        readOnly={true}
+                        displayValue={displayTargetValue}
+                        onInputFocus={() => openTemperatureKeyboard(row.keyboardTarget)}
+                        inputAriaLabel={`Целевая температура ${row.uiLabel.toLowerCase()}`}
+                        testIdPrefix={row.testIdPrefix}
+                      />
                     </div>
-                  </div>
-                  <div className="print-temp-table-value">
-                    {rounded(row.current)} <span>°C</span>
-                  </div>
-                  <TuneCompactStepperInput
-                    value={row.target}
-                    min={0}
-                    max={300}
-                    step={5}
-                    unit="°C"
-                    onChange={row.onTargetChange}
-                    inputAriaLabel={`Целевая температура ${row.uiLabel.toLowerCase()}`}
-                    testIdPrefix={row.testIdPrefix}
-                  />
+                  )
+                })}
+              </section>
+
+              <div className="print-temp-chart-head">
+                <p className="print-temp-chart-title">Температуры [°C]</p>
+                <TuneModeToggle
+                  options={[
+                    { id: 'nozzle', label: 'Сопло' },
+                    { id: 'bed', label: 'Стол' },
+                    { id: 'both', label: 'Общий' },
+                  ]}
+                  value={temperatureChartMode}
+                  onChange={(nextValue) => setTemperatureChartMode(nextValue as TemperatureChartMode)}
+                  testIdPrefix="print-tune-temp-chart"
+                  layout="compact"
+                />
+              </div>
+
+              <TemperatureTrendChart
+                series={chartSeries}
+                testId={activePrintTuneGroup === 'nozzle' ? 'print-tune-chart-nozzle' : 'print-tune-chart-bed'}
+              />
+            </section>
+
+            {temperatureKeyboardTarget !== null ? (
+              <aside className="print-temp-keyboard-side" aria-label="Цифровая клавиатура температуры">
+                <div className="print-temp-keyboard-head">
+                  <p className="print-temp-keyboard-label">Температура</p>
+                  <button
+                    type="button"
+                    className="print-cancel-modal-close print-temp-keyboard-close"
+                    aria-label="Закрыть клавиатуру температуры"
+                    onClick={closeTemperatureKeyboard}
+                  >
+                    ×
+                  </button>
                 </div>
-              )
-            })}
-          </section>
-
-          <div className="print-temp-chart-head">
-            <p className="print-temp-chart-title">Температуры [°C]</p>
-            <TuneModeToggle
-              options={[
-                { id: 'nozzle', label: 'Сопло' },
-                { id: 'bed', label: 'Стол' },
-                { id: 'both', label: 'Общий' },
-              ]}
-              value={temperatureChartMode}
-              onChange={(nextValue) => setTemperatureChartMode(nextValue as TemperatureChartMode)}
-              testIdPrefix="print-tune-temp-chart"
-              layout="compact"
-            />
+                <p className="print-temp-keyboard-display">
+                  {temperatureKeyboardValue}
+                  {temperatureKeyboardValue.length > 0 ? <span> °C</span> : null}
+                </p>
+                <div className="print-temp-keyboard-grid">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                    <button
+                      key={digit}
+                      type="button"
+                      className="settings-network-btn print-temp-keyboard-key"
+                      onClick={() => handleTemperatureKeyboardDigit(digit)}
+                      aria-label={`Цифра ${digit}`}
+                    >
+                      {digit}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="settings-network-btn print-temp-keyboard-key"
+                    onClick={handleTemperatureKeyboardBackspace}
+                  >
+                    Стереть
+                  </button>
+                  <button
+                    type="button"
+                    className="settings-network-btn print-temp-keyboard-key"
+                    onClick={() => handleTemperatureKeyboardDigit('0')}
+                    aria-label="Цифра 0"
+                  >
+                    0
+                  </button>
+                  <span className="print-temp-keyboard-spacer" aria-hidden="true" />
+                </div>
+                <button
+                  type="button"
+                  className="settings-network-btn settings-network-btn-primary print-temp-keyboard-submit"
+                  onClick={handleTemperatureKeyboardSubmit}
+                >
+                  Ввод
+                </button>
+              </aside>
+            ) : null}
           </div>
-
-          <TemperatureTrendChart
-            series={chartSeries}
-            testId={activePrintTuneGroup === 'nozzle' ? 'print-tune-chart-nozzle' : 'print-tune-chart-bed'}
-          />
         </div>
       )
     }
 
-    if (activePrintTuneGroup === 'volumetricFlow') {
+    function renderCompactTuneContent(content: ReactNode): ReactNode {
+      const activeKeyboardMeta = printTuneKeyboardTarget === null
+        ? null
+        : resolvePrintTuneKeyboardMeta(printTuneKeyboardTarget)
+
       return (
-        <div className="print-tune-modal-stack">
-          <TuneNumberControl
-            label="Лимит расхода"
-            value={printVolumetricFlowMm3S}
-            min={1}
-            max={30}
-            step={0.1}
-            fractionDigits={1}
-            unit="мм³/с"
-            onChange={setPrintVolumetricFlowMm3S}
-            testIdPrefix="print-tune-volumetric"
-          />
+        <div
+          className={`print-tune-modal-stack print-tune-modal-stack-compact ${printTuneKeyboardTarget !== null ? 'is-keyboard-open' : ''}`}
+        >
+          <div className="print-tune-compact-workspace">
+            <section className="print-tune-compact-main-panel">
+              {activePrintTuneMeta.note.length > 0 ? <p className="print-tune-note">{activePrintTuneMeta.note}</p> : null}
+              <div className="print-tune-compact-content">
+                {content}
+              </div>
+            </section>
+
+            {printTuneKeyboardTarget !== null && activeKeyboardMeta !== null ? (
+              <aside className="print-temp-keyboard-side is-compact" aria-label="Цифровая клавиатура параметра печати">
+                <div className="print-temp-keyboard-head">
+                  <p className="print-temp-keyboard-label">{activeKeyboardMeta.label}</p>
+                  <button
+                    type="button"
+                    className="print-cancel-modal-close print-temp-keyboard-close"
+                    aria-label="Закрыть клавиатуру параметра печати"
+                    onClick={closePrintTuneKeyboard}
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="print-temp-keyboard-display">
+                  {printTuneKeyboardValue}
+                  {printTuneKeyboardValue.length > 0 && activeKeyboardMeta.unit.length > 0 ? <span> {activeKeyboardMeta.unit}</span> : null}
+                </p>
+                <div className="print-temp-keyboard-grid">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                    <button
+                      key={digit}
+                      type="button"
+                      className="settings-network-btn print-temp-keyboard-key"
+                      onClick={() => handlePrintTuneKeyboardDigit(digit)}
+                      aria-label={`Цифра ${digit}`}
+                      data-testid={`print-tune-keyboard-digit-${digit}`}
+                    >
+                      {digit}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    className="settings-network-btn print-temp-keyboard-key"
+                    onClick={handlePrintTuneKeyboardBackspace}
+                    data-testid="print-tune-keyboard-backspace"
+                  >
+                    Стереть
+                  </button>
+                  <button
+                    type="button"
+                    className="settings-network-btn print-temp-keyboard-key"
+                    onClick={() => handlePrintTuneKeyboardDigit('0')}
+                    aria-label="Цифра 0"
+                    data-testid="print-tune-keyboard-digit-0"
+                  >
+                    0
+                  </button>
+                  {activeKeyboardMeta.allowDecimal ? (
+                    <button
+                      type="button"
+                      className="settings-network-btn print-temp-keyboard-key"
+                      onClick={handlePrintTuneKeyboardDecimal}
+                      data-testid="print-tune-keyboard-decimal"
+                    >
+                      .
+                    </button>
+                  ) : (
+                    <span className="print-temp-keyboard-spacer" aria-hidden="true" />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="settings-network-btn settings-network-btn-primary print-temp-keyboard-submit"
+                  onClick={handlePrintTuneKeyboardSubmit}
+                  data-testid="print-tune-keyboard-submit"
+                >
+                  Ввод
+                </button>
+              </aside>
+            ) : null}
+          </div>
         </div>
+      )
+    }
+
+    function renderCompactCurrentRow(label: string, value: string): ReactNode {
+      return (
+        <p className="print-tune-current-row print-tune-current-row-compact">
+          <span>{label}</span>
+          <strong>{value}</strong>
+        </p>
+      )
+    }
+
+    function renderCompactTuneEditor({
+      label,
+      value,
+      min,
+      max,
+      step,
+      unit,
+      fractionDigits = 0,
+      onChange,
+      testIdPrefix,
+      displayValue,
+      onInputFocus,
+    }: {
+      label: string
+      value: number
+      min: number
+      max: number
+      step: number
+      unit?: string
+      fractionDigits?: number
+      onChange: (nextValue: number) => void
+      testIdPrefix: string
+      displayValue: string
+      onInputFocus: () => void
+    }): ReactNode {
+      return (
+        <section className="print-tune-compact-editor">
+          <p className="label">{label}</p>
+          <TuneCompactStepperInput
+            value={value}
+            min={min}
+            max={max}
+            step={step}
+            unit={unit}
+            fractionDigits={fractionDigits}
+            onChange={onChange}
+            inputAriaLabel={label}
+            testIdPrefix={testIdPrefix}
+            displayValue={displayValue}
+            readOnly={true}
+            onInputFocus={onInputFocus}
+          />
+        </section>
+      )
+    }
+
+    if (activePrintTuneGroup === 'volumetricFlow') {
+      return renderCompactTuneContent(
+        <>
+          {renderCompactCurrentRow('Текущее значение', `${formatTuneKeyboardValue(printVolumetricFlowMm3S, 1)} мм³/с`)}
+          {renderCompactTuneEditor({
+            label: 'Лимит расхода',
+            value: printVolumetricFlowMm3S,
+            min: 1,
+            max: 30,
+            step: 0.1,
+            fractionDigits: 1,
+            unit: 'мм³/с',
+            onChange: setPrintVolumetricFlowMm3S,
+            testIdPrefix: 'print-tune-volumetric',
+            displayValue:
+              printTuneKeyboardTarget === 'volumetricFlow'
+                ? printTuneKeyboardValue
+                : formatTuneKeyboardValue(printVolumetricFlowMm3S, 1),
+            onInputFocus: () => openPrintTuneKeyboard('volumetricFlow'),
+          })}
+        </>
       )
     }
 
     if (activePrintTuneGroup === 'fan') {
       return (
         <div className="print-tune-modal-stack">
-          <p className="print-tune-current-row">
+          <p className="print-tune-current-row print-tune-current-row-compact">
             <span>Текущее значение</span>
             <strong>{printFanPercent}%</strong>
           </p>
@@ -1838,90 +2247,118 @@ function App() {
     }
 
     if (activePrintTuneGroup === 'flow') {
-      return (
-        <div className="print-tune-modal-stack">
-          <p className="print-tune-current-row">
-            <span>Текущее значение</span>
-            <strong>{printFlowPercent}%</strong>
-          </p>
-          <HorizontalSteppedSlider
-            value={printFlowPercent}
-            min={50}
-            max={150}
-            step={1}
-            onChange={(nextValue) => setPrintFlowPercent(Math.round(nextValue))}
-            testId="print-tune-flow-slider"
-          />
-        </div>
+      return renderCompactTuneContent(
+        <>
+          {renderCompactCurrentRow('Текущее значение', `${printFlowPercent}%`)}
+          {renderCompactTuneEditor({
+            label: 'Поток экструдера',
+            value: printFlowPercent,
+            min: 50,
+            max: 150,
+            step: 1,
+            unit: '%',
+            onChange: (nextValue) => setPrintFlowPercent(Math.round(nextValue)),
+            testIdPrefix: 'print-tune-flow',
+            displayValue:
+              printTuneKeyboardTarget === 'flow'
+                ? printTuneKeyboardValue
+                : formatTuneKeyboardValue(printFlowPercent, 0),
+            onInputFocus: () => openPrintTuneKeyboard('flow'),
+          })}
+        </>
       )
     }
 
     if (activePrintTuneGroup === 'speed') {
-      return (
-        <div className="print-tune-modal-stack">
-          <TuneNumberControl
-            label="Скорость печати"
-            value={printSpeedMmS}
-            min={30}
-            max={300}
-            step={5}
-            unit="мм/с"
-            onChange={setPrintSpeedMmS}
-            testIdPrefix="print-tune-speed"
-          />
-        </div>
+      return renderCompactTuneContent(
+        <>
+          {renderCompactCurrentRow('Текущее значение', `${formatTuneKeyboardValue(printSpeedMmS, 0)} мм/с`)}
+          {renderCompactTuneEditor({
+            label: 'Скорость печати',
+            value: printSpeedMmS,
+            min: 30,
+            max: 300,
+            step: 5,
+            unit: 'мм/с',
+            onChange: setPrintSpeedMmS,
+            testIdPrefix: 'print-tune-speed',
+            displayValue:
+              printTuneKeyboardTarget === 'speed'
+                ? printTuneKeyboardValue
+                : formatTuneKeyboardValue(printSpeedMmS, 0),
+            onInputFocus: () => openPrintTuneKeyboard('speed'),
+          })}
+        </>
       )
     }
 
     if (activePrintTuneGroup === 'accel') {
-      return (
-        <div className="print-tune-modal-stack">
-          <TuneNumberControl
-            label="Ускорение"
-            value={printAccelMmS2}
-            min={500}
-            max={12000}
-            step={100}
-            unit="мм/с²"
-            onChange={setPrintAccelMmS2}
-            testIdPrefix="print-tune-accel"
-          />
-        </div>
+      return renderCompactTuneContent(
+        <>
+          {renderCompactCurrentRow('Текущее значение', `${formatTuneKeyboardValue(printAccelMmS2, 0)} мм/с²`)}
+          {renderCompactTuneEditor({
+            label: 'Ускорение',
+            value: printAccelMmS2,
+            min: 500,
+            max: 12000,
+            step: 100,
+            unit: 'мм/с²',
+            onChange: setPrintAccelMmS2,
+            testIdPrefix: 'print-tune-accel',
+            displayValue:
+              printTuneKeyboardTarget === 'accel'
+                ? printTuneKeyboardValue
+                : formatTuneKeyboardValue(printAccelMmS2, 0),
+            onInputFocus: () => openPrintTuneKeyboard('accel'),
+          })}
+        </>
       )
     }
 
     if (activePrintTuneGroup === 'kFactor') {
-      return (
-        <div className="print-tune-modal-stack">
-          <TuneNumberControl
-            label="K-factor"
-            value={printKFactor}
-            min={0}
-            max={0.2}
-            step={0.005}
-            fractionDigits={3}
-            onChange={setPrintKFactor}
-            testIdPrefix="print-tune-kfactor"
-          />
-        </div>
+      return renderCompactTuneContent(
+        <>
+          {renderCompactCurrentRow('Текущее значение', formatTuneKeyboardValue(printKFactor, 3))}
+          {renderCompactTuneEditor({
+            label: 'K-factor',
+            value: printKFactor,
+            min: 0,
+            max: 0.2,
+            step: 0.005,
+            fractionDigits: 3,
+            onChange: setPrintKFactor,
+            testIdPrefix: 'print-tune-kfactor',
+            displayValue:
+              printTuneKeyboardTarget === 'kFactor'
+                ? printTuneKeyboardValue
+                : formatTuneKeyboardValue(printKFactor, 3),
+            onInputFocus: () => openPrintTuneKeyboard('kFactor'),
+          })}
+        </>
       )
     }
 
     if (activePrintTuneGroup === 'retract') {
-      return (
-        <div className="print-tune-modal-stack">
-          <TuneNumberControl
-            label="Откат"
-            value={printRetractMm}
-            min={0}
-            max={8}
-            step={0.1}
-            fractionDigits={1}
-            unit="мм"
-            onChange={setPrintRetractMm}
-            testIdPrefix="print-tune-retract"
-          />
-        </div>
+      return renderCompactTuneContent(
+        <>
+          {renderCompactCurrentRow('Текущее значение', `${formatTuneKeyboardValue(printRetractMm, 1)} мм`)}
+          {renderCompactTuneEditor({
+            label: 'Откат',
+            value: printRetractMm,
+            min: 0,
+            max: 8,
+            step: 0.1,
+            fractionDigits: 1,
+            unit: 'мм',
+            onChange: setPrintRetractMm,
+            testIdPrefix: 'print-tune-retract',
+            displayValue:
+              printTuneKeyboardTarget === 'retract'
+                ? printTuneKeyboardValue
+                : formatTuneKeyboardValue(printRetractMm, 1),
+            onInputFocus: () => openPrintTuneKeyboard('retract'),
+          })}
+        </>
       )
     }
 
@@ -1950,26 +2387,25 @@ function App() {
       )
     }
 
-    return (
-      <div className="print-tune-modal-stack">
-        <p className="print-tune-current-row">
-          <span>Текущий слой</span>
-          <strong>{DASHBOARD_VALUES.layerCurrent} / {DASHBOARD_VALUES.layerTotal}</strong>
-        </p>
-        <label className="print-tune-input-wrap print-tune-input-wrap-layer">
+    return renderCompactTuneContent(
+      <>
+        {renderCompactCurrentRow('Текущий слой', `${DASHBOARD_VALUES.layerCurrent} / ${DASHBOARD_VALUES.layerTotal}`)}
+        <label className="print-tune-input-wrap print-tune-input-wrap-layer print-tune-input-wrap-layer-compact">
           <span>Пауза на слое</span>
           <input
             type="number"
             className="print-tune-input"
-            value={pauseAtLayer}
+            value={printTuneKeyboardTarget === 'layers' ? printTuneKeyboardValue : pauseAtLayer}
             min={1}
             max={DASHBOARD_VALUES.layerTotal}
             step={1}
-            onChange={handlePauseLayerChange}
+            readOnly={true}
+            onFocus={() => openPrintTuneKeyboard('layers')}
+            onClick={() => openPrintTuneKeyboard('layers')}
             data-testid="print-tune-layer-pause-input"
           />
         </label>
-      </div>
+      </>
     )
   }
 
@@ -1978,6 +2414,19 @@ function App() {
       setActivePrintTuneGroup(null)
     }
   }, [activePrintTuneGroup, hasActivePrint])
+
+  useEffect(() => {
+    if (activePrintTuneGroup === 'nozzle' || activePrintTuneGroup === 'bed') {
+      closePrintTuneKeyboard()
+      return
+    }
+
+    closeTemperatureKeyboard()
+
+    if (printTuneKeyboardTarget !== null && activePrintTuneGroup !== printTuneKeyboardTarget) {
+      closePrintTuneKeyboard()
+    }
+  }, [activePrintTuneGroup, printTuneKeyboardTarget])
 
   useEffect(() => {
     if (!hasActivePrint || activePrintUiState === null) {
@@ -3416,7 +3865,7 @@ function App() {
             data-testid="print-tune-modal-layer"
           >
             <section
-              className={`print-tune-modal-dialog ${isTemperatureTuneGroup ? 'is-temperature' : 'is-compact'}`}
+              className={`print-tune-modal-dialog ${isTemperatureTuneGroup ? 'is-temperature' : 'is-compact'} ${isTemperatureTuneGroup && temperatureKeyboardTarget !== null ? 'is-temperature-keyboard-open' : ''} ${isCompactTuneKeyboardOpen ? 'is-compact-keyboard-open' : ''}`}
               role="dialog"
               aria-modal="true"
               aria-labelledby={PRINT_TUNE_MODAL_TITLE_ID}

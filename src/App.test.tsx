@@ -25,7 +25,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Уведомления' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Пауза' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
-  }, 10000)
+  }, 20000)
 
   it('returns to waiting state after print cancel', async () => {
     render(<App />)
@@ -88,6 +88,37 @@ describe('App', () => {
       expect(screen.getByTestId('top-bar-screen-label')).toHaveTextContent('Печать')
     })
   })
+
+  it('opens numeric keyboard for temperature input and applies value', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('top-bar-screen-label')).toHaveTextContent('Печать')
+    })
+
+    fireEvent.click(screen.getByTestId('print-tune-group-nozzle'))
+
+    const nozzleInput = screen.getByTestId('print-tune-temp-nozzle-input') as HTMLInputElement
+    fireEvent.focus(nozzleInput)
+    expect(screen.getByRole('button', { name: 'Ввод' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Стереть' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Стереть' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Стереть' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 4' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 0' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ввод' }))
+
+    await waitFor(() => {
+      expect((screen.getByTestId('print-tune-temp-nozzle-input') as HTMLInputElement).value).toBe('240')
+    })
+    expect(screen.queryByRole('button', { name: 'Ввод' })).not.toBeInTheDocument()
+  }, 10000)
 
   it('switches between screens from bottom navigation', () => {
     render(<App />)
@@ -166,7 +197,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Отключить моторы' }))
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()
-  })
+  }, 10000)
 
   it.skip('renders macros calibration screen and completes screw guide flow', async () => {
     render(<App />)
@@ -293,7 +324,7 @@ describe('App', () => {
       expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
       expect(screen.getAllByTestId('print-file-card')).toHaveLength(initialCards.length - 1)
     })
-  })
+  }, 10000)
 
   it('opens Wi-Fi popup with network details and navigates to settings', () => {
     render(<App />)

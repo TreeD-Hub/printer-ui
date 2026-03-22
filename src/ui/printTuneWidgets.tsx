@@ -11,6 +11,9 @@ type TuneNumberControlProps = {
   fractionDigits?: number
   onChange: (nextValue: number) => void
   testIdPrefix?: string
+  displayValue?: string
+  readOnly?: boolean
+  onInputFocus?: () => void
 }
 
 function clampValue(value: number, min: number, max: number): number {
@@ -36,6 +39,9 @@ export function TuneNumberControl({
   fractionDigits = 0,
   onChange,
   testIdPrefix,
+  displayValue,
+  readOnly = false,
+  onInputFocus,
 }: TuneNumberControlProps) {
   function applyDelta(direction: -1 | 1): void {
     const nextValue = snapValue(value + (direction * step), min, max, step, fractionDigits)
@@ -70,11 +76,14 @@ export function TuneNumberControl({
           <input
             type="number"
             className="print-tune-input"
-            value={value.toFixed(Math.max(0, fractionDigits))}
+            value={displayValue ?? value.toFixed(Math.max(0, fractionDigits))}
             min={min}
             max={max}
             step={step}
+            readOnly={readOnly}
             onChange={handleInputChange}
+            onFocus={onInputFocus}
+            onClick={onInputFocus}
             data-testid={testIdPrefix ? `${testIdPrefix}-input` : undefined}
           />
           {unit ? <span>{unit}</span> : null}
@@ -117,6 +126,9 @@ type TuneCompactStepperInputProps = {
   onChange: (nextValue: number) => void
   inputAriaLabel: string
   testIdPrefix?: string
+  displayValue?: string
+  readOnly?: boolean
+  onInputFocus?: () => void
 }
 
 const CHART_WIDTH = 520
@@ -202,6 +214,9 @@ export function TuneCompactStepperInput({
   onChange,
   inputAriaLabel,
   testIdPrefix,
+  displayValue,
+  readOnly = false,
+  onInputFocus,
 }: TuneCompactStepperInputProps) {
   function applyDelta(direction: -1 | 1): void {
     const nextValue = snapValue(value + (direction * step), min, max, step, fractionDigits)
@@ -220,38 +235,45 @@ export function TuneCompactStepperInput({
 
   return (
     <div className="print-tune-compact-stepper">
-      <button
-        type="button"
-        className="settings-network-btn print-tune-compact-stepper-btn"
-        onClick={() => applyDelta(-1)}
-        aria-label={`Уменьшить: ${inputAriaLabel}`}
-        data-testid={testIdPrefix ? `${testIdPrefix}-minus` : undefined}
-      >
-        -
-      </button>
-      <label className="print-tune-compact-stepper-input-wrap">
-        <input
-          type="number"
-          className="print-tune-compact-stepper-input"
-          aria-label={inputAriaLabel}
-          value={formatNumericValue(value, fractionDigits)}
-          min={min}
-          max={max}
-          step={step}
-          onChange={handleInputChange}
-          data-testid={testIdPrefix ? `${testIdPrefix}-input` : undefined}
-        />
-      </label>
-      {unit ? <span className="print-tune-compact-stepper-unit">{unit}</span> : null}
-      <button
-        type="button"
-        className="settings-network-btn print-tune-compact-stepper-btn"
-        onClick={() => applyDelta(1)}
-        aria-label={`Увеличить: ${inputAriaLabel}`}
-        data-testid={testIdPrefix ? `${testIdPrefix}-plus` : undefined}
-      >
-        +
-      </button>
+      <div className="print-tune-compact-stepper-main">
+        <label className="print-tune-compact-stepper-input-wrap">
+          <input
+            type="number"
+            className="print-tune-compact-stepper-input"
+            aria-label={inputAriaLabel}
+            value={displayValue ?? formatNumericValue(value, fractionDigits)}
+            min={min}
+            max={max}
+            step={step}
+            readOnly={readOnly}
+            onChange={handleInputChange}
+            onFocus={onInputFocus}
+            onClick={onInputFocus}
+            data-testid={testIdPrefix ? `${testIdPrefix}-input` : undefined}
+          />
+        </label>
+        {unit ? <span className="print-tune-compact-stepper-unit">{unit}</span> : null}
+      </div>
+      <div className="print-tune-compact-stepper-controls" role="group" aria-label={`Кнопки шага: ${inputAriaLabel}`}>
+        <button
+          type="button"
+          className="settings-network-btn print-tune-compact-stepper-btn"
+          onClick={() => applyDelta(-1)}
+          aria-label={`Уменьшить: ${inputAriaLabel}`}
+          data-testid={testIdPrefix ? `${testIdPrefix}-minus` : undefined}
+        >
+          -
+        </button>
+        <button
+          type="button"
+          className="settings-network-btn print-tune-compact-stepper-btn"
+          onClick={() => applyDelta(1)}
+          aria-label={`Увеличить: ${inputAriaLabel}`}
+          data-testid={testIdPrefix ? `${testIdPrefix}-plus` : undefined}
+        >
+          +
+        </button>
+      </div>
     </div>
   )
 }
