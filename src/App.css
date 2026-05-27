@@ -4971,6 +4971,16 @@ select {
   color: var(--color-primary);
 }
 
+.screen-shell > .top-popup-layer,
+.screen-shell > .file-modal-layer,
+.screen-shell > .print-cancel-modal-layer,
+.screen-shell > .print-tune-modal-layer,
+.screen-shell > .macros-intro-layer,
+.screen-shell > .app-virtual-keyboard-layer,
+.top-popup-layer .top-popup-dialog {
+  position: absolute;
+}
+
 .dashboard-idle-screen {
   grid-template-columns: minmax(0, 1fr) 292px;
   gap: var(--space-sm);
