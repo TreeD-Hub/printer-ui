@@ -4,6 +4,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-variable.ttf') format('truetype');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* 00_Foundation: colors */
   --color-window-background: #11161c; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
@@ -50,10 +58,12 @@
   --font-size-small: 12px;
   --font-size-tiny: 10px;
 
-  --font-weight-medium: 100;
-  --font-weight-regular: 100;
+  --font-weight-medium: 500;
+  --font-weight-regular: 400;
+  --font-weight-accent: 100;
 
-  --font-family-ui: 'Nothing Font', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+  --font-family-ui: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+  --font-family-accent: 'Nothing Font', 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
 
   /* 00_Foundation: grid */
   --grid-base: 8px;

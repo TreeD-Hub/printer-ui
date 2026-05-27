@@ -4933,6 +4933,17 @@ select {
   text-shadow: none;
 }
 
+.brand-wrap h1,
+.print-state,
+.nav-item,
+.dashboard-idle-title,
+.label,
+.idle-mini-label,
+.dashboard-idle-notes h3 {
+  font-family: var(--font-family-accent);
+  font-weight: var(--font-weight-accent);
+}
+
 .print-state {
   color: var(--color-text-secondary);
   font-size: var(--font-size-body-large);
@@ -5006,7 +5017,9 @@ select {
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
   padding: var(--space-lg);
-  background: var(--color-block-surface);
+  background:
+    radial-gradient(circle at 1px 1px, var(--terminal-grid-line) 0 1px, transparent 1.1px) 0 0 / 12px 12px,
+    var(--color-block-surface);
   box-shadow:
     inset 0 0 0 1px var(--color-border-subtle),
     0 10px 24px var(--color-shadow-strong);
