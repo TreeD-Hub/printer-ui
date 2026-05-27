@@ -7,9 +7,9 @@
 :root {
   /* 00_Foundation: colors */
   --color-window-background: #11161c; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
-  --color-background: #050607; /* Основной почти чёрный фон интерфейса. */
-  --color-surface: #090b0d; /* Фон системных баров и крупных зон. */
-  --color-block-surface: #0d1012; /* Карточки и панели в Nothing terminal стиле. */
+  --color-background: #101213; /* Основной почти чёрный фон интерфейса. */
+  --color-surface: #101213; /* Фон системных баров и крупных зон. */
+  --color-block-surface: #131517; /* Карточки и панели в Nothing terminal стиле. */
   --color-surface-elevated: #14181b; /* Вложенные контролы и активные поверхности. */
   --color-border-subtle: #24282b; /* Мягкие пиксельные разделители. */
   --color-border-default: #3a3f43; /* Основные рамки карточек, popup и контролов. */
@@ -20,9 +20,9 @@
   --color-success: #d9f7e5; /* Светлый терминальный success без зелёного доминирования. */
   --color-warning: #fff0b8; /* Тёплый warning, читаемый на чёрном фоне. */
   --color-error: #ff2a2a; /* Критичные действия и ошибки. */
-  --color-text-primary: #f4f4f0; /* Основной светлый dot-matrix текст. */
-  --color-text-secondary: #c9cbc7; /* Подписи и вторичный текст. */
-  --color-text-soft: #90948f; /* Units, meta и muted-информация. */
+  --color-text-primary: #cccccc; /* Основной светлый dot-matrix текст. */
+  --color-text-secondary: #c0c0c0; /* Подписи и вторичный текст. */
+  --color-text-soft: #818181; /* Units, meta и muted-информация. */
   --color-overlay: rgba(2, 3, 4, 0.78); /* Затемнение контента под popup. */
   --color-shadow-strong: rgba(0, 0, 0, 0.58); /* Жёсткая тень popup и всплывающих слоёв. */
   --color-primary-surface: rgba(255, 42, 42, 0.14); /* Активная красная подложка. */
@@ -43,15 +43,15 @@
   --terminal-border-active: rgba(244, 244, 240, 0.86);
 
   /* 00_Foundation: typography */
-  --font-size-heading-large: 28px;
+  --font-size-heading-large: 20px;
   --font-size-heading-medium: 22px;
-  --font-size-body-large: 20px;
-  --font-size-body: 16px;
-  --font-size-small: 14px;
-  --font-size-tiny: 12px;
+  --font-size-body-large: 15px;
+  --font-size-body: 14px;
+  --font-size-small: 12px;
+  --font-size-tiny: 10px;
 
-  --font-weight-medium: 300;
-  --font-weight-regular: 300;
+  --font-weight-medium: 100;
+  --font-weight-regular: 100;
 
   --font-family-ui: 'Nothing Font', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
 
