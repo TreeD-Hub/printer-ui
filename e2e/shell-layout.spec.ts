@@ -42,9 +42,48 @@ test('shell frame matches 960x544 contract', async ({ page }) => {
   expect(box?.height).toBe(544)
 })
 
+test('shell exposes nothing terminal visual contract', async ({ page }) => {
+  await page.goto('/')
+
+  const shell = page.getByTestId('screen-shell')
+  await expect(shell).toBeVisible()
+
+  const contract = await page.evaluate(() => {
+    const root = document.documentElement
+    const shellElement = document.querySelector<HTMLElement>('.screen-shell')
+    const topBar = document.querySelector<HTMLElement>('.top-bar')
+    const navItem = document.querySelector<HTMLElement>('.nav-item.is-active')
+    const powerButton = document.querySelector<HTMLElement>('.power-btn')
+
+    return {
+      fontFamily: getComputedStyle(root).fontFamily,
+      primary: getComputedStyle(root).getPropertyValue('--color-primary').trim(),
+      shellBackground: shellElement ? getComputedStyle(shellElement).backgroundImage : '',
+      topBarBackground: topBar ? getComputedStyle(topBar).backgroundImage : '',
+      activeNavRadius: navItem ? Number.parseFloat(getComputedStyle(navItem).borderRadius) : -1,
+      powerRadius: powerButton ? Number.parseFloat(getComputedStyle(powerButton).borderRadius) : -1,
+      activeNavBorder: navItem ? getComputedStyle(navItem).borderColor : '',
+      activeNavDot: navItem ? getComputedStyle(navItem, '::after').backgroundColor : '',
+    }
+  })
+
+  expect(contract.fontFamily).toContain('Cascadia Mono')
+  expect(contract.primary).toBe('#ff2a2a')
+  expect(contract.shellBackground).toContain('radial-gradient')
+  expect(contract.topBarBackground).toContain('linear-gradient')
+  expect(contract.activeNavRadius).toBeLessThanOrEqual(8)
+  expect(contract.powerRadius).toBeLessThanOrEqual(8)
+  expect(contract.activeNavBorder).toBe('rgb(244, 244, 240)')
+  expect(contract.activeNavDot).toBe('rgb(255, 42, 42)')
+})
+
 test('captures screenshot and validates layout geometry', async ({ page }, testInfo) => {
   await page.goto('/')
   await expect(page.getByText('TreeD Принтер')).toBeVisible()
+  await page.getByRole('button', { name: 'Файлы' }).click()
+  await page.getByTestId('print-file-card').first().click()
+  await page.getByTestId('print-file-start-button').click()
+  await expect(page.getByTestId('top-bar-screen-label')).toHaveText('Печать')
 
   const shell = page.getByTestId('screen-shell')
   await expect(shell).toBeVisible()

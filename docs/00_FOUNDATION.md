@@ -1,6 +1,6 @@
-# 00_Foundation (зафиксировано по текущим скриншотам)
+# 00_Foundation (Nothing pixel terminal)
 
-Источник: скриншоты от пользователя в чате (актуально на 2026-03-09).
+Источник: пользовательский референс Nothing/pixel/terminal в чате (актуально на 2026-05-27).
 
 Этот документ обязателен для всех новых страниц и новых UI-блоков в `treed-shell`.
 Если элемент нельзя корректно описать через этот foundation, сначала обновляется foundation, потом добавляется элемент.
@@ -8,40 +8,45 @@
 ## 1) Смысловой блок Foundation
 
 - Заголовок: `00_Foundation`
-- Подзаголовок: `TreeD Screen — промышленный тач-интерфейс для 3D-принтера`
+- Подзаголовок: `TreeD Screen — монохромный pixel terminal UI для 3D-принтера`
 
 ### Design Principles
 
-- `Industrial & Minimal`:
-  `Технологичный минималистичный стиль без маркетинговых градиентов`
+- `Nothing Pixel Terminal`:
+  `Монохромная приборная панель с точечной графикой, тонкими рамками и терминальной типографикой`
 - `AMOLED Optimized`:
-  `Глубокий чёрный фон (#000000) для контрастности и энергоэффективности`
+  `Почти чёрный фон, мягкие серые поверхности и белый текст без цветового шума`
 - `Touch-First`:
   `Все элементы минимум 56px высотой, оптимизированы для тач-управления`
+- `Red As Signal`:
+  `Красный используется как точечный статус/опасность, а не как декоративная заливка интерфейса`
 
 ## 2) TreeD Brand Colors (токены)
 
-- `Background`: `#000000`
-- `Surface`: `#000000`
-- `Block Surface`: `#171A1F`
-- `Surface Elevated`: `#1F2229`
-- `Primary`: `#9163FF`
-- `Primary Light`: `#A881FF`
-- `Primary Dark`: `#7B4EEA`
-- `Success`: `#2ECC71`
-- `Warning`: `#F5A623`
-- `Error`: `#E74C3C`
-- `Text Primary`: `#FFFFFF`
-- `Text Secondary`: `#959799`
+- `Background`: `#050607`
+- `Surface`: `#090B0D`
+- `Block Surface`: `#0D1012`
+- `Surface Elevated`: `#14181B`
+- `Primary`: `#FF2A2A`
+- `Primary Light`: `#FF5A5A`
+- `Primary Dark`: `#B91414`
+- `Success`: `#D9F7E5`
+- `Warning`: `#FFF0B8`
+- `Error`: `#FF2A2A`
+- `Text Primary`: `#F4F4F0`
+- `Text Secondary`: `#C9CBC7`
 
 ### Support UI Tokens
 
-- `Window Background`: `#2B2F36`
-- `Border Subtle`: `#242B3C`
-- `Border Default`: `#2B3347`
-- `Surface Track`: `#0F131D`
-- `Text Soft`: `#959799`
-- `Overlay`: `rgba(5, 8, 14, 0.68)`
+- `Window Background`: `#11161C`
+- `Border Subtle`: `#24282B`
+- `Border Default`: `#3A3F43`
+- `Surface Track`: `#030405`
+- `Text Soft`: `#90948F`
+- `Overlay`: `rgba(2, 3, 4, 0.78)`
+- `Terminal Grid Dot`: `rgba(244, 244, 240, 0.11)`
+- `Terminal Scanline`: `rgba(244, 244, 240, 0.035)`
+- `Terminal Border Active`: `rgba(244, 244, 240, 0.86)`
 
 ### Правило оптимизации палитры
 
@@ -49,15 +54,22 @@
 - Для поверхностей использовать `Background / Surface / Block Surface / Surface Elevated`.
 - Для контуров использовать только `Border Subtle` и `Border Default`, если нет явно согласованного исключения.
 - Для вторичного числового текста и unit-частей использовать `Text Soft`, а не новые одноразовые оттенки.
+- Для активных неопасных элементов использовать белую/серую рамку и тонкую подсветку; красный оставлять для точки состояния, питания, stop/cancel и ошибок.
+- Запрещены фиолетовые/синие декоративные glow-эффекты старого foundation.
 
 ## 3) Typography Scale
 
-- `Heading Large` (Main values): `28px / 500`
-- `Heading Medium` (Section titles): `22px / 500`
-- `Body Large` (Card headers): `20px / 500`
+- `Heading Large` (Top brand / Main values): `28-32px / 400`
+- `Heading Medium` (Section titles): `22px / 400`
+- `Body Large` (Card headers): `20px / 400`
 - `Body` (Default text): `16px / 400`
 - `Small` (Labels): `14px / 400`
 - `Tiny` (Meta info): `12px / 400`
+
+Шрифтовой контракт:
+- базовый UI: моноширинный системный стек `Cascadia Mono / Consolas / Courier New`;
+- крупные брендовые/навигационные надписи: CSS dot-matrix эффект через text clip;
+- мелкие метрики и поля ввода остаются читаемыми моноширинными, без чрезмерного dot-clip.
 
 ## 4) Grid System
 

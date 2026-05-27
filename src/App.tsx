@@ -481,7 +481,7 @@ function App() {
   const [printNozzleTargetTemp, setPrintNozzleTargetTemp] = useState<number>(DEFAULT_NOZZLE_TARGET_TEMP)
   const [printBedTargetTemp, setPrintBedTargetTemp] = useState<number>(DEFAULT_BED_TARGET_TEMP)
   const [printVolumetricFlowMm3S, setPrintVolumetricFlowMm3S] = useState<number>(DASHBOARD_VALUES.volumetricFlowMm3S)
-  const [printFanPercent, setPrintFanPercent] = useState<number>(rounded(snapshot.modelFanPercent))
+  const [printFanPercent, setPrintFanPercent] = useState<number>(Math.round(snapshot.modelFanPercent))
   const [printFlowPercent, setPrintFlowPercent] = useState<number>(DASHBOARD_VALUES.flowPercent)
   const [printSpeedMmS, setPrintSpeedMmS] = useState<number>(DASHBOARD_VALUES.speedMmS)
   const [printAccelMmS2, setPrintAccelMmS2] = useState<number>(DASHBOARD_VALUES.accelMmS2)
@@ -649,6 +649,9 @@ function App() {
   )
   const axisCoordinatesLabel = `X ${formatAxisCoordinate(printHeadPosition.x)}  Y ${formatAxisCoordinate(printHeadPosition.y)}  Z ${formatAxisCoordinate(printHeadPosition.z)}`
   const activeBedScrewPoint = BED_SCREW_GUIDE_POINTS.find((point) => point.id === activeBedScrewPointId) ?? null
+  const activeBedScrewPointLabel = activeBedScrewPoint === null
+    ? 'Текущая точка не выбрана.'
+    : `Текущая: ${activeBedScrewPoint.label} | X ${formatAxisCoordinate(activeBedScrewPoint.xMm)} | Y ${formatAxisCoordinate(activeBedScrewPoint.yMm)}`
   const bedScrewGuideProgressLabel = `${visitedBedScrewPointIds.length} / ${BED_SCREW_GUIDE_POINTS.length}`
   const isBedScrewGuideDone = visitedBedScrewPointIds.length === BED_SCREW_GUIDE_POINTS.length
   const isManualBedControlsLocked = isBedScrewPointMoving || isBusy
@@ -964,36 +967,6 @@ function App() {
         ...currentPosition,
         z: 0,
       }
-    })
-  }
-
-  function handleBedScrewPointPick(pointId: BedScrewPointId): void {
-    if (!isBedScrewGuideStarted || isManualBedControlsLocked) {
-      return
-    }
-
-    const selectedPointIndex = BED_SCREW_GUIDE_POINTS.findIndex((point) => point.id === pointId)
-    const selectedPoint = BED_SCREW_GUIDE_POINTS[selectedPointIndex]
-    if (selectedPoint === undefined) {
-      return
-    }
-
-    setActiveBedScrewPointId(selectedPoint.id)
-    setPrintHeadPosition((currentPosition) => ({
-      ...currentPosition,
-      x: clampAxisValue(selectedPoint.xMm, HEAD_X_BOUNDS_MM.min, HEAD_X_BOUNDS_MM.max),
-      y: clampAxisValue(selectedPoint.yMm, HEAD_Y_BOUNDS_MM.min, HEAD_Y_BOUNDS_MM.max),
-    }))
-    setVisitedBedScrewPointIds((currentPoints) => {
-      const nextPoints = currentPoints.includes(selectedPoint.id)
-        ? currentPoints
-        : [...currentPoints, selectedPoint.id]
-      if (nextPoints.length === BED_SCREW_GUIDE_POINTS.length) {
-        setBedScrewGuideNotice('Все точки пройдены. Нажмите «Завершить», чтобы перейти к Z-offset.')
-      } else {
-        setBedScrewGuideNotice(`Точка ${nextPoints.length} выбрана. Продолжайте проход по карте.`)
-      }
-      return nextPoints
     })
   }
 
@@ -2060,6 +2033,7 @@ function App() {
       const activeKeyboardMeta = printTuneKeyboardTarget === null
         ? null
         : resolvePrintTuneKeyboardMeta(printTuneKeyboardTarget)
+      const activeTuneNote = activePrintTuneMeta?.note ?? ''
 
       return (
         <div
@@ -2067,7 +2041,7 @@ function App() {
         >
           <div className="print-tune-compact-workspace">
             <section className="print-tune-compact-main-panel">
-              {activePrintTuneMeta.note.length > 0 ? <p className="print-tune-note">{activePrintTuneMeta.note}</p> : null}
+              {activeTuneNote.length > 0 ? <p className="print-tune-note">{activeTuneNote}</p> : null}
               <div className="print-tune-compact-content">
                 {content}
               </div>
@@ -2670,6 +2644,13 @@ function App() {
                   <div className="dashboard-idle-logo" aria-hidden="true">
                     <img className="dashboard-idle-logo-image" src={treeDLogoAsset} alt="" />
                   </div>
+                  <p className="dashboard-idle-title">
+                    Экосистема
+                    <br />
+                    аддитивных
+                    <br />
+                    технологий
+                  </p>
                 </div>
 
                 <aside className="dashboard-idle-sidebar">
@@ -3361,9 +3342,7 @@ function App() {
                             </p>
                           ))}
                           <p className="macros-bed-current" data-testid="macros-bed-current-point">
-                            {activeBedScrewPoint === null
-                              ? 'Текущая точка не выбрана.'
-                              : `Текущая: ${activeBedScrewPoint.label} | X ${formatAxisCoordinate(activeBedScrewPoint.xMm)} | Y ${formatAxisCoordinate(activeBedScrewPoint.yMm)}`}
+                            {activeBedScrewPointLabel}
                           </p>
                           {isBedScrewGuideDone ? (
                             <p className="macros-bed-complete">Проход завершён. Можно повторить калибровку для контроля.</p>
@@ -3801,7 +3780,9 @@ function App() {
             </section>
           ) : (
             <section className="screen-placeholder" data-testid={`screen-${activeScreen}`}>
-              <p className="screen-placeholder-body">{SCREEN_PLACEHOLDERS[activeScreen].description}</p>
+              <p className="screen-placeholder-body">
+                {SCREEN_PLACEHOLDERS[activeScreen as keyof typeof SCREEN_PLACEHOLDERS]?.description ?? ''}
+              </p>
             </section>
           )}
         </div>

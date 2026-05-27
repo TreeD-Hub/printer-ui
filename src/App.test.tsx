@@ -11,6 +11,7 @@ describe('App', () => {
       expect(screen.getByTestId('top-bar-screen-label')).toHaveTextContent('Ожидание печати')
     })
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
+    expect(screen.getByText(/Экосистема/i)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Ожидание печати' })).not.toBeInTheDocument()
     const idleNotesInput = screen.getByTestId('idle-notes-input') as HTMLTextAreaElement
     expect(idleNotesInput.value.length).toBeGreaterThan(0)

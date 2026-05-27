@@ -4472,6 +4472,744 @@ body {
   text-shadow: 0 0 12px var(--color-primary-surface);
 }
 
+/* Блок: Nothing terminal skin поверх существующей структуры экранов. */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  letter-spacing: 0;
+}
+
+.screen-shell {
+  border-radius: 8px;
+  border-color: var(--terminal-border-active);
+  background:
+    radial-gradient(circle at 1px 1px, var(--terminal-grid-dot) 0 1px, transparent 1.1px) 0 0 / 12px 12px,
+    repeating-linear-gradient(0deg, transparent 0 12px, var(--terminal-scanline) 12px 13px),
+    linear-gradient(180deg, #07090a 0%, var(--color-background) 100%);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.62),
+    inset 0 0 0 1px rgba(244, 244, 240, 0.08);
+}
+
+.screen-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0 18px, rgba(244, 244, 240, 0.035) 18px 19px, transparent 19px 100%),
+    linear-gradient(180deg, rgba(244, 244, 240, 0.055), transparent 14%, transparent 86%, rgba(244, 244, 240, 0.04));
+  opacity: 0.75;
+}
+
+.screen-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+.top-bar,
+.bottom-nav {
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.055), transparent 46%),
+    linear-gradient(90deg, rgba(255, 42, 42, 0.1), transparent 18%, transparent 82%, rgba(244, 244, 240, 0.045)),
+    var(--color-surface);
+}
+
+.brand-wrap {
+  gap: var(--space-lg);
+}
+
+.brand-wrap h1 {
+  color: var(--color-text-primary);
+  text-shadow: 0 0 9px rgba(244, 244, 240, 0.22);
+}
+
+.print-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.print-state::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  background: var(--color-primary);
+  box-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+.top-icons {
+  color: var(--color-text-primary);
+}
+
+.top-icon-btn,
+.power-btn,
+.top-popup-close,
+.print-cancel-modal-close,
+.file-modal-close {
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.top-icon-btn {
+  color: var(--color-text-primary);
+}
+
+.top-icon-btn:hover,
+.top-icon-btn:focus-visible,
+.top-icon-btn.is-active {
+  border-color: var(--color-border-default);
+  background: var(--color-primary-surface-soft);
+  box-shadow: inset 0 0 0 1px rgba(244, 244, 240, 0.06);
+}
+
+.power-btn {
+  background: transparent;
+  border-color: var(--color-border-default);
+  color: var(--color-primary);
+}
+
+.power-btn.is-active,
+.power-btn:hover,
+.power-btn:focus-visible {
+  border-color: var(--color-primary);
+  background: var(--color-primary-surface);
+  box-shadow:
+    0 0 0 1px var(--color-primary-ring),
+    0 0 18px var(--color-primary-glow);
+}
+
+.notification-btn::after {
+  border-radius: 0;
+  box-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+.content-grid,
+.dashboard-idle-screen,
+.files-screen,
+.control-screen,
+.macros-screen,
+.settings-layout {
+  background:
+    radial-gradient(circle at 1px 1px, var(--terminal-grid-line) 0 1px, transparent 1.1px) 0 0 / 16px 16px,
+    transparent;
+}
+
+.job-card,
+.stats-card,
+.process-card,
+.zoffset-card,
+.dashboard-idle-hero,
+.idle-mini-widget,
+.dashboard-idle-notes,
+.control-card,
+.settings-menu-shell,
+.settings-content-shell,
+.settings-info-card,
+.settings-description-card,
+.settings-select-field,
+.settings-console-history-item,
+.print-file-card,
+.file-modal-dialog,
+.print-cancel-modal-dialog,
+.print-tune-modal-dialog,
+.top-popup-dialog,
+.settings-keyboard-popup,
+.app-virtual-keyboard-popup,
+.virtual-keyboard-panel,
+.idle-notes-keyboard,
+.print-temp-keyboard-side,
+.print-temp-table,
+.print-temp-chart,
+.print-tune-number-control,
+.print-tune-compact-editor,
+.print-tune-compact-stepper,
+.macros-intro-dialog {
+  border-radius: 8px;
+  border-color: var(--color-border-default);
+  background:
+    linear-gradient(180deg, var(--terminal-panel-sheen), transparent 42%),
+    var(--color-block-surface);
+  box-shadow:
+    inset 0 0 0 1px rgba(244, 244, 240, 0.035),
+    0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.dashboard-idle-hero,
+.job-card,
+.preview-panel,
+.file-modal-preview,
+.macros-bed-map,
+.virtual-joystick-surface,
+.z-axis-slider-track,
+.fan-slider-track,
+.print-temp-chart-svg {
+  background:
+    radial-gradient(circle at 1px 1px, var(--terminal-grid-dot) 0 1px, transparent 1.1px) 0 0 / 14px 14px,
+    var(--color-surface-track);
+}
+
+.dashboard-idle-logo-image,
+.preview-inner svg,
+.file-modal-preview svg {
+  filter: drop-shadow(0 0 10px rgba(244, 244, 240, 0.22));
+  image-rendering: pixelated;
+}
+
+.dashboard-idle-logo-image {
+  filter: brightness(0) invert(1) drop-shadow(0 0 10px rgba(244, 244, 240, 0.22));
+  animation: none;
+}
+
+.idle-mini-widget,
+.dashboard-idle-notes,
+.stats-card,
+.process-card,
+.zoffset-card,
+.control-card,
+.settings-description-card,
+.settings-info-card,
+.print-file-card,
+.top-popup-dialog,
+.file-modal-dialog,
+.print-cancel-modal-dialog,
+.print-tune-modal-dialog,
+.macros-intro-dialog {
+  position: relative;
+}
+
+.idle-mini-widget::after,
+.dashboard-idle-notes::after,
+.stats-card::after,
+.process-card::after,
+.zoffset-card::after,
+.control-card::after,
+.settings-description-card::after,
+.settings-info-card::after,
+.print-file-card::after,
+.top-popup-dialog::after,
+.file-modal-dialog::after,
+.print-cancel-modal-dialog::after,
+.print-tune-modal-dialog::after,
+.macros-intro-dialog::after {
+  content: '::';
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  color: var(--color-text-soft);
+  font-size: var(--font-size-small);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.label,
+.idle-mini-label,
+.settings-select-label,
+.settings-info-details,
+.joystick-meta-label,
+.virtual-keyboard-preview-label,
+.print-temp-keyboard-label,
+.print-file-meta dt,
+.file-modal-meta dt,
+.top-popup-note {
+  color: var(--color-text-soft);
+  text-transform: uppercase;
+}
+
+.value,
+.job-main-value,
+.process-value,
+.zoffset-value,
+.macros-zoffset-value,
+.virtual-keyboard-preview-value,
+.settings-console-keyboard-preview-value,
+.print-temp-keyboard-display,
+.joystick-readout {
+  color: var(--color-text-primary);
+  text-shadow: 0 0 8px rgba(244, 244, 240, 0.12);
+}
+
+.meter,
+.job-meter,
+.settings-info-gauge,
+.z-axis-slider-rail,
+.fan-slider-rail {
+  border-radius: 0;
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-track);
+}
+
+.fill,
+.job-meter-fill,
+.z-axis-slider-fill,
+.fan-slider-fill {
+  border-radius: 0;
+}
+
+.segmented-toggle,
+.files-sort-group,
+.step-selector {
+  border-radius: 8px;
+}
+
+.segmented-toggle-indicator,
+.files-sort-indicator,
+.step-selector-indicator,
+.bottom-nav-indicator {
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(255, 42, 42, 0.24) 0 1px, transparent 1.1px) 0 0 / 7px 7px,
+    var(--color-primary-surface-soft);
+  box-shadow:
+    inset 0 0 0 1px var(--color-primary-ring),
+    0 0 16px var(--color-primary-glow);
+}
+
+.segmented-toggle-btn,
+.files-sort-btn,
+.step-btn,
+.settings-sidebar-item,
+.settings-network-btn,
+.settings-network-item,
+.settings-console-chip,
+.settings-console-key,
+.settings-toggle-row,
+.control-action-btn,
+.control-service-btn,
+.axis-cross-btn,
+.babystep-btn,
+.stack-action,
+.file-modal-action,
+.top-popup-action,
+.virtual-keyboard-key,
+.idle-notes-keyboard-key,
+.print-temp-keyboard-key,
+.print-temp-keyboard-submit,
+.nav-item {
+  border-radius: 6px;
+  border: 1px solid var(--color-border-default);
+  background: rgba(244, 244, 240, 0.025);
+  color: var(--color-text-secondary);
+  box-shadow: none;
+}
+
+.segmented-toggle-btn.is-active,
+.files-sort-btn.is-active,
+.step-btn.is-active,
+.settings-sidebar-item.is-active,
+.settings-toggle-switch.is-active,
+.settings-network-btn-primary,
+.settings-network-item.is-active,
+.settings-console-chip:hover,
+.settings-console-chip:focus-visible,
+.settings-console-key:hover,
+.settings-console-key:focus-visible,
+.control-service-btn.is-active,
+.axis-cross-btn:active,
+.babystep-btn:active,
+.file-modal-action:not(:disabled):hover,
+.top-popup-action:hover,
+.virtual-keyboard-key.is-active,
+.idle-notes-keyboard-key:active,
+.nav-item.is-active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-surface-soft);
+  color: var(--color-text-primary);
+  text-shadow: none;
+}
+
+.nav-item {
+  border-color: transparent;
+}
+
+.nav-item.is-active {
+  border-color: var(--color-primary);
+  color: var(--color-text-primary);
+}
+
+.nav-item.is-active .nav-icon,
+.nav-item.is-active span:last-child {
+  transform: none;
+  text-shadow: none;
+}
+
+.stack-action.action-pause {
+  color: var(--color-text-primary);
+}
+
+.stack-action.action-cancel,
+.file-modal-action-danger,
+.top-popup-action-danger,
+.control-action-btn-danger {
+  border-color: var(--color-primary);
+  background: var(--color-primary-surface);
+  color: var(--color-primary-light);
+}
+
+.settings-toggle-switch,
+.macros-toggle-lock,
+.z-axis-slider-thumb,
+.fan-slider-thumb,
+.virtual-joystick-handle,
+.macros-bed-point,
+.bed-point {
+  border-radius: 4px;
+}
+
+.settings-toggle-switch {
+  border: 1px solid var(--color-border-default);
+  background: var(--color-surface-track);
+}
+
+.settings-toggle-switch::after {
+  border-radius: 2px;
+  background: var(--color-text-soft);
+}
+
+.settings-toggle-switch.is-active {
+  background: var(--color-primary-surface-soft);
+}
+
+.settings-toggle-switch.is-active::after {
+  background: var(--color-primary);
+}
+
+.top-popup-dialog::before {
+  border-color: var(--color-border-default);
+  background: var(--color-block-surface);
+}
+
+.dashboard-idle-notes-input,
+.settings-select-control,
+.settings-network-search,
+.settings-network-password-input,
+.settings-console-input,
+.print-tune-input,
+.print-tune-compact-stepper-input {
+  border-radius: 6px;
+  border-color: var(--color-border-default);
+  background:
+    repeating-linear-gradient(0deg, transparent 0 12px, var(--terminal-scanline) 12px 13px),
+    var(--color-surface-track);
+  color: var(--color-text-primary);
+}
+
+.dashboard-idle-notes-input:focus,
+.settings-select-control:focus,
+.settings-network-search:focus,
+.settings-network-password-input:focus,
+.settings-console-input:focus,
+.print-tune-input:focus,
+.print-tune-compact-stepper-input:focus {
+  border-color: var(--color-primary);
+  box-shadow:
+    0 0 0 1px var(--color-primary-ring),
+    0 0 14px var(--color-primary-glow);
+}
+
+.files-scroll-area,
+.settings-menu-shell,
+.settings-content-shell,
+.file-modal-dialog,
+.dashboard-idle-notes-input,
+.settings-console-history,
+.print-temp-keyboard-side,
+.top-popup-content {
+  scrollbar-color: var(--color-primary) transparent;
+}
+
+.files-scroll-area::-webkit-scrollbar-thumb,
+.settings-menu-shell::-webkit-scrollbar-thumb,
+.settings-content-shell::-webkit-scrollbar-thumb,
+.file-modal-dialog::-webkit-scrollbar-thumb,
+.dashboard-idle-notes-input::-webkit-scrollbar-thumb {
+  border-radius: 0;
+  background: var(--color-primary);
+}
+
+/* Блок: приведение к тихому Nothing-референсу без агрессивных красных плашек. */
+.screen-shell {
+  border-color: rgba(244, 244, 240, 0.22);
+  background:
+    radial-gradient(circle at 1px 1px, rgba(244, 244, 240, 0.105) 0 1px, transparent 1.1px) 0 0 / 14px 14px,
+    linear-gradient(180deg, #07090a 0%, #030405 100%);
+  box-shadow:
+    0 18px 46px rgba(0, 0, 0, 0.62),
+    inset 0 0 0 1px rgba(244, 244, 240, 0.045);
+}
+
+.screen-shell::before {
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.05), transparent 17%, transparent 86%, rgba(244, 244, 240, 0.035)),
+    repeating-linear-gradient(0deg, transparent 0 15px, rgba(244, 244, 240, 0.026) 15px 16px);
+  opacity: 0.62;
+}
+
+.top-bar,
+.bottom-nav {
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.045), transparent 50%),
+    #060708;
+}
+
+.brand-wrap h1 {
+  font-size: 32px;
+  font-weight: var(--font-weight-regular);
+  text-shadow: 0 0 8px rgba(244, 244, 240, 0.18);
+}
+
+.print-state {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-large);
+}
+
+.top-icon-btn,
+.power-btn {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.top-icon-btn:hover,
+.top-icon-btn:focus-visible,
+.top-icon-btn.is-active,
+.power-btn:hover,
+.power-btn:focus-visible,
+.power-btn.is-active {
+  border-color: rgba(244, 244, 240, 0.26);
+  background: rgba(244, 244, 240, 0.035);
+  box-shadow: inset 0 0 0 1px rgba(244, 244, 240, 0.045);
+}
+
+.power-btn,
+.power-btn:hover,
+.power-btn:focus-visible,
+.power-btn.is-active {
+  color: var(--color-primary);
+}
+
+.dashboard-idle-screen {
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.028), transparent 34%),
+    var(--color-surface);
+}
+
+.dashboard-idle-screen::before {
+  inset: 0;
+  transform: none;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(244, 244, 240, 0.12) 0 1px, transparent 1.1px) 0 0 / 15px 15px,
+    linear-gradient(180deg, transparent, rgba(0, 0, 0, 0.22));
+  opacity: 0.72;
+}
+
+.dashboard-idle-screen::after {
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.2) 100%);
+}
+
+.dashboard-idle-hero {
+  grid-template-columns: minmax(250px, 0.95fr) minmax(230px, 0.72fr);
+  align-items: center;
+  justify-items: stretch;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  background:
+    radial-gradient(circle at 1px 1px, rgba(244, 244, 240, 0.13) 0 1px, transparent 1.1px) 0 0 / 15px 15px,
+    rgba(244, 244, 240, 0.012);
+}
+
+.dashboard-idle-logo {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  justify-self: end;
+  filter: none;
+}
+
+.dashboard-idle-logo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle, rgba(244, 244, 240, 0.96) 0 1.6px, transparent 1.7px) 0 0 / 7px 7px;
+  -webkit-mask: url('./assets/logo_treeD_mark.svg') center / contain no-repeat;
+  mask: url('./assets/logo_treeD_mark.svg') center / contain no-repeat;
+  filter: drop-shadow(0 0 8px rgba(244, 244, 240, 0.18));
+}
+
+.dashboard-idle-logo-image {
+  opacity: 0;
+}
+
+.dashboard-idle-title {
+  justify-self: start;
+  max-width: 250px;
+  text-align: left;
+  color: var(--color-text-primary);
+  font-size: 28px;
+  line-height: 1.16;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px rgba(244, 244, 240, 0.16);
+}
+
+.dashboard-idle-sidebar {
+  grid-template-rows: 98px 136px minmax(112px, 1fr);
+}
+
+.idle-mini-widget,
+.dashboard-idle-notes {
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.04), transparent 46%),
+    rgba(15, 17, 18, 0.9);
+  box-shadow: none;
+}
+
+.idle-mini-widget {
+  padding: 10px var(--space-md);
+  gap: 6px;
+}
+
+.idle-mini-label,
+.dashboard-idle-notes h3 {
+  font-size: var(--font-size-body-large);
+  text-transform: none;
+}
+
+.idle-temp-grid,
+.idle-service-metrics {
+  gap: 5px;
+}
+
+.idle-temp-grid span,
+.idle-service-metrics span,
+.idle-service-time span {
+  font-size: var(--font-size-body);
+}
+
+.idle-temp-grid strong,
+.idle-service-metrics strong,
+.idle-service-time strong {
+  font-size: var(--font-size-body-large);
+}
+
+.dashboard-idle-notes-input {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 27px, rgba(244, 244, 240, 0.055) 27px 28px),
+    rgba(3, 4, 5, 0.42);
+  font-size: var(--font-size-body);
+  line-height: 1.42;
+}
+
+.bottom-nav {
+  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-xs);
+}
+
+.bottom-nav-indicator {
+  display: none;
+}
+
+.nav-item {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  box-shadow: none;
+}
+
+.nav-item:not(:first-of-type)::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--space-xs) * -0.5);
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: rgba(244, 244, 240, 0.18);
+}
+
+.nav-item::after {
+  content: '';
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  width: 7px;
+  height: 7px;
+  display: none;
+  background: var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary-glow);
+}
+
+.nav-item.is-active {
+  border-color: var(--color-text-primary);
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.11), rgba(244, 244, 240, 0.035)),
+    rgba(244, 244, 240, 0.025);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px rgba(244, 244, 240, 0.08);
+}
+
+.nav-item.is-active::after {
+  display: block;
+}
+
+.segmented-toggle-indicator,
+.files-sort-indicator,
+.step-selector-indicator {
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.11), rgba(244, 244, 240, 0.035)),
+    rgba(244, 244, 240, 0.025);
+  box-shadow: inset 0 0 0 1px rgba(244, 244, 240, 0.18);
+}
+
+.segmented-toggle-btn.is-active,
+.files-sort-btn.is-active,
+.step-btn.is-active,
+.settings-sidebar-item.is-active,
+.control-service-btn.is-active,
+.settings-network-item.is-active {
+  border-color: var(--color-text-primary);
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
+.settings-network-btn-primary {
+  border-color: rgba(244, 244, 240, 0.42);
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.11), rgba(244, 244, 240, 0.035)),
+    rgba(244, 244, 240, 0.025);
+  color: var(--color-text-primary);
+}
+
+/* Блок: dot-matrix типографика из референса. */
+.brand-wrap h1,
+.dashboard-idle-title,
+.nav-item span:last-child {
+  --dot-text-color: var(--color-text-primary);
+  background-image: radial-gradient(circle, var(--dot-text-color) 0 1.35px, transparent 1.46px);
+  background-size: 3.2px 3.2px;
+  background-position: 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+}
+
+.nav-item span:last-child {
+  --dot-text-color: rgba(244, 244, 240, 0.92);
+}
+
+.print-state::before,
+.nav-item.is-active::after,
+.notification-btn::after {
+  -webkit-text-fill-color: initial;
+}
+
 @keyframes top-popup-layer-enter {
   from {
     opacity: 0;

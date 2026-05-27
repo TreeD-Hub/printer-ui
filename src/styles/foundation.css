@@ -1,34 +1,46 @@
+@font-face {
+  font-family: 'Web IBM MDA';
+  src: url('/fonts/web_ibm_mda.ttf') format('truetype');
+  font-display: swap;
+}
+
 :root {
   /* 00_Foundation: colors */
-  --color-window-background: #2b2f36; /* Фон самого окна Tauri вокруг макета. */
-  --color-background: #000000; /* Запасной очень тёмный фон приложения. */
-  --color-surface: #1e222b; /* Фон верхнего и нижнего баров. */
-  --color-block-surface: #1e222b; /* Отдельная заливка карточек и больших блоков. */
-  --color-surface-elevated: #202635; /* Контрастная заливка вложенных контролов и вложенных поверхностей на фоне карточек. */
-  --color-border-subtle: #242b3c; /* Мягкие разделители, например линии у баров. */
-  --color-border-default: #2b3347; /* Основные рамки карточек, popup и контролов. */
-  --color-surface-track: #000000; /* Фон дорожек прогресса и температурных шкал. */
-  --color-primary: #9163ff; /* Главный фиолетовый акцент для статусов и активных границ. */
-  --color-primary-light: #a881ff; /* Светлый акцент для активного текста и кнопок. */
-  --color-primary-dark: #7b4eea; /* Тёмный запасной акцент для редких декоративных состояний. */
-  --color-success: #2ecc71; /* Зелёный для нормальных и успешных индикаторов. */
-  --color-warning: #f5a623; /* Оранжевый для warning и нагрева. */
-  --color-error: #e74c3c; /* Красный для ошибок, питания и отмены действия. */
-  --color-text-primary: #ffffff; /* Основной яркий текст и светлые иконки. */
-  --color-text-secondary: #d3ddf1; /* Подписи и менее важный текст. */
-  --color-text-soft: #e2ebfb; /* Единицы измерения и мягкий вспомогательный текст. */
-  --color-overlay: rgba(5, 8, 14, 0.68); /* Затемнение контента под popup. */
-  --color-shadow-strong: rgba(0, 0, 0, 0.38); /* Глубокая тень popup и всплывающих слоёв. */
-  --color-primary-surface: rgba(145, 99, 255, 0.24); /* Фон активной иконки в верхнем баре. */
-  --color-primary-surface-soft: rgba(145, 99, 255, 0.2); /* Мягкая активная подложка у step-кнопок. */
-  --color-primary-ring: rgba(145, 99, 255, 0.58); /* Внутренний фиолетовый контур активной иконки. */
-  --color-primary-glow: rgba(145, 99, 255, 0.32); /* Фиолетовое свечение индикаторов и прогресса. */
-  --color-power-active-ring: rgba(255, 255, 255, 0.34); /* Светлый контур активной кнопки питания. */
-  --color-preview-frame-stroke: rgba(145, 99, 255, 0.38); /* Внешняя линия иконки превью модели. */
-  --color-preview-cube-stroke: rgba(145, 99, 255, 0.56); /* Основная линия куба в превью модели. */
-  --gradient-progress-print: linear-gradient(90deg, #7c55ee 0%, #a881ff 52%, #8fc8ff 100%); /* Градиент полосы общего прогресса печати. */
-  --gradient-meter-nozzle: linear-gradient(90deg, #f5a623 0%, #ffbf47 55%, #ffd36c 100%); /* Градиент полосы нагрева сопла. */
-  --gradient-meter-bed: linear-gradient(90deg, #2ecc71 0%, #3fdb84 52%, #65e69e 100%); /* Градиент полосы нагрева стола. */
+  --color-window-background: #11161c; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
+  --color-background: #050607; /* Основной почти чёрный фон интерфейса. */
+  --color-surface: #090b0d; /* Фон системных баров и крупных зон. */
+  --color-block-surface: #0d1012; /* Карточки и панели в Nothing terminal стиле. */
+  --color-surface-elevated: #14181b; /* Вложенные контролы и активные поверхности. */
+  --color-border-subtle: #24282b; /* Мягкие пиксельные разделители. */
+  --color-border-default: #3a3f43; /* Основные рамки карточек, popup и контролов. */
+  --color-surface-track: #030405; /* Фон дорожек прогресса и графиков. */
+  --color-primary: #ff2a2a; /* Красный Nothing-акцент для активных состояний. */
+  --color-primary-light: #ff5a5a; /* Светлый красный для активного текста. */
+  --color-primary-dark: #b91414; /* Тёмный красный для нажатых состояний. */
+  --color-success: #d9f7e5; /* Светлый терминальный success без зелёного доминирования. */
+  --color-warning: #fff0b8; /* Тёплый warning, читаемый на чёрном фоне. */
+  --color-error: #ff2a2a; /* Критичные действия и ошибки. */
+  --color-text-primary: #f4f4f0; /* Основной светлый dot-matrix текст. */
+  --color-text-secondary: #c9cbc7; /* Подписи и вторичный текст. */
+  --color-text-soft: #90948f; /* Units, meta и muted-информация. */
+  --color-overlay: rgba(2, 3, 4, 0.78); /* Затемнение контента под popup. */
+  --color-shadow-strong: rgba(0, 0, 0, 0.58); /* Жёсткая тень popup и всплывающих слоёв. */
+  --color-primary-surface: rgba(255, 42, 42, 0.14); /* Активная красная подложка. */
+  --color-primary-surface-soft: rgba(255, 42, 42, 0.09); /* Мягкая активная подложка у контролов. */
+  --color-primary-ring: rgba(255, 42, 42, 0.72); /* Красный пиксельный контур. */
+  --color-primary-glow: rgba(255, 42, 42, 0.22); /* Сдержанное красное свечение. */
+  --color-power-active-ring: rgba(255, 42, 42, 0.58); /* Контур активной кнопки питания. */
+  --color-preview-frame-stroke: rgba(244, 244, 240, 0.52); /* Внешняя линия превью модели. */
+  --color-preview-cube-stroke: rgba(244, 244, 240, 0.72); /* Основная линия куба в превью модели. */
+  --gradient-progress-print: linear-gradient(90deg, #ff2a2a 0%, #f4f4f0 56%, #8b8f8a 100%); /* Терминальная шкала прогресса. */
+  --gradient-meter-nozzle: linear-gradient(90deg, #ff2a2a 0%, #fff0b8 62%, #f4f4f0 100%); /* Шкала нагрева сопла. */
+  --gradient-meter-bed: linear-gradient(90deg, #8b8f8a 0%, #d9f7e5 58%, #f4f4f0 100%); /* Шкала нагрева стола. */
+  --terminal-red: #ff2a2a;
+  --terminal-grid-dot: rgba(244, 244, 240, 0.11);
+  --terminal-grid-line: rgba(244, 244, 240, 0.055);
+  --terminal-scanline: rgba(244, 244, 240, 0.035);
+  --terminal-panel-sheen: rgba(244, 244, 240, 0.05);
+  --terminal-border-active: rgba(244, 244, 240, 0.86);
 
   /* 00_Foundation: typography */
   --font-size-heading-large: 28px;
@@ -38,10 +50,10 @@
   --font-size-small: 14px;
   --font-size-tiny: 12px;
 
-  --font-weight-medium: 500;
+  --font-weight-medium: 400;
   --font-weight-regular: 400;
 
-  --font-family-ui: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-family-ui: 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
 
   /* 00_Foundation: grid */
   --grid-base: 8px;
