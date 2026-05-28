@@ -598,6 +598,7 @@ function App() {
 
     return BOTTOM_NAV_ITEMS.find((item) => item.id === activeScreen)?.label ?? statusLabel(snapshot.state)
   }, [activeScreen, effectiveActivePrintState, hasActivePrint, snapshot.state])
+  const idleHeroStatusLabel = snapshot.connection === 'online' ? 'Ожидание печати' : 'Нет связи'
   const sortedPrintFiles = useMemo(() => {
     const nextItems = [...filesLibrary]
 
@@ -2645,13 +2646,7 @@ function App() {
                   <div className="dashboard-idle-logo" aria-hidden="true">
                     <img className="dashboard-idle-logo-image" src={treeDLogoAsset} alt="" />
                   </div>
-                  <p className="dashboard-idle-title">
-                    Экосистема
-                    <br />
-                    аддитивных
-                    <br />
-                    технологий
-                  </p>
+                  <p className="dashboard-idle-title">{idleHeroStatusLabel}</p>
                 </div>
 
                 <aside className="dashboard-idle-sidebar">
@@ -2660,9 +2655,9 @@ function App() {
                     <div className="idle-temp-grid">
                       <p>
                         <span className="idle-temp-kind" aria-hidden="true">
-                          <IconMask name="metricNozzle" size={16} className="idle-temp-kind-icon" />
+                          <IconMask name="metricNozzle" size={20} className="idle-temp-kind-icon" />
                         </span>
-                        <span className="idle-temp-sr">Сопло</span>
+                        <span className="idle-temp-name">Сопло</span>
                         <strong>
                           <span className="idle-temp-value-number">{idleNozzleTempValue}</span>
                           <span className="idle-temp-value-unit">°C</span>
@@ -2670,9 +2665,9 @@ function App() {
                       </p>
                       <p>
                         <span className="idle-temp-kind" aria-hidden="true">
-                          <IconMask name="metricBed" size={16} className="idle-temp-kind-icon" />
+                          <IconMask name="metricBed" size={20} className="idle-temp-kind-icon" />
                         </span>
-                        <span className="idle-temp-sr">Стол</span>
+                        <span className="idle-temp-name">Стол</span>
                         <strong>
                           <span className="idle-temp-value-number">{idleBedTempValue}</span>
                           <span className="idle-temp-value-unit">°C</span>

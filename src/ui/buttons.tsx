@@ -92,7 +92,7 @@ export function NavItemButton({
       {...buttonProps}
     >
       <span className="nav-icon">
-        <IconMask name={icon} size={24} />
+        <IconMask name={icon} size={32} />
       </span>
       <span>{label}</span>
     </button>
