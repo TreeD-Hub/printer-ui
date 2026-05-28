@@ -156,14 +156,15 @@ describe('App', () => {
     expect(screen.getByTestId('top-bar-screen-label')).toHaveTextContent('Управление')
     expect(screen.getByRole('heading', { name: 'Парковка' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Сервисный режим' })).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Обдув' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Подсветка' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Оси' })).toBeInTheDocument()
     expect(screen.queryByTestId('parking-action-button')).not.toBeInTheDocument()
     expect(screen.getByTestId('service-mode-button')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('control-light-main')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('control-light-toolhead')).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: 'Отключить моторы' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Загрузить филамент' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Выгрузить филамент' })).toBeInTheDocument()
-    expect(screen.getByTestId('model-fan-slider')).toBeInTheDocument()
 
     const parkingAllButton = screen.getByTestId('parking-mode-all')
     const parkingAxisXButton = screen.getByTestId('parking-axis-X')
@@ -186,6 +187,14 @@ describe('App', () => {
     await waitFor(() => {
       expect(serviceModeButton).toHaveAttribute('aria-pressed', 'false')
     }, { timeout: 1500 })
+
+    const mainLightButton = screen.getByTestId('control-light-main')
+    fireEvent.click(mainLightButton)
+    expect(mainLightButton).toHaveAttribute('aria-pressed', 'true')
+
+    const toolheadLightButton = screen.getByTestId('control-light-toolhead')
+    fireEvent.click(toolheadLightButton)
+    expect(toolheadLightButton).toHaveAttribute('aria-pressed', 'true')
 
     const moveButtonsMode = screen.getByTestId('move-mode-buttons')
     const moveJoystickMode = screen.getByTestId('move-mode-joystick')

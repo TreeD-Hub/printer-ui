@@ -1209,18 +1209,21 @@ body {
 }
 
 .settings-toggle-row {
-  border-radius: 10px;
+  min-height: 44px;
+  border-radius: 12px;
   border: 1px solid var(--color-border-default);
   background: var(--color-surface-elevated);
   color: var(--color-text-primary);
   padding: var(--space-sm);
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  justify-content: space-between;
+  gap: var(--space-md);
   cursor: pointer;
 }
 
 .settings-toggle-switch {
+  flex: 0 0 auto;
   width: 52px;
   height: 30px;
   border-radius: 999px;
@@ -1252,8 +1255,11 @@ body {
 }
 
 .settings-toggle-label {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: var(--font-size-body-large);
   color: var(--color-text-primary);
+  text-align: left;
 }
 
 .settings-select-field {
@@ -2096,6 +2102,10 @@ body {
   align-content: start;
 }
 
+.control-card-lighting {
+  gap: var(--space-xs);
+}
+
 .control-parking-targets {
   display: grid;
   grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
@@ -2104,7 +2114,7 @@ body {
 
 .control-target-btn {
   min-height: 42px;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid var(--color-border-default);
   background: var(--color-surface-elevated);
   color: var(--color-text-secondary);
@@ -2179,7 +2189,7 @@ body {
 .control-service-btn,
 .axis-cross-btn {
   min-height: 44px;
-  border-radius: 8px;
+  border-radius: 12px;
   border: 1px solid var(--color-border-default);
   background: var(--color-surface-elevated);
   color: var(--color-text-primary);
@@ -4876,12 +4886,27 @@ select {
 
 .settings-toggle-switch,
 .macros-toggle-lock,
-.z-axis-slider-thumb,
-.fan-slider-thumb,
-.virtual-joystick-handle,
 .macros-bed-point,
 .bed-point {
   border-radius: 4px;
+}
+
+.segmented-toggle-btn,
+.step-btn,
+.settings-toggle-row,
+.control-action-btn,
+.control-target-btn,
+.control-service-btn,
+.axis-cross-btn {
+  border-radius: 12px;
+}
+
+.fan-slider-thumb,
+.z-axis-slider-thumb,
+.virtual-joystick-handle,
+.settings-toggle-switch,
+.settings-toggle-switch::after {
+  border-radius: 999px;
 }
 
 .settings-toggle-switch {
@@ -4890,7 +4915,6 @@ select {
 }
 
 .settings-toggle-switch::after {
-  border-radius: 2px;
   background: var(--color-text-soft);
 }
 

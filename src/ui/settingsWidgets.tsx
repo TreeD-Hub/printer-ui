@@ -103,8 +103,8 @@ export function SettingsToggleRow({
       data-testid={testId}
       onClick={() => onChange(!checked)}
     >
-      <span className={joinClassNames('settings-toggle-switch', checked && 'is-active')} aria-hidden="true" />
       <span className="settings-toggle-label">{label}</span>
+      <span className={joinClassNames('settings-toggle-switch', checked && 'is-active')} aria-hidden="true" />
     </button>
   )
 }

@@ -115,6 +115,7 @@ type PrintHeadPosition = {
   x: number
   y: number
   z: number
+  e: number
 }
 type BedScrewPointId = 'front-left' | 'front-right' | 'rear-right' | 'rear-left' | 'center'
 type BedScrewPoint = {
@@ -348,8 +349,6 @@ const HEAD_X_BOUNDS_MM = { min: 0, max: 250 } as const
 const HEAD_Y_BOUNDS_MM = { min: 0, max: 250 } as const
 const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
 const Z_OFFSET_BOUNDS_MM = { min: -2, max: 2 } as const
-const MODEL_FAN_BOUNDS_PERCENT = { min: 0, max: 100 } as const
-const MODEL_FAN_STEP_PERCENT = 5
 const MAX_JOYSTICK_SPEED_MM_S = 50
 const BED_SCREW_MOVE_DURATION_MS = 650
 const BED_SCREW_GUIDE_POINTS: BedScrewPoint[] = [
@@ -399,6 +398,7 @@ function normalizeHeadPosition(position: PrintHeadPosition): PrintHeadPosition {
     x: clampAxisValue(position.x, HEAD_X_BOUNDS_MM.min, HEAD_X_BOUNDS_MM.max),
     y: clampAxisValue(position.y, HEAD_Y_BOUNDS_MM.min, HEAD_Y_BOUNDS_MM.max),
     z: clampAxisValue(position.z, HEAD_Z_BOUNDS_MM.min, HEAD_Z_BOUNDS_MM.max),
+    e: position.e,
   }
 }
 
@@ -544,15 +544,15 @@ function App() {
   const [movementMode, setMovementMode] = useState<MovementMode>('buttons')
   const [moveStepKey, setMoveStepKey] = useState<MoveStepKey>('1')
   const [activeControlFlashKey, setActiveControlFlashKey] = useState<string | null>(null)
-  const [modelFanPercent, setModelFanPercent] = useState<number>(() => (
-    snapValueByStep(snapshot.modelFanPercent, MODEL_FAN_BOUNDS_PERCENT.min, MODEL_FAN_BOUNDS_PERCENT.max, MODEL_FAN_STEP_PERCENT)
-  ))
+  const [isMainLightEnabled, setIsMainLightEnabled] = useState<boolean>(false)
+  const [isToolheadLightEnabled, setIsToolheadLightEnabled] = useState<boolean>(false)
   const [joystickVector, setJoystickVector] = useState<JoystickVector>({ x: 0, y: 0 })
   const [printHeadPosition, setPrintHeadPosition] = useState<PrintHeadPosition>(() =>
     normalizeHeadPosition({
       x: snapshot.toolheadX,
       y: snapshot.toolheadY,
       z: snapshot.toolheadZ,
+      e: 0,
     }),
   )
   const idleNotesInputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -650,7 +650,7 @@ function App() {
     () => Math.hypot(joystickVector.x, joystickVector.y) * MAX_JOYSTICK_SPEED_MM_S,
     [joystickVector.x, joystickVector.y],
   )
-  const axisCoordinatesLabel = `X ${formatAxisCoordinate(printHeadPosition.x)}  Y ${formatAxisCoordinate(printHeadPosition.y)}  Z ${formatAxisCoordinate(printHeadPosition.z)}`
+  const axisCoordinatesLabel = `X ${formatAxisCoordinate(printHeadPosition.x)}  Y ${formatAxisCoordinate(printHeadPosition.y)}  Z ${formatAxisCoordinate(printHeadPosition.z)}  E ${formatAxisCoordinate(printHeadPosition.e)}`
   const activeBedScrewPoint = BED_SCREW_GUIDE_POINTS.find((point) => point.id === activeBedScrewPointId) ?? null
   const activeBedScrewPointLabel = activeBedScrewPoint === null
     ? 'Текущая точка не выбрана.'
@@ -828,12 +828,6 @@ function App() {
 
   function handleMovementModeChange(nextMode: MovementMode): void {
     setMovementMode(nextMode)
-  }
-
-  function handleModelFanPercentChange(nextValue: number): void {
-    setModelFanPercent(
-      snapValueByStep(nextValue, MODEL_FAN_BOUNDS_PERCENT.min, MODEL_FAN_BOUNDS_PERCENT.max, MODEL_FAN_STEP_PERCENT),
-    )
   }
 
   function handleMacroZOffsetAdjust(direction: -1 | 1): void {
@@ -1188,7 +1182,12 @@ function App() {
     })
   }
 
-  function handleFilamentMove(_direction: -1 | 1): void {
+  function handleFilamentMove(direction: -1 | 1): void {
+    setPrintHeadPosition((prevPosition) => ({
+      ...prevPosition,
+      e: prevPosition.e - (direction * moveStepMm),
+    }))
+
     // Команды загрузки и выгрузки филамента будут подключены после интеграции backend.
   }
 
@@ -1579,30 +1578,16 @@ function App() {
   }, [joystickVector.x, joystickVector.y, movementMode])
 
   useEffect(() => {
-    setModelFanPercent((currentValue) => {
-      const nextValue = snapValueByStep(
-        snapshot.modelFanPercent,
-        MODEL_FAN_BOUNDS_PERCENT.min,
-        MODEL_FAN_BOUNDS_PERCENT.max,
-        MODEL_FAN_STEP_PERCENT,
-      )
-
-      return currentValue === nextValue ? currentValue : nextValue
-    })
-  }, [snapshot.modelFanPercent])
-
-  useEffect(() => {
     if (movementMode === 'joystick') {
       return
     }
 
-    setPrintHeadPosition(
-      normalizeHeadPosition({
-        x: snapshot.toolheadX,
-        y: snapshot.toolheadY,
-        z: snapshot.toolheadZ,
-      }),
-    )
+    setPrintHeadPosition((prevPosition) => normalizeHeadPosition({
+      x: snapshot.toolheadX,
+      y: snapshot.toolheadY,
+      z: snapshot.toolheadZ,
+      e: prevPosition.e,
+    }))
   }, [movementMode, snapshot.toolheadX, snapshot.toolheadY, snapshot.toolheadZ])
 
   useEffect(() => {
@@ -1624,6 +1609,7 @@ function App() {
         x: prevPosition.x + (joystickVector.x * MAX_JOYSTICK_SPEED_MM_S * deltaSeconds),
         y: prevPosition.y + (joystickVector.y * MAX_JOYSTICK_SPEED_MM_S * deltaSeconds),
         z: prevPosition.z,
+        e: prevPosition.e,
       }))
 
       frameHandle = window.requestAnimationFrame(tick)
@@ -2884,6 +2870,8 @@ function App() {
                       </button>
                     </article>
 
+                    {/*
+                      TODO: перенести в блок вентиляторов, а после удалить отсюда.
                     <article className="control-card control-card-fan">
                       <div className="control-card-head">
                         <h3 className="control-card-title">Обдув</h3>
@@ -2899,12 +2887,28 @@ function App() {
                         testId="model-fan-slider"
                       />
                     </article>
+                    */}
+
+                    <article className="control-card control-card-lighting">
+                      <h3 className="control-card-title">Подсветка</h3>
+                      <SettingsToggleRow
+                        label="Основной свет"
+                        checked={isMainLightEnabled}
+                        onChange={setIsMainLightEnabled}
+                        testId="control-light-main"
+                      />
+                      <SettingsToggleRow
+                        label="Подсветка ПГ"
+                        checked={isToolheadLightEnabled}
+                        onChange={setIsToolheadLightEnabled}
+                        testId="control-light-toolhead"
+                      />
+                    </article>
                   </div>
 
                   <article className="control-card control-card-motion">
                     <div className="control-card-head">
                       <h3 className="control-card-title">Оси</h3>
-                      <p className="control-card-state">{movementMode === 'buttons' ? `${moveStepKey} мм` : 'Джойстик'}</p>
                     </div>
                     <SegmentedToggle
                       options={MOVEMENT_MODE_OPTIONS}
