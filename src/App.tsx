@@ -21,6 +21,7 @@ import {
   ActionSquareButton,
   AxisCrossControls,
   HorizontalSteppedSlider,
+  IconMask,
   NavItemButton,
   PlainMetric,
   PrintFileCard,
@@ -586,8 +587,8 @@ function App() {
   const wifiSsidLabel = snapshot.connection === 'online' ? snapshot.wifiSsid : 'Не подключено'
   const wifiIpLabel = snapshot.connection === 'online' ? snapshot.ipAddress : '—'
   const cloudStatusLabel = snapshot.connection === 'online' ? 'В сети' : 'Не в сети'
-  const idleNozzleTempLabel = `${rounded(snapshot.extruderTemp)} °C`
-  const idleBedTempLabel = `${rounded(snapshot.bedTemp)} °C`
+  const idleNozzleTempValue = rounded(snapshot.extruderTemp)
+  const idleBedTempValue = rounded(snapshot.bedTemp)
   const effectiveActivePrintState = hasActivePrint ? (activePrintUiState ?? snapshot.state) : snapshot.state
   const isPrintPaused = hasActivePrint && statusLabel(effectiveActivePrintState) === 'Пауза'
   const topBarScreenLabel = useMemo(() => {
@@ -2657,8 +2658,26 @@ function App() {
                   <article className="idle-mini-widget idle-mini-widget-temps">
                     <p className="idle-mini-label">Температура</p>
                     <div className="idle-temp-grid">
-                      <p><span>Сопло</span><strong>{idleNozzleTempLabel}</strong></p>
-                      <p><span>Стол</span><strong>{idleBedTempLabel}</strong></p>
+                      <p>
+                        <span className="idle-temp-kind" aria-hidden="true">
+                          <IconMask name="metricNozzle" size={16} className="idle-temp-kind-icon" />
+                        </span>
+                        <span className="idle-temp-sr">Сопло</span>
+                        <strong>
+                          <span className="idle-temp-value-number">{idleNozzleTempValue}</span>
+                          <span className="idle-temp-value-unit">°C</span>
+                        </strong>
+                      </p>
+                      <p>
+                        <span className="idle-temp-kind" aria-hidden="true">
+                          <IconMask name="metricBed" size={16} className="idle-temp-kind-icon" />
+                        </span>
+                        <span className="idle-temp-sr">Стол</span>
+                        <strong>
+                          <span className="idle-temp-value-number">{idleBedTempValue}</span>
+                          <span className="idle-temp-value-unit">°C</span>
+                        </strong>
+                      </p>
                     </div>
                   </article>
 
@@ -2667,10 +2686,6 @@ function App() {
                     <div className="idle-service-metrics">
                       <p><span>Пробег</span><strong>{MAINTENANCE_STATUS.runtimeHours} ч</strong></p>
                       <p><span>До ТО</span><strong>{MAINTENANCE_STATUS.hoursLeft} ч</strong></p>
-                    </div>
-                    <div className="idle-service-time">
-                      <span>Время</span>
-                      <strong>{formattedSnapshotTime}</strong>
                     </div>
                   </article>
 

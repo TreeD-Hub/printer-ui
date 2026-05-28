@@ -2,6 +2,8 @@ import actionPause from '../assets/icons/action-pause.svg'
 import actionResume from '../assets/icons/action-resume.svg'
 import actionStopCritical from '../assets/icons/action-stop-critical.svg'
 import menuControl from '../assets/icons/menu-control.svg'
+import metricBed from '../assets/icons/metric-bed.svg'
+import metricNozzle from '../assets/icons/metric-nozzle.svg'
 import menuDashboard from '../assets/icons/menu-dashboard.svg'
 import menuDevice from '../assets/icons/menu-device.svg'
 import menuFiles from '../assets/icons/menu-files.svg'
@@ -19,6 +21,8 @@ export const UI_ICON_ASSETS = {
   actionPause,
   actionResume,
   actionStopCritical,
+  metricBed,
+  metricNozzle,
   menuControl,
   menuDashboard,
   menuDevice,
