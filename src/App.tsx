@@ -2422,8 +2422,7 @@ function App() {
 
   return (
     <main className={`app-root ${isMaxPerformanceModeEnabled ? 'is-performance-mode' : ''}`}>
-      <div className="screen-emulator-stage">
-        <section className="screen-shell" data-testid="screen-shell" ref={screenShellRef}>
+      <section className="screen-shell" data-testid="screen-shell" ref={screenShellRef}>
         <header className="top-bar">
           <div className="brand-wrap">
             <h1>TreeD Принтер</h1>
@@ -4194,8 +4193,7 @@ function App() {
             </section>
           </div>
         ) : null}
-        </section>
-      </div>
+      </section>
     </main>
   )
 }

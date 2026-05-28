@@ -87,9 +87,6 @@
   /* device contract */
   --screen-width: 960px;
   --screen-height: 544px;
-  --screen-emulator-scale: 0.6;
-  --screen-emulator-width: calc(var(--screen-width) * var(--screen-emulator-scale));
-  --screen-emulator-height: calc(var(--screen-height) * var(--screen-emulator-scale));
 
   /* block layout rule */
   --layout-block-padding-y: var(--space-md);
