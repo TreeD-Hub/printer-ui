@@ -9,7 +9,6 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
 }
 
 .app-root {
@@ -17,8 +16,13 @@ body {
   background: var(--color-window-background);
   display: grid;
   place-items: center;
-  padding: 0;
-  overflow: hidden;
+  padding: var(--grid-safe-area);
+}
+
+.screen-emulator-stage {
+  position: relative;
+  width: var(--screen-emulator-width);
+  height: var(--screen-emulator-height);
 }
 
 .app-root.is-performance-mode *,
@@ -40,9 +44,12 @@ body {
 }
 
 .screen-shell {
-  position: relative;
   width: var(--screen-width);
   height: var(--screen-height);
+  position: absolute;
+  inset: 0 auto auto 0;
+  transform: scale(var(--screen-emulator-scale));
+  transform-origin: top left;
   border-radius: 0;
   border: 1px solid var(--color-border-subtle);
   background: var(--color-background);
