@@ -342,6 +342,8 @@ function clampSliderValue(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
+const HORIZONTAL_SLIDER_EDGE_INSET_PX = 20
+
 export function VerticalAxisSlider({
   value,
   min,
@@ -496,8 +498,10 @@ export function HorizontalSteppedSlider({
     }
 
     const bounds = trackElement.getBoundingClientRect()
-    const clampedX = clampSliderValue(clientX, bounds.left, bounds.right)
-    const ratio = (clampedX - bounds.left) / Math.max(1, bounds.width)
+    const interactionLeft = bounds.left + HORIZONTAL_SLIDER_EDGE_INSET_PX
+    const interactionRight = bounds.right - HORIZONTAL_SLIDER_EDGE_INSET_PX
+    const clampedX = clampSliderValue(clientX, interactionLeft, interactionRight)
+    const ratio = (clampedX - interactionLeft) / Math.max(1, interactionRight - interactionLeft)
     const rawValue = min + (ratio * (normalizedMax - min))
     return snapToStep(rawValue, min, normalizedMax, step)
   }

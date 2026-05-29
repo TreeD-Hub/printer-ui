@@ -219,6 +219,11 @@ const CONTROL_GROUP_OPTIONS: Array<SettingsMenuOption<ControlGroupId>> = [
   { id: 'lighting', label: 'Освещение', icon: 'metricLight' },
   { id: 'maintenance', label: 'Т.О', icon: 'menuDevice' },
 ]
+const HEATING_PRESET_OPTIONS = [
+  { id: 'pla', label: 'PLA', nozzle: 210, bed: 60 },
+  { id: 'abs', label: 'ABS', nozzle: 245, bed: 100 },
+  { id: 'petg', label: 'PETG', nozzle: 235, bed: 80 },
+] as const
 const SETTINGS_GROUP_OPTIONS: Array<SettingsMenuOption<SettingsGroupId>> = [
   { id: 'network', label: 'Сеть', icon: 'statusWifi' },
   { id: 'system', label: 'Система', icon: 'menuSettings' },
@@ -793,6 +798,49 @@ function App() {
     }),
     [printBedTargetTemp, snapshot.bedTemp],
   )
+  const temperatureChartSeries = useMemo(
+    () => [
+      {
+        id: 'nozzle' as const,
+        label: 'Сопло',
+        tone: 'orange' as const,
+        values: nozzleTrendValues,
+        target: printNozzleTargetTemp,
+      },
+      {
+        id: 'bed' as const,
+        label: 'Стол',
+        tone: 'green' as const,
+        values: bedTrendValues,
+        target: printBedTargetTemp,
+      },
+    ],
+    [bedTrendValues, nozzleTrendValues, printBedTargetTemp, printNozzleTargetTemp],
+  )
+  const heatingControlRows = [
+    {
+      id: 'nozzle' as const,
+      keyboardTarget: 'nozzle' as const,
+      icon: 'metricNozzle' as const,
+      uiLabel: 'Сопло',
+      tone: 'orange' as const,
+      current: snapshot.extruderTemp,
+      target: printNozzleTargetTemp,
+      onTargetChange: setPrintNozzleTargetTemp,
+      testIdPrefix: 'control-heating-nozzle',
+    },
+    {
+      id: 'bed' as const,
+      keyboardTarget: 'bed' as const,
+      icon: 'metricBed' as const,
+      uiLabel: 'Стол',
+      tone: 'green' as const,
+      current: snapshot.bedTemp,
+      target: printBedTargetTemp,
+      onTargetChange: setPrintBedTargetTemp,
+      testIdPrefix: 'control-heating-bed',
+    },
+  ]
 
   const closeTopPopup = useCallback(() => {
     setActiveTopPopup(null)
@@ -1871,6 +1919,78 @@ function App() {
     closeTemperatureKeyboard()
   }
 
+  function handleHeatingPresetApply(nozzle: number, bed: number): void {
+    setPrintNozzleTargetTemp(nozzle)
+    setPrintBedTargetTemp(bed)
+    closeTemperatureKeyboard()
+  }
+
+  function handleHeatingDisable(): void {
+    setPrintNozzleTargetTemp(0)
+    setPrintBedTargetTemp(0)
+    closeTemperatureKeyboard()
+  }
+
+  function renderTemperatureKeyboardPanel(className = ''): ReactNode {
+    return (
+      <aside className={`print-temp-keyboard-side ${className}`.trim()} aria-label="Цифровая клавиатура температуры">
+        <div className="print-temp-keyboard-head">
+          <p className="print-temp-keyboard-label">Температура</p>
+          <button
+            type="button"
+            className="print-cancel-modal-close print-temp-keyboard-close"
+            aria-label="Закрыть клавиатуру температуры"
+            onClick={closeTemperatureKeyboard}
+          >
+            ×
+          </button>
+        </div>
+        <p className="print-temp-keyboard-display">
+          {temperatureKeyboardValue}
+          {temperatureKeyboardValue.length > 0 ? <span> °C</span> : null}
+        </p>
+        <div className="print-temp-keyboard-grid">
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+            <button
+              key={digit}
+              type="button"
+              className="settings-network-btn print-temp-keyboard-key"
+              onClick={() => handleTemperatureKeyboardDigit(digit)}
+              aria-label={`Цифра ${digit}`}
+            >
+              {digit}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="settings-network-btn print-temp-keyboard-key"
+            onClick={handleTemperatureKeyboardBackspace}
+            aria-label="Стереть последнюю цифру"
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            className="settings-network-btn print-temp-keyboard-key"
+            onClick={() => handleTemperatureKeyboardDigit('0')}
+            aria-label="Цифра 0"
+          >
+            0
+          </button>
+          <span className="print-temp-keyboard-spacer" aria-hidden="true" />
+        </div>
+        <button
+          type="button"
+          className="settings-network-btn settings-network-btn-primary print-temp-keyboard-submit"
+          onClick={handleTemperatureKeyboardSubmit}
+          aria-label="Ввести температуру"
+        >
+          ✓
+        </button>
+      </aside>
+    )
+  }
+
   function resolvePrintTuneKeyboardMeta(target: PrintTuneNumericKeyboardTarget): {
     label: string
     unit: string
@@ -2027,22 +2147,7 @@ function App() {
           testIdPrefix: 'print-tune-temp-bed',
         },
       ]
-      const chartSeries = [
-        {
-          id: 'nozzle' as const,
-          label: 'Сопло',
-          tone: 'orange' as const,
-          values: nozzleTrendValues,
-          target: printNozzleTargetTemp,
-        },
-        {
-          id: 'bed' as const,
-          label: 'Стол',
-          tone: 'green' as const,
-          values: bedTrendValues,
-          target: printBedTargetTemp,
-        },
-      ].filter((seriesItem) => {
+      const chartSeries = temperatureChartSeries.filter((seriesItem) => {
         if (temperatureChartMode === 'both') {
           return true
         }
@@ -2126,61 +2231,7 @@ function App() {
               />
             </section>
 
-            {temperatureKeyboardTarget !== null ? (
-              <aside className="print-temp-keyboard-side" aria-label="Цифровая клавиатура температуры">
-                <div className="print-temp-keyboard-head">
-                  <p className="print-temp-keyboard-label">Температура</p>
-                  <button
-                    type="button"
-                    className="print-cancel-modal-close print-temp-keyboard-close"
-                    aria-label="Закрыть клавиатуру температуры"
-                    onClick={closeTemperatureKeyboard}
-                  >
-                    ×
-                  </button>
-                </div>
-                <p className="print-temp-keyboard-display">
-                  {temperatureKeyboardValue}
-                  {temperatureKeyboardValue.length > 0 ? <span> °C</span> : null}
-                </p>
-                <div className="print-temp-keyboard-grid">
-                  {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-                    <button
-                      key={digit}
-                      type="button"
-                      className="settings-network-btn print-temp-keyboard-key"
-                      onClick={() => handleTemperatureKeyboardDigit(digit)}
-                      aria-label={`Цифра ${digit}`}
-                    >
-                      {digit}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    className="settings-network-btn print-temp-keyboard-key"
-                    onClick={handleTemperatureKeyboardBackspace}
-                  >
-                    Стереть
-                  </button>
-                  <button
-                    type="button"
-                    className="settings-network-btn print-temp-keyboard-key"
-                    onClick={() => handleTemperatureKeyboardDigit('0')}
-                    aria-label="Цифра 0"
-                  >
-                    0
-                  </button>
-                  <span className="print-temp-keyboard-spacer" aria-hidden="true" />
-                </div>
-                <button
-                  type="button"
-                  className="settings-network-btn settings-network-btn-primary print-temp-keyboard-submit"
-                  onClick={handleTemperatureKeyboardSubmit}
-                >
-                  Ввод
-                </button>
-              </aside>
-            ) : null}
+            {temperatureKeyboardTarget !== null ? renderTemperatureKeyboardPanel() : null}
           </div>
         </div>
       )
@@ -3048,7 +3099,7 @@ function App() {
                               onClick={() => void handleParkingTargetSelect('all')}
                               disabled={isBusy}
                             >
-                              ALL
+                              XYZ
                             </button>
                             {PARKING_AXIS_OPTIONS.map((option) => (
                               <button
@@ -3174,38 +3225,101 @@ function App() {
                       </div>
                     ) : activeControlGroup === 'heating' ? (
                       <div className="control-heating-grid">
-                        <article className="control-card control-card-heating">
-                          <div className="control-card-head">
-                            <h3 className="control-card-title">Сопло</h3>
-                            <p className="control-card-value">{rounded(snapshot.extruderTemp)}°C</p>
+                        <article className="control-card control-card-heating-main">
+                          <section className="control-heating-rows" aria-label="Температуры сопла и стола">
+                            {heatingControlRows.map((row) => (
+                              <div key={row.id} className="control-heating-row">
+                                <div className="control-heating-sensor">
+                                  <span className={`control-heating-sensor-icon is-${row.tone}`} aria-hidden="true">
+                                    <IconMask name={row.icon} size={18} />
+                                  </span>
+                                  <div className="control-heating-sensor-text">
+                                    <strong>{row.uiLabel}</strong>
+                                  </div>
+                                </div>
+                                <div className="control-heating-current">
+                                  {rounded(row.current)} <span>°C</span>
+                                </div>
+                                <TuneCompactStepperInput
+                                  value={row.target}
+                                  min={0}
+                                  max={300}
+                                  step={5}
+                                  unit="°C"
+                                  readOnly={true}
+                                  displayValue={
+                                    temperatureKeyboardTarget === row.keyboardTarget
+                                      ? temperatureKeyboardValue
+                                      : String(Math.round(row.target))
+                                  }
+                                  onChange={(nextValue) => row.onTargetChange(Math.round(clampAxisValue(nextValue, 0, 300)))}
+                                  onInputFocus={() => openTemperatureKeyboard(row.keyboardTarget)}
+                                  inputAriaLabel={`Целевая температура ${row.uiLabel.toLowerCase()}`}
+                                  testIdPrefix={row.testIdPrefix}
+                                />
+                              </div>
+                            ))}
+                          </section>
+
+                          <div className="control-heating-chart-block">
+                            <div className="print-temp-chart-head control-heating-chart-head">
+                              <p className="print-temp-chart-title">График нагрева</p>
+                            </div>
+                            <TemperatureTrendChart
+                              series={temperatureChartSeries}
+                              testId="control-heating-chart"
+                            />
                           </div>
-                          <TuneNumberControl
-                            label="Целевая температура"
-                            value={printNozzleTargetTemp}
-                            min={0}
-                            max={300}
-                            step={5}
-                            unit="°C"
-                            onChange={(nextValue) => setPrintNozzleTargetTemp(Math.round(clampAxisValue(nextValue, 0, 300)))}
-                            testIdPrefix="control-heating-nozzle"
-                          />
                         </article>
-                        <article className="control-card control-card-heating">
-                          <div className="control-card-head">
-                            <h3 className="control-card-title">Стол</h3>
-                            <p className="control-card-value">{rounded(snapshot.bedTemp)}°C</p>
-                          </div>
-                          <TuneNumberControl
-                            label="Целевая температура"
-                            value={printBedTargetTemp}
-                            min={0}
-                            max={300}
-                            step={5}
-                            unit="°C"
-                            onChange={(nextValue) => setPrintBedTargetTemp(Math.round(clampAxisValue(nextValue, 0, 300)))}
-                            testIdPrefix="control-heating-bed"
-                          />
-                        </article>
+
+                        {temperatureKeyboardTarget !== null ? (
+                          <article className="control-card control-card-heating-keyboard">
+                            {renderTemperatureKeyboardPanel('is-control')}
+                          </article>
+                        ) : (
+                          <article className="control-card control-card-heating-presets">
+                            <div className="control-card-head">
+                              <h3 className="control-card-title">Предустановки</h3>
+                            </div>
+
+                            <div className="control-heating-presets-list" role="group" aria-label="Предустановки нагрева">
+                              {HEATING_PRESET_OPTIONS.map((preset) => {
+                                const isActive =
+                                  printNozzleTargetTemp === preset.nozzle &&
+                                  printBedTargetTemp === preset.bed
+
+                                return (
+                                  <button
+                                    key={preset.id}
+                                    type="button"
+                                    className={`control-heating-preset-btn${isActive ? ' is-active' : ''}`}
+                                    aria-pressed={isActive}
+                                    data-testid={`control-heating-preset-${preset.id}`}
+                                    onClick={() => handleHeatingPresetApply(preset.nozzle, preset.bed)}
+                                  >
+                                    <span className="control-heating-preset-label">{preset.label}</span>
+                                    <span className="control-heating-preset-values">
+                                      {preset.nozzle}° / {preset.bed}°
+                                    </span>
+                                  </button>
+                                )
+                              })}
+                            </div>
+
+                            <button
+                              type="button"
+                              className={`control-heating-cooldown-btn${printNozzleTargetTemp === 0 && printBedTargetTemp === 0 ? ' is-active' : ''}`}
+                              aria-pressed={printNozzleTargetTemp === 0 && printBedTargetTemp === 0}
+                              data-testid="control-heating-disable"
+                              onClick={handleHeatingDisable}
+                            >
+                              <span className="control-heating-cooldown-icon" aria-hidden="true">
+                                <IconMask name="utilitySnowflake" size={18} />
+                              </span>
+                              <span>Отключить нагрев</span>
+                            </button>
+                          </article>
+                        )}
                       </div>
                     ) : activeControlGroup === 'fans' ? (
                       <article className="control-card control-card-fan">

@@ -19,6 +19,7 @@ import statusNotification from '../assets/icons/status-notification.svg'
 import statusPower from '../assets/icons/status-power.svg'
 import statusWifi from '../assets/icons/status-wifi.svg'
 import utilityChevron from '../assets/icons/utility-chevron.svg'
+import utilitySnowflake from '../assets/icons/utility-snowflake.svg'
 
 export const UI_ICON_ASSETS = {
   actionPause,
@@ -42,6 +43,7 @@ export const UI_ICON_ASSETS = {
   statusPower,
   statusWifi,
   utilityChevron,
+  utilitySnowflake,
 } as const
 
 export type UiIconName = keyof typeof UI_ICON_ASSETS
