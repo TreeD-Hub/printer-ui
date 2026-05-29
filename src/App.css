@@ -2262,7 +2262,7 @@ body {
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 0.98fr) minmax(0, 1.02fr);
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
   gap: var(--space-xs);
   align-items: stretch;
 }
@@ -2495,99 +2495,163 @@ body {
 .axis-cross-layout {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(3, max-content);
-  justify-content: center;
-  gap: 20px;
-  align-items: start;
+  grid-template-columns: minmax(206px, 1fr) repeat(2, minmax(72px, 92px));
+  justify-content: stretch;
+  gap: 6px;
+  align-items: stretch;
 }
 
 .axis-cross-group {
+  min-width: 0;
   display: grid;
   gap: 6px;
   align-content: start;
-  justify-items: center;
-}
-
-.axis-cross-group-z {
-  justify-items: center;
-}
-
-.axis-cross-group-filament {
-  margin-left: 10px;
+  justify-items: stretch;
+  padding: 6px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, rgba(244, 244, 240, 0.035), transparent 48%),
+    var(--color-block-surface);
 }
 
 .axis-cross-title {
   margin: 0;
   text-align: center;
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-small);
+  line-height: 1.15;
   color: var(--color-text-secondary);
+  text-transform: uppercase;
 }
 
 .axis-cross-xy {
+  --axis-cross-btn-size: 64px;
   position: relative;
-  width: 172px;
-  height: 116px;
+  width: 100%;
+  min-width: 206px;
+  height: 162px;
 }
 
-.axis-cross-z {
-  position: relative;
-  width: 52px;
-  height: 116px;
+.axis-cross-z,
+.axis-cross-e {
+  min-height: 162px;
+  display: grid;
+  gap: 12px;
+  align-content: center;
 }
 
 .axis-cross-xy > button:nth-of-type(1) {
   position: absolute;
   top: 0;
-  left: 60px;
+  left: calc(50% - (var(--axis-cross-btn-size) / 2));
 }
 
 .axis-cross-xy > button:nth-of-type(2) {
   position: absolute;
-  top: 32px;
+  top: 49px;
   left: 0;
 }
 
 .axis-cross-xy > button:nth-of-type(3) {
   position: absolute;
-  top: 32px;
+  top: 49px;
   right: 0;
 }
 
 .axis-cross-xy > button:nth-of-type(4) {
   position: absolute;
   bottom: 0;
-  left: 60px;
-}
-
-.axis-cross-z > button:nth-of-type(1) {
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.axis-cross-z > button:nth-of-type(2) {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-}
-
-.axis-cross-filament {
-  display: grid;
-  gap: 12px;
+  left: calc(50% - (var(--axis-cross-btn-size) / 2));
 }
 
 .axis-cross-btn {
-  width: 52px;
-  height: 52px;
+  width: 100%;
+  height: 64px;
+  min-height: 64px;
   border-radius: 10px;
-  font-size: 30px;
+  font-size: 32px;
   line-height: 1;
   padding: 0;
   color: var(--color-text-soft);
+  display: grid;
+  place-items: center;
+}
+
+.axis-cross-xy .axis-cross-btn {
+  width: var(--axis-cross-btn-size);
+}
+
+.axis-cross-btn-labeled {
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 2px;
+  padding: 5px 2px 7px;
+  font-size: 27px;
+}
+
+.axis-cross-arrow {
+  line-height: 1;
+}
+
+.axis-cross-btn-label {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--color-text-secondary);
 }
 
 .axis-cross-center {
-  display: none;
+  --axis-cross-dot-color: rgba(244, 244, 240, 0.58);
+  display: block;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 32px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.axis-cross-center::before,
+.axis-cross-center::after {
+  content: '';
+  position: absolute;
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.axis-cross-center::before {
+  left: -42px;
+  right: -42px;
+  top: 50%;
+  height: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--axis-cross-dot-color) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+.axis-cross-center::after {
+  top: -44px;
+  bottom: -44px;
+  left: 50%;
+  width: 1px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--axis-cross-dot-color) 0 1px,
+    transparent 1px 7px
+  );
+}
+
+.axis-cross-center-core {
+  position: absolute;
+  inset: 5px;
+  background:
+    radial-gradient(circle, var(--axis-cross-dot-color) 0 1px, transparent 1.2px) 0 0 / 7px 7px;
 }
 
 .axis-cross-spacer {
@@ -2712,8 +2776,118 @@ body {
 }
 
 .control-coordinates-panel {
+  min-width: 0;
   display: grid;
-  gap: var(--space-xxs);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 34px;
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  background: var(--color-block-surface);
+}
+
+.control-coordinates-panel .joystick-readout {
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.axis-coordinate-readout {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.axis-coordinate-item {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.axis-coordinate-axis {
+  color: var(--color-text-secondary);
+}
+
+.axis-coordinate-value {
+  color: var(--color-text-primary);
+}
+
+.axis-home-status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  white-space: nowrap;
+}
+
+.axis-home-indicator {
+  display: inline-grid;
+  grid-template-columns: auto 16px;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-soft);
+  font-size: var(--font-size-body);
+  line-height: 1;
+}
+
+.axis-home-indicator.is-homed {
+  color: var(--color-text-primary);
+}
+
+.axis-home-label,
+.axis-home-mark {
+  line-height: 1;
+}
+
+.axis-home-mark {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+}
+
+.axis-home-mark::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 1px;
+  width: 12px;
+  height: 7px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transform-origin: center;
+  opacity: 0;
+}
+
+.axis-home-mark::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 8px;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.axis-home-indicator.is-homed .axis-home-mark::before {
+  opacity: 1;
+}
+
+.axis-home-indicator.is-homed .axis-home-mark::after {
+  opacity: 0;
 }
 
 .control-cross-wrap {
@@ -5911,38 +6085,55 @@ select {
   }
 
   .axis-cross-layout {
-    grid-template-columns: repeat(3, max-content);
-    justify-content: center;
+    grid-template-columns: minmax(156px, 1fr) repeat(2, minmax(54px, 60px));
+    justify-content: stretch;
+    gap: 6px;
   }
 
   .axis-cross-xy {
-    width: 148px;
-    height: 100px;
+    --axis-cross-btn-size: 48px;
+    min-width: 148px;
+    height: 112px;
   }
 
-  .axis-cross-z {
-    width: 44px;
-    height: 100px;
+  .axis-cross-z,
+  .axis-cross-e {
+    min-height: 112px;
+    gap: 6px;
   }
 
   .axis-cross-btn {
-    width: 44px;
-    height: 44px;
-    min-height: 44px;
+    height: 48px;
+    min-height: 48px;
+    font-size: 26px;
   }
 
-  .axis-cross-group-filament {
-    margin-left: 6px;
+  .axis-cross-btn-labeled {
+    font-size: 21px;
+  }
+
+  .axis-cross-btn-label {
+    font-size: 9px;
   }
 
   .axis-cross-xy > button:nth-of-type(1),
   .axis-cross-xy > button:nth-of-type(4) {
-    left: 52px;
+    left: calc(50% - (var(--axis-cross-btn-size) / 2));
   }
 
   .axis-cross-xy > button:nth-of-type(2),
   .axis-cross-xy > button:nth-of-type(3) {
-    top: 28px;
+    top: 32px;
+  }
+
+  .axis-cross-center::before {
+    left: -34px;
+    right: -34px;
+  }
+
+  .axis-cross-center::after {
+    top: -24px;
+    bottom: -24px;
   }
 
   .joystick-panel {

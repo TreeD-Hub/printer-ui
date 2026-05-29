@@ -13,6 +13,7 @@ const FALLBACK_SNAPSHOT: PrinterSnapshot = {
   toolheadX: 0,
   toolheadY: 0,
   toolheadZ: 0,
+  homedAxes: '',
   extruderTemp: 0,
   bedTemp: 0,
   modelFanPercent: 0,

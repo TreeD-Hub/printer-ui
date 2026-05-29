@@ -16,6 +16,7 @@ export function createMockClient(): TransportClient {
         toolheadX: 125,
         toolheadY: 125,
         toolheadZ: 12.4,
+        homedAxes: 'xyz',
         extruderTemp: 215,
         bedTemp: 58,
         modelFanPercent: 78,

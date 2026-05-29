@@ -13,6 +13,7 @@ type ObjectsQueryResult = {
   status?: {
     toolhead?: {
       position?: [number, number, number]
+      homed_axes?: string
     }
     extruder?: {
       temperature?: number
@@ -74,6 +75,7 @@ export function createMoonrakerClient(): TransportClient {
         toolheadX: Number(toolheadPosition[0] ?? 0),
         toolheadY: Number(toolheadPosition[1] ?? 0),
         toolheadZ: Number(toolheadPosition[2] ?? 0),
+        homedAxes: objects.status?.toolhead?.homed_axes ?? '',
         extruderTemp: Number(objects.status?.extruder?.temperature ?? 0),
         bedTemp: Number(objects.status?.heater_bed?.temperature ?? 0),
         modelFanPercent: Math.max(0, Math.min(100, Number(objects.status?.fan?.speed ?? 0) * 100)),

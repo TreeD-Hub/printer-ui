@@ -7,6 +7,7 @@ export interface PrinterSnapshot {
   toolheadX: number
   toolheadY: number
   toolheadZ: number
+  homedAxes: string
   extruderTemp: number
   bedTemp: number
   modelFanPercent: number

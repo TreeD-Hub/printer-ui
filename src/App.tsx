@@ -201,6 +201,7 @@ const PARKING_AXIS_OPTIONS: Array<{ id: AxisId; label: string }> = [
   { id: 'Y', label: 'Y' },
   { id: 'Z', label: 'Z' },
 ]
+const HOMED_AXIS_IDS: readonly AxisId[] = ['X', 'Y', 'Z']
 const MOVEMENT_MODE_OPTIONS: Array<{ id: MovementMode; label: string }> = [
   { id: 'buttons', label: 'Крестовина' },
   { id: 'joystick', label: 'Джойстик' },
@@ -667,6 +668,17 @@ function App() {
     [joystickVector.x, joystickVector.y],
   )
   const axisCoordinatesLabel = `X ${formatAxisCoordinate(printHeadPosition.x)}  Y ${formatAxisCoordinate(printHeadPosition.y)}  Z ${formatAxisCoordinate(printHeadPosition.z)}  E ${formatAxisCoordinate(printHeadPosition.e)}`
+  const axisCoordinateItems = [
+    { axis: 'X', value: formatAxisCoordinate(printHeadPosition.x) },
+    { axis: 'Y', value: formatAxisCoordinate(printHeadPosition.y) },
+    { axis: 'Z', value: formatAxisCoordinate(printHeadPosition.z) },
+    { axis: 'E', value: formatAxisCoordinate(printHeadPosition.e) },
+  ]
+  const homedAxes = snapshot.homedAxes.toLocaleLowerCase('en-US')
+  const axisHomeStatuses = HOMED_AXIS_IDS.map((axis) => ({
+    axis,
+    homed: homedAxes.includes(axis.toLocaleLowerCase('en-US')),
+  }))
   const activeBedScrewPoint = BED_SCREW_GUIDE_POINTS.find((point) => point.id === activeBedScrewPointId) ?? null
   const activeBedScrewPointLabel = activeBedScrewPoint === null
     ? 'Текущая точка не выбрана.'
@@ -3094,7 +3106,26 @@ function App() {
                                 testIdPrefix="move-step"
                               />
                               <div className="control-coordinates-panel">
-                                <p className="joystick-readout" data-testid="axis-coordinates">{axisCoordinatesLabel}</p>
+                                <p className="joystick-readout axis-coordinate-readout" data-testid="axis-coordinates" aria-label={axisCoordinatesLabel}>
+                                  {axisCoordinateItems.map((item) => (
+                                    <span key={item.axis} className="axis-coordinate-item">
+                                      <span className="axis-coordinate-axis">{item.axis}</span>
+                                      <span className="axis-coordinate-value">{item.value}</span>
+                                    </span>
+                                  ))}
+                                </p>
+                                <div className="axis-home-status" aria-label="Статус хоуминга осей">
+                                  {axisHomeStatuses.map((item) => (
+                                    <span
+                                      key={item.axis}
+                                      className={`axis-home-indicator${item.homed ? ' is-homed' : ''}`}
+                                      aria-label={`Ось ${item.axis} ${item.homed ? 'захоумлена' : 'не захоумлена'}`}
+                                    >
+                                      <span className="axis-home-label">{item.axis}</span>
+                                      <span className="axis-home-mark" aria-hidden="true" />
+                                    </span>
+                                  ))}
+                                </div>
                               </div>
                               <div className="control-cross-wrap">
                                 <AxisCrossControls

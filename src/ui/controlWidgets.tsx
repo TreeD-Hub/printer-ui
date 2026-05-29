@@ -78,8 +78,8 @@ export function AxisCrossControls({
   className,
 }: AxisCrossControlsProps) {
   return (
-    <div className={joinClassNames('axis-cross-layout', className)} role="group" aria-label="Крестовина перемещения">
-      <div className="axis-cross-group">
+    <div className={joinClassNames('axis-cross-layout', className)} role="group" aria-label="Кнопки перемещения по осям">
+      <div className="axis-cross-group axis-cross-group-xy" role="group" aria-label="Подблок осей X и Y">
         <p className="axis-cross-title">XY</p>
         <div className="axis-cross-xy">
           <span className="axis-cross-spacer" aria-hidden="true" />
@@ -90,7 +90,7 @@ export function AxisCrossControls({
             onClick={() => onMove('Y', 1)}
             disabled={disabled}
           >
-            ↑
+            <span className="axis-cross-arrow" aria-hidden="true">↑</span>
           </button>
           <span className="axis-cross-spacer" aria-hidden="true" />
 
@@ -101,9 +101,11 @@ export function AxisCrossControls({
             onClick={() => onMove('X', -1)}
             disabled={disabled}
           >
-            ←
+            <span className="axis-cross-arrow" aria-hidden="true">←</span>
           </button>
-          <span className="axis-cross-center" aria-hidden="true" />
+          <span className="axis-cross-center" aria-hidden="true">
+            <span className="axis-cross-center-core" />
+          </span>
           <button
             type="button"
             className="axis-cross-btn"
@@ -111,7 +113,7 @@ export function AxisCrossControls({
             onClick={() => onMove('X', 1)}
             disabled={disabled}
           >
-            →
+            <span className="axis-cross-arrow" aria-hidden="true">→</span>
           </button>
 
           <span className="axis-cross-spacer" aria-hidden="true" />
@@ -122,57 +124,61 @@ export function AxisCrossControls({
             onClick={() => onMove('Y', -1)}
             disabled={disabled}
           >
-            ↓
+            <span className="axis-cross-arrow" aria-hidden="true">↓</span>
           </button>
           <span className="axis-cross-spacer" aria-hidden="true" />
         </div>
       </div>
 
-      <div className="axis-cross-group axis-cross-group-z">
+      <div className="axis-cross-group axis-cross-group-z" role="group" aria-label="Подблок оси Z">
         <p className="axis-cross-title">Z</p>
         <div className="axis-cross-z">
           <button
             type="button"
-            className="axis-cross-btn"
+            className="axis-cross-btn axis-cross-btn-labeled"
             aria-label="Сдвиг Z в плюс"
             onClick={() => onMove('Z', 1)}
             disabled={disabled}
           >
-            ↑
+            <span className="axis-cross-arrow" aria-hidden="true">↑</span>
+            <span className="axis-cross-btn-label">Вверх</span>
           </button>
           <span className="axis-cross-spacer" aria-hidden="true" />
           <button
             type="button"
-            className="axis-cross-btn"
+            className="axis-cross-btn axis-cross-btn-labeled"
             aria-label="Сдвиг Z в минус"
             onClick={() => onMove('Z', -1)}
             disabled={disabled}
           >
-            ↓
+            <span className="axis-cross-arrow" aria-hidden="true">↓</span>
+            <span className="axis-cross-btn-label">Вниз</span>
           </button>
         </div>
       </div>
 
-      <div className="axis-cross-group axis-cross-group-filament">
-        <p className="axis-cross-title">Филамент</p>
-        <div className="axis-cross-filament">
+      <div className="axis-cross-group axis-cross-group-e" role="group" aria-label="Подблок экструдера E">
+        <p className="axis-cross-title">E</p>
+        <div className="axis-cross-e">
           <button
             type="button"
-            className="axis-cross-btn"
-            aria-label="Загрузить филамент"
+            className="axis-cross-btn axis-cross-btn-labeled"
+            aria-label="Втянуть филамент"
             onClick={() => onFilamentMove?.(1)}
             disabled={disabled}
           >
-            ↑
+            <span className="axis-cross-arrow" aria-hidden="true">↑</span>
+            <span className="axis-cross-btn-label">Втянуть</span>
           </button>
           <button
             type="button"
-            className="axis-cross-btn"
-            aria-label="Выгрузить филамент"
+            className="axis-cross-btn axis-cross-btn-labeled"
+            aria-label="Подать филамент"
             onClick={() => onFilamentMove?.(-1)}
             disabled={disabled}
           >
-            ↓
+            <span className="axis-cross-arrow" aria-hidden="true">↓</span>
+            <span className="axis-cross-btn-label">Подать</span>
           </button>
         </div>
       </div>
