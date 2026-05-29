@@ -2312,10 +2312,11 @@ body {
   gap: var(--space-xs);
 }
 
-.control-card-heating-main {
+.control-heating-main {
   min-height: 0;
-  padding: 10px;
+  padding: 0;
   gap: 12px;
+  display: grid;
   grid-template-rows: auto minmax(180px, 1fr);
   height: 100%;
   overflow: hidden;
@@ -2767,11 +2768,9 @@ body {
   align-content: start;
   justify-items: stretch;
   padding: 6px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 42%, transparent);
   border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(244, 244, 240, 0.035), transparent 48%),
-    var(--color-block-surface);
+  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
 }
 
 .axis-cross-title {
@@ -2972,7 +2971,7 @@ body {
   border-radius: 999px;
   border: 1px solid var(--color-border-default);
   background:
-    radial-gradient(circle at center, var(--color-primary-surface-soft) 0%, transparent 58%),
+    radial-gradient(circle at center, var(--color-primary-surface-soft) 0%, var(--color-block-surface) 58%),
     linear-gradient(180deg, var(--color-surface-elevated), var(--color-block-surface));
   position: relative;
   overflow: hidden;
@@ -2986,7 +2985,6 @@ body {
 }
 
 .virtual-joystick-surface.is-disabled {
-  opacity: 0.72;
   cursor: not-allowed;
 }
 
@@ -3002,7 +3000,6 @@ body {
   content: '';
   position: absolute;
   background: var(--color-text-secondary);
-  opacity: 0.58;
 }
 
 .virtual-joystick-cross::before {
@@ -3032,8 +3029,8 @@ body {
   border-radius: 999px;
   border: 1px solid var(--color-primary-ring);
   background:
-    radial-gradient(circle at 32% 30%, var(--color-primary-light) 0%, transparent 52%),
-    linear-gradient(180deg, var(--color-primary-surface-soft), var(--color-surface-elevated));
+    radial-gradient(circle at 32% 30%, var(--color-primary-light) 0%, var(--color-primary) 48%),
+    linear-gradient(180deg, var(--color-primary), var(--color-primary-dark));
   box-shadow:
     0 0 20px var(--color-primary-glow),
     inset 0 0 0 1px var(--color-primary-ring);
@@ -3199,7 +3196,7 @@ body {
   border-radius: 14px;
   border: 1px solid var(--color-border-default);
   background:
-    radial-gradient(circle at center, var(--color-primary-surface-soft) 0%, transparent 64%),
+    radial-gradient(circle at center, var(--color-primary-surface-soft) 0%, var(--color-block-surface) 64%),
     linear-gradient(180deg, var(--color-surface-elevated), var(--color-block-surface));
   touch-action: none;
   user-select: none;
@@ -3245,8 +3242,8 @@ body {
   border-radius: 999px;
   border: 1px solid var(--color-primary-ring);
   background:
-    radial-gradient(circle at 32% 30%, var(--color-primary-light) 0%, transparent 52%),
-    linear-gradient(180deg, var(--color-primary-surface-soft), var(--color-surface-elevated));
+    radial-gradient(circle at 32% 30%, var(--color-primary-light) 0%, var(--color-primary) 48%),
+    linear-gradient(180deg, var(--color-primary), var(--color-primary-dark));
   box-shadow:
     0 0 16px var(--color-primary-glow),
     inset 0 0 0 1px var(--color-primary-ring);
@@ -3285,7 +3282,7 @@ body {
   border-radius: 14px;
   border: 1px solid var(--color-border-default);
   background:
-    radial-gradient(circle at center, var(--color-primary-surface-soft) 0%, transparent 64%),
+    radial-gradient(circle at center, var(--color-primary-surface-soft) 0%, var(--color-block-surface) 64%),
     linear-gradient(180deg, var(--color-surface-elevated), var(--color-block-surface));
   touch-action: none;
   user-select: none;
@@ -3331,8 +3328,8 @@ body {
   border-radius: 999px;
   border: 1px solid var(--color-primary-ring);
   background:
-    radial-gradient(circle at 32% 30%, var(--color-primary-light) 0%, transparent 52%),
-    linear-gradient(180deg, var(--color-primary-surface-soft), var(--color-surface-elevated));
+    radial-gradient(circle at 32% 30%, var(--color-primary-light) 0%, var(--color-primary) 48%),
+    linear-gradient(180deg, var(--color-primary), var(--color-primary-dark));
   box-shadow:
     0 0 16px var(--color-primary-glow),
     inset 0 0 0 1px var(--color-primary-ring);

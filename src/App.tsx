@@ -3138,7 +3138,7 @@ function App() {
 
                         <article className="control-card control-card-motion">
                           <div className="control-card-head">
-                            <h3 className="control-card-title">Оси</h3>
+                            <h3 className="control-card-title">Ручное перемещение</h3>
                           </div>
                           <SegmentedToggle
                             options={MOVEMENT_MODE_OPTIONS}
@@ -3225,7 +3225,7 @@ function App() {
                       </div>
                     ) : activeControlGroup === 'heating' ? (
                       <div className="control-heating-grid">
-                        <article className="control-card control-card-heating-main">
+                        <div className="control-heating-main">
                           <section className="control-heating-rows" aria-label="Температуры сопла и стола">
                             {heatingControlRows.map((row) => (
                               <div key={row.id} className="control-heating-row">
@@ -3270,7 +3270,7 @@ function App() {
                               testId="control-heating-chart"
                             />
                           </div>
-                        </article>
+                        </div>
 
                         {temperatureKeyboardTarget !== null ? (
                           <article className="control-card control-card-heating-keyboard">
