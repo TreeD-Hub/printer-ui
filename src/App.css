@@ -2262,7 +2262,7 @@ body {
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.28fr);
+  grid-template-columns: minmax(248px, 0.68fr) minmax(0, 1.32fr);
   gap: var(--space-xs);
   align-items: stretch;
 }
@@ -2287,11 +2287,16 @@ body {
 
 .control-card-motion {
   min-height: 0;
-  padding: var(--space-xs);
-  gap: var(--space-xs);
+  padding: 10px;
+  gap: 10px;
   overflow: hidden;
   height: 100%;
   grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.control-card-parking {
+  padding: 10px;
+  gap: 10px;
 }
 
 .control-card-fan {
@@ -2308,7 +2313,7 @@ body {
 .control-parking-targets {
   display: grid;
   grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
-  gap: 6px;
+  gap: 8px;
 }
 
 .control-target-btn {
@@ -2339,7 +2344,7 @@ body {
 
 .control-card-parking .control-action-btn,
 .control-card-parking .control-service-btn {
-  min-height: 44px;
+  min-height: 46px;
   font-size: var(--font-size-body);
 }
 
@@ -2495,7 +2500,7 @@ body {
 .axis-cross-layout {
   display: grid;
   width: 100%;
-  grid-template-columns: minmax(206px, 1fr) repeat(2, minmax(72px, 92px));
+  grid-template-columns: minmax(224px, 1fr) repeat(2, minmax(78px, 92px));
   justify-content: stretch;
   gap: 6px;
   align-items: stretch;
@@ -2509,7 +2514,7 @@ body {
   justify-items: stretch;
   padding: 6px;
   border: 1px solid var(--color-border-default);
-  border-radius: 10px;
+  border-radius: 12px;
   background:
     linear-gradient(180deg, rgba(244, 244, 240, 0.035), transparent 48%),
     var(--color-block-surface);
@@ -2528,15 +2533,16 @@ body {
   --axis-cross-btn-size: 64px;
   position: relative;
   width: 100%;
-  min-width: 206px;
-  height: 162px;
+  min-width: 224px;
+  height: 156px;
 }
 
 .axis-cross-z,
 .axis-cross-e {
-  min-height: 162px;
+  min-height: 156px;
   display: grid;
-  gap: 12px;
+  grid-template-rows: repeat(2, 64px);
+  gap: 8px;
   align-content: center;
 }
 
@@ -2583,8 +2589,8 @@ body {
 
 .axis-cross-btn-labeled {
   grid-template-rows: minmax(0, 1fr) auto;
-  gap: 2px;
-  padding: 5px 2px 7px;
+  gap: 4px;
+  padding: 7px 4px 8px;
   font-size: 27px;
 }
 
@@ -2598,7 +2604,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   color: var(--color-text-secondary);
 }
@@ -2624,8 +2630,8 @@ body {
 }
 
 .axis-cross-center::before {
-  left: -42px;
-  right: -42px;
+  left: -18px;
+  right: -18px;
   top: 50%;
   height: 1px;
   background: repeating-linear-gradient(
@@ -2636,8 +2642,8 @@ body {
 }
 
 .axis-cross-center::after {
-  top: -44px;
-  bottom: -44px;
+  top: 0;
+  bottom: 0;
   left: 50%;
   width: 1px;
   background: repeating-linear-gradient(
@@ -2663,7 +2669,7 @@ body {
   display: grid;
   height: 100%;
   grid-template-rows: auto auto minmax(0, 1fr);
-  gap: var(--space-sm);
+  gap: 10px;
   align-content: stretch;
 }
 
@@ -2781,10 +2787,10 @@ body {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-xs);
-  min-height: 34px;
-  padding: 0 var(--space-xs);
+  min-height: 38px;
+  padding: 0 10px;
   border: 1px solid var(--color-border-default);
-  border-radius: 10px;
+  border-radius: 12px;
   background: var(--color-block-surface);
 }
 
@@ -2803,7 +2809,7 @@ body {
 .axis-coordinate-readout {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2811,7 +2817,7 @@ body {
   display: inline-grid;
   grid-template-columns: auto auto;
   align-items: baseline;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -2896,7 +2902,7 @@ body {
   align-items: end;
   justify-items: stretch;
   width: 100%;
-  padding-top: var(--space-xs);
+  padding-top: 0;
 }
 
 .joystick-z-control {
