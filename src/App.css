@@ -4634,7 +4634,7 @@ body {
 .bottom-nav {
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-surface);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) calc(var(--space-md) + 32px) var(--space-sm) var(--space-md);
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--space-xs);
@@ -5493,6 +5493,158 @@ select {
 
 .idle-temp-value-unit {
   font-size: var(--layout-block-unit-size);
+}
+
+.idle-mini-widget {
+  display: block;
+  overflow: hidden;
+  padding: 0;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.idle-mini-widget::after {
+  content: none;
+}
+
+.idle-mini-widget-nav {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-sm) var(--space-md);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-sm);
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.idle-mini-widget-temps .idle-mini-widget-nav {
+  gap: var(--space-xs);
+}
+
+.idle-mini-widget-service .idle-mini-widget-nav {
+  align-content: start;
+}
+
+.idle-mini-widget-nav:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -3px;
+}
+
+.idle-mini-widget:hover,
+.idle-mini-widget:focus-within {
+  border-color: var(--color-primary);
+  box-shadow:
+    inset 0 0 0 1px var(--color-primary-ring),
+    0 10px 24px var(--color-shadow-strong);
+}
+
+.idle-widget-drag-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-soft);
+  cursor: grab;
+  touch-action: none;
+}
+
+.idle-widget-drag-handle:active {
+  cursor: grabbing;
+}
+
+.idle-widget-drag-handle:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -4px;
+}
+
+.idle-widget-drag-handle-mark {
+  width: 14px;
+  height: 14px;
+  background:
+    radial-gradient(circle, currentColor 0 1.4px, transparent 1.6px) 0 0 / 7px 7px;
+  opacity: 0.9;
+}
+
+.idle-mini-widget.is-arming,
+.idle-mini-widget.is-dragging {
+  border-color: var(--color-primary);
+}
+
+.idle-mini-widget.is-arming .idle-widget-drag-handle,
+.idle-mini-widget.is-dragging .idle-widget-drag-handle {
+  color: var(--color-primary);
+}
+
+.idle-mini-widget.is-dragging {
+  z-index: 4;
+  transform: scale(1.02);
+  box-shadow:
+    inset 0 0 0 1px var(--color-primary-ring),
+    0 12px 28px var(--color-shadow-strong);
+}
+
+.control-card-maintenance-placeholder {
+  min-height: 220px;
+  align-content: start;
+  gap: var(--space-md);
+}
+
+.control-maintenance-placeholder-body {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.control-maintenance-placeholder-copy {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+  line-height: 1.35;
+}
+
+.control-maintenance-placeholder-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.control-maintenance-placeholder-metrics p {
+  margin: 0;
+  min-height: 64px;
+  padding: var(--space-sm);
+  display: grid;
+  align-content: center;
+  gap: var(--space-xxs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  background: var(--color-surface-track);
+}
+
+.control-maintenance-placeholder-metrics span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.control-maintenance-placeholder-metrics strong {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body-large);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 

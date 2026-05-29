@@ -1,4 +1,4 @@
-import { type ChangeEvent, type CSSProperties, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePrinterCommands } from './core/commands'
 import { usePrinterSnapshot } from './core/store/usePrinterSnapshot'
 import {
@@ -60,6 +60,7 @@ const FALLBACK_SCREEN_WIDTH = 960
 const TOP_BAR_BUTTON_SIZE = 56
 const TOP_BAR_BUTTON_GAP = 8
 const TOP_BAR_RIGHT_PADDING = 24
+const IDLE_WIDGET_DRAG_HOLD_MS = 3000
 const FILE_MODAL_TITLE_ID = 'print-file-modal-title'
 const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
 const PRINT_TUNE_MODAL_TITLE_ID = 'print-tune-modal-title'
@@ -67,8 +68,9 @@ type FilesSortKey = 'name' | 'addedAt'
 type ParkingMode = 'all' | 'axis'
 type MovementMode = 'buttons' | 'joystick'
 type MoveStepKey = '1' | '10' | '25' | '100'
-type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting'
+type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'maintenance'
 type MacrosGroupId = 'bedMesh'
+type IdleWidgetId = 'temperature' | 'maintenance'
 type BedCalibrationStage = 'launch' | 'manual' | 'zOffset'
 type ActivePrintUiState = 'printing' | 'paused'
 type TemperatureKeyboardTarget = 'nozzle' | 'bed'
@@ -214,6 +216,7 @@ const CONTROL_GROUP_OPTIONS: Array<SettingsMenuOption<ControlGroupId>> = [
   { id: 'heating', label: 'Нагрев', icon: 'metricNozzle' },
   { id: 'fans', label: 'Вентиляторы', icon: 'metricFan' },
   { id: 'lighting', label: 'Освещение', icon: 'metricLight' },
+  { id: 'maintenance', label: 'Т.О', icon: 'menuDevice' },
 ]
 const SETTINGS_GROUP_OPTIONS: Array<SettingsMenuOption<SettingsGroupId>> = [
   { id: 'network', label: 'Сеть', icon: 'statusWifi' },
@@ -280,7 +283,7 @@ const SETTINGS_NOTIFICATION_HISTORY: SettingsNotificationItem[] = [
   {
     id: 'notif-003',
     title: 'Сервисное напоминание',
-    details: 'До планового ТО осталось 126 часов.',
+    details: 'До планового Т.О осталось 126 часов.',
     createdAt: '10:08',
   },
 ]
@@ -553,6 +556,9 @@ function App() {
   const [activeControlGroup, setActiveControlGroup] = useState<ControlGroupId>('movement')
   const [isControlMenuCompact, setIsControlMenuCompact] = useState<boolean>(false)
   const [activeControlFlashKey, setActiveControlFlashKey] = useState<string | null>(null)
+  const [idleWidgetOrder, setIdleWidgetOrder] = useState<IdleWidgetId[]>(['temperature', 'maintenance'])
+  const [armedIdleWidgetId, setArmedIdleWidgetId] = useState<IdleWidgetId | null>(null)
+  const [draggingIdleWidgetId, setDraggingIdleWidgetId] = useState<IdleWidgetId | null>(null)
   const [isMainLightEnabled, setIsMainLightEnabled] = useState<boolean>(false)
   const [isToolheadLightEnabled, setIsToolheadLightEnabled] = useState<boolean>(false)
   const [joystickVector, setJoystickVector] = useState<JoystickVector>({ x: 0, y: 0 })
@@ -570,6 +576,12 @@ function App() {
   const consoleInputRef = useRef<HTMLTextAreaElement | null>(null)
   const bedScrewMoveTimeoutRef = useRef<number | null>(null)
   const controlFlashTimeoutRef = useRef<number | null>(null)
+  const idleWidgetHoldTimeoutRef = useRef<number | null>(null)
+  const idleWidgetRefs = useRef<Record<IdleWidgetId, HTMLElement | null>>({
+    temperature: null,
+    maintenance: null,
+  })
+  const draggingIdleWidgetIdRef = useRef<IdleWidgetId | null>(null)
 
   const printFill = Math.max(0, Math.min(100, DASHBOARD_VALUES.progressPercent))
   const isBusy = pendingCommand !== null
@@ -697,6 +709,10 @@ function App() {
       if (controlFlashTimeoutRef.current !== null) {
         window.clearTimeout(controlFlashTimeoutRef.current)
       }
+
+      if (idleWidgetHoldTimeoutRef.current !== null) {
+        window.clearTimeout(idleWidgetHoldTimeoutRef.current)
+      }
     }
   }, [])
 
@@ -821,6 +837,95 @@ function App() {
     setActiveScreen('settings')
     closeTopPopup()
   }, [closeTopPopup])
+
+  function clearIdleWidgetHoldTimeout(): void {
+    if (idleWidgetHoldTimeoutRef.current === null) {
+      return
+    }
+
+    window.clearTimeout(idleWidgetHoldTimeoutRef.current)
+    idleWidgetHoldTimeoutRef.current = null
+  }
+
+  function openIdleWidgetTarget(widgetId: IdleWidgetId): void {
+    setActiveControlGroup(widgetId === 'temperature' ? 'heating' : 'maintenance')
+    setActiveScreen('control')
+    closeTopPopup()
+  }
+
+  function moveIdleWidgetByPointer(widgetId: IdleWidgetId, pointerX: number): void {
+    const temperatureRect = idleWidgetRefs.current.temperature?.getBoundingClientRect()
+    const maintenanceRect = idleWidgetRefs.current.maintenance?.getBoundingClientRect()
+
+    if (temperatureRect === undefined || maintenanceRect === undefined) {
+      return
+    }
+
+    const leftEdge = Math.min(temperatureRect.left, maintenanceRect.left)
+    const rightEdge = Math.max(temperatureRect.right, maintenanceRect.right)
+    const targetIndex = pointerX < leftEdge + ((rightEdge - leftEdge) / 2) ? 0 : 1
+
+    setIdleWidgetOrder((currentOrder) => {
+      const currentIndex = currentOrder.indexOf(widgetId)
+
+      if (currentIndex === targetIndex) {
+        return currentOrder
+      }
+
+      const otherWidgetId = currentOrder.find((currentWidgetId) => currentWidgetId !== widgetId)
+      if (otherWidgetId === undefined) {
+        return currentOrder
+      }
+
+      return targetIndex === 0 ? [widgetId, otherWidgetId] : [otherWidgetId, widgetId]
+    })
+  }
+
+  function handleIdleWidgetDragPointerDown(event: PointerEvent<HTMLButtonElement>, widgetId: IdleWidgetId): void {
+    event.preventDefault()
+    event.stopPropagation()
+
+    clearIdleWidgetHoldTimeout()
+    setArmedIdleWidgetId(widgetId)
+    event.currentTarget.setPointerCapture(event.pointerId)
+
+    idleWidgetHoldTimeoutRef.current = window.setTimeout(() => {
+      draggingIdleWidgetIdRef.current = widgetId
+      setArmedIdleWidgetId(null)
+      setDraggingIdleWidgetId(widgetId)
+      idleWidgetHoldTimeoutRef.current = null
+    }, IDLE_WIDGET_DRAG_HOLD_MS)
+  }
+
+  function handleIdleWidgetDragPointerMove(event: PointerEvent<HTMLButtonElement>, widgetId: IdleWidgetId): void {
+    event.preventDefault()
+    event.stopPropagation()
+
+    if (draggingIdleWidgetIdRef.current !== widgetId) {
+      return
+    }
+
+    moveIdleWidgetByPointer(widgetId, event.clientX)
+  }
+
+  function handleIdleWidgetDragPointerEnd(event: PointerEvent<HTMLButtonElement>): void {
+    event.preventDefault()
+    event.stopPropagation()
+
+    clearIdleWidgetHoldTimeout()
+    setArmedIdleWidgetId(null)
+    setDraggingIdleWidgetId(null)
+    draggingIdleWidgetIdRef.current = null
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  function handleIdleWidgetDragHandleClick(event: MouseEvent<HTMLButtonElement>): void {
+    event.preventDefault()
+    event.stopPropagation()
+  }
 
   function handleScreenSelect(nextScreen: ScreenId): void {
     if (nextScreen !== 'dashboard') {
@@ -2689,39 +2794,84 @@ function App() {
                 </div>
 
                 <aside className="dashboard-idle-sidebar">
-                  <article className="idle-mini-widget idle-mini-widget-temps">
-                    <p className="idle-mini-label">Температура</p>
-                    <div className="idle-temp-grid">
-                      <p>
-                        <span className="idle-temp-kind" aria-hidden="true">
-                          <IconMask name="metricNozzle" size={20} className="idle-temp-kind-icon" />
-                        </span>
-                        <span className="idle-temp-name">Сопло</span>
-                        <strong>
-                          <span className="idle-temp-value-number">{idleNozzleTempValue}</span>
-                          <span className="idle-temp-value-unit">°C</span>
-                        </strong>
-                      </p>
-                      <p>
-                        <span className="idle-temp-kind" aria-hidden="true">
-                          <IconMask name="metricBed" size={20} className="idle-temp-kind-icon" />
-                        </span>
-                        <span className="idle-temp-name">Стол</span>
-                        <strong>
-                          <span className="idle-temp-value-number">{idleBedTempValue}</span>
-                          <span className="idle-temp-value-unit">°C</span>
-                        </strong>
-                      </p>
-                    </div>
-                  </article>
+                  {idleWidgetOrder.map((widgetId) => {
+                    const isTemperatureWidget = widgetId === 'temperature'
+                    const isArmed = armedIdleWidgetId === widgetId
+                    const isDragging = draggingIdleWidgetId === widgetId
 
-                  <article className="idle-mini-widget idle-mini-widget-service">
-                    <p className="idle-mini-label">ТО</p>
-                    <div className="idle-service-metrics">
-                      <p><span>Пробег</span><strong>{MAINTENANCE_STATUS.runtimeHours} ч</strong></p>
-                      <p><span>До ТО</span><strong>{MAINTENANCE_STATUS.hoursLeft} ч</strong></p>
-                    </div>
-                  </article>
+                    return (
+                      <article
+                        key={widgetId}
+                        ref={(node) => {
+                          idleWidgetRefs.current[widgetId] = node
+                        }}
+                        className={[
+                          'idle-mini-widget',
+                          isTemperatureWidget ? 'idle-mini-widget-temps' : 'idle-mini-widget-service',
+                          isArmed ? 'is-arming' : '',
+                          isDragging ? 'is-dragging' : '',
+                        ].filter(Boolean).join(' ')}
+                      >
+                        <button
+                          type="button"
+                          className="idle-mini-widget-nav"
+                          data-testid={`idle-widget-${widgetId}`}
+                          aria-label={isTemperatureWidget ? 'Открыть управление нагревом' : 'Открыть раздел Т.О'}
+                          onClick={() => openIdleWidgetTarget(widgetId)}
+                        >
+                          {isTemperatureWidget ? (
+                            <>
+                              <p className="idle-mini-label">Температура</p>
+                              <div className="idle-temp-grid">
+                                <p>
+                                  <span className="idle-temp-kind" aria-hidden="true">
+                                    <IconMask name="metricNozzle" size={20} className="idle-temp-kind-icon" />
+                                  </span>
+                                  <span className="idle-temp-name">Сопло</span>
+                                  <strong>
+                                    <span className="idle-temp-value-number">{idleNozzleTempValue}</span>
+                                    <span className="idle-temp-value-unit">°C</span>
+                                  </strong>
+                                </p>
+                                <p>
+                                  <span className="idle-temp-kind" aria-hidden="true">
+                                    <IconMask name="metricBed" size={20} className="idle-temp-kind-icon" />
+                                  </span>
+                                  <span className="idle-temp-name">Стол</span>
+                                  <strong>
+                                    <span className="idle-temp-value-number">{idleBedTempValue}</span>
+                                    <span className="idle-temp-value-unit">°C</span>
+                                  </strong>
+                                </p>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <p className="idle-mini-label">Т.О</p>
+                              <div className="idle-service-metrics">
+                                <p><span>Пробег</span><strong>{MAINTENANCE_STATUS.runtimeHours} ч</strong></p>
+                                <p><span>До Т.О</span><strong>{MAINTENANCE_STATUS.hoursLeft} ч</strong></p>
+                              </div>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="idle-widget-drag-handle"
+                          data-testid={`idle-widget-${widgetId}-drag-handle`}
+                          aria-label={isTemperatureWidget ? 'Переместить виджет температуры' : 'Переместить виджет Т.О'}
+                          onPointerDown={(event) => handleIdleWidgetDragPointerDown(event, widgetId)}
+                          onPointerMove={(event) => handleIdleWidgetDragPointerMove(event, widgetId)}
+                          onPointerUp={handleIdleWidgetDragPointerEnd}
+                          onPointerCancel={handleIdleWidgetDragPointerEnd}
+                          onClick={handleIdleWidgetDragHandleClick}
+                        >
+                          <span className="idle-widget-drag-handle-mark" aria-hidden="true" />
+                        </button>
+                      </article>
+                    )
+                  })}
 
                   <article className="dashboard-idle-notes" aria-label="Заметки">
                     <h3>Заметки</h3>
@@ -3042,7 +3192,7 @@ function App() {
                           testId="control-fan-slider"
                         />
                       </article>
-                    ) : (
+                    ) : activeControlGroup === 'lighting' ? (
                       <article className="control-card control-card-lighting">
                         <h3 className="control-card-title">Подсветка</h3>
                         <SettingsToggleRow
@@ -3057,6 +3207,22 @@ function App() {
                           onChange={setIsToolheadLightEnabled}
                           testId="control-light-toolhead"
                         />
+                      </article>
+                    ) : (
+                      <article className="control-card control-card-maintenance-placeholder">
+                        <div className="control-card-head">
+                          <h3 className="control-card-title">Т.О</h3>
+                          <p className="control-card-state">Временная заглушка</p>
+                        </div>
+                        <div className="control-maintenance-placeholder-body">
+                          <p className="control-maintenance-placeholder-copy">
+                            Раздел обслуживания будет подключен следующим этапом.
+                          </p>
+                          <div className="control-maintenance-placeholder-metrics">
+                            <p><span>Пробег</span><strong>{MAINTENANCE_STATUS.runtimeHours} ч</strong></p>
+                            <p><span>До Т.О</span><strong>{MAINTENANCE_STATUS.hoursLeft} ч</strong></p>
+                          </div>
+                        </div>
                       </article>
                     )}
                   </div>
