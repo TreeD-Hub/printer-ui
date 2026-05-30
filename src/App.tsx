@@ -74,6 +74,7 @@ type IdleWidgetId = 'temperature' | 'maintenance'
 type BedCalibrationStage = 'launch' | 'manual' | 'zOffset'
 type ActivePrintUiState = 'printing' | 'paused'
 type TemperatureKeyboardTarget = 'nozzle' | 'bed'
+type MaintenanceIconName = 'runtime' | 'due' | 'interval' | 'wrench'
 type PrintTuneNumericKeyboardTarget = 'volumetricFlow' | 'flow' | 'speed' | 'accel' | 'kFactor' | 'retract' | 'layers'
 type PrintTuneGroupId =
   | 'nozzle'
@@ -384,7 +385,21 @@ const BED_SCREW_GUIDE_POINTS: BedScrewPoint[] = [
 const MAINTENANCE_STATUS = {
   runtimeHours: 874,
   hoursLeft: 126,
+  intervalHours: 1000,
 } as const
+const MAINTENANCE_HISTORY_ITEMS = [
+  { id: '3', date: '03.05.2024', runtimeHours: 748, label: 'Плановое ТО' },
+] as const
+const MAINTENANCE_CHECKLIST_ITEMS = [
+  { id: 'belts', label: 'Проверка натяжения ремней' },
+  { id: 'guides', label: 'Очистка направляющих и винтов' },
+  { id: 'axes', label: 'Смазка осей и подшипников' },
+  { id: 'fans', label: 'Проверка вентиляторов и обдува' },
+  { id: 'hotend', label: 'Осмотр сопла и хотэнда' },
+  { id: 'calibration', label: 'Калибровка стола (при необходимости)' },
+] as const
+const MAINTENANCE_PROGRESS_TICKS = Array.from({ length: 31 }, (_, index) => index)
+type MaintenanceChecklistItemId = (typeof MAINTENANCE_CHECKLIST_ITEMS)[number]['id']
 const IDLE_NOTES_DEFAULT_TEXT = [
   'Перед запуском проверьте очистку стола и состояние поверхности.',
   'Если модель новая, сделайте короткий тест первого слоя.',
@@ -394,6 +409,51 @@ const IDLE_NOTES_KEYBOARD_ROWS: string[][] = [
   ['Ф', 'Ы', 'В', 'А', 'П', 'Р', 'О', 'Л', 'Д', 'Ж', 'Э'],
   ['Я', 'Ч', 'С', 'М', 'И', 'Т', 'Ь', 'Б', 'Ю'],
 ]
+
+function createMaintenanceChecklistState(checked: boolean): Record<MaintenanceChecklistItemId, boolean> {
+  return MAINTENANCE_CHECKLIST_ITEMS.reduce<Record<MaintenanceChecklistItemId, boolean>>((state, item) => {
+    state[item.id] = checked
+    return state
+  }, {} as Record<MaintenanceChecklistItemId, boolean>)
+}
+
+function MaintenanceLineIcon({ name }: { name: MaintenanceIconName }) {
+  if (name === 'runtime') {
+    return (
+      <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="7.2" />
+        <path d="M12 7.9v4.5l3.1 2" />
+      </svg>
+    )
+  }
+
+  if (name === 'due') {
+    return (
+      <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3.8 18.9 7.8v8.1L12 20 5.1 15.9V7.8L12 3.8Z" />
+        <circle cx="12" cy="10" r="2.1" />
+        <path d="M8.6 15.2c.8-1.6 1.9-2.4 3.4-2.4s2.6.8 3.4 2.4" />
+      </svg>
+    )
+  }
+
+  if (name === 'interval') {
+    return (
+      <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M18.2 8.4A7 7 0 0 0 6 7.5" />
+        <path d="M18.2 4.7v3.7h-3.7" />
+        <path d="M5.8 15.6A7 7 0 0 0 18 16.5" />
+        <path d="M5.8 19.3v-3.7h3.7" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14.9 6.2a4.4 4.4 0 0 0-5.2 5.2L4.6 16.5a2.1 2.1 0 0 0 3 3l5.1-5.1a4.4 4.4 0 0 0 5.2-5.2l-3 3-2.1-2.1 3-3Z" />
+    </svg>
+  )
+}
 
 function clampAxisValue(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
@@ -574,6 +634,9 @@ function App() {
   const [draggingIdleWidgetId, setDraggingIdleWidgetId] = useState<IdleWidgetId | null>(null)
   const [isMainLightEnabled, setIsMainLightEnabled] = useState<boolean>(false)
   const [isToolheadLightEnabled, setIsToolheadLightEnabled] = useState<boolean>(false)
+  const [maintenanceChecklistState, setMaintenanceChecklistState] = useState<Record<MaintenanceChecklistItemId, boolean>>(() =>
+    createMaintenanceChecklistState(false),
+  )
   const [joystickVector, setJoystickVector] = useState<JoystickVector>({ x: 0, y: 0 })
   const [printHeadPosition, setPrintHeadPosition] = useState<PrintHeadPosition>(() =>
     normalizeHeadPosition({
@@ -613,6 +676,8 @@ function App() {
   )
   const activeControlGroupOption =
     CONTROL_GROUP_OPTIONS.find((option) => option.id === activeControlGroup) ?? CONTROL_GROUP_OPTIONS[0]
+  const maintenanceProgressPercent = clampPercent(MAINTENANCE_STATUS.runtimeHours, MAINTENANCE_STATUS.intervalHours)
+  const isMaintenanceChecklistComplete = MAINTENANCE_CHECKLIST_ITEMS.every((item) => maintenanceChecklistState[item.id])
   const formattedSnapshotTime = useMemo(() => {
     const parsed = new Date(snapshot.updatedAt)
     if (Number.isNaN(parsed.getTime())) {
@@ -3084,9 +3149,24 @@ function App() {
                 </aside>
 
                 <div className="settings-content-shell control-content-shell">
-                  <p className="control-tab-label" data-testid="control-active-tab-label">
-                    {activeControlGroup === 'fans' ? 'Управление вентиляторами' : activeControlGroupOption.label}
-                  </p>
+                  {activeControlGroup === 'maintenance' ? (
+                    <div className="control-maintenance-header">
+                      <div className="control-maintenance-heading">
+                        <p className="control-tab-label" data-testid="control-active-tab-label">Т.О</p>
+                        <p className="control-maintenance-subtitle">
+                          Сервисное обслуживание и напоминания для вашего 3D-принтера.
+                        </p>
+                      </div>
+                      <p className="control-maintenance-status-pill">
+                        Следующее ТО через {MAINTENANCE_STATUS.hoursLeft} ч
+                        <span aria-hidden="true" />
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="control-tab-label" data-testid="control-active-tab-label">
+                      {activeControlGroup === 'fans' ? 'Управление вентиляторами' : activeControlGroupOption.label}
+                    </p>
+                  )}
                   <div className="control-scroll-area">
                     {activeControlGroup === 'movement' ? (
                       <div className="control-grid">
@@ -3455,21 +3535,148 @@ function App() {
                         </div>
                       </article>
                     ) : (
-                      <article className="control-card control-card-maintenance-placeholder">
-                        <div className="control-card-head">
-                          <h3 className="control-card-title">Т.О</h3>
-                          <p className="control-card-state">Временная заглушка</p>
-                        </div>
-                        <div className="control-maintenance-placeholder-body">
-                          <p className="control-maintenance-placeholder-copy">
-                            Раздел обслуживания будет подключен следующим этапом.
-                          </p>
-                          <div className="control-maintenance-placeholder-metrics">
-                            <p className="control-subpanel control-subpanel-row"><span>Пробег</span><strong>{MAINTENANCE_STATUS.runtimeHours} ч</strong></p>
-                            <p className="control-subpanel control-subpanel-row"><span>До Т.О</span><strong>{MAINTENANCE_STATUS.hoursLeft} ч</strong></p>
+                      <div className="control-maintenance-grid">
+                        <section className="control-maintenance-metrics" aria-label="Сводка технического обслуживания">
+                          <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
+                            <span className="control-maintenance-icon-box" aria-hidden="true">
+                              <MaintenanceLineIcon name="runtime" />
+                            </span>
+                            <p>
+                              <span>Пробег</span>
+                              <strong>{MAINTENANCE_STATUS.runtimeHours} <span>ч</span></strong>
+                            </p>
+                          </article>
+
+                          <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
+                            <span className="control-maintenance-icon-box" aria-hidden="true">
+                              <MaintenanceLineIcon name="due" />
+                            </span>
+                            <p>
+                              <span>До Т.О</span>
+                              <strong>{MAINTENANCE_STATUS.hoursLeft} <span>ч</span></strong>
+                            </p>
+                          </article>
+
+                          <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
+                            <span className="control-maintenance-icon-box" aria-hidden="true">
+                              <MaintenanceLineIcon name="interval" />
+                            </span>
+                            <p>
+                              <span>Интервал ТО</span>
+                              <strong>{MAINTENANCE_STATUS.intervalHours} <span>ч</span></strong>
+                            </p>
+                          </article>
+                        </section>
+
+                        <section
+                          className="control-maintenance-panel control-maintenance-progress-panel control-subpanel"
+                          aria-label="Прогресс межсервисного интервала"
+                          style={
+                            {
+                              '--maintenance-progress': `${maintenanceProgressPercent}%`,
+                            } as CSSProperties
+                          }
+                        >
+                          <h3>Прогресс межсервисного интервала</h3>
+                          <div className="control-maintenance-progress-ruler" aria-hidden="true">
+                            <span className="control-maintenance-progress-line" />
+                            <span className="control-maintenance-progress-fill" />
+                            <span className="control-maintenance-progress-marker">
+                              <span>{MAINTENANCE_STATUS.runtimeHours} ч</span>
+                            </span>
+                            <span className="control-maintenance-progress-ticks">
+                              {MAINTENANCE_PROGRESS_TICKS.map((tick) => (
+                                <span
+                                  key={tick}
+                                  className={tick === 0 || tick === 15 || tick === 30 ? 'is-major' : undefined}
+                                  style={
+                                    {
+                                      '--maintenance-tick-position': `${(tick / (MAINTENANCE_PROGRESS_TICKS.length - 1)) * 100}%`,
+                                    } as CSSProperties
+                                  }
+                                />
+                              ))}
+                            </span>
+                            <span className="control-maintenance-progress-labels">
+                              <span>0</span>
+                              <span>500</span>
+                              <span>{MAINTENANCE_STATUS.intervalHours} ч</span>
+                            </span>
                           </div>
+                        </section>
+
+                        <aside className="control-maintenance-panel control-maintenance-checklist control-subpanel" aria-label="Чек-лист ТО">
+                          <h3>Чек-лист ТО</h3>
+                          <div className="control-maintenance-checklist-list">
+                            {MAINTENANCE_CHECKLIST_ITEMS.map((item) => {
+                              const isChecked = maintenanceChecklistState[item.id]
+
+                              return (
+                                <label
+                                  key={item.id}
+                                  className={`control-maintenance-check-row${isChecked ? ' is-checked' : ''}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(event) => {
+                                      setMaintenanceChecklistState((current) => ({
+                                        ...current,
+                                        [item.id]: event.currentTarget.checked,
+                                      }))
+                                    }}
+                                  />
+                                  <span className="control-maintenance-check-box" aria-hidden="true" />
+                                  <span className="control-maintenance-check-label">{item.label}</span>
+                                  <span className="control-maintenance-info-icon" aria-hidden="true">i</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                          <button
+                            type="button"
+                            className="control-maintenance-complete-btn"
+                            onClick={() => setMaintenanceChecklistState(createMaintenanceChecklistState(true))}
+                            disabled={isMaintenanceChecklistComplete}
+                          >
+                            <span aria-hidden="true" />
+                            Отметить все выполненные
+                          </button>
+                        </aside>
+
+                        <div className="control-maintenance-bottom">
+                          <section className="control-maintenance-panel control-maintenance-history control-subpanel" aria-label="История ТО">
+                            <h3>История ТО</h3>
+                            {MAINTENANCE_HISTORY_ITEMS.map((item) => (
+                              <button key={item.id} type="button" className="control-maintenance-history-row control-subpanel">
+                                <span className="control-maintenance-history-dot" aria-hidden="true" />
+                                <span>#{item.id}</span>
+                                <span>{item.date}</span>
+                                <span>{item.runtimeHours} ч</span>
+                                <strong>{item.label}</strong>
+                                <IconMask name="utilityChevron" size={18} className="control-maintenance-chevron" />
+                              </button>
+                            ))}
+                          </section>
+
+                          <section className="control-maintenance-panel control-maintenance-next control-subpanel" aria-label="Следующее действие ТО">
+                            <h3>
+                              Следующее действие
+                              <span aria-hidden="true" />
+                            </h3>
+                            <button type="button" className="control-maintenance-next-row control-subpanel">
+                              <span className="control-maintenance-icon-box" aria-hidden="true">
+                                <MaintenanceLineIcon name="wrench" />
+                              </span>
+                              <span className="control-maintenance-next-copy">
+                                <strong>Плановое ТО</strong>
+                                <span>Рекомендуется через {MAINTENANCE_STATUS.hoursLeft} ч</span>
+                              </span>
+                              <IconMask name="utilityChevron" size={18} className="control-maintenance-chevron" />
+                            </button>
+                          </section>
                         </div>
-                      </article>
+                      </div>
                     )}
                   </div>
                 </div>
