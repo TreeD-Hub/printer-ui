@@ -79,7 +79,7 @@ export function AxisCrossControls({
 }: AxisCrossControlsProps) {
   return (
     <div className={joinClassNames('axis-cross-layout', className)} role="group" aria-label="Кнопки перемещения по осям">
-      <div className="axis-cross-group axis-cross-group-xy" role="group" aria-label="Подблок осей X и Y">
+      <div className="axis-cross-group axis-cross-group-xy control-subpanel control-subpanel-compact control-subpanel-stack" role="group" aria-label="Подблок осей X и Y">
         <p className="axis-cross-title">XY</p>
         <div className="axis-cross-xy">
           <span className="axis-cross-spacer" aria-hidden="true" />
@@ -130,7 +130,7 @@ export function AxisCrossControls({
         </div>
       </div>
 
-      <div className="axis-cross-group axis-cross-group-z" role="group" aria-label="Подблок оси Z">
+      <div className="axis-cross-group axis-cross-group-z control-subpanel control-subpanel-compact control-subpanel-stack" role="group" aria-label="Подблок оси Z">
         <p className="axis-cross-title">Z</p>
         <div className="axis-cross-z">
           <button
@@ -157,7 +157,7 @@ export function AxisCrossControls({
         </div>
       </div>
 
-      <div className="axis-cross-group axis-cross-group-e" role="group" aria-label="Подблок экструдера E">
+      <div className="axis-cross-group axis-cross-group-e control-subpanel control-subpanel-compact control-subpanel-stack" role="group" aria-label="Подблок экструдера E">
         <p className="axis-cross-title">E</p>
         <div className="axis-cross-e">
           <button

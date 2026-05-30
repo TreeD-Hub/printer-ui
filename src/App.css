@@ -1246,6 +1246,11 @@ body {
   cursor: pointer;
 }
 
+.control-card-lighting .settings-toggle-row {
+  border-color: color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
+}
+
 .settings-toggle-switch {
   flex: 0 0 auto;
   width: 52px;
@@ -2287,6 +2292,40 @@ body {
   align-content: start;
 }
 
+/* Control hierarchy: .control-card is a top-level panel; .control-subpanel is a nested block without elevation. */
+.control-subpanel {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
+  box-shadow: none;
+}
+
+.control-subpanel-compact {
+  padding: 6px;
+}
+
+.control-subpanel-row {
+  padding: 8px 10px;
+}
+
+.control-subpanel-stack {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  justify-items: stretch;
+}
+
+.control-card.control-subpanel {
+  border-color: color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
+  box-shadow: none;
+}
+
+.control-card.control-subpanel::after {
+  content: none;
+}
+
 .control-card-motion {
   min-height: 0;
   padding: 10px;
@@ -2335,16 +2374,6 @@ body {
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
-.control-card.control-card-heating-presets {
-  border-color: color-mix(in srgb, var(--color-border-default) 42%, transparent);
-  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
-  box-shadow: none;
-}
-
-.control-card.control-card-heating-presets::after {
-  opacity: 0.34;
-}
-
 .control-heating-rows {
   min-height: 0;
   display: grid;
@@ -2360,10 +2389,6 @@ body {
   gap: 12px;
   padding: 8px 10px;
   border-radius: 12px;
-  border: 1px solid color-mix(in srgb, var(--color-border-default) 84%, transparent);
-  background:
-    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.035) 0 1px, transparent 1.1px) 0 0 / 7px 7px,
-    color-mix(in srgb, var(--color-surface-elevated) 68%, var(--color-block-surface));
 }
 
 .control-heating-sensor {
@@ -2444,11 +2469,18 @@ body {
 .control-heating-chart-block .print-temp-chart {
   min-height: 0;
   height: 100%;
+  border-color: color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
+  box-shadow: none;
 }
 
 .control-heating-chart-block .print-temp-chart-svg {
   height: 100%;
   min-height: 0;
+}
+
+.control-heating-chart-block .print-temp-chart-frame {
+  stroke: color-mix(in srgb, var(--color-border-default) 42%, transparent);
 }
 
 .control-heating-chart-block .print-temp-chart-axis-label,
@@ -2781,14 +2813,6 @@ body {
 
 .axis-cross-group {
   min-width: 0;
-  display: grid;
-  gap: 6px;
-  align-content: start;
-  justify-items: stretch;
-  padding: 6px;
-  border: 1px solid color-mix(in srgb, var(--color-border-default) 42%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
 }
 
 .axis-cross-title {
@@ -3068,9 +3092,7 @@ body {
   gap: var(--space-xs);
   min-height: 38px;
   padding: 0 10px 0 14px;
-  border: 1px solid var(--color-border-default);
   border-radius: 12px;
-  background: var(--color-block-surface);
 }
 
 .control-coordinates-panel .joystick-readout {
@@ -3397,9 +3419,7 @@ body {
 
 .joystick-readout {
   margin: 0;
-  border-radius: 10px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-elevated);
+  border-radius: 12px;
   min-height: 34px;
   padding: 4px var(--space-sm);
   display: flex;
@@ -6081,13 +6101,9 @@ select {
 .control-maintenance-placeholder-metrics p {
   margin: 0;
   min-height: 64px;
-  padding: var(--space-sm);
   display: grid;
   align-content: center;
   gap: var(--space-xxs);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 8px;
-  background: var(--color-surface-track);
 }
 
 .control-maintenance-placeholder-metrics span {

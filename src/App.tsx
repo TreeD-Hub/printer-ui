@@ -3156,7 +3156,7 @@ function App() {
                                 ariaLabel="Шаг перемещения"
                                 testIdPrefix="move-step"
                               />
-                              <div className="control-coordinates-panel">
+                              <div className="control-coordinates-panel control-subpanel">
                                 <p className="joystick-readout axis-coordinate-readout" data-testid="axis-coordinates" aria-label={axisCoordinatesLabel}>
                                   {axisCoordinateItems.map((item) => (
                                     <span key={item.axis} className="axis-coordinate-item">
@@ -3212,11 +3212,11 @@ function App() {
                               <div className="joystick-meta">
                                 <div className="joystick-meta-block">
                                   <p className="joystick-meta-label">Координаты</p>
-                                  <p className="joystick-readout" data-testid="axis-coordinates">{axisCoordinatesLabel}</p>
+                                  <p className="joystick-readout control-subpanel" data-testid="axis-coordinates">{axisCoordinatesLabel}</p>
                                 </div>
                                 <div className="joystick-meta-block">
                                   <p className="joystick-meta-label">Скорость XY</p>
-                                  <p className="joystick-readout">{joystickSpeedMmS.toFixed(1)} / 50 мм/с</p>
+                                  <p className="joystick-readout control-subpanel">{joystickSpeedMmS.toFixed(1)} / 50 мм/с</p>
                                 </div>
                               </div>
                             </div>
@@ -3228,7 +3228,7 @@ function App() {
                         <div className="control-heating-main">
                           <section className="control-heating-rows" aria-label="Температуры сопла и стола">
                             {heatingControlRows.map((row) => (
-                              <div key={row.id} className="control-heating-row">
+                              <div key={row.id} className="control-heating-row control-subpanel">
                                 <div className="control-heating-sensor">
                                   <span className={`control-heating-sensor-icon is-${row.tone}`} aria-hidden="true">
                                     <IconMask name={row.icon} size={18} />
@@ -3273,11 +3273,11 @@ function App() {
                         </div>
 
                         {temperatureKeyboardTarget !== null ? (
-                          <article className="control-card control-card-heating-keyboard">
+                          <article className="control-card control-card-heating-keyboard control-subpanel">
                             {renderTemperatureKeyboardPanel('is-control')}
                           </article>
                         ) : (
-                          <article className="control-card control-card-heating-presets">
+                          <article className="control-card control-card-heating-presets control-subpanel">
                             <div className="control-card-head">
                               <h3 className="control-card-title">Предустановки</h3>
                             </div>
@@ -3364,8 +3364,8 @@ function App() {
                             Раздел обслуживания будет подключен следующим этапом.
                           </p>
                           <div className="control-maintenance-placeholder-metrics">
-                            <p><span>Пробег</span><strong>{MAINTENANCE_STATUS.runtimeHours} ч</strong></p>
-                            <p><span>До Т.О</span><strong>{MAINTENANCE_STATUS.hoursLeft} ч</strong></p>
+                            <p className="control-subpanel control-subpanel-row"><span>Пробег</span><strong>{MAINTENANCE_STATUS.runtimeHours} ч</strong></p>
+                            <p className="control-subpanel control-subpanel-row"><span>До Т.О</span><strong>{MAINTENANCE_STATUS.hoursLeft} ч</strong></p>
                           </div>
                         </div>
                       </article>
