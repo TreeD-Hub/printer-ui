@@ -2335,6 +2335,16 @@ body {
   grid-template-rows: auto minmax(0, 1fr) auto;
 }
 
+.control-card.control-card-heating-presets {
+  border-color: color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
+  box-shadow: none;
+}
+
+.control-card.control-card-heating-presets::after {
+  opacity: 0.34;
+}
+
 .control-heating-rows {
   min-height: 0;
   display: grid;
@@ -2517,22 +2527,30 @@ body {
 }
 
 .control-heating-cooldown-btn {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 20px max-content;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 0 12px;
+  padding: 0 14px;
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-medium);
+  line-height: 1.1;
+  text-align: left;
 }
 
 .control-heating-cooldown-icon {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: var(--color-text-secondary);
+}
+
+.control-heating-cooldown-btn > span:last-child {
+  min-width: 0;
+  transform: translateY(1px);
 }
 
 .control-card-heating-keyboard {
