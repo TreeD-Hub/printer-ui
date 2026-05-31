@@ -4,6 +4,7 @@ import {
   getTreeDCommandCatalogItem,
   isDangerousTreeDCommand,
   TREE_D_COMMAND_CATALOG,
+  type TreeDCommandRuntimeContext,
 } from './catalog'
 import type { PrinterCapabilitiesSnapshot } from '../transport/types'
 import type { PrinterCommandId } from './types'
@@ -53,6 +54,36 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
   serviceCommands: true,
 }
 
+const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
+  capabilities: ALL_CAPABILITIES,
+  connection: 'online',
+  printJob: {
+    state: 'standby',
+    isActive: false,
+    isPaused: false,
+  },
+  homedAxes: 'xyz',
+  eddyStatus: 'ready',
+}
+
+const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {
+  ...IDLE_CONTEXT,
+  printJob: {
+    state: 'printing',
+    isActive: true,
+    isPaused: false,
+  },
+}
+
+const PAUSED_CONTEXT: TreeDCommandRuntimeContext = {
+  ...IDLE_CONTEXT,
+  printJob: {
+    state: 'paused',
+    isActive: true,
+    isPaused: true,
+  },
+}
+
 describe('TREE_D_COMMAND_CATALOG', () => {
   it('defines metadata for every executable printer command', () => {
     expect(Object.keys(TREE_D_COMMAND_CATALOG).sort()).toEqual([...ALL_COMMAND_IDS].sort())
@@ -79,6 +110,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
 
     expect(isDangerousTreeDCommand('pause')).toBe(false)
     expect(isDangerousTreeDCommand('setFanPercent')).toBe(false)
+    expect(getTreeDCommandCatalogItem('emergencyStop').requiresConfirmation).toBe(false)
   })
 
   it('keeps Eddy Z-home and TreeD calibration commands out of safe tier', () => {
@@ -89,28 +121,50 @@ describe('TREE_D_COMMAND_CATALOG', () => {
   })
 
   it('blocks commands when capability is missing or connection is unsafe', () => {
+    expect(getTreeDCommandBlockReason('pause', PRINTING_CONTEXT)).toBeNull()
     expect(getTreeDCommandBlockReason('pause', {
-      capabilities: ALL_CAPABILITIES,
-      connection: 'online',
-    })).toBeNull()
-    expect(getTreeDCommandBlockReason('pause', {
+      ...PRINTING_CONTEXT,
       capabilities: {
         ...ALL_CAPABILITIES,
         print: false,
       },
-      connection: 'online',
     })).toContain('capability')
     expect(getTreeDCommandBlockReason('cancel', {
-      capabilities: ALL_CAPABILITIES,
+      ...PRINTING_CONTEXT,
       connection: 'degraded',
     })).toContain('ограниченном режиме')
     expect(getTreeDCommandBlockReason('setFanPercent', {
-      capabilities: ALL_CAPABILITIES,
+      ...IDLE_CONTEXT,
       connection: 'degraded',
     })).toBeNull()
     expect(getTreeDCommandBlockReason('pause', {
-      capabilities: ALL_CAPABILITIES,
+      ...PRINTING_CONTEXT,
       connection: 'reconnecting',
     })).toContain('восстановление связи')
+  })
+
+  it('blocks print and motion commands that do not match runtime state', () => {
+    expect(getTreeDCommandBlockReason('pause', IDLE_CONTEXT)).toContain('нет активной печати')
+    expect(getTreeDCommandBlockReason('resume', PRINTING_CONTEXT)).toContain('нет печати на паузе')
+    expect(getTreeDCommandBlockReason('resume', PAUSED_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('cancel', IDLE_CONTEXT)).toContain('нет активной печати')
+    expect(getTreeDCommandBlockReason('start', PRINTING_CONTEXT)).toContain('активная печать')
+    expect(getTreeDCommandBlockReason('homeZ', {
+      ...IDLE_CONTEXT,
+      eddyStatus: 'requires_xy_home',
+    })).toContain('Home XY')
+    expect(getTreeDCommandBlockReason('moveAxis', {
+      ...IDLE_CONTEXT,
+      homedAxes: 'xy',
+    }, {
+      command: 'moveAxis',
+      axis: 'Z',
+      distanceMm: 1,
+    })).toContain('ось Z')
+    expect(getTreeDCommandBlockReason('moveAxis', PRINTING_CONTEXT, {
+      command: 'moveAxis',
+      axis: 'X',
+      distanceMm: 1,
+    })).toContain('во время печати')
   })
 })

@@ -34,7 +34,7 @@ describe('createMoonrakerCommandClient', () => {
       2,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'G28 Z' }),
+        body: JSON.stringify({ script: '_TREED_EDDY_HOME_Z' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(

@@ -3,6 +3,7 @@ import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   usePrinterCommands,
+  type ExecuteCommandArgs,
   type PrinterCommandId,
 } from './core/commands'
 import { usePrinterSnapshot } from './core/store/usePrinterSnapshot'
@@ -558,26 +559,6 @@ const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'files' | 'set
 
 function App() {
   const { snapshot, refresh } = usePrinterSnapshot()
-  const commandRuntimeContext = useMemo(
-    () => ({
-      capabilities: snapshot.capabilities,
-      connection: snapshot.connection,
-    }),
-    [snapshot.capabilities, snapshot.connection],
-  )
-  const {
-    pendingCommand,
-    error: commandError,
-    executeCommand,
-  } = usePrinterCommands(commandRuntimeContext)
-  const getCommandBlockReason = useCallback(
-    (command: PrinterCommandId) => getTreeDCommandBlockReason(command, commandRuntimeContext),
-    [commandRuntimeContext],
-  )
-  const requiresCommandConfirmation = useCallback(
-    (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
-    [],
-  )
   const screenShellRef = useRef<HTMLElement | null>(null)
   const topButtonRefs = useRef<Record<TopStatusButtonId, HTMLButtonElement | null>>({
     wifi: null,
@@ -596,6 +577,55 @@ function App() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
   const [activePrintFileName, setActivePrintFileName] = useState<string | null>(null)
   const [activePrintUiState, setActivePrintUiState] = useState<ActivePrintUiState | null>(null)
+  const commandRuntimeContext = useMemo(
+    () => ({
+      capabilities: snapshot.capabilities,
+      connection: snapshot.connection,
+      printJob: snapshot.source === 'live'
+        ? {
+            state: snapshot.printJob.state,
+            isActive: snapshot.printJob.isActive,
+            isPaused: snapshot.printJob.isPaused,
+          }
+        : {
+            state: activePrintUiState ??
+              (activePrintFileName === null ? snapshot.printJob.state : 'printing'),
+            isActive: activePrintFileName !== null,
+            isPaused: activePrintUiState === 'paused',
+          },
+      homedAxes: snapshot.homedAxes,
+      eddyStatus: snapshot.v2.eddy.status,
+    }),
+    [
+      activePrintFileName,
+      activePrintUiState,
+      snapshot.capabilities,
+      snapshot.connection,
+      snapshot.homedAxes,
+      snapshot.printJob.isActive,
+      snapshot.printJob.isPaused,
+      snapshot.printJob.state,
+      snapshot.source,
+      snapshot.v2.eddy.status,
+    ],
+  )
+  const {
+    pendingCommand,
+    error: commandError,
+    executeCommand,
+  } = usePrinterCommands(commandRuntimeContext)
+  const getCommandBlockReason = useCallback(
+    (command: PrinterCommandId, args?: ExecuteCommandArgs) => getTreeDCommandBlockReason(
+      command,
+      commandRuntimeContext,
+      args,
+    ),
+    [commandRuntimeContext],
+  )
+  const requiresCommandConfirmation = useCallback(
+    (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
+    [],
+  )
   const [isPrintCancelConfirmOpen, setIsPrintCancelConfirmOpen] = useState<boolean>(false)
   const [activePrintTuneGroup, setActivePrintTuneGroup] = useState<PrintTuneGroupId | null>(null)
   const [printNozzleTargetTemp, setPrintNozzleTargetTemp] = useState<number>(DEFAULT_NOZZLE_TARGET_TEMP)
@@ -1508,21 +1538,26 @@ function App() {
 
   function handleAxisMove(axis: AxisId, direction: -1 | 1): void {
     const distanceMm = direction * moveStepMm
-    setPrintHeadPosition((prevPosition) => {
-      return {
-        ...prevPosition,
-        x: axis === 'X'
-          ? clampAxisValue(prevPosition.x + distanceMm, HEAD_X_BOUNDS_MM.min, HEAD_X_BOUNDS_MM.max)
-          : prevPosition.x,
-        y: axis === 'Y'
-          ? clampAxisValue(prevPosition.y + distanceMm, HEAD_Y_BOUNDS_MM.min, HEAD_Y_BOUNDS_MM.max)
-          : prevPosition.y,
-        z: axis === 'Z'
-          ? clampAxisValue(prevPosition.z + distanceMm, HEAD_Z_BOUNDS_MM.min, HEAD_Z_BOUNDS_MM.max)
-          : prevPosition.z,
+    void executeCommand({ command: 'moveAxis', axis, distanceMm }).then((ok) => {
+      if (!ok) {
+        return
       }
+
+      setPrintHeadPosition((prevPosition) => {
+        return {
+          ...prevPosition,
+          x: axis === 'X'
+            ? clampAxisValue(prevPosition.x + distanceMm, HEAD_X_BOUNDS_MM.min, HEAD_X_BOUNDS_MM.max)
+            : prevPosition.x,
+          y: axis === 'Y'
+            ? clampAxisValue(prevPosition.y + distanceMm, HEAD_Y_BOUNDS_MM.min, HEAD_Y_BOUNDS_MM.max)
+            : prevPosition.y,
+          z: axis === 'Z'
+            ? clampAxisValue(prevPosition.z + distanceMm, HEAD_Z_BOUNDS_MM.min, HEAD_Z_BOUNDS_MM.max)
+            : prevPosition.z,
+        }
+      })
     })
-    void executeCommand({ command: 'moveAxis', axis, distanceMm })
   }
 
   function handleFilamentMove(direction: -1 | 1): void {

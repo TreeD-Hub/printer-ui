@@ -27,7 +27,7 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         return false
       }
 
-      const blockReason = getTreeDCommandBlockReason(command, runtimeContext)
+      const blockReason = getTreeDCommandBlockReason(command, runtimeContext, args)
       if (blockReason !== null) {
         const result: CommandResult = {
           command,

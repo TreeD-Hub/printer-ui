@@ -98,7 +98,7 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
     case 'homeXY':
       return 'G28 X Y sent'
     case 'homeZ':
-      return 'G28 Z sent'
+      return '_TREED_EDDY_HOME_Z sent'
     case 'moveAxis':
       return `Move ${args.axis}${args.distanceMm}mm sent`
     case 'setNozzleTarget':
@@ -180,7 +180,7 @@ function executeMoonrakerCommand(
     case 'homeXY':
       return sendScript('G28 X Y', options)
     case 'homeZ':
-      return sendScript('G28 Z', options)
+      return sendScript('_TREED_EDDY_HOME_Z', options)
     case 'moveAxis': {
       const feedRateMmPerMin = args.feedRateMmPerMin ?? (args.speedMmS === undefined ? undefined : args.speedMmS * 60)
       const feedRate = feedRateMmPerMin !== undefined ? ` F${feedRateMmPerMin}` : ''

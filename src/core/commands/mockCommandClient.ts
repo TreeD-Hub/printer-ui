@@ -24,7 +24,7 @@ function buildMessage(args: ExecuteCommandArgs): string {
     case 'homeXY':
       return 'Mock: G28 X Y sent'
     case 'homeZ':
-      return 'Mock: G28 Z sent'
+      return 'Mock: _TREED_EDDY_HOME_Z sent'
     case 'moveAxis':
       return `Mock: move ${args.axis}${args.distanceMm} sent`
     case 'setNozzleTarget':
