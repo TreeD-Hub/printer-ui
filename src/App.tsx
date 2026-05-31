@@ -799,7 +799,7 @@ function App() {
       ? (activePrintUiState ?? snapshot.state)
       : snapshot.state
   const isPrintPaused = hasActivePrint && statusLabel(effectiveActivePrintState) === 'Пауза'
-  const printPauseCommand: PrinterCommandId = isPrintPaused ? 'resume' : 'pause'
+  const printPauseCommand = isPrintPaused ? 'resume' : 'pause'
   const printPauseBlockReason = getCommandBlockReason(printPauseCommand)
   const printCancelBlockReason = getCommandBlockReason('cancel')
   const printStartBlockReason = getCommandBlockReason('start')
