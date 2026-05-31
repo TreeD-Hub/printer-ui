@@ -1,4 +1,4 @@
-﻿# `docs`
+# `docs`
 
 Документация проекта `treed-shell`.
 
@@ -10,4 +10,4 @@
 
 Текущие ключевые документы:
 - `00_FOUNDATION.md` — зафиксированные foundation-токены и дизайн-инварианты.
-- `01_ADR_TAURI_ONLY_PI3.md` — принятое решение `Tauri-only` и контур разработки под Pi 3.
+- `01_ADR_TAURI_ONLY_V2_RUNTIME.md` — принятое решение `Tauri-only` и hardware matrix для V2 runtime.

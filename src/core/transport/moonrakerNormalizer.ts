@@ -160,7 +160,7 @@ function normalizeConnectionState(webhooks?: MoonrakerWebhooksStatus): PrinterCo
   const state = webhooks?.state?.toLowerCase()
 
   if (!state) {
-    return 'stale'
+    return 'degraded'
   }
 
   if (state === 'ready') {
@@ -179,7 +179,7 @@ function normalizeConnectionState(webhooks?: MoonrakerWebhooksStatus): PrinterCo
     return 'offline'
   }
 
-  return 'stale'
+  return 'degraded'
 }
 
 function normalizeToolhead(

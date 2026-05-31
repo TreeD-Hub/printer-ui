@@ -4,6 +4,8 @@ import { createMockClient } from '../transport/mockClient'
 import { createMoonrakerClient } from '../transport/moonrakerClient'
 import type { PrinterSnapshot } from '../transport/types'
 
+const LIVE_HTTP_FALLBACK_INTERVAL_MS = 30_000
+
 const FALLBACK_SNAPSHOT: PrinterSnapshot = {
   source: dataMode,
   connection: 'offline',
@@ -106,6 +108,21 @@ const FALLBACK_SNAPSHOT: PrinterSnapshot = {
   },
 }
 
+function mergeWebSocketSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
+  return {
+    ...next,
+    printFiles: next.printFiles.length > 0 ? next.printFiles : previous.printFiles,
+  }
+}
+
+function getFailureConnection(previous: PrinterSnapshot): PrinterSnapshot['connection'] {
+  if (previous.connection === 'shutdown') {
+    return 'shutdown'
+  }
+
+  return previous.connection === 'offline' ? 'offline' : 'reconnecting'
+}
+
 export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const [snapshot, setSnapshot] = useState<PrinterSnapshot>(FALLBACK_SNAPSHOT)
   const [error, setError] = useState<string>('')
@@ -123,7 +140,8 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       setSnapshot((prev) => ({
         ...prev,
-        connection: 'offline',
+        connection: getFailureConnection(prev),
+        message: `Ошибка связи: ${message}`,
         updatedAt: new Date().toISOString(),
       }))
       setError(message)
@@ -131,19 +149,63 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   }, [client])
 
   useEffect(() => {
+    let isDisposed = false
+    const fallbackIntervalMs = client.subscribe === undefined
+      ? pollIntervalMs
+      : Math.max(pollIntervalMs, LIVE_HTTP_FALLBACK_INTERVAL_MS)
+    const subscription = client.subscribe?.({
+      onSnapshot(nextSnapshot) {
+        if (isDisposed) {
+          return
+        }
+
+        setSnapshot((prev) => mergeWebSocketSnapshot(prev, nextSnapshot))
+        setError('')
+      },
+      onConnectionChange(connection, message) {
+        if (isDisposed) {
+          return
+        }
+
+        setSnapshot((prev) => ({
+          ...prev,
+          connection,
+          message: message ?? prev.message,
+          updatedAt: new Date().toISOString(),
+        }))
+      },
+      onError(message) {
+        if (isDisposed) {
+          return
+        }
+
+        setError(message)
+      },
+    })
+
+    if (client.subscribe !== undefined) {
+      setSnapshot((prev) => ({
+        ...prev,
+        connection: prev.connection === 'online' ? prev.connection : 'connecting',
+        updatedAt: new Date().toISOString(),
+      }))
+    }
+
     const firstTick = window.setTimeout(() => {
       void refresh()
     }, 0)
 
     const timer = window.setInterval(() => {
       void refresh()
-    }, pollIntervalMs)
+    }, fallbackIntervalMs)
 
     return () => {
+      isDisposed = true
+      subscription?.close()
       window.clearTimeout(firstTick)
       window.clearInterval(timer)
     }
-  }, [pollIntervalMs, refresh])
+  }, [client, pollIntervalMs, refresh])
 
   return {
     snapshot,

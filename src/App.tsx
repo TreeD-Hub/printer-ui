@@ -46,6 +46,7 @@ import {
   VirtualJoystick,
 } from './ui'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from './printFiles'
+import type { PrinterConnectionState } from './core/transport/types'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
 
@@ -316,6 +317,22 @@ const CONSOLE_QUICK_COMMANDS = [
   'M140 S60',
   'START_PRINT',
 ] as const
+const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
+  connecting: 'Подключение',
+  online: 'Подключено',
+  degraded: 'Ограничено',
+  reconnecting: 'Переподключение',
+  offline: 'Офлайн',
+  shutdown: 'Klipper остановлен',
+}
+const IDLE_CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
+  connecting: 'Подключение к принтеру',
+  online: 'Ожидание печати',
+  degraded: 'Ограниченный режим',
+  reconnecting: 'Восстановление связи',
+  offline: 'Нет связи',
+  shutdown: 'Klipper остановлен',
+}
 const SETTINGS_VIRTUAL_KEYBOARD_ROWS: string[][] = [
   ['Q', 'W', 'E', 'R', 'T', 'Y', 'U'],
   ['I', 'O', 'P', 'A', 'S', 'D', 'F'],
@@ -691,9 +708,10 @@ function App() {
     }
     return parsed.toLocaleTimeString('ru-RU')
   }, [snapshot.updatedAt])
-  const connectionLabel = snapshot.connection === 'online' ? 'Подключено' : 'Офлайн'
-  const wifiSsidLabel = snapshot.connection === 'online' ? snapshot.wifiSsid : 'Не подключено'
-  const wifiIpLabel = snapshot.connection === 'online' ? snapshot.ipAddress : '—'
+  const isRuntimeCurrent = snapshot.connection === 'online' || snapshot.connection === 'degraded'
+  const connectionLabel = CONNECTION_LABELS[snapshot.connection]
+  const wifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
+  const wifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
   const isNetworkCapabilityAvailable = snapshot.capabilities.network
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const isUpdatesCapabilityAvailable = snapshot.capabilities.updates
@@ -726,7 +744,7 @@ function App() {
       ? (activePrintUiState ?? snapshot.state)
       : snapshot.state
   const isPrintPaused = hasActivePrint && statusLabel(effectiveActivePrintState) === 'Пауза'
-  const idleHeroStatusLabel = snapshot.connection === 'online' ? 'Ожидание печати' : 'Нет связи'
+  const idleHeroStatusLabel = IDLE_CONNECTION_LABELS[snapshot.connection]
   const effectiveFilesLibrary = snapshot.source === 'live' ? snapshot.printFiles : filesLibrary
   const sortedPrintFiles = useMemo(() => {
     const nextItems = [...effectiveFilesLibrary]
@@ -1166,7 +1184,7 @@ function App() {
     clearBedScrewMoveTimeout()
     setIsBedScrewPointMoving(true)
     setActiveBedScrewPointId(selectedPoint.id)
-    setBedScrewGuideNotice(`РџРµСЂРµРјРµС‰РµРЅРёРµ Рє С‚РѕС‡РєРµ ${selectedPointIndex + 1}...`)
+    setBedScrewGuideNotice(`Перемещение к точке ${selectedPointIndex + 1}...`)
     setPrintHeadPosition((currentPosition) => ({
       ...currentPosition,
       x: clampAxisValue(selectedPoint.xMm, HEAD_X_BOUNDS_MM.min, HEAD_X_BOUNDS_MM.max),

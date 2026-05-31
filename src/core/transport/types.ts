@@ -1,6 +1,12 @@
 export type PrinterSource = 'mock' | 'live'
 
-export type PrinterConnectionState = 'connecting' | 'online' | 'stale' | 'offline' | 'shutdown'
+export type PrinterConnectionState =
+  | 'connecting'
+  | 'online'
+  | 'degraded'
+  | 'reconnecting'
+  | 'offline'
+  | 'shutdown'
 
 export interface PrinterHardwareSnapshot {
   marker: 'treed-v2'
@@ -140,6 +146,17 @@ export interface PrinterRuntimeSnapshot {
 
 export type PrinterSnapshot = PrinterRuntimeSnapshot
 
+export interface TransportSubscriptionHandlers {
+  onSnapshot: (snapshot: PrinterSnapshot) => void
+  onConnectionChange: (connection: PrinterConnectionState, message?: string) => void
+  onError?: (message: string) => void
+}
+
+export interface TransportSubscription {
+  close: () => void
+}
+
 export interface TransportClient {
   fetchSnapshot: () => Promise<PrinterSnapshot>
+  subscribe?: (handlers: TransportSubscriptionHandlers) => TransportSubscription
 }

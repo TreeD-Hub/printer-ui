@@ -5,6 +5,8 @@ import {
   type MoonrakerPrintFileInput,
   type MoonrakerPrintFileMetadata,
 } from './moonrakerNormalizer'
+import { subscribeToMoonrakerStatus } from './moonrakerWebSocketClient'
+import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
 import type { PrinterSnapshot, TransportClient } from './types'
 
 type MoonrakerResponse<T> = {
@@ -29,29 +31,6 @@ type MoonrakerFileListItem = {
   modified?: number
   size?: number
 }
-
-const MOONRAKER_RUNTIME_OBJECTS = [
-  'webhooks',
-  'toolhead',
-  'gcode_move',
-  'print_stats',
-  'virtual_sdcard',
-  'extruder',
-  'heater_bed',
-  'fan',
-  'display_status',
-  'pause_resume',
-  'gcode_macro _TREED_PROFILE',
-  'gcode_macro _TREED_GEOMETRY_CFG',
-  'gcode_macro _TREED_PAUSE_STATE',
-  'gcode_macro _TREED_CAM_STATE',
-  'gcode_macro _TREED_EDDY_Z_OFFSET_AUTOSAVE_STATE',
-  'gcode_macro _TREED_SYSTEM_POWER',
-  'gcode_macro _TREED_CLOUD',
-  'gcode_macro _TREED_UPDATES',
-  'gcode_macro _TREED_CAMERA',
-  'gcode_macro _TREED_SERVICE_COMMANDS',
-] as const
 
 export const MOONRAKER_RUNTIME_OBJECTS_QUERY = `/printer/objects/query?${MOONRAKER_RUNTIME_OBJECTS
   .map((objectName) => encodeURIComponent(objectName))
@@ -149,6 +128,9 @@ export function createMoonrakerClient(): TransportClient {
       ])
 
       return normalizeMoonrakerRuntimeSnapshot(objects, { moonrakerUrl, source: 'live', printFiles })
+    },
+    subscribe(handlers) {
+      return subscribeToMoonrakerStatus(handlers, { moonrakerUrl })
     },
   }
 }
