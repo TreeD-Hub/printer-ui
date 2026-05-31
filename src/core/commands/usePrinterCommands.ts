@@ -1,15 +1,12 @@
 import { useCallback, useMemo, useState } from 'react'
 import { dataMode } from '../../config'
+import { getTreeDCommandBlockReason, type TreeDCommandRuntimeContext } from './catalog'
 import { createMockCommandClient } from './mockCommandClient'
 import { createMoonrakerCommandClient } from './moonrakerCommandClient'
 import type { CommandResult, ExecuteCommandArgs, PrinterCommandId } from './types'
 
-type RuntimeCommandCapabilities = {
-  power?: boolean
-}
-
-export function usePrinterCommands(capabilities: RuntimeCommandCapabilities = {}) {
-  const powerCapability = capabilities.power
+export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
+  const powerCapability = runtimeContext.capabilities.power
   const [pendingCommand, setPendingCommand] = useState<PrinterCommandId | null>(
     null,
   )
@@ -27,6 +24,20 @@ export function usePrinterCommands(capabilities: RuntimeCommandCapabilities = {}
       const { command } = args
 
       if (pendingCommand) {
+        return false
+      }
+
+      const blockReason = getTreeDCommandBlockReason(command, runtimeContext)
+      if (blockReason !== null) {
+        const result: CommandResult = {
+          command,
+          ok: false,
+          kind: 'unsupported',
+          message: blockReason,
+          at: new Date().toISOString(),
+        }
+        setError(blockReason)
+        setLastResult(result)
         return false
       }
 
@@ -50,7 +61,7 @@ export function usePrinterCommands(capabilities: RuntimeCommandCapabilities = {}
         setPendingCommand(null)
       }
     },
-    [client, pendingCommand],
+    [client, pendingCommand, runtimeContext],
   )
 
   const clearCommandError = useCallback(() => {

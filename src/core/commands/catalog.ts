@@ -1,4 +1,5 @@
 import type { PrinterCommandId } from './types'
+import type { PrinterCapabilitiesSnapshot, PrinterConnectionState } from '../transport/types'
 
 export type TreeDCommandRisk = 'safe' | 'caution' | 'danger'
 
@@ -21,6 +22,32 @@ export interface TreeDCommandCatalogItem {
   label: string
   capability: TreeDCommandCapability
   requiresConfirmation: boolean
+}
+
+export interface TreeDCommandRuntimeContext {
+  capabilities: PrinterCapabilitiesSnapshot
+  connection: PrinterConnectionState
+}
+
+const COMMAND_CAPABILITY_LABELS: Record<TreeDCommandCapability, string> = {
+  print: 'печать',
+  motion: 'перемещение',
+  thermal: 'нагрев',
+  fan: 'обдув',
+  filament: 'филамент',
+  console: 'консоль G-code',
+  eddy: 'Eddy/Z-контур',
+  shaper: 'input shaper',
+  motionTest: 'тест движения',
+  power: 'питание host',
+  serviceCommands: 'сервисные команды',
+}
+
+const CONNECTION_BLOCK_LABELS: Record<Exclude<PrinterConnectionState, 'online' | 'degraded'>, string> = {
+  connecting: 'идет подключение к принтеру',
+  reconnecting: 'идет восстановление связи с принтером',
+  offline: 'нет связи с принтером',
+  shutdown: 'Klipper остановлен',
 }
 
 export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalogItem> = {
@@ -193,4 +220,30 @@ export function getTreeDCommandCatalogItem(command: PrinterCommandId): TreeDComm
 
 export function isDangerousTreeDCommand(command: PrinterCommandId): boolean {
   return TREE_D_COMMAND_CATALOG[command].risk === 'danger'
+}
+
+export function getTreeDCommandBlockReason(
+  command: PrinterCommandId,
+  context: TreeDCommandRuntimeContext,
+): string | null {
+  const item = getTreeDCommandCatalogItem(command)
+  const capabilityEnabled = context.capabilities[item.capability]
+
+  if (capabilityEnabled !== true) {
+    return `${item.label}: capability «${COMMAND_CAPABILITY_LABELS[item.capability]}» не подтвержден.`
+  }
+
+  if (context.connection === 'online') {
+    return null
+  }
+
+  if (context.connection === 'degraded') {
+    if (item.risk === 'safe') {
+      return null
+    }
+
+    return `${item.label}: команда уровня ${item.risk} недоступна в ограниченном режиме связи.`
+  }
+
+  return `${item.label}: команда недоступна, ${CONNECTION_BLOCK_LABELS[context.connection]}.`
 }

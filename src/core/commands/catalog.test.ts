@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   isDangerousTreeDCommand,
   TREE_D_COMMAND_CATALOG,
 } from './catalog'
+import type { PrinterCapabilitiesSnapshot } from '../transport/types'
 import type { PrinterCommandId } from './types'
 
 const ALL_COMMAND_IDS: PrinterCommandId[] = [
@@ -31,6 +33,25 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'rebootHost',
   'shutdownHost',
 ]
+
+const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
+  print: true,
+  motion: true,
+  thermal: true,
+  fan: true,
+  filament: true,
+  console: true,
+  eddy: true,
+  shaper: true,
+  motionTest: true,
+  power: true,
+  network: false,
+  cloud: false,
+  updates: false,
+  systemPower: true,
+  camera: false,
+  serviceCommands: true,
+}
 
 describe('TREE_D_COMMAND_CATALOG', () => {
   it('defines metadata for every executable printer command', () => {
@@ -65,5 +86,31 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(getTreeDCommandCatalogItem('zParkZeroEddy').risk).toBe('caution')
     expect(getTreeDCommandCatalogItem('shaperCalibrateLight').risk).toBe('caution')
     expect(getTreeDCommandCatalogItem('shaperCalibrateFull').risk).toBe('caution')
+  })
+
+  it('blocks commands when capability is missing or connection is unsafe', () => {
+    expect(getTreeDCommandBlockReason('pause', {
+      capabilities: ALL_CAPABILITIES,
+      connection: 'online',
+    })).toBeNull()
+    expect(getTreeDCommandBlockReason('pause', {
+      capabilities: {
+        ...ALL_CAPABILITIES,
+        print: false,
+      },
+      connection: 'online',
+    })).toContain('capability')
+    expect(getTreeDCommandBlockReason('cancel', {
+      capabilities: ALL_CAPABILITIES,
+      connection: 'degraded',
+    })).toContain('ограниченном режиме')
+    expect(getTreeDCommandBlockReason('setFanPercent', {
+      capabilities: ALL_CAPABILITIES,
+      connection: 'degraded',
+    })).toBeNull()
+    expect(getTreeDCommandBlockReason('pause', {
+      capabilities: ALL_CAPABILITIES,
+      connection: 'reconnecting',
+    })).toContain('восстановление связи')
   })
 })

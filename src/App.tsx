@@ -1,5 +1,10 @@
 import { type ChangeEvent, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { usePrinterCommands } from './core/commands'
+import {
+  getTreeDCommandBlockReason,
+  getTreeDCommandCatalogItem,
+  usePrinterCommands,
+  type PrinterCommandId,
+} from './core/commands'
 import { usePrinterSnapshot } from './core/store/usePrinterSnapshot'
 import {
   BABYSTEP_STEP_OPTIONS,
@@ -553,7 +558,26 @@ const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'files' | 'set
 
 function App() {
   const { snapshot, refresh } = usePrinterSnapshot()
-  const { pendingCommand, executeCommand } = usePrinterCommands({ power: snapshot.capabilities.power })
+  const commandRuntimeContext = useMemo(
+    () => ({
+      capabilities: snapshot.capabilities,
+      connection: snapshot.connection,
+    }),
+    [snapshot.capabilities, snapshot.connection],
+  )
+  const {
+    pendingCommand,
+    error: commandError,
+    executeCommand,
+  } = usePrinterCommands(commandRuntimeContext)
+  const getCommandBlockReason = useCallback(
+    (command: PrinterCommandId) => getTreeDCommandBlockReason(command, commandRuntimeContext),
+    [commandRuntimeContext],
+  )
+  const requiresCommandConfirmation = useCallback(
+    (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
+    [],
+  )
   const screenShellRef = useRef<HTMLElement | null>(null)
   const topButtonRefs = useRef<Record<TopStatusButtonId, HTMLButtonElement | null>>({
     wifi: null,
@@ -716,6 +740,7 @@ function App() {
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const isUpdatesCapabilityAvailable = snapshot.capabilities.updates
   const isPowerCapabilityAvailable = snapshot.capabilities.power
+  const powerShutdownBlockReason = getCommandBlockReason('shutdownHost')
   const networkCapabilityNotice = isNetworkCapabilityAvailable
     ? 'Выберите сеть и выполните подключение.'
     : 'Недоступно: Moonraker/V2 Wi-Fi capability не подтвержден.'
@@ -727,7 +752,7 @@ function App() {
     ? updateNotice
     : 'Недоступно: Moonraker/V2 update capability не подтвержден.'
   const powerCapabilityNotice = isPowerCapabilityAvailable
-    ? powerPopupNotice
+    ? (powerShutdownBlockReason ?? powerPopupNotice)
     : 'Недоступно: Moonraker machine power capability не подтвержден.'
   const eddyStatusLabel = snapshot.v2.eddy.status === 'ready'
     ? 'Eddy готов к Z-home/mesh'
@@ -744,6 +769,10 @@ function App() {
       ? (activePrintUiState ?? snapshot.state)
       : snapshot.state
   const isPrintPaused = hasActivePrint && statusLabel(effectiveActivePrintState) === 'Пауза'
+  const printPauseCommand: PrinterCommandId = isPrintPaused ? 'resume' : 'pause'
+  const printPauseBlockReason = getCommandBlockReason(printPauseCommand)
+  const printCancelBlockReason = getCommandBlockReason('cancel')
+  const printStartBlockReason = getCommandBlockReason('start')
   const idleHeroStatusLabel = IDLE_CONNECTION_LABELS[snapshot.connection]
   const effectiveFilesLibrary = snapshot.source === 'live' ? snapshot.printFiles : filesLibrary
   const sortedPrintFiles = useMemo(() => {
@@ -1750,6 +1779,12 @@ function App() {
   const handleSettingsVirtualKey = handleVirtualKeyboardKey
 
   function handleConsoleSubmit(): void {
+    const consoleBlockReason = getCommandBlockReason('consoleGcode')
+    if (consoleBlockReason !== null) {
+      setConsoleNotice(consoleBlockReason)
+      return
+    }
+
     const trimmed = consoleCommandValue.trim()
     if (trimmed.length === 0) {
       setConsoleNotice('Введите команду перед отправкой.')
@@ -1958,7 +1993,12 @@ function App() {
       return
     }
 
-    if (!isPowerShutdownArmed) {
+    if (powerShutdownBlockReason !== null) {
+      setPowerPopupNotice(powerShutdownBlockReason)
+      return
+    }
+
+    if (requiresCommandConfirmation('shutdownHost') && !isPowerShutdownArmed) {
       setIsPowerShutdownArmed(true)
       setPowerPopupNotice('Подтвердите выключение повторным нажатием.')
       return
@@ -1973,7 +2013,7 @@ function App() {
   }
 
   async function handlePause(): Promise<void> {
-    const nextCommand = isPrintPaused ? 'resume' : 'pause'
+    const nextCommand = printPauseCommand
     const ok = await executeCommand({ command: nextCommand })
     if (ok) {
       setActivePrintUiState(isPrintPaused ? 'printing' : 'paused')
@@ -1982,7 +2022,16 @@ function App() {
   }
 
   function handleStopRequest(): void {
-    setIsPrintCancelConfirmOpen(true)
+    if (printCancelBlockReason !== null) {
+      return
+    }
+
+    if (requiresCommandConfirmation('cancel')) {
+      setIsPrintCancelConfirmOpen(true)
+      return
+    }
+
+    void handleStopConfirm()
   }
 
   async function handleStopConfirm(): Promise<void> {
@@ -2925,14 +2974,14 @@ function App() {
                               : 'Пауза'
                       }
                       onClick={() => void handlePause()}
-                      disabled={isBusy}
+                      disabled={isBusy || printPauseBlockReason !== null}
                     />
                     <ActionSquareButton
                       icon="actionStopCritical"
                       tone="danger"
                       label={pendingCommand === 'cancel' ? 'Стоп...' : 'Стоп'}
                       onClick={handleStopRequest}
-                      disabled={isBusy}
+                      disabled={isBusy || printCancelBlockReason !== null}
                     />
                   </div>
                 </div>
@@ -4838,7 +4887,7 @@ function App() {
                   className="file-modal-action"
                   data-testid="print-file-start-button"
                   onClick={() => void handleStartSelectedFile()}
-                  disabled={isBusy}
+                  disabled={isBusy || printStartBlockReason !== null}
                 >
                   {pendingCommand === 'start' ? 'Запуск...' : 'Старт печати'}
                 </button>
@@ -4994,6 +5043,7 @@ function App() {
                 <div className="top-popup-content">
                   <p className="top-popup-note">Последнее сообщение от принтера:</p>
                   <ul className="top-popup-list">
+                    {commandError ? <li>{commandError}</li> : null}
                     <li>{snapshot.message}</li>
                   </ul>
                   <p className="top-popup-secondary">Новые системные уведомления будут добавляться в этот список.</p>
@@ -5003,7 +5053,7 @@ function App() {
               {activeTopPopup === 'power' ? (
                 <div className="top-popup-content">
                   <p className="top-popup-warning">
-                    {isPowerCapabilityAvailable
+                    {powerShutdownBlockReason === null
                       ? 'Выключение принтера остановит текущую задачу и потребует ручного запуска питания.'
                       : powerCapabilityNotice}
                   </p>
@@ -5012,7 +5062,7 @@ function App() {
                       type="button"
                       className="top-popup-action top-popup-action-danger"
                       onClick={() => void handlePowerShutdownAction()}
-                      disabled={!isPowerCapabilityAvailable || isBusy}
+                      disabled={powerShutdownBlockReason !== null || isBusy}
                     >
                       {isPowerShutdownArmed ? 'Подтвердить выключение' : 'Выключить принтер'}
                     </button>

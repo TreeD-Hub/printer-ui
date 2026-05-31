@@ -8,6 +8,7 @@ export type {
   PrinterCommandId,
 } from './types'
 export {
+  getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   isDangerousTreeDCommand,
   TREE_D_COMMAND_CATALOG,
@@ -15,6 +16,7 @@ export {
 export type {
   TreeDCommandCapability,
   TreeDCommandCatalogItem,
+  TreeDCommandRuntimeContext,
   TreeDCommandRisk,
 } from './catalog'
 export { usePrinterCommands } from './usePrinterCommands'
