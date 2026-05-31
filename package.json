@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:dev:printer": "tauri dev --config src-tauri/tauri.printer.conf.json",
+    "tauri:build": "tauri build",
+    "tauri:build:printer": "tauri build --config src-tauri/tauri.printer.conf.json"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",

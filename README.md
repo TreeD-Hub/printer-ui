@@ -34,6 +34,15 @@ npm run tauri:dev
 npm run tauri:build
 ```
 
+Printer runtime profile:
+
+```bash
+npm run tauri:dev:printer
+npm run tauri:build:printer
+```
+
+Этот профиль использует `src-tauri/tauri.printer.conf.json`: фиксированное окно `960x544`, без системной рамки, live-mode через `.env.live` и подключение к Moonraker на `http://127.0.0.1:7125`.
+
 ## Режимы данных
 
 - `mock` — локальные данные без Moonraker (режим по умолчанию).
