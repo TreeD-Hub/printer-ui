@@ -2,6 +2,10 @@ import type { PrinterSnapshot } from '../core/transport/types'
 
 export type PrinterDisplaySeverity = 'normal' | 'info' | 'warning' | 'error'
 
+export type PrinterDisplayStatusInput = Pick<PrinterSnapshot, 'connection' | 'message' | 'state'> & {
+  printJob: Pick<PrinterSnapshot['printJob'], 'message' | 'state'>
+}
+
 export type PrinterDisplayNotification = {
   id: string
   title: string
@@ -94,7 +98,7 @@ function resolveMessageStatus(message: string): Pick<PrinterDisplayStatus, 'labe
   return null
 }
 
-export function resolvePrinterDisplayStatus(snapshot: PrinterSnapshot): PrinterDisplayStatus {
+export function resolvePrinterDisplayStatus(snapshot: PrinterDisplayStatusInput): PrinterDisplayStatus {
   const message = firstNonEmpty(snapshot.printJob.message, snapshot.message)
   const messageStatus = resolveMessageStatus(message)
 

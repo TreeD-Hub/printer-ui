@@ -8,14 +8,15 @@ import {
 } from 'react'
 import {
   ActionSquareButton,
-  IconMask,
   PlainMetric,
   PrintPreviewIcon,
-  TemperatureMetric,
 } from '../ui'
 import type { PrinterCommandId } from '../core/commands'
 import { BABYSTEP_STEP_OPTIONS, DASHBOARD_VALUES } from './config'
-import type { TemperatureRuntimeMetric } from './printerTemperatureState'
+import {
+  DashboardIdleTemperatureWidgetContent,
+  DashboardTemperatureMetricGrid,
+} from './DashboardTemperatureWidgets'
 
 export type DashboardTuneGroupId =
   | 'nozzle'
@@ -65,7 +66,10 @@ type DashboardPageProps = {
   adjustedEtaTime: string
   displayLayerCurrent: number
   displayLayerTotal: number
-  temperatureMetrics: TemperatureRuntimeMetric[]
+  temperatureTargets: {
+    nozzle: number
+    bed: number
+  }
   quickMetrics: DashboardQuickMetric[]
   processMetrics: DashboardProcessMetric[]
   isPrintPaused: boolean
@@ -80,8 +84,6 @@ type DashboardPageProps = {
   armedIdleWidgetId: DashboardIdleWidgetId | null
   draggingIdleWidgetId: DashboardIdleWidgetId | null
   idleWidgetRefs: IdleWidgetRefs
-  idleNozzleTempValue: string
-  idleBedTempValue: string
   maintenanceSummary: MaintenanceSummary
   idleNotesInputRef: RefObject<HTMLTextAreaElement | null>
   idleNotesText: string
@@ -112,7 +114,7 @@ export function DashboardPage({
   adjustedEtaTime,
   displayLayerCurrent,
   displayLayerTotal,
-  temperatureMetrics,
+  temperatureTargets,
   quickMetrics,
   processMetrics,
   isPrintPaused,
@@ -127,8 +129,6 @@ export function DashboardPage({
   armedIdleWidgetId,
   draggingIdleWidgetId,
   idleWidgetRefs,
-  idleNozzleTempValue,
-  idleBedTempValue,
   maintenanceSummary,
   idleNotesInputRef,
   idleNotesText,
@@ -206,26 +206,10 @@ export function DashboardPage({
         <section className="right-column">
           <div className="stats-actions-row">
             <article className="stats-card">
-              <div className="temp-grid">
-                {temperatureMetrics.map((metric) => (
-                  <button
-                    key={metric.label}
-                    type="button"
-                    className="print-tune-hitbox print-tune-hitbox-metric"
-                    onClick={() => onPrintTuneGroupOpen(metric.key)}
-                    aria-label={`Открыть параметры: ${metric.label}`}
-                    data-testid={`print-tune-group-${metric.key}`}
-                  >
-                    <TemperatureMetric
-                      label={metric.label}
-                      current={metric.current}
-                      target={metric.target}
-                      meterTone={metric.meterTone}
-                      fillPercent={metric.fillPercent}
-                    />
-                  </button>
-                ))}
-              </div>
+              <DashboardTemperatureMetricGrid
+                targets={temperatureTargets}
+                onOpenTuneGroup={onPrintTuneGroupOpen}
+              />
 
               <div className="three-up-grid">
                 {quickMetrics.map((metric) => (
@@ -382,31 +366,7 @@ export function DashboardPage({
                 onClick={() => onIdleWidgetTargetOpen(widgetId)}
               >
                 {isTemperatureWidget ? (
-                  <>
-                    <p className="idle-mini-label">Температура</p>
-                    <div className="idle-temp-grid">
-                      <p>
-                        <span className="idle-temp-kind" aria-hidden="true">
-                          <IconMask name="metricNozzle" size={20} className="idle-temp-kind-icon" />
-                        </span>
-                        <span className="idle-temp-name">Сопло</span>
-                        <strong>
-                          <span className="idle-temp-value-number">{idleNozzleTempValue}</span>
-                          <span className="idle-temp-value-unit">°C</span>
-                        </strong>
-                      </p>
-                      <p>
-                        <span className="idle-temp-kind" aria-hidden="true">
-                          <IconMask name="metricBed" size={20} className="idle-temp-kind-icon" />
-                        </span>
-                        <span className="idle-temp-name">Стол</span>
-                        <strong>
-                          <span className="idle-temp-value-number">{idleBedTempValue}</span>
-                          <span className="idle-temp-value-unit">°C</span>
-                        </strong>
-                      </p>
-                    </div>
-                  </>
+                  <DashboardIdleTemperatureWidgetContent />
                 ) : (
                   <>
                     <p className="idle-mini-label">Т.О</p>

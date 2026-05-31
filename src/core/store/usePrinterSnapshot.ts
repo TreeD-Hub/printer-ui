@@ -3,110 +3,15 @@ import { dataMode } from '../../config'
 import { createMockClient } from '../transport/mockClient'
 import { createMoonrakerClient } from '../transport/moonrakerClient'
 import type { PrinterSnapshot } from '../transport/types'
+import {
+  setPrinterSnapshot,
+  updatePrinterSnapshot,
+  usePrinterStoreSelector,
+} from './printerStore'
 
 const LIVE_HTTP_FALLBACK_INTERVAL_MS = 30_000
 
-const FALLBACK_SNAPSHOT: PrinterSnapshot = {
-  source: dataMode,
-  connection: 'connecting',
-  wifiSsid: 'Не подключено',
-  ipAddress: '—',
-  state: 'unknown',
-  toolheadX: 0,
-  toolheadY: 0,
-  toolheadZ: 0,
-  homedAxes: '',
-  extruderTemp: 0,
-  bedTemp: 0,
-  modelFanPercent: 0,
-  updatedAt: new Date(0).toISOString(),
-  message: 'Запуск системы...',
-  hardware: {
-    marker: 'treed-v2',
-    profile: 'treed_v2_corexy_v1',
-    host: 'Rock Pi / Armbian Debian 12',
-    mainMcu: 'Octopus Pro CAN',
-    toolheadMcu: 'EBB42 CAN',
-    probe: 'Eddy Duo CAN',
-    model: 'TreeD V2',
-    revision: null,
-  },
-  capabilities: {
-    print: false,
-    motion: false,
-    thermal: false,
-    fan: false,
-    filament: false,
-    console: false,
-    eddy: false,
-    shaper: false,
-    motionTest: false,
-    power: false,
-    network: false,
-    cloud: false,
-    updates: false,
-    systemPower: false,
-    camera: false,
-    serviceCommands: false,
-  },
-  printJob: {
-    filename: '',
-    filePath: null,
-    state: 'unknown',
-    message: '',
-    progress: 0,
-    progressPercent: 0,
-    totalDurationSec: 0,
-    printDurationSec: 0,
-    filamentUsedMm: 0,
-    currentLayer: null,
-    totalLayer: null,
-    isPaused: false,
-    isActive: false,
-  },
-  files: {
-    type: 'unknown',
-    path: null,
-    progress: 0,
-    isActive: false,
-    filePosition: 0,
-    fileSize: null,
-  },
-  toolhead: {
-    rawX: 0,
-    rawY: 0,
-    rawZ: 0,
-    rawE: 0,
-    printOffsetX: 0,
-    printOffsetY: 65,
-    homedAxes: '',
-    coordinateMode: 'raw',
-  },
-  geometry: {
-    toolhead: { x: 0, y: 0, z: 0, e: 0 },
-    gcode: { x: 0, y: 0, z: 0, e: 0 },
-    homingOrigin: { x: 0, y: 0, z: 0, e: 0 },
-    absoluteCoordinates: false,
-    absoluteExtrude: false,
-    speedFactor: 1,
-    speed: 0,
-    extrudeFactor: 1,
-  },
-  macros: {
-    available: [],
-    values: {},
-  },
-  printFiles: [],
-  v2: {
-    branch: 'treed-v2',
-    profile: 'treed_v2_corexy_v1',
-    eddy: {
-      status: 'unknown',
-      autosaveEnabled: false,
-      autosavePending: false,
-    },
-  },
-}
+const selectPrinterSnapshot = (snapshot: PrinterSnapshot) => snapshot
 
 function mergeWebSocketSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
   return {
@@ -124,7 +29,7 @@ function getFailureConnection(previous: PrinterSnapshot): PrinterSnapshot['conne
 }
 
 export function usePrinterSnapshot(pollIntervalMs = 2_000) {
-  const [snapshot, setSnapshot] = useState<PrinterSnapshot>(FALLBACK_SNAPSHOT)
+  const snapshot = usePrinterStoreSelector(selectPrinterSnapshot)
   const [error, setError] = useState<string>('')
 
   const client = useMemo(() => {
@@ -134,11 +39,11 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const refresh = useCallback(async () => {
     try {
       const nextSnapshot = await client.fetchSnapshot()
-      setSnapshot(nextSnapshot)
+      setPrinterSnapshot(nextSnapshot)
       setError('')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
-      setSnapshot((prev) => ({
+      updatePrinterSnapshot((prev) => ({
         ...prev,
         connection: getFailureConnection(prev),
         message: `Ошибка связи: ${message}`,
@@ -159,7 +64,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
-        setSnapshot((prev) => mergeWebSocketSnapshot(prev, nextSnapshot))
+        updatePrinterSnapshot((prev) => mergeWebSocketSnapshot(prev, nextSnapshot))
         setError('')
       },
       onConnectionChange(connection, message) {
@@ -167,7 +72,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
-        setSnapshot((prev) => ({
+        updatePrinterSnapshot((prev) => ({
           ...prev,
           connection,
           message: message ?? prev.message,
@@ -184,7 +89,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     })
 
     if (client.subscribe !== undefined) {
-      setSnapshot((prev) => ({
+      updatePrinterSnapshot((prev) => ({
         ...prev,
         connection: prev.connection === 'online' ? prev.connection : 'connecting',
         updatedAt: new Date().toISOString(),

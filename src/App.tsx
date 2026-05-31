@@ -20,8 +20,7 @@ import {
   TOP_STATUS_BUTTONS,
   type TopStatusButtonId,
 } from './dashboard/config'
-import { resolvePrinterDisplayStatus } from './dashboard/printerStatusState'
-import { createTemperatureRuntimeState } from './dashboard/printerTemperatureState'
+import { usePrinterDisplayStatus } from './dashboard/usePrinterDisplayStatus'
 import {
   clampPercent,
   rounded,
@@ -799,24 +798,13 @@ function App() {
   const updateCapabilityNotice = isUpdatesCapabilityAvailable
     ? updateNotice
     : 'Недоступно: Moonraker/V2 update capability не подтвержден.'
-  const temperatureRuntimeState = useMemo(
-    () => createTemperatureRuntimeState(
-      snapshot,
-      TEMPERATURE_METRIC_DEFINITIONS,
-      {
-        nozzle: printNozzleTargetTemp,
-        bed: printBedTargetTemp,
-      },
-    ),
-    [
-      printBedTargetTemp,
-      printNozzleTargetTemp,
-      snapshot.bedTemp,
-      snapshot.extruderTemp,
-      snapshot.modelFanPercent,
-    ],
+  const dashboardTemperatureTargets = useMemo(
+    () => ({
+      nozzle: printNozzleTargetTemp,
+      bed: printBedTargetTemp,
+    }),
+    [printBedTargetTemp, printNozzleTargetTemp],
   )
-  const temperatureMetrics = temperatureRuntimeState.metrics
   const eddyStatusLabel = snapshot.v2.eddy.status === 'ready'
     ? 'Eddy готов к Z-home/mesh'
     : snapshot.v2.eddy.status === 'uncalibrated'
@@ -824,24 +812,13 @@ function App() {
     : snapshot.v2.eddy.status === 'requires_xy_home'
       ? 'Eddy требует homing XY'
       : 'Eddy статус неизвестен'
-  const idleNozzleTempValue = temperatureRuntimeState.nozzleCurrent
-  const idleBedTempValue = temperatureRuntimeState.bedCurrent
   const effectiveActivePrintState = snapshot.source === 'live'
     ? snapshot.printJob.state
     : hasActivePrint
       ? (activePrintUiState ?? snapshot.state)
       : snapshot.state
   const isPrintPaused = hasActivePrint && statusLabel(effectiveActivePrintState) === 'Пауза'
-  const printerDisplayStatus = useMemo(
-    () => resolvePrinterDisplayStatus(snapshot),
-    [
-      snapshot.connection,
-      snapshot.message,
-      snapshot.printJob.message,
-      snapshot.printJob.state,
-      snapshot.state,
-    ],
-  )
+  const printerDisplayStatus = usePrinterDisplayStatus()
   const currentPrinterNotification = printerDisplayStatus.notification
   const currentPrinterNotificationId = currentPrinterNotification?.id ?? null
   const hasUnreadPrinterNotification =
@@ -2118,7 +2095,7 @@ function App() {
     }
   }
 
-  function handlePrintTuneGroupOpen(groupId: PrintTuneGroupId): void {
+  const handlePrintTuneGroupOpen = useCallback((groupId: PrintTuneGroupId): void => {
     if (groupId === 'nozzle') {
       setTemperatureChartMode('nozzle')
     } else if (groupId === 'bed') {
@@ -2128,7 +2105,7 @@ function App() {
     }
 
     setActivePrintTuneGroup(groupId)
-  }
+  }, [])
 
   function handlePrintTuneGroupClose(): void {
     setActivePrintTuneGroup(null)
@@ -2932,7 +2909,7 @@ function App() {
               adjustedEtaTime={adjustedEtaTime}
               displayLayerCurrent={displayLayerCurrent}
               displayLayerTotal={displayLayerTotal}
-              temperatureMetrics={temperatureMetrics}
+              temperatureTargets={dashboardTemperatureTargets}
               quickMetrics={quickMetrics}
               processMetrics={processMetrics}
               isPrintPaused={isPrintPaused}
@@ -2947,8 +2924,6 @@ function App() {
               armedIdleWidgetId={armedIdleWidgetId}
               draggingIdleWidgetId={draggingIdleWidgetId}
               idleWidgetRefs={idleWidgetRefs}
-              idleNozzleTempValue={idleNozzleTempValue}
-              idleBedTempValue={idleBedTempValue}
               maintenanceSummary={MAINTENANCE_STATUS}
               idleNotesInputRef={idleNotesInputRef}
               idleNotesText={idleNotesText}

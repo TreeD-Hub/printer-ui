@@ -2,6 +2,8 @@ import type { TemperatureMetricDefinition } from './config'
 import { clampPercent, rounded } from './helpers'
 import type { PrinterSnapshot } from '../core/transport/types'
 
+export type PrinterTemperatureInput = Pick<PrinterSnapshot, 'extruderTemp' | 'bedTemp' | 'modelFanPercent'>
+
 export type TemperatureRuntimeMetric = {
   key: TemperatureMetricDefinition['key']
   label: string
@@ -25,7 +27,7 @@ type TemperatureTargets = {
 }
 
 export function createTemperatureRuntimeState(
-  snapshot: PrinterSnapshot,
+  snapshot: PrinterTemperatureInput,
   definitions: readonly TemperatureMetricDefinition[],
   targets: TemperatureTargets,
 ): TemperatureRuntimeState {
