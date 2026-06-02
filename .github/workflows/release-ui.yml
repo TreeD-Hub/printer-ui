@@ -1,0 +1,67 @@
+name: Release UI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-ui-main
+  cancel-in-progress: false
+
+jobs:
+  release-ui:
+    name: Build and release UI bundle
+    runs-on: ubuntu-latest
+    env:
+      UI_ARCHIVE_NAME: treed-shell-ui.zip
+      UI_RELEASE_TAG: ui-main-${{ github.run_number }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build printer UI
+        run: npm run build:ui:printer
+
+      - name: Add UI build manifest
+        run: |
+          node -e "const fs = require('fs'); fs.writeFileSync('dist/treed-shell-ui-manifest.json', JSON.stringify({ name: 'treed-shell-ui', mode: 'live', ref: process.env.GITHUB_REF_NAME, sha: process.env.GITHUB_SHA, runNumber: process.env.GITHUB_RUN_NUMBER, runAttempt: process.env.GITHUB_RUN_ATTEMPT, builtAt: new Date().toISOString() }, null, 2) + '\n')"
+
+      - name: Pack UI bundle
+        run: |
+          cd dist
+          zip -r "../${UI_ARCHIVE_NAME}" .
+
+      - name: Write release notes
+        run: |
+          {
+            echo "treed-shell UI bundle for printer loader."
+            echo ""
+            echo "Branch: ${GITHUB_REF_NAME}"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Mode: live"
+            echo "Asset: ${UI_ARCHIVE_NAME}"
+          } > release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${UI_RELEASE_TAG}" "${UI_ARCHIVE_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "treed-shell UI ${UI_RELEASE_TAG}" \
+            --notes-file release-notes.md

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "build:ui:printer": "tsc -b && vite build --mode live",
     "tauri:dev": "tauri dev",
     "tauri:dev:printer": "tauri dev --config src-tauri/tauri.printer.conf.json",
     "tauri:build": "tauri build",
