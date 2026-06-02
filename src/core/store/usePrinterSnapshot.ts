@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { dataMode } from '../../config'
-import { createMockClient } from '../transport/mockClient'
-import { createMoonrakerClient } from '../transport/moonrakerClient'
+import { createTransportClient } from '#runtime'
 import type { PrinterSnapshot } from '../transport/types'
 import {
   setPrinterSnapshot,
@@ -33,7 +31,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const [error, setError] = useState<string>('')
 
   const client = useMemo(() => {
-    return dataMode === 'live' ? createMoonrakerClient() : createMockClient()
+    return createTransportClient()
   }, [])
 
   const refresh = useCallback(async () => {

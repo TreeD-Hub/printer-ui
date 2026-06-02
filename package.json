@@ -4,6 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "dev:mock": "vite --mode mock",
+    "dev:live": "vite --mode live",
     "build:ui:printer": "tsc -b && vite build --mode live",
     "tauri:dev": "tauri dev",
     "tauri:dev:printer": "tauri dev --config src-tauri/tauri.printer.conf.json",

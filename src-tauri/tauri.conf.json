@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "vite",
-    "beforeBuildCommand": "tsc -b && vite build"
+    "beforeDevCommand": "vite --mode mock",
+    "beforeBuildCommand": "tsc -b && vite build --mode live"
   },
   "app": {
     "windows": [

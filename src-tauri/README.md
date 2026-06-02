@@ -18,7 +18,7 @@ npm run tauri:build:printer
 ```
 
 Профили:
-- `tauri.conf.json` — desktop-dev окно `1200x760`, mock/live выбирается обычными env-файлами Vite.
+- `tauri.conf.json` — desktop-dev окно `1200x760`, dev запускается через `vite --mode mock`, build через `vite build --mode live`.
 - `tauri.printer.conf.json` — printer runtime `960x544`, без decorations, live-mode через `.env.live`, с CSP для локального Moonraker `127.0.0.1:7125`.
 
 Ограничение:

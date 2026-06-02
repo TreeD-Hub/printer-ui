@@ -1,8 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
-import { dataMode } from '../../config'
+import { createCommandClient } from '#runtime'
 import { getTreeDCommandBlockReason, type TreeDCommandRuntimeContext } from './catalog'
-import { createMockCommandClient } from './mockCommandClient'
-import { createMoonrakerCommandClient } from './moonrakerCommandClient'
 import type { CommandResult, ExecuteCommandArgs, PrinterCommandId } from './types'
 
 export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
@@ -14,9 +12,7 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
   const [lastResult, setLastResult] = useState<CommandResult | null>(null)
 
   const client = useMemo(() => {
-    return dataMode === 'live'
-      ? createMoonrakerCommandClient({ capabilities: { power: powerCapability } })
-      : createMockCommandClient()
+    return createCommandClient({ capabilities: { power: powerCapability } })
   }, [powerCapability])
 
   const executeCommand = useCallback(

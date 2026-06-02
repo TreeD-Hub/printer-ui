@@ -5,10 +5,11 @@
 Состав:
 - `types.ts` — контракт команд и результат выполнения;
 - `catalog.ts` — TreeD metadata команд: risk, capability, confirmation;
-- `mockCommandClient.ts` — локальная реализация команд для `mock`;
 - `moonrakerCommandClient.ts` — отправка команд в Moonraker (`live`);
 - `usePrinterCommands.ts` — хук состояния выполнения (`pending/error/lastResult`);
 - `index.ts` — публичные экспорты слоя.
+
+Mock-команды живут вне production graph в `mocks/runtime.ts` и подключаются только через `vite --mode mock`.
 
 Поддерживаемые команды:
 - `start` (по имени файла);

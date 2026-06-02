@@ -7,6 +7,6 @@
 - `usePrinterSnapshot.ts` — transport lifecycle, polling/WebSocket и compatibility-доступ к полному снимку для еще не перенесенных экранов.
 
 Контракт:
-- источник данных выбирается по `VITE_DATA_MODE`;
+- источник данных выбирается через Vite alias `#runtime`: `--mode mock` подключает `mocks/runtime.ts`, остальные режимы подключают live adapter;
 - при сбоях connection переводится в `reconnecting/offline`;
 - новые UI-блоки должны читать частые данные через selector-хуки, а не подписываться на весь `PrinterSnapshot`.

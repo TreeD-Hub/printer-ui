@@ -63,15 +63,14 @@ Release workflow находится в `.github/workflows/release-ui.yml`.
 
 ## Режимы данных
 
-- `mock` — локальные данные без Moonraker (режим по умолчанию).
-- `live` — подключение к Moonraker.
+- `mock` — локальные данные без Moonraker, включается отдельным Vite mode: `vite --mode mock`.
+- `live` — подключение к Moonraker, используется по умолчанию для build и printer runtime.
 
 Переменные окружения:
 
-- `VITE_DATA_MODE=mock|live`
 - `VITE_MOONRAKER_URL=http://127.0.0.1:7125`
 
-Пример значений — в `.env.example`.
+Пример значений — в `.env.example`. Mock-runtime живет в `mocks/runtime.ts` и не импортируется live-сборкой.
 
 ## Live-режим через SSH tunnel
 
