@@ -79,18 +79,29 @@ function normalizeHeadPosition(position: PrintHeadPosition, zBounds: { min: numb
 }
 
 function formatAxisCoordinate(value: number): string {
-  return value.toFixed(1)
+  return Number.isFinite(value) ? value.toFixed(1) : '—'
 }
 
 function getMoveStepMm(moveStepKey: MovementControlPanelProps['moveStepKey']): number {
   return CONTROL_MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)?.valueMm ?? 1
 }
 
-function buildAxisCoordinateItems(position: PrintHeadPosition): AxisCoordinateItem[] {
+function formatKnownAxisCoordinate(value: number, isKnown: boolean): string {
+  return isKnown ? formatAxisCoordinate(value) : '—'
+}
+
+function buildAxisCoordinateItems(
+  position: PrintHeadPosition,
+  snapshot: MovementSnapshotInput,
+): AxisCoordinateItem[] {
+  const isXKnown = isAxisHomed(snapshot.homedAxes, 'X') && Number.isFinite(snapshot.rawX)
+  const isYKnown = isAxisHomed(snapshot.homedAxes, 'Y') && Number.isFinite(snapshot.rawY)
+  const isZKnown = isAxisHomed(snapshot.homedAxes, 'Z') && Number.isFinite(snapshot.rawZ)
+
   return [
-    { axis: 'X', value: formatAxisCoordinate(position.x) },
-    { axis: 'Y', value: formatAxisCoordinate(position.y) },
-    { axis: 'Z', value: formatAxisCoordinate(position.z) },
+    { axis: 'X', value: formatKnownAxisCoordinate(position.x, isXKnown) },
+    { axis: 'Y', value: formatKnownAxisCoordinate(position.y, isYKnown) },
+    { axis: 'Z', value: formatKnownAxisCoordinate(position.z, isZKnown) },
     { axis: 'E', value: formatAxisCoordinate(position.e) },
   ]
 }
@@ -225,11 +236,13 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
     () => Math.hypot(joystickVector.x, joystickVector.y) * MAX_JOYSTICK_SPEED_MM_S,
     [joystickVector.x, joystickVector.y],
   )
-  const axisCoordinatesLabel = `X ${formatAxisCoordinate(printHeadPosition.x)}  Y ${formatAxisCoordinate(printHeadPosition.y)}  Z ${formatAxisCoordinate(printHeadPosition.z)}  E ${formatAxisCoordinate(printHeadPosition.e)}`
   const axisCoordinateItems = useMemo(
-    () => buildAxisCoordinateItems(printHeadPosition),
-    [printHeadPosition],
+    () => buildAxisCoordinateItems(printHeadPosition, movementSnapshot),
+    [movementSnapshot, printHeadPosition],
   )
+  const axisCoordinatesLabel = axisCoordinateItems
+    .map((item) => `${item.axis} ${item.value}`)
+    .join('  ')
   const axisHomeStatuses = useMemo(
     () => buildAxisHomeStatuses(movementSnapshot.homedAxes),
     [movementSnapshot.homedAxes],
