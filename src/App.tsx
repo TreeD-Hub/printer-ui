@@ -27,7 +27,16 @@ import {
   statusLabel,
 } from './dashboard/helpers'
 import {
-  AxisCrossControls,
+  CONTROL_MOVE_STEP_OPTIONS,
+  ControlPage,
+  type ControlGroupId,
+  type MoveStepKey,
+  type MovementMode,
+  type ParkingMode,
+  type PrintHeadPosition,
+  type TemperatureKeyboardTarget,
+} from './control'
+import {
   HorizontalSteppedSlider,
   IconMask,
   NavItemButton,
@@ -47,8 +56,6 @@ import {
   TuneNumberControl,
   type AxisId,
   type JoystickVector,
-  VerticalAxisSlider,
-  VirtualJoystick,
 } from './ui'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from './printFiles'
 import type { PrinterConnectionState } from './core/transport/types'
@@ -71,16 +78,10 @@ const FILE_MODAL_TITLE_ID = 'print-file-modal-title'
 const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
 const PRINT_TUNE_MODAL_TITLE_ID = 'print-tune-modal-title'
 type FilesSortKey = 'name' | 'addedAt'
-type ParkingMode = 'all' | 'axis'
-type MovementMode = 'buttons' | 'joystick'
-type MoveStepKey = '1' | '10' | '25' | '100'
-type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'maintenance'
 type MacrosGroupId = 'bedMesh'
 type IdleWidgetId = DashboardIdleWidgetId
 type BedCalibrationStage = 'launch' | 'manual' | 'zOffset'
 type ActivePrintUiState = 'printing' | 'paused'
-type TemperatureKeyboardTarget = 'nozzle' | 'bed'
-type MaintenanceIconName = 'runtime' | 'due' | 'interval' | 'wrench'
 type PrintTuneNumericKeyboardTarget = 'volumetricFlow' | 'flow' | 'speed' | 'accel' | 'kFactor' | 'retract' | 'layers'
 type PrintTuneGroupId = DashboardTuneGroupId
 type TemperatureChartMode = 'nozzle' | 'bed' | 'both'
@@ -109,12 +110,6 @@ type SettingsNotificationItem = {
   title: string
   details: string
   createdAt: string
-}
-type PrintHeadPosition = {
-  x: number
-  y: number
-  z: number
-  e: number
 }
 type BedScrewPointId = 'front-left' | 'front-right' | 'rear-right' | 'rear-left' | 'center'
 type BedScrewPoint = {
@@ -222,45 +217,16 @@ const FILES_SORT_OPTIONS: Array<{ id: FilesSortKey; label: string }> = [
   { id: 'name', label: 'По имени' },
   { id: 'addedAt', label: 'По добавлению' },
 ]
-const PARKING_MODE_OPTIONS: Array<{ id: ParkingMode; label: string }> = [
+const MACROS_PARKING_MODE_OPTIONS: Array<{ id: ParkingMode; label: string }> = [
   { id: 'all', label: 'Все оси' },
   { id: 'axis', label: 'По оси' },
 ]
-const PARKING_AXIS_OPTIONS: Array<{ id: AxisId; label: string }> = [
+const MACROS_PARKING_AXIS_OPTIONS: Array<{ id: AxisId; label: string }> = [
   { id: 'X', label: 'X' },
   { id: 'Y', label: 'Y' },
   { id: 'Z', label: 'Z' },
 ]
 const HOMED_AXIS_IDS: readonly AxisId[] = ['X', 'Y', 'Z']
-const MOVEMENT_MODE_OPTIONS: Array<{ id: MovementMode; label: string }> = [
-  { id: 'buttons', label: 'Крестовина' },
-  { id: 'joystick', label: 'Джойстик' },
-]
-const MOVE_STEP_OPTIONS: Array<{ id: MoveStepKey; label: string; valueMm: number }> = [
-  { id: '1', label: '1 мм', valueMm: 1 },
-  { id: '10', label: '10 мм', valueMm: 10 },
-  { id: '25', label: '25 мм', valueMm: 25 },
-  { id: '100', label: '100 мм', valueMm: 100 },
-]
-const CONTROL_GROUP_OPTIONS: Array<SettingsMenuOption<ControlGroupId>> = [
-  { id: 'movement', label: 'Перемещение', icon: 'menuControl' },
-  { id: 'heating', label: 'Нагрев', icon: 'metricNozzle' },
-  { id: 'fans', label: 'Вентиляторы', icon: 'metricFan' },
-  { id: 'lighting', label: 'Освещение', icon: 'metricLight' },
-  { id: 'maintenance', label: 'Т.О', icon: 'menuDevice' },
-]
-const HEATING_PRESET_OPTIONS = [
-  { id: 'pla', label: 'PLA', nozzle: 210, bed: 60 },
-  { id: 'abs', label: 'ABS', nozzle: 245, bed: 100 },
-  { id: 'petg', label: 'PETG', nozzle: 235, bed: 80 },
-] as const
-const FAN_PRESET_OPTIONS = [
-  { id: 'off', label: 'Откл.', value: 0 },
-  { id: 'low', label: 'Низкий', value: 25 },
-  { id: 'medium', label: 'Средний', value: 50 },
-  { id: 'high', label: 'Высокий', value: 75 },
-  { id: 'max', label: 'Макс.', value: 100 },
-] as const
 const SETTINGS_GROUP_OPTIONS: Array<SettingsMenuOption<SettingsGroupId>> = [
   { id: 'network', label: 'Сеть', icon: 'statusWifi' },
   { id: 'system', label: 'Система', icon: 'menuSettings' },
@@ -453,44 +419,6 @@ function createMaintenanceChecklistState(checked: boolean): Record<MaintenanceCh
     state[item.id] = checked
     return state
   }, {} as Record<MaintenanceChecklistItemId, boolean>)
-}
-
-function MaintenanceLineIcon({ name }: { name: MaintenanceIconName }) {
-  if (name === 'runtime') {
-    return (
-      <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="7.2" />
-        <path d="M12 7.9v4.5l3.1 2" />
-      </svg>
-    )
-  }
-
-  if (name === 'due') {
-    return (
-      <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3.8 18.9 7.8v8.1L12 20 5.1 15.9V7.8L12 3.8Z" />
-        <circle cx="12" cy="10" r="2.1" />
-        <path d="M8.6 15.2c.8-1.6 1.9-2.4 3.4-2.4s2.6.8 3.4 2.4" />
-      </svg>
-    )
-  }
-
-  if (name === 'interval') {
-    return (
-      <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M18.2 8.4A7 7 0 0 0 6 7.5" />
-        <path d="M18.2 4.7v3.7h-3.7" />
-        <path d="M5.8 15.6A7 7 0 0 0 18 16.5" />
-        <path d="M5.8 19.3v-3.7h3.7" />
-      </svg>
-    )
-  }
-
-  return (
-    <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M14.9 6.2a4.4 4.4 0 0 0-5.2 5.2L4.6 16.5a2.1 2.1 0 0 0 3 3l5.1-5.1a4.4 4.4 0 0 0 5.2-5.2l-3 3-2.1-2.1 3-3Z" />
-    </svg>
-  )
 }
 
 function clampAxisValue(value: number, min: number, max: number): number {
@@ -766,8 +694,6 @@ function App() {
     0,
     BABYSTEP_STEP_OPTIONS.findIndex((step) => step === babystepStep),
   )
-  const activeControlGroupOption =
-    CONTROL_GROUP_OPTIONS.find((option) => option.id === activeControlGroup) ?? CONTROL_GROUP_OPTIONS[0]
   const maintenanceProgressPercent = clampPercent(MAINTENANCE_STATUS.runtimeHours, MAINTENANCE_STATUS.intervalHours)
   const isMaintenanceChecklistComplete = MAINTENANCE_CHECKLIST_ITEMS.every((item) => maintenanceChecklistState[item.id])
   const formattedSnapshotTime = useMemo(() => {
@@ -873,7 +799,7 @@ function App() {
     [wifiNetworks],
   )
   const moveStepMm = useMemo(() => {
-    const selectedStep = MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)
+    const selectedStep = CONTROL_MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)
     return selectedStep?.valueMm ?? 1
   }, [moveStepKey])
   const joystickSpeedMmS = useMemo(
@@ -2986,566 +2912,73 @@ function App() {
               </div>
             </section>
           ) : activeScreen === 'control' ? (
-            <section className="control-screen" data-testid="screen-control">
-              <div className={`control-layout ${isControlMenuCompact ? 'is-menu-compact' : ''}`}>
-                <aside className={`settings-menu-shell control-menu-shell ${isControlMenuCompact ? 'is-compact' : ''}`}>
-                  <button
-                    type="button"
-                    className="control-menu-collapse-btn"
-                    aria-expanded={!isControlMenuCompact}
-                    aria-label={isControlMenuCompact ? 'Развернуть меню управления' : 'Свернуть меню управления до иконок'}
-                    data-testid="control-menu-mode-toggle"
-                    onClick={handleControlMenuCompactToggle}
-                  >
-                    <IconMask name="utilityChevron" size={20} className="control-menu-collapse-icon" />
-                  </button>
-                  <SettingsSidebarMenu
-                    options={CONTROL_GROUP_OPTIONS}
-                    value={activeControlGroup}
-                    onChange={setActiveControlGroup}
-                    ariaLabel="Разделы управления"
-                    testIdPrefix="control-group"
-                    iconSize={28}
-                  />
-                </aside>
-
-                <div className="settings-content-shell control-content-shell">
-                  {activeControlGroup === 'maintenance' ? (
-                    <div className="control-maintenance-header">
-                      <div className="control-maintenance-heading">
-                        <p className="control-tab-label" data-testid="control-active-tab-label">Т.О</p>
-                        <p className="control-maintenance-subtitle">
-                          Сервисное обслуживание и напоминания для вашего 3D-принтера.
-                        </p>
-                      </div>
-                      <p className="control-maintenance-status-pill">
-                        Следующее ТО через {MAINTENANCE_STATUS.hoursLeft} ч
-                        <span aria-hidden="true" />
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="control-tab-label" data-testid="control-active-tab-label">
-                      {activeControlGroupOption.label}
-                    </p>
-                  )}
-                  <div className="control-scroll-area">
-                    {activeControlGroup === 'movement' ? (
-                      <div className="control-grid">
-                        <article className="control-card control-card-parking">
-                          <div className="control-card-head">
-                            <h3 className="control-card-title">Парковка</h3>
-                            {pendingCommand === 'home' ? (
-                              <p className="control-card-state">Парковка...</p>
-                            ) : null}
-                          </div>
-                          <div className="control-parking-targets" role="group" aria-label="Цель парковки">
-                            <button
-                              type="button"
-                              className={`control-target-btn ${activeControlFlashKey === 'parking-all' ? 'is-active' : ''}`}
-                              aria-pressed={activeControlFlashKey === 'parking-all'}
-                              data-testid="parking-mode-all"
-                              onClick={() => void handleParkingTargetSelect('all')}
-                              disabled={isBusy}
-                            >
-                              XYZ
-                            </button>
-                            {PARKING_AXIS_OPTIONS.map((option) => (
-                              <button
-                                key={option.id}
-                                type="button"
-                                className={`control-target-btn ${activeControlFlashKey === `parking-${option.id}` ? 'is-active' : ''}`}
-                                aria-pressed={activeControlFlashKey === `parking-${option.id}`}
-                                data-testid={`parking-axis-${option.id}`}
-                                onClick={() => void handleParkingTargetSelect('axis', option.id)}
-                                disabled={isBusy}
-                              >
-                                {option.label}
-                              </button>
-                            ))}
-                          </div>
-                          <button
-                            type="button"
-                            className="control-service-btn"
-                            data-testid="service-mode-button"
-                            aria-pressed={activeControlFlashKey === 'service-mode'}
-                            onClick={handleServiceModeToggle}
-                          >
-                            Сервисный режим
-                          </button>
-
-                          <button
-                            type="button"
-                            className="control-action-btn control-action-btn-danger"
-                            data-testid="motors-disable-button"
-                            onClick={handleMotorsDisable}
-                            disabled={isBusy}
-                          >
-                            Отключить моторы
-                          </button>
-                        </article>
-
-                        <article className="control-card control-card-motion">
-                          <div className="control-card-head">
-                            <h3 className="control-card-title">Оси</h3>
-                          </div>
-                          <SegmentedToggle
-                            options={MOVEMENT_MODE_OPTIONS}
-                            value={movementMode}
-                            onChange={handleMovementModeChange}
-                            ariaLabel="Режим перемещения"
-                            testIdPrefix="move-mode"
-                          />
-                          {movementMode === 'buttons' ? (
-                            <div className="control-motion-buttons">
-                              <SegmentedToggle
-                                options={MOVE_STEP_OPTIONS}
-                                value={moveStepKey}
-                                onChange={handleMoveStepChange}
-                                ariaLabel="Шаг перемещения"
-                                testIdPrefix="move-step"
-                              />
-                              <div className="control-coordinates-panel control-subpanel">
-                                <p className="joystick-readout axis-coordinate-readout" data-testid="axis-coordinates" aria-label={axisCoordinatesLabel}>
-                                  {axisCoordinateItems.map((item) => (
-                                    <span key={item.axis} className="axis-coordinate-item">
-                                      <span className="axis-coordinate-axis">{item.axis}</span>
-                                      <span className="axis-coordinate-value">{item.value}</span>
-                                    </span>
-                                  ))}
-                                </p>
-                                <div className="axis-home-status" aria-label="Статус хоуминга осей">
-                                  {axisHomeStatuses.map((item) => (
-                                    <span
-                                      key={item.axis}
-                                      className={`axis-home-indicator${item.homed ? ' is-homed' : ''}`}
-                                      aria-label={`Ось ${item.axis} ${item.homed ? 'захоумлена' : 'не захоумлена'}`}
-                                    >
-                                      <span className="axis-home-label">{item.axis}</span>
-                                      <span className="axis-home-mark" aria-hidden="true" />
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="control-cross-wrap">
-                                <AxisCrossControls
-                                  onMove={handleAxisMove}
-                                  onFilamentMove={handleFilamentMove}
-                                  disabled={isBusy}
-                                />
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="joystick-panel">
-                              <div className="joystick-xy-control">
-                                <p className="joystick-axis-title">XY</p>
-                                <VirtualJoystick
-                                  testId="axis-joystick"
-                                  disabled={isBusy}
-                                  onVectorChange={handleJoystickVectorChange}
-                                />
-                              </div>
-                              <div className="joystick-z-control">
-                                <p className="joystick-axis-title">Z</p>
-                                <VerticalAxisSlider
-                                  value={printHeadPosition.z}
-                                  min={HEAD_Z_BOUNDS_MM.min}
-                                  max={HEAD_Z_BOUNDS_MM.max}
-                                  step={1}
-                                  onChange={handleJoystickZChange}
-                                  minAtTop
-                                  disabled={isBusy}
-                                  testId="axis-z-slider"
-                                />
-                              </div>
-                              <div className="joystick-meta">
-                                <div className="joystick-meta-block">
-                                  <p className="joystick-meta-label">Координаты</p>
-                                  <p className="joystick-readout control-subpanel" data-testid="axis-coordinates">{axisCoordinatesLabel}</p>
-                                </div>
-                                <div className="joystick-meta-block">
-                                  <p className="joystick-meta-label">Скорость XY</p>
-                                  <p className="joystick-readout control-subpanel">{joystickSpeedMmS.toFixed(1)} / 50 мм/с</p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </article>
-                      </div>
-                    ) : activeControlGroup === 'heating' ? (
-                      <div className="control-heating-grid">
-                        <div className="control-heating-main">
-                          <section className="control-heating-rows" aria-label="Температуры сопла и стола">
-                            {heatingControlRows.map((row) => (
-                              <div key={row.id} className="control-heating-row control-subpanel">
-                                <div className="control-heating-sensor">
-                                  <span className={`control-heating-sensor-icon is-${row.tone}`} aria-hidden="true">
-                                    <IconMask name={row.icon} size={18} />
-                                  </span>
-                                <div className="control-heating-sensor-text">
-                                  <h3>{row.uiLabel}</h3>
-                                </div>
-                                </div>
-                                <div className="control-heating-current">
-                                  {rounded(row.current)} <span>°C</span>
-                                </div>
-                                <TuneCompactStepperInput
-                                  value={row.target}
-                                  min={0}
-                                  max={300}
-                                  step={5}
-                                  unit="°C"
-                                  readOnly={true}
-                                  displayValue={
-                                    temperatureKeyboardTarget === row.keyboardTarget
-                                      ? temperatureKeyboardValue
-                                      : String(Math.round(row.target))
-                                  }
-                                  onChange={(nextValue) => row.onTargetChange(Math.round(clampAxisValue(nextValue, 0, 300)))}
-                                  onInputFocus={() => openTemperatureKeyboard(row.keyboardTarget)}
-                                  inputAriaLabel={`Целевая температура ${row.uiLabel.toLowerCase()}`}
-                                  testIdPrefix={row.testIdPrefix}
-                                />
-                              </div>
-                            ))}
-                          </section>
-
-                          <div className="control-heating-chart-block">
-                            <div className="print-temp-chart-head control-heating-chart-head">
-                              <p className="print-temp-chart-title">График нагрева</p>
-                            </div>
-                            <TemperatureTrendChart
-                              series={temperatureChartSeries}
-                              testId="control-heating-chart"
-                            />
-                          </div>
-                        </div>
-
-                        {temperatureKeyboardTarget !== null ? (
-                          <article className="control-card control-card-heating-keyboard control-subpanel">
-                            {renderTemperatureKeyboardPanel('is-control')}
-                          </article>
-                        ) : (
-                          <article className="control-card control-card-heating-presets control-subpanel">
-                            <div className="control-card-head">
-                              <h3 className="control-card-title">Предустановки</h3>
-                            </div>
-
-                            <div className="control-heating-presets-list" role="group" aria-label="Предустановки нагрева">
-                              {HEATING_PRESET_OPTIONS.map((preset) => {
-                                const isActive =
-                                  printNozzleTargetTemp === preset.nozzle &&
-                                  printBedTargetTemp === preset.bed
-
-                                return (
-                                  <button
-                                    key={preset.id}
-                                    type="button"
-                                    className={`control-heating-preset-btn${isActive ? ' is-active' : ''}`}
-                                    aria-pressed={isActive}
-                                    data-testid={`control-heating-preset-${preset.id}`}
-                                    onClick={() => handleHeatingPresetApply(preset.nozzle, preset.bed)}
-                                  >
-                                    <span className="control-heating-preset-label">{preset.label}</span>
-                                    <span className="control-heating-preset-values">
-                                      {preset.nozzle}° / {preset.bed}°
-                                    </span>
-                                  </button>
-                                )
-                              })}
-                            </div>
-
-                            <button
-                              type="button"
-                              className={`control-heating-cooldown-btn${printNozzleTargetTemp === 0 && printBedTargetTemp === 0 ? ' is-active' : ''}`}
-                              aria-pressed={printNozzleTargetTemp === 0 && printBedTargetTemp === 0}
-                              data-testid="control-heating-disable"
-                              onClick={handleHeatingDisable}
-                            >
-                              <span className="control-heating-cooldown-icon" aria-hidden="true">
-                                <IconMask name="utilitySnowflake" size={18} />
-                              </span>
-                              <span>Отключить нагрев</span>
-                            </button>
-                          </article>
-                        )}
-                      </div>
-                    ) : activeControlGroup === 'fans' ? (
-                      <article className="control-card control-card-fan">
-                        <div className="control-fan-body">
-                          <section className="control-fan-summary" aria-label="Текущее состояние вентилятора">
-                            <div className="control-fan-summary-copy">
-                              <h4>Обдув модели</h4>
-                              <p>Охлаждение / воздушный поток</p>
-                            </div>
-                            <div className="control-fan-summary-value">
-                              <strong>{printFanPercent}%</strong>
-                              <span>Скорость вентилятора</span>
-                            </div>
-                          </section>
-
-                          <section className="control-fan-slider-panel control-subpanel" aria-label="Регулировка скорости вентилятора">
-                            <button
-                              type="button"
-                              className="control-fan-step-btn"
-                              aria-label="Уменьшить скорость вентилятора на 5 процентов"
-                              onClick={() => handleFanPercentChange(printFanPercent - 5)}
-                              disabled={isBusy || printFanPercent <= 0}
-                            >
-                              -
-                            </button>
-                            <div className="control-fan-slider-core">
-                              <HorizontalSteppedSlider
-                                className="control-fan-design-slider"
-                                value={printFanPercent}
-                                min={0}
-                                max={100}
-                                step={5}
-                                onChange={handleFanPercentChange}
-                                disabled={isBusy}
-                                testId="control-fan-slider"
-                              />
-                              <div className="control-fan-slider-labels" aria-hidden="true">
-                                <span>0</span>
-                                <span>25</span>
-                                <span>50</span>
-                                <span>75</span>
-                                <span>100%</span>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              className="control-fan-step-btn"
-                              aria-label="Увеличить скорость вентилятора на 5 процентов"
-                              onClick={() => handleFanPercentChange(printFanPercent + 5)}
-                              disabled={isBusy || printFanPercent >= 100}
-                            >
-                              +
-                            </button>
-                          </section>
-
-                          <section className="control-fan-presets" aria-labelledby="control-fan-presets-title">
-                            <p id="control-fan-presets-title">Предустановки</p>
-                            <div className="control-fan-preset-row" role="group" aria-label="Предустановки вентилятора">
-                              {FAN_PRESET_OPTIONS.map((preset) => {
-                                const isActive = printFanPercent === preset.value
-
-                                return (
-                                  <button
-                                    key={preset.id}
-                                    type="button"
-                                    className={`control-fan-preset-btn${isActive ? ' is-active' : ''}`}
-                                    aria-pressed={isActive}
-                                    onClick={() => handleFanPercentChange(preset.value)}
-                                    disabled={isBusy}
-                                  >
-                                    <span className="control-fan-preset-dot" aria-hidden="true" />
-                                    <span>{preset.label}</span>
-                                  </button>
-                                )
-                              })}
-                            </div>
-                          </section>
-
-                          <section className="control-fan-note control-subpanel">
-                            <span className="control-fan-info-icon" aria-hidden="true">i</span>
-                            <p>Регулирует интенсивность обдува модели для улучшения качества печати.</p>
-                            <IconMask name="metricFan" size={44} className="control-fan-note-icon" />
-                          </section>
-                        </div>
-                      </article>
-                    ) : activeControlGroup === 'lighting' ? (
-                      <article className="control-card-lighting">
-                        <div className="control-card-head">
-                          <h3 className="control-card-title">Подсветка</h3>
-                        </div>
-                        <div className="control-lighting-list" role="group" aria-label="Управление подсветкой">
-                          <button
-                            type="button"
-                            className={`control-lighting-row control-subpanel${isMainLightEnabled ? ' is-active' : ''}`}
-                            aria-pressed={isMainLightEnabled}
-                            data-testid="control-light-main"
-                            onClick={() => setIsMainLightEnabled(!isMainLightEnabled)}
-                          >
-                            <span className="control-lighting-icon is-main" aria-hidden="true" />
-                            <span className="control-lighting-copy">
-                              <span className="control-lighting-title">Основной свет</span>
-                              <span className="control-lighting-state">{isMainLightEnabled ? 'Вкл' : 'Выкл'}</span>
-                            </span>
-                            <span className="control-lighting-switch" aria-hidden="true">
-                              <span className="control-lighting-switch-knob" />
-                              <span className="control-lighting-switch-mark">{isMainLightEnabled ? '+' : '-'}</span>
-                            </span>
-                            <span className="control-lighting-more" aria-hidden="true" />
-                          </button>
-
-                          <button
-                            type="button"
-                            className={`control-lighting-row control-subpanel${isToolheadLightEnabled ? ' is-active' : ''}`}
-                            aria-pressed={isToolheadLightEnabled}
-                            data-testid="control-light-toolhead"
-                            onClick={() => setIsToolheadLightEnabled(!isToolheadLightEnabled)}
-                          >
-                            <span className="control-lighting-icon is-toolhead" aria-hidden="true" />
-                            <span className="control-lighting-copy">
-                              <span className="control-lighting-title">Подсветка ПГ</span>
-                              <span className="control-lighting-state">{isToolheadLightEnabled ? 'Вкл' : 'Выкл'}</span>
-                            </span>
-                            <span className="control-lighting-switch" aria-hidden="true">
-                              <span className="control-lighting-switch-knob" />
-                              <span className="control-lighting-switch-mark">{isToolheadLightEnabled ? '+' : '-'}</span>
-                            </span>
-                            <span className="control-lighting-more" aria-hidden="true" />
-                          </button>
-                        </div>
-                      </article>
-                    ) : (
-                      <div className="control-maintenance-grid">
-                        <section className="control-maintenance-metrics" aria-label="Сводка технического обслуживания">
-                          <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
-                            <span className="control-maintenance-icon-box" aria-hidden="true">
-                              <MaintenanceLineIcon name="runtime" />
-                            </span>
-                            <p>
-                              <span>Пробег</span>
-                              <strong>{MAINTENANCE_STATUS.runtimeHours} <span>ч</span></strong>
-                            </p>
-                          </article>
-
-                          <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
-                            <span className="control-maintenance-icon-box" aria-hidden="true">
-                              <MaintenanceLineIcon name="due" />
-                            </span>
-                            <p>
-                              <span>До Т.О</span>
-                              <strong>{MAINTENANCE_STATUS.hoursLeft} <span>ч</span></strong>
-                            </p>
-                          </article>
-
-                          <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
-                            <span className="control-maintenance-icon-box" aria-hidden="true">
-                              <MaintenanceLineIcon name="interval" />
-                            </span>
-                            <p>
-                              <span>Интервал ТО</span>
-                              <strong>{MAINTENANCE_STATUS.intervalHours} <span>ч</span></strong>
-                            </p>
-                          </article>
-                        </section>
-
-                        <section
-                          className="control-maintenance-panel control-maintenance-progress-panel control-subpanel"
-                          aria-label="Прогресс межсервисного интервала"
-                          style={
-                            {
-                              '--maintenance-progress': `${maintenanceProgressPercent}%`,
-                            } as CSSProperties
-                          }
-                        >
-                          <h3>Прогресс межсервисного интервала</h3>
-                          <div className="control-maintenance-progress-ruler" aria-hidden="true">
-                            <span className="control-maintenance-progress-line" />
-                            <span className="control-maintenance-progress-fill" />
-                            <span className="control-maintenance-progress-marker">
-                              <span>{MAINTENANCE_STATUS.runtimeHours} ч</span>
-                            </span>
-                            <span className="control-maintenance-progress-ticks">
-                              {MAINTENANCE_PROGRESS_TICKS.map((tick) => (
-                                <span
-                                  key={tick}
-                                  className={tick === 0 || tick === 15 || tick === 30 ? 'is-major' : undefined}
-                                  style={
-                                    {
-                                      '--maintenance-tick-position': `${(tick / (MAINTENANCE_PROGRESS_TICKS.length - 1)) * 100}%`,
-                                    } as CSSProperties
-                                  }
-                                />
-                              ))}
-                            </span>
-                            <span className="control-maintenance-progress-labels">
-                              <span>0</span>
-                              <span>500</span>
-                              <span>{MAINTENANCE_STATUS.intervalHours} ч</span>
-                            </span>
-                          </div>
-                        </section>
-
-                        <aside className="control-maintenance-panel control-maintenance-checklist control-subpanel" aria-label="Чек-лист ТО">
-                          <h3>Чек-лист ТО</h3>
-                          <div className="control-maintenance-checklist-list">
-                            {MAINTENANCE_CHECKLIST_ITEMS.map((item) => {
-                              const isChecked = maintenanceChecklistState[item.id]
-
-                              return (
-                                <label
-                                  key={item.id}
-                                  className={`control-maintenance-check-row${isChecked ? ' is-checked' : ''}`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isChecked}
-                                    onChange={(event) => {
-                                      setMaintenanceChecklistState((current) => ({
-                                        ...current,
-                                        [item.id]: event.currentTarget.checked,
-                                      }))
-                                    }}
-                                  />
-                                  <span className="control-maintenance-check-box" aria-hidden="true" />
-                                  <span className="control-maintenance-check-label">{item.label}</span>
-                                  <span className="control-maintenance-info-icon" aria-hidden="true">i</span>
-                                </label>
-                              )
-                            })}
-                          </div>
-                          <button
-                            type="button"
-                            className="control-maintenance-complete-btn"
-                            onClick={() => setMaintenanceChecklistState(createMaintenanceChecklistState(true))}
-                            disabled={isMaintenanceChecklistComplete}
-                          >
-                            <span aria-hidden="true" />
-                            Отметить все выполненные
-                          </button>
-                        </aside>
-
-                        <div className="control-maintenance-bottom">
-                          <section className="control-maintenance-panel control-maintenance-history control-subpanel" aria-label="История ТО">
-                            <h3>История ТО</h3>
-                            {MAINTENANCE_HISTORY_ITEMS.map((item) => (
-                              <button key={item.id} type="button" className="control-maintenance-history-row control-subpanel">
-                                <span className="control-maintenance-history-dot" aria-hidden="true" />
-                                <span>#{item.id}</span>
-                                <span>{item.date}</span>
-                                <span>{item.runtimeHours} ч</span>
-                                <strong>{item.label}</strong>
-                                <IconMask name="utilityChevron" size={18} className="control-maintenance-chevron" />
-                              </button>
-                            ))}
-                          </section>
-
-                          <section className="control-maintenance-panel control-maintenance-next control-subpanel" aria-label="Следующее действие ТО">
-                            <h3>
-                              Следующее действие
-                              <span aria-hidden="true" />
-                            </h3>
-                            <button type="button" className="control-maintenance-next-row control-subpanel">
-                              <span className="control-maintenance-icon-box" aria-hidden="true">
-                                <MaintenanceLineIcon name="wrench" />
-                              </span>
-                              <span className="control-maintenance-next-copy">
-                                <strong>Плановое ТО</strong>
-                                <span>Рекомендуется через {MAINTENANCE_STATUS.hoursLeft} ч</span>
-                              </span>
-                              <IconMask name="utilityChevron" size={18} className="control-maintenance-chevron" />
-                            </button>
-                          </section>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
+            <ControlPage
+              activeControlGroup={activeControlGroup}
+              isControlMenuCompact={isControlMenuCompact}
+              onControlGroupChange={setActiveControlGroup}
+              onControlMenuCompactToggle={handleControlMenuCompactToggle}
+              movement={{
+                pendingCommand,
+                isBusy,
+                activeControlFlashKey,
+                movementMode,
+                moveStepKey,
+                printHeadPosition,
+                zBounds: HEAD_Z_BOUNDS_MM,
+                axisCoordinatesLabel,
+                axisCoordinateItems,
+                axisHomeStatuses,
+                joystickSpeedMmS,
+                onParkingTargetSelect: (nextMode, nextAxis) => void handleParkingTargetSelect(nextMode, nextAxis),
+                onServiceModeToggle: handleServiceModeToggle,
+                onMotorsDisable: handleMotorsDisable,
+                onMovementModeChange: handleMovementModeChange,
+                onMoveStepChange: handleMoveStepChange,
+                onAxisMove: handleAxisMove,
+                onFilamentMove: handleFilamentMove,
+                onJoystickVectorChange: handleJoystickVectorChange,
+                onJoystickZChange: handleJoystickZChange,
+              }}
+              heating={{
+                rows: heatingControlRows,
+                chartSeries: temperatureChartSeries,
+                temperatureKeyboardTarget,
+                temperatureKeyboardValue,
+                printNozzleTargetTemp,
+                printBedTargetTemp,
+                renderTemperatureKeyboardPanel,
+                onTemperatureKeyboardOpen: openTemperatureKeyboard,
+                onHeatingPresetApply: handleHeatingPresetApply,
+                onHeatingDisable: handleHeatingDisable,
+              }}
+              fan={{
+                printFanPercent,
+                isBusy,
+                onFanPercentChange: handleFanPercentChange,
+              }}
+              lighting={{
+                isMainLightEnabled,
+                isToolheadLightEnabled,
+                onMainLightToggle: () => setIsMainLightEnabled((current) => !current),
+                onToolheadLightToggle: () => setIsToolheadLightEnabled((current) => !current),
+              }}
+              maintenance={{
+                status: MAINTENANCE_STATUS,
+                historyItems: MAINTENANCE_HISTORY_ITEMS,
+                checklistItems: MAINTENANCE_CHECKLIST_ITEMS,
+                progressTicks: MAINTENANCE_PROGRESS_TICKS,
+                progressPercent: maintenanceProgressPercent,
+                checklistState: maintenanceChecklistState,
+                isChecklistComplete: isMaintenanceChecklistComplete,
+                onChecklistItemChange: (itemId, checked) => {
+                  setMaintenanceChecklistState((current) => ({
+                    ...current,
+                    [itemId]: checked,
+                  }))
+                },
+                onChecklistComplete: () => setMaintenanceChecklistState(createMaintenanceChecklistState(true)),
+              }}
+            />
           ) : activeScreen === 'macros' ? (
             <section className="macros-screen" data-testid="screen-macros">
               <div className="settings-layout macros-layout">
@@ -3690,7 +3123,7 @@ function App() {
                             <h4>Парковка осей</h4>
                             <div className={`macros-toggle-lock ${isManualBedControlsLocked ? 'is-locked' : ''}`}>
                             <SegmentedToggle
-                              options={PARKING_MODE_OPTIONS}
+                              options={MACROS_PARKING_MODE_OPTIONS}
                               value={manualBedParkingMode}
                               onChange={setManualBedParkingMode}
                               ariaLabel="Режим парковки в ручной калибровке"
@@ -3700,7 +3133,7 @@ function App() {
                             {manualBedParkingMode === 'axis' ? (
                               <div className={`macros-toggle-lock ${isManualBedControlsLocked ? 'is-locked' : ''}`}>
                               <SegmentedToggle
-                                options={PARKING_AXIS_OPTIONS}
+                                options={MACROS_PARKING_AXIS_OPTIONS}
                                 value={manualBedParkingAxis}
                                 onChange={setManualBedParkingAxis}
                                 ariaLabel="Выбор оси парковки в ручной калибровке"
