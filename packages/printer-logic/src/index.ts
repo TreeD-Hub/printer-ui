@@ -1,6 +1,4 @@
 export type PrinterDataMode = 'mock' | 'live'
-export type PrinterConnection = 'online' | 'offline'
-
 export type PrinterConnectionState =
   | 'connecting'
   | 'online'
@@ -8,6 +6,7 @@ export type PrinterConnectionState =
   | 'reconnecting'
   | 'offline'
   | 'shutdown'
+export type PrinterConnection = PrinterConnectionState
 
 export type PrinterCommandId =
   | 'start'
@@ -193,6 +192,13 @@ const SCENARIO_LOCK_GROUPS: Record<string, CapabilityGroup[]> = {
   calibrationMove: ['parking', 'motion'],
 }
 
+const CAPABILITY_CONNECTION_BLOCKS: Partial<Record<PrinterConnectionState, ActionAvailability>> = {
+  connecting: blocked('Идет подключение к принтеру', 'connecting'),
+  reconnecting: blocked('Идет восстановление связи с принтером', 'reconnecting'),
+  offline: blocked('Принтер офлайн', 'offline'),
+  shutdown: blocked('Klipper остановлен', 'shutdown'),
+}
+
 export function normalizeHomedAxes(homedAxes: string): { X: boolean; Y: boolean; Z: boolean } {
   const normalizedAxes = homedAxes.toLocaleLowerCase('en-US')
 
@@ -279,8 +285,9 @@ function resolveRegularAction(
   snapshot: PrinterSnapshot,
   context: PrinterCapabilityContext,
 ): ActionAvailability {
-  if (snapshot.connection === 'offline') {
-    return blocked('Принтер офлайн', 'offline')
+  const connectionBlock = CAPABILITY_CONNECTION_BLOCKS[snapshot.connection]
+  if (connectionBlock !== undefined) {
+    return connectionBlock
   }
 
   if (context.pendingCommand !== null) {
@@ -305,8 +312,9 @@ function resolveRegularAction(
 }
 
 function resolveEmergencyStop(snapshot: PrinterSnapshot): ActionAvailability {
-  if (snapshot.connection === 'offline') {
-    return blocked('Принтер офлайн', 'offline')
+  const connectionBlock = CAPABILITY_CONNECTION_BLOCKS[snapshot.connection]
+  if (connectionBlock !== undefined) {
+    return connectionBlock
   }
 
   return AVAILABLE

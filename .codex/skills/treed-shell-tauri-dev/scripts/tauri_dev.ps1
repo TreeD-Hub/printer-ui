@@ -2,6 +2,8 @@
 param(
     [ValidateSet('start', 'status', 'logs', 'stop')]
     [string]$Action = 'status',
+    [ValidateSet('desktop', 'printer')]
+    [string]$Profile = 'desktop',
     [int]$Tail = 12,
     [int]$WaitSeconds = 0,
     [string]$RepoRoot,
@@ -21,11 +23,19 @@ if (-not $RepoRoot) {
 
 $RepoRoot = [System.IO.Path]::GetFullPath($RepoRoot)
 $TempRoot = $env:TEMP
-$StatePath = Join-Path $TempRoot 'treed-shell-tauri-dev-state.json'
-$StdoutPath = Join-Path $TempRoot 'treed-shell-tauri-dev.log'
-$StderrPath = Join-Path $TempRoot 'treed-shell-tauri-dev.err.log'
-$LaunchCmdPath = Join-Path $TempRoot 'treed-shell-tauri-dev-launch.cmd'
+$StatePath = Join-Path $TempRoot "treed-shell-tauri-dev-$Profile-state.json"
+$StdoutPath = Join-Path $TempRoot "treed-shell-tauri-dev-$Profile.log"
+$StderrPath = Join-Path $TempRoot "treed-shell-tauri-dev-$Profile.err.log"
+$LaunchCmdPath = Join-Path $TempRoot "treed-shell-tauri-dev-$Profile-launch.cmd"
 $AppExePath = Join-Path $RepoRoot 'src-tauri\target\debug\app.exe'
+
+function Get-TauriDevScript {
+    if ($Profile -eq 'printer') {
+        return 'tauri:dev:printer'
+    }
+
+    return 'tauri:dev'
+}
 
 function Test-ContainsIgnoreCase {
     param(
@@ -351,6 +361,7 @@ function Get-StatusObject([string]$Mode) {
 
     $result = [ordered]@{
         action = $Mode
+        profile = $Profile
         state = $stateName
         tracked = [bool]$session.Tracked
         launcherPid = if ($state -and $state.launcherPid) { [int]$state.launcherPid } else { $null }
@@ -383,6 +394,7 @@ function Get-StatusObject([string]$Mode) {
         )
 
         $result.repoRoot = $RepoRoot
+        $result.npmScript = Get-TauriDevScript
         $result.stdoutTail = @(Get-LogTail -Path $StdoutPath -LineCount $Tail)
         $result.stderrTail = @(Get-LogTail -Path $StderrPath -LineCount $Tail)
         $result.processes = $processSummary
@@ -396,6 +408,7 @@ function Get-StatusObject([string]$Mode) {
 function Get-LogsObject {
     $result = [ordered]@{
         action = 'logs'
+        profile = $Profile
         viteReady = [bool](Test-LogPattern -Path $StdoutPath -Pattern 'localhost:')
         stdoutTail = @(Get-LogTail -Path $StdoutPath -LineCount $Tail)
         stderrTail = @(Get-LogTail -Path $StderrPath -LineCount $Tail)
@@ -403,6 +416,7 @@ function Get-LogsObject {
 
     if ($IncludeDetails) {
         $result.repoRoot = $RepoRoot
+        $result.npmScript = Get-TauriDevScript
         $result.logPath = $StdoutPath
         $result.errPath = $StderrPath
         $result.tail = $Tail
@@ -421,6 +435,7 @@ function Start-TauriDev {
     $npmCommand = Get-NpmCommand
     $nodeBinDir = Split-Path -Parent $npmCommand
     $cargoBinDir = Get-CargoBinDir
+    $npmScript = Get-TauriDevScript
 
     Remove-IfExists $StdoutPath
     Remove-IfExists $StderrPath
@@ -432,7 +447,7 @@ function Start-TauriDev {
 setlocal
 set "PATH=$nodeBinDir;$cargoBinDir;%PATH%"
 cd /d "$RepoRoot"
-"$npmCommand" run tauri:dev 1>"$StdoutPath" 2>"$StderrPath"
+"$npmCommand" run $npmScript 1>"$StdoutPath" 2>"$StderrPath"
 "@
 
     Set-Content -Path $LaunchCmdPath -Value $launchScript -Encoding ASCII
@@ -447,6 +462,8 @@ cd /d "$RepoRoot"
 
     Save-StateObject ([ordered]@{
         launcherPid = [int]$result.ProcessId
+        profile = $Profile
+        npmScript = $npmScript
         repoRoot = $RepoRoot
         startedAt = (Get-Date).ToString('o')
         logPath = $StdoutPath
@@ -507,6 +524,7 @@ try {
 } catch {
     $errorObject = [pscustomobject]@{
         action = $Action
+        profile = $Profile
         state = 'error'
         repoRoot = $RepoRoot
         message = $_.Exception.Message

@@ -153,6 +153,18 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       ...PRINTING_CONTEXT,
       connection: 'reconnecting',
     })).toContain('восстановление связи')
+    expect(getTreeDCommandBlockReason('pause', {
+      ...PRINTING_CONTEXT,
+      connection: 'connecting',
+    })).toContain('подключение')
+    expect(getTreeDCommandBlockReason('pause', {
+      ...PRINTING_CONTEXT,
+      connection: 'offline',
+    })).toContain('нет связи')
+    expect(getTreeDCommandBlockReason('pause', {
+      ...PRINTING_CONTEXT,
+      connection: 'shutdown',
+    })).toContain('Klipper остановлен')
   })
 
   it('blocks print and motion commands that do not match runtime state', () => {

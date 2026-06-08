@@ -117,6 +117,19 @@ h2 {
   background: #ff6363;
 }
 
+.connection-pill.is-connecting span,
+.connection-pill.is-reconnecting span {
+  background: #ffb15d;
+}
+
+.connection-pill.is-degraded span {
+  background: #8eb6ff;
+}
+
+.connection-pill.is-shutdown span {
+  background: #a36bff;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(220px, 280px) minmax(280px, 360px) 1fr;

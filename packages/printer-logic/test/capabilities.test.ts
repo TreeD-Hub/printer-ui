@@ -39,14 +39,31 @@ describe('normalizeHomedAxes', () => {
 })
 
 describe('getPrinterCapabilities', () => {
-  test('offline blocks regular actions', () => {
-    const capabilities = createCapabilities({ connection: 'offline' })
+  test.each([
+    ['connecting', 'connecting'],
+    ['reconnecting', 'reconnecting'],
+    ['offline', 'offline'],
+    ['shutdown', 'shutdown'],
+  ] as const)('%s blocks regular actions and emergency stop', (connection, blockingState) => {
+    const capabilities = createCapabilities({ connection })
 
-    expect(capabilities.motion.xy).toMatchObject({ enabled: false, blockingState: 'offline' })
-    expect(capabilities.parking.all).toMatchObject({ enabled: false, blockingState: 'offline' })
-    expect(capabilities.print.start).toMatchObject({ enabled: false, blockingState: 'offline' })
-    expect(capabilities.thermal.nozzle).toMatchObject({ enabled: false, blockingState: 'offline' })
-    expect(capabilities.fan.model).toMatchObject({ enabled: false, blockingState: 'offline' })
+    expect(capabilities.motion.xy).toMatchObject({ enabled: false, blockingState })
+    expect(capabilities.parking.all).toMatchObject({ enabled: false, blockingState })
+    expect(capabilities.print.start).toMatchObject({ enabled: false, blockingState })
+    expect(capabilities.thermal.nozzle).toMatchObject({ enabled: false, blockingState })
+    expect(capabilities.fan.model).toMatchObject({ enabled: false, blockingState })
+    expect(capabilities.emergencyStop).toMatchObject({ enabled: false, blockingState })
+  })
+
+  test('degraded keeps regular capability checks available', () => {
+    const capabilities = createCapabilities({ connection: 'degraded' })
+
+    expect(capabilities.motion.xy).toEqual({ enabled: true, reason: null, blockingState: null })
+    expect(capabilities.parking.all).toEqual({ enabled: true, reason: null, blockingState: null })
+    expect(capabilities.print.start).toEqual({ enabled: true, reason: null, blockingState: null })
+    expect(capabilities.thermal.nozzle).toEqual({ enabled: true, reason: null, blockingState: null })
+    expect(capabilities.fan.model).toEqual({ enabled: true, reason: null, blockingState: null })
+    expect(capabilities.emergencyStop).toEqual({ enabled: true, reason: null, blockingState: null })
   })
 
   test('pending command blocks regular actions but keeps emergency stop available', () => {

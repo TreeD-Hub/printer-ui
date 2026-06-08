@@ -21,3 +21,72 @@ body {
   min-height: 100vh;
   background: var(--color-window-background);
 }
+
+.runtime-error-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: #050505;
+  color: #f4f4f0;
+}
+
+.runtime-error-panel {
+  width: min(100%, 560px);
+  border: 1px solid rgba(244, 244, 240, 0.24);
+  border-radius: 8px;
+  padding: 24px;
+  background: #0d0f12;
+}
+
+.runtime-error-kicker {
+  margin: 0 0 12px;
+  color: #ffb15d;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.runtime-error-panel h1,
+.runtime-error-panel p,
+.runtime-error-panel dl {
+  margin: 0;
+}
+
+.runtime-error-panel h1 {
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.runtime-error-panel p {
+  margin-top: 12px;
+  color: #cdd4dd;
+  line-height: 1.45;
+}
+
+.runtime-error-panel dl {
+  display: grid;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.runtime-error-panel div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.runtime-error-panel dt {
+  color: #7f8895;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.runtime-error-panel dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #f4f4f0;
+  font-family: var(--font-family-mono);
+  font-size: 13px;
+}

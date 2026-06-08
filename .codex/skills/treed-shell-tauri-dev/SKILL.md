@@ -21,6 +21,7 @@ powershell -ExecutionPolicy Bypass -File .codex/skills/treed-shell-tauri-dev/scr
 
 - Если `state` уже `running` или `starting`, не поднимай вторую копию.
 - Если `state` равен `stopped`, переходи к запуску.
+- Для printer/live-контура добавляй `-Profile printer` ко всем действиям (`status`, `start`, `logs`, `stop`).
 
 ### 2. Для запуска используй только helper
 
@@ -31,6 +32,15 @@ powershell -ExecutionPolicy Bypass -File .codex/skills/treed-shell-tauri-dev/scr
 - Скрипт запускает именно `npm run tauri:dev`, а не раздельные `vite` и `cargo`.
 - Скрипт сам добавляет пользовательские `node` и `cargo` в `PATH`.
 - Для первого cold start на новой машине допускай долгую компиляцию Rust; это не ошибка само по себе.
+
+Для production-like проверки printer UI используй live-профиль:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .codex/skills/treed-shell-tauri-dev/scripts/tauri_dev.ps1 -Action start -Profile printer -WaitSeconds 5
+```
+
+- `-Profile printer` запускает `npm run tauri:dev:printer`.
+- У printer-профиля отдельные state/log файлы, чтобы не смешивать mock desktop и live printer диагностику.
 
 ### 3. Проверяй готовность коротким статусом
 

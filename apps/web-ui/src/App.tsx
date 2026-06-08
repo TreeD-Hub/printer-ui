@@ -8,7 +8,15 @@ import {
   type PrinterSnapshot,
 } from '@treed/printer-logic'
 
-type SnapshotKey = 'standby' | 'printing' | 'paused' | 'offline'
+type SnapshotKey =
+  | 'standby'
+  | 'printing'
+  | 'paused'
+  | 'connecting'
+  | 'degraded'
+  | 'reconnecting'
+  | 'offline'
+  | 'shutdown'
 type ScenarioLockId = 'homing' | 'calibrationMove'
 
 type CapabilityRow = {
@@ -66,6 +74,54 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     updatedAt: '2026-06-05T10:05:00.000Z',
     message: 'Mock paused snapshot',
   },
+  connecting: {
+    source: 'mock',
+    connection: 'connecting',
+    wifiSsid: 'Не подключено',
+    ipAddress: '—',
+    state: 'unknown',
+    toolheadX: 0,
+    toolheadY: 0,
+    toolheadZ: 0,
+    homedAxes: '',
+    extruderTemp: 0,
+    bedTemp: 0,
+    modelFanPercent: 0,
+    updatedAt: '2026-06-05T10:06:00.000Z',
+    message: 'Mock connecting snapshot',
+  },
+  degraded: {
+    source: 'mock',
+    connection: 'degraded',
+    wifiSsid: 'Treed Lab',
+    ipAddress: '192.168.1.40',
+    state: 'standby',
+    toolheadX: 120,
+    toolheadY: 110,
+    toolheadZ: 8,
+    homedAxes: 'xyz',
+    extruderTemp: 28,
+    bedTemp: 30,
+    modelFanPercent: 0,
+    updatedAt: '2026-06-05T10:07:00.000Z',
+    message: 'Mock degraded snapshot',
+  },
+  reconnecting: {
+    source: 'mock',
+    connection: 'reconnecting',
+    wifiSsid: 'Treed Lab',
+    ipAddress: '192.168.1.40',
+    state: 'unknown',
+    toolheadX: 120,
+    toolheadY: 110,
+    toolheadZ: 8,
+    homedAxes: 'xyz',
+    extruderTemp: 28,
+    bedTemp: 30,
+    modelFanPercent: 0,
+    updatedAt: '2026-06-05T10:08:00.000Z',
+    message: 'Mock reconnecting snapshot',
+  },
   offline: {
     source: 'mock',
     connection: 'offline',
@@ -79,8 +135,24 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     extruderTemp: 0,
     bedTemp: 0,
     modelFanPercent: 0,
-    updatedAt: '2026-06-05T10:08:00.000Z',
+    updatedAt: '2026-06-05T10:09:00.000Z',
     message: 'Mock offline snapshot',
+  },
+  shutdown: {
+    source: 'mock',
+    connection: 'shutdown',
+    wifiSsid: 'Treed Lab',
+    ipAddress: '192.168.1.40',
+    state: 'shutdown',
+    toolheadX: 120,
+    toolheadY: 110,
+    toolheadZ: 8,
+    homedAxes: 'xyz',
+    extruderTemp: 28,
+    bedTemp: 30,
+    modelFanPercent: 0,
+    updatedAt: '2026-06-05T10:10:00.000Z',
+    message: 'Mock shutdown snapshot',
   },
 }
 
@@ -88,7 +160,11 @@ const SNAPSHOT_OPTIONS: Array<{ id: SnapshotKey; label: string }> = [
   { id: 'standby', label: 'Ожидание' },
   { id: 'printing', label: 'Печать' },
   { id: 'paused', label: 'Пауза' },
+  { id: 'connecting', label: 'Подключение' },
+  { id: 'degraded', label: 'Ограничено' },
+  { id: 'reconnecting', label: 'Переподключение' },
   { id: 'offline', label: 'Офлайн' },
+  { id: 'shutdown', label: 'Shutdown' },
 ]
 
 const PENDING_COMMAND_OPTIONS: Array<{ id: PrinterCommandId | 'none'; label: string }> = [
@@ -137,7 +213,7 @@ function App() {
         </div>
         <div className={`connection-pill is-${snapshot.connection}`}>
           <span aria-hidden="true" />
-          {snapshot.connection === 'online' ? 'online' : 'offline'}
+          {snapshot.connection}
         </div>
       </header>
 
