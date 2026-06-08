@@ -23,4 +23,4 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 - критичные команды не выполняются «тихо» при ошибках;
 - в UI возвращается явный `error` и последняя успешная команда.
 - уровень риска команды хранится в общем `TREE_D_COMMAND_CATALOG`, а не выводится из текста кнопки;
-- локальный слой не должен дублировать rules/capabilities из `@treed/printer-logic`.
+- локальный слой не должен дублировать rules/capabilities из workspace-пакета `packages/printer-logic` (`@treed/printer-logic`).

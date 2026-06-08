@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "vite --mode mock",
-    "beforeBuildCommand": "tsc -b && vite build --mode live"
+    "beforeDevCommand": "npm run build:logic && vite --mode mock",
+    "beforeBuildCommand": "npm run build:ui:printer"
   },
   "app": {
     "windows": [

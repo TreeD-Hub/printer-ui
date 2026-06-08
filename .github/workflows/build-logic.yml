@@ -1,0 +1,49 @@
+name: Build Logic
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-logic-main
+  cancel-in-progress: true
+
+jobs:
+  build-logic:
+    name: Build printer logic package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck logic
+        run: npm run typecheck --workspace @treed/printer-logic
+
+      - name: Build logic
+        run: npm run build:logic
+
+      - name: Pack logic package
+        run: |
+          mkdir -p artifacts
+          npm pack --workspace @treed/printer-logic --pack-destination artifacts
+
+      - name: Upload logic package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: treed-printer-logic-package
+          path: artifacts/*.tgz

@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "build": {
-    "beforeDevCommand": "vite --mode live",
-    "beforeBuildCommand": "tsc -b && vite build --mode live"
+    "beforeDevCommand": "npm run build:logic && vite --mode live",
+    "beforeBuildCommand": "npm run build:ui:printer"
   },
   "app": {
     "windows": [

@@ -10,5 +10,5 @@
 Контракт:
 - источник данных выбирается режимом `mock|live`;
 - ошибки транспорта и команд поднимаются в UI явно.
-- общие типы команд, capabilities и причины блокировки команд берутся из `@treed/printer-logic`;
+- общие типы команд, capabilities и причины блокировки команд берутся из workspace-пакета `packages/printer-logic` (`@treed/printer-logic`);
 - transport, polling/WebSocket, Tauri runtime и Moonraker-клиенты остаются локальными для `treed-shell`.

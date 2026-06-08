@@ -32,14 +32,6 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        env:
-          GIT_CONFIG_COUNT: "3"
-          GIT_CONFIG_KEY_0: "url.https://x-access-token:${{ secrets.TREED_PRINTER_LOGIC_READ_TOKEN }}@github.com/.insteadOf"
-          GIT_CONFIG_VALUE_0: "https://github.com/"
-          GIT_CONFIG_KEY_1: "url.https://x-access-token:${{ secrets.TREED_PRINTER_LOGIC_READ_TOKEN }}@github.com/.insteadOf"
-          GIT_CONFIG_VALUE_1: "ssh://git@github.com/"
-          GIT_CONFIG_KEY_2: "url.https://x-access-token:${{ secrets.TREED_PRINTER_LOGIC_READ_TOKEN }}@github.com/.insteadOf"
-          GIT_CONFIG_VALUE_2: "git@github.com:"
         run: npm ci
 
       - name: Build printer UI
@@ -47,7 +39,7 @@ jobs:
 
       - name: Add UI build manifest
         run: |
-          node -e "const fs = require('fs'); const pkg = require('./package.json'); fs.writeFileSync('dist/treed-shell-ui-manifest.json', JSON.stringify({ name: 'treed-shell-ui', mode: 'live', ref: process.env.GITHUB_REF_NAME, sha: process.env.GITHUB_SHA, runNumber: process.env.GITHUB_RUN_NUMBER, runAttempt: process.env.GITHUB_RUN_ATTEMPT, logicPackage: '@treed/printer-logic', logicRef: pkg.dependencies['@treed/printer-logic'], builtAt: new Date().toISOString() }, null, 2) + '\n')"
+          node -e "const fs = require('fs'); const logic = require('./packages/printer-logic/package.json'); fs.writeFileSync('dist/treed-shell-ui-manifest.json', JSON.stringify({ name: 'treed-shell-ui', mode: 'live', ref: process.env.GITHUB_REF_NAME, sha: process.env.GITHUB_SHA, runNumber: process.env.GITHUB_RUN_NUMBER, runAttempt: process.env.GITHUB_RUN_ATTEMPT, logicPackage: '@treed/printer-logic', logicVersion: logic.version, logicWorkspace: 'packages/printer-logic', builtAt: new Date().toISOString() }, null, 2) + '\n')"
 
       - name: Pack UI bundle
         run: |

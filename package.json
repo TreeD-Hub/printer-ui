@@ -3,10 +3,17 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "packages/printer-logic",
+    "apps/web-ui"
+  ],
   "scripts": {
-    "dev:mock": "vite --mode mock",
-    "dev:live": "vite --mode live",
-    "build:ui:printer": "tsc -b && vite build --mode live",
+    "dev:mock": "npm run build:logic && vite --mode mock",
+    "dev:live": "npm run build:logic && vite --mode live",
+    "dev:web-ui": "npm run build:logic && npm run dev --workspace treed-web-ui",
+    "build:logic": "npm run build --workspace @treed/printer-logic",
+    "build:web-ui": "npm run build:logic && npm run build --workspace treed-web-ui",
+    "build:ui:printer": "npm run build:logic && tsc -b && vite build --mode live",
     "tauri:dev": "tauri dev",
     "tauri:dev:printer": "tauri dev --config src-tauri/tauri.printer.conf.json",
     "tauri:build": "tauri build",
@@ -14,7 +21,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",
-    "@treed/printer-logic": "git+https://github.com/TreeD-Hub/treed-printer-logic.git#v0.1.0",
+    "@treed/printer-logic": "file:packages/printer-logic",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },

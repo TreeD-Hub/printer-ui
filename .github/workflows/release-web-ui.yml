@@ -1,0 +1,66 @@
+name: Release Web UI
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-web-ui-main
+  cancel-in-progress: false
+
+jobs:
+  release-web-ui:
+    name: Build and release web UI bundle
+    runs-on: ubuntu-latest
+    env:
+      UI_ARCHIVE_NAME: treed-web-ui.zip
+      UI_RELEASE_TAG: web-ui-main-${{ github.run_number }}-${{ github.run_attempt }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web UI
+        run: npm run build:web-ui
+
+      - name: Add Web UI build manifest
+        run: |
+          node -e "const fs = require('fs'); const logic = require('./packages/printer-logic/package.json'); fs.writeFileSync('apps/web-ui/dist/treed-web-ui-manifest.json', JSON.stringify({ name: 'treed-web-ui', mode: 'web', ref: process.env.GITHUB_REF_NAME, sha: process.env.GITHUB_SHA, runNumber: process.env.GITHUB_RUN_NUMBER, runAttempt: process.env.GITHUB_RUN_ATTEMPT, logicPackage: '@treed/printer-logic', logicVersion: logic.version, logicWorkspace: 'packages/printer-logic', builtAt: new Date().toISOString() }, null, 2) + '\n')"
+
+      - name: Pack Web UI bundle
+        run: |
+          cd apps/web-ui/dist
+          zip -r "../../../${UI_ARCHIVE_NAME}" .
+
+      - name: Write release notes
+        run: |
+          {
+            echo "treed-web-ui bundle for printer loader."
+            echo ""
+            echo "Branch: ${GITHUB_REF_NAME}"
+            echo "Commit: ${GITHUB_SHA}"
+            echo "Asset: ${UI_ARCHIVE_NAME}"
+          } > release-notes.md
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${UI_RELEASE_TAG}" "${UI_ARCHIVE_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "treed-web-ui ${UI_RELEASE_TAG}" \
+            --notes-file release-notes.md
