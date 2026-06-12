@@ -129,6 +129,8 @@ type TuneCompactStepperInputProps = {
   displayValue?: string
   readOnly?: boolean
   onInputFocus?: () => void
+  disabled?: boolean
+  onBlocked?: () => void
 }
 
 const CHART_WIDTH = 520
@@ -217,13 +219,25 @@ export function TuneCompactStepperInput({
   displayValue,
   readOnly = false,
   onInputFocus,
+  disabled = false,
+  onBlocked,
 }: TuneCompactStepperInputProps) {
   function applyDelta(direction: -1 | 1): void {
+    if (disabled) {
+      onBlocked?.()
+      return
+    }
+
     const nextValue = snapValue(value + (direction * step), min, max, step, fractionDigits)
     onChange(nextValue)
   }
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>): void {
+    if (disabled) {
+      onBlocked?.()
+      return
+    }
+
     const normalized = event.target.value.replace(',', '.')
     const parsed = Number(normalized)
     if (Number.isNaN(parsed)) {
@@ -231,6 +245,15 @@ export function TuneCompactStepperInput({
     }
 
     onChange(clampValue(parsed, min, max))
+  }
+
+  function handleInputActivation(): void {
+    if (disabled) {
+      onBlocked?.()
+      return
+    }
+
+    onInputFocus?.()
   }
 
   return (
@@ -246,9 +269,10 @@ export function TuneCompactStepperInput({
             max={max}
             step={step}
             readOnly={readOnly}
+            aria-disabled={disabled || undefined}
             onChange={handleInputChange}
-            onFocus={onInputFocus}
-            onClick={onInputFocus}
+            onFocus={handleInputActivation}
+            onClick={handleInputActivation}
             data-testid={testIdPrefix ? `${testIdPrefix}-input` : undefined}
           />
         </label>
@@ -260,6 +284,7 @@ export function TuneCompactStepperInput({
           className="settings-network-btn print-tune-compact-stepper-btn"
           onClick={() => applyDelta(-1)}
           aria-label={`Уменьшить: ${inputAriaLabel}`}
+          aria-disabled={disabled || undefined}
           data-testid={testIdPrefix ? `${testIdPrefix}-minus` : undefined}
         >
           -
@@ -269,6 +294,7 @@ export function TuneCompactStepperInput({
           className="settings-network-btn print-tune-compact-stepper-btn"
           onClick={() => applyDelta(1)}
           aria-label={`Увеличить: ${inputAriaLabel}`}
+          aria-disabled={disabled || undefined}
           data-testid={testIdPrefix ? `${testIdPrefix}-plus` : undefined}
         >
           +

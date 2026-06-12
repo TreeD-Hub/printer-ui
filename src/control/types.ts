@@ -35,6 +35,22 @@ export type AxisHomeStatus = {
   homed: boolean
 }
 
+export type MovementCommandBlockReasons = {
+  parking: {
+    all: string | null
+    axis: Record<AxisId, string | null>
+  }
+  moveAxis: Record<AxisId, string | null>
+  loadFilament: string | null
+  unloadFilament: string | null
+}
+
+export type HeatingCommandBlockReasons = {
+  nozzleTarget: string | null
+  bedTarget: string | null
+  turnOffHeaters: string | null
+}
+
 export type HeatingControlRow = {
   id: TemperatureKeyboardTarget
   keyboardTarget: TemperatureKeyboardTarget
@@ -79,6 +95,7 @@ export type MovementControlPanelProps = {
   activeControlFlashKey: string | null
   movementMode: MovementMode
   moveStepKey: MoveStepKey
+  commandBlockReasons: MovementCommandBlockReasons
   zBounds: {
     min: number
     max: number
@@ -99,6 +116,7 @@ export type HeatingControlPanelProps = {
   temperatureKeyboardValue: string
   printNozzleTargetTemp: number
   printBedTargetTemp: number
+  commandBlockReasons: HeatingCommandBlockReasons
   renderTemperatureKeyboardPanel: (className?: string) => ReactNode
   onTemperatureKeyboardOpen: (target: TemperatureKeyboardTarget) => void
   onHeatingPresetApply: (nozzle: number, bed: number) => void
@@ -108,6 +126,7 @@ export type HeatingControlPanelProps = {
 export type FanControlPanelProps = {
   printFanPercent: number
   isBusy: boolean
+  commandBlockReason: string | null
   onFanPercentChange: (nextValue: number) => void
 }
 

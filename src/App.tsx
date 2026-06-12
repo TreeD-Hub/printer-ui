@@ -29,6 +29,8 @@ import {
 import {
   ControlPage,
   type ControlGroupId,
+  type HeatingCommandBlockReasons,
+  type MovementCommandBlockReasons,
   type MoveStepKey,
   type MovementMode,
   type ParkingMode,
@@ -738,6 +740,29 @@ function App() {
   const printPauseBlockReason = getCommandBlockReason(printPauseCommand)
   const printCancelBlockReason = getCommandBlockReason('cancel')
   const printStartBlockReason = getCommandBlockReason('start')
+  const movementCommandBlockReasons = useMemo<MovementCommandBlockReasons>(() => ({
+    parking: {
+      all: getCommandBlockReason('homeAll'),
+      axis: {
+        X: getCommandBlockReason('homeXY'),
+        Y: getCommandBlockReason('homeXY'),
+        Z: getCommandBlockReason('homeZ'),
+      },
+    },
+    moveAxis: {
+      X: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: 1 }),
+      Y: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Y', distanceMm: 1 }),
+      Z: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Z', distanceMm: 1 }),
+    },
+    loadFilament: getCommandBlockReason('loadFilament'),
+    unloadFilament: getCommandBlockReason('unloadFilament'),
+  }), [getCommandBlockReason])
+  const heatingCommandBlockReasons = useMemo<HeatingCommandBlockReasons>(() => ({
+    nozzleTarget: getCommandBlockReason('setNozzleTarget'),
+    bedTarget: getCommandBlockReason('setBedTarget'),
+    turnOffHeaters: getCommandBlockReason('turnOffHeaters'),
+  }), [getCommandBlockReason])
+  const fanCommandBlockReason = getCommandBlockReason('setFanPercent')
   const idleHeroStatusLabel = printerDisplayStatus.label
   const effectiveFilesLibrary = snapshot.source === 'live' ? snapshot.printFiles : filesLibrary
   const sortedPrintFiles = useMemo(() => {
@@ -2747,6 +2772,7 @@ function App() {
                 activeControlFlashKey,
                 movementMode,
                 moveStepKey,
+                commandBlockReasons: movementCommandBlockReasons,
                 zBounds: HEAD_Z_BOUNDS_MM,
                 onParkingTargetSelect: handleParkingTargetSelect,
                 onServiceModeToggle: handleServiceModeToggle,
@@ -2763,6 +2789,7 @@ function App() {
                 temperatureKeyboardValue,
                 printNozzleTargetTemp,
                 printBedTargetTemp,
+                commandBlockReasons: heatingCommandBlockReasons,
                 renderTemperatureKeyboardPanel,
                 onTemperatureKeyboardOpen: openTemperatureKeyboard,
                 onHeatingPresetApply: handleHeatingPresetApply,
@@ -2771,6 +2798,7 @@ function App() {
               fan={{
                 printFanPercent,
                 isBusy,
+                commandBlockReason: fanCommandBlockReason,
                 onFanPercentChange: handleFanPercentChange,
               }}
               lighting={{

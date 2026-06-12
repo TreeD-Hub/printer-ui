@@ -68,7 +68,7 @@ type AxisCrossControlsProps = {
   onMove: (axis: AxisId, direction: -1 | 1) => void
   onFilamentMove?: (direction: -1 | 1) => void
   onBlockedMove?: (axis: AxisId) => void
-  onBlockedFilamentMove?: () => void
+  onBlockedFilamentMove?: (direction: -1 | 1) => void
   disabled?: boolean
   disabledAxes?: Partial<Record<AxisId, boolean>>
   filamentDisabled?: boolean
@@ -96,7 +96,7 @@ export function AxisCrossControls({
 
   function handleFilamentClick(direction: -1 | 1): void {
     if (filamentDisabled) {
-      onBlockedFilamentMove?.()
+      onBlockedFilamentMove?.(direction)
       return
     }
 
@@ -495,6 +495,7 @@ type HorizontalSteppedSliderProps = {
   step: number
   onChange: (nextValue: number) => void
   disabled?: boolean
+  onBlocked?: () => void
   className?: string
   testId?: string
 }
@@ -513,6 +514,7 @@ export function HorizontalSteppedSlider({
   step,
   onChange,
   disabled = false,
+  onBlocked,
   className,
   testId,
 }: HorizontalSteppedSliderProps) {
@@ -552,6 +554,7 @@ export function HorizontalSteppedSlider({
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>): void {
     if (disabled) {
+      onBlocked?.()
       return
     }
 

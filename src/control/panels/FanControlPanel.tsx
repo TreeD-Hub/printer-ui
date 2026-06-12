@@ -1,4 +1,4 @@
-import { memo } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { HorizontalSteppedSlider, IconMask } from '../../ui'
 import { CONTROL_FAN_PRESET_OPTIONS } from '../config'
 import type { FanControlPanelProps } from '../types'
@@ -6,10 +6,64 @@ import type { FanControlPanelProps } from '../types'
 export const FanControlPanel = memo(function FanControlPanel({
   printFanPercent,
   isBusy,
+  commandBlockReason,
   onFanPercentChange,
 }: FanControlPanelProps) {
+  const lockPopupIdRef = useRef(0)
+  const [lockPopup, setLockPopup] = useState<{ id: number; message: string } | null>(null)
+
+  useEffect(() => {
+    if (lockPopup === null) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => setLockPopup(null), 3000)
+    return () => window.clearTimeout(timeoutId)
+  }, [lockPopup])
+
+  function showLockPopup(): void {
+    if (commandBlockReason === null) {
+      return
+    }
+
+    lockPopupIdRef.current += 1
+    setLockPopup({
+      id: lockPopupIdRef.current,
+      message: commandBlockReason,
+    })
+  }
+
+  function handleFanPercentChange(nextValue: number): void {
+    if (commandBlockReason !== null) {
+      showLockPopup()
+      return
+    }
+
+    onFanPercentChange(nextValue)
+  }
+
   return (
     <article className="control-card control-card-fan">
+      {lockPopup !== null ? (
+        <div
+          key={lockPopup.id}
+          className="control-lock-popup"
+          role="alertdialog"
+          aria-live="assertive"
+          aria-label="Причина блокировки"
+          data-testid="fan-lock-popup"
+        >
+          <p>{lockPopup.message}</p>
+          <button
+            type="button"
+            className="control-lock-popup-close"
+            aria-label="Закрыть уведомление"
+            onClick={() => setLockPopup(null)}
+          >
+            ×
+          </button>
+        </div>
+      ) : null}
       <div className="control-fan-body">
         <section className="control-fan-summary" aria-label="Текущее состояние вентилятора">
           <div className="control-fan-summary-copy">
@@ -27,7 +81,8 @@ export const FanControlPanel = memo(function FanControlPanel({
             type="button"
             className="control-fan-step-btn"
             aria-label="Уменьшить скорость вентилятора на 5 процентов"
-            onClick={() => onFanPercentChange(printFanPercent - 5)}
+            aria-disabled={commandBlockReason !== null || undefined}
+            onClick={() => handleFanPercentChange(printFanPercent - 5)}
             disabled={isBusy || printFanPercent <= 0}
           >
             -
@@ -39,8 +94,9 @@ export const FanControlPanel = memo(function FanControlPanel({
               min={0}
               max={100}
               step={5}
-              onChange={onFanPercentChange}
-              disabled={isBusy}
+              onChange={handleFanPercentChange}
+              disabled={isBusy || commandBlockReason !== null}
+              onBlocked={showLockPopup}
               testId="control-fan-slider"
             />
             <div className="control-fan-slider-labels" aria-hidden="true">
@@ -55,7 +111,8 @@ export const FanControlPanel = memo(function FanControlPanel({
             type="button"
             className="control-fan-step-btn"
             aria-label="Увеличить скорость вентилятора на 5 процентов"
-            onClick={() => onFanPercentChange(printFanPercent + 5)}
+            aria-disabled={commandBlockReason !== null || undefined}
+            onClick={() => handleFanPercentChange(printFanPercent + 5)}
             disabled={isBusy || printFanPercent >= 100}
           >
             +
@@ -74,7 +131,8 @@ export const FanControlPanel = memo(function FanControlPanel({
                   type="button"
                   className={`control-fan-preset-btn${isActive ? ' is-active' : ''}`}
                   aria-pressed={isActive}
-                  onClick={() => onFanPercentChange(preset.value)}
+                  aria-disabled={commandBlockReason !== null || undefined}
+                  onClick={() => handleFanPercentChange(preset.value)}
                   disabled={isBusy}
                 >
                   <span className="control-fan-preset-dot" aria-hidden="true" />

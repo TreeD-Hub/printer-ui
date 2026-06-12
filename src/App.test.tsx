@@ -1,5 +1,6 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
+import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
 
 describe('App', () => {
   it('renders idle placeholder on dashboard before print start', async () => {
@@ -31,6 +32,11 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
     fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+
+    await waitFor(() => {
+      expect((screen.getByTestId('print-file-start-button') as HTMLButtonElement).disabled).toBe(false)
+    })
+
     fireEvent.click(screen.getByTestId('print-file-start-button'))
 
     await waitFor(() => {
@@ -242,6 +248,166 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Отключить моторы' }))
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()
   }, 10000)
+
+  it('blocks axis movement during active print with shared command catalog reason', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterSnapshot().connection).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      act(() => {
+        setPrinterSnapshot({
+          ...previousSnapshot,
+          source: 'live',
+          state: 'printing',
+          printJob: {
+            ...previousSnapshot.printJob,
+            filename: 'bearing_bracket_mk2.gcode',
+            state: 'printing',
+            isActive: true,
+            isPaused: false,
+          },
+        })
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+
+      const moveXPlusButton = screen.getByRole('button', { name: 'Сдвиг X в плюс' })
+      expect(moveXPlusButton.getAttribute('aria-disabled')).toBe('true')
+
+      fireEvent.click(moveXPlusButton)
+
+      expect((await screen.findByTestId('movement-lock-popup')).textContent).toContain(
+        'Перемещение оси: движение недоступно во время печати.',
+      )
+    } finally {
+      act(() => {
+        setPrinterSnapshot(previousSnapshot)
+      })
+    }
+  })
+
+  it('blocks parking during active print with shared command catalog reason', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterSnapshot().connection).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      act(() => {
+        setPrinterSnapshot({
+          ...previousSnapshot,
+          source: 'live',
+          state: 'printing',
+          printJob: {
+            ...previousSnapshot.printJob,
+            filename: 'bearing_bracket_mk2.gcode',
+            state: 'printing',
+            isActive: true,
+            isPaused: false,
+          },
+        })
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+
+      const parkingAllButton = screen.getByTestId('parking-mode-all')
+      expect(parkingAllButton.getAttribute('aria-disabled')).toBe('true')
+
+      fireEvent.click(parkingAllButton)
+
+      expect((await screen.findByTestId('movement-lock-popup')).textContent).toContain(
+        'Home all: движение недоступно во время печати.',
+      )
+    } finally {
+      act(() => {
+        setPrinterSnapshot(previousSnapshot)
+      })
+    }
+  })
+
+  it('blocks heating presets without thermal capability with shared command catalog reason', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterSnapshot().connection).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      act(() => {
+        setPrinterSnapshot({
+          ...previousSnapshot,
+          capabilities: {
+            ...previousSnapshot.capabilities,
+            thermal: false,
+          },
+        })
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+      fireEvent.click(screen.getByTestId('control-group-heating'))
+
+      const plaPresetButton = screen.getByTestId('control-heating-preset-pla')
+      expect(plaPresetButton.getAttribute('aria-disabled')).toBe('true')
+
+      fireEvent.click(plaPresetButton)
+
+      expect((await screen.findByTestId('heating-lock-popup')).textContent).toContain(
+        'Нагрев сопла: capability «нагрев» не подтвержден.',
+      )
+    } finally {
+      act(() => {
+        setPrinterSnapshot(previousSnapshot)
+      })
+    }
+  })
+
+  it('blocks fan controls without fan capability with shared command catalog reason', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterSnapshot().connection).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      act(() => {
+        setPrinterSnapshot({
+          ...previousSnapshot,
+          capabilities: {
+            ...previousSnapshot.capabilities,
+            fan: false,
+          },
+        })
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+      fireEvent.click(screen.getByTestId('control-group-fans'))
+
+      const increaseFanButton = screen.getByRole('button', { name: 'Увеличить скорость вентилятора на 5 процентов' })
+      expect(increaseFanButton.getAttribute('aria-disabled')).toBe('true')
+
+      fireEvent.click(increaseFanButton)
+
+      expect((await screen.findByTestId('fan-lock-popup')).textContent).toContain(
+        'Обдув модели: capability «обдув» не подтвержден.',
+      )
+    } finally {
+      act(() => {
+        setPrinterSnapshot(previousSnapshot)
+      })
+    }
+  })
 
   it.skip('renders macros calibration screen and completes screw guide flow', async () => {
     render(<App />)
@@ -480,8 +646,14 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
 
-    expect(screen.getByRole('dialog', { name: 'Выключение принтера' })).toBeInTheDocument()
-    expect(screen.getByText(/machine power capability не подтвержден/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Выключить принтер' })).toBeDisabled()
+    expect(screen.getByRole('dialog', { name: 'Питание и перезапуск' })).toBeInTheDocument()
+
+    const rebootHostButton = screen.getByRole('button', { name: 'Перезагрузить host' })
+    const shutdownHostButton = screen.getByRole('button', { name: 'Выключить host' })
+
+    expect(rebootHostButton).toHaveAttribute('aria-disabled', 'true')
+    expect(rebootHostButton).toHaveAttribute('title', 'Перезагрузка host: capability «питание host» не подтвержден.')
+    expect(shutdownHostButton).toHaveAttribute('aria-disabled', 'true')
+    expect(shutdownHostButton).toHaveAttribute('title', 'Выключение host: capability «питание host» не подтвержден.')
   })
 })
