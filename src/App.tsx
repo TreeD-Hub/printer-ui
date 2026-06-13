@@ -1,4 +1,4 @@
-import { type ChangeEvent, type CSSProperties, type MouseEvent, type PointerEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, type CSSProperties, type MouseEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
@@ -16,7 +16,6 @@ import {
   PROCESS_METRIC_DEFINITIONS,
   QUICK_METRIC_DEFINITIONS,
   type ScreenId,
-  TEMPERATURE_METRIC_DEFINITIONS,
 } from './dashboard/config'
 import { usePrinterDisplayStatus } from './dashboard/usePrinterDisplayStatus'
 import {
@@ -26,12 +25,10 @@ import {
 import {
   ControlPage,
   type ControlGroupId,
-  type HeatingCommandBlockReasons,
   type MovementCommandBlockReasons,
   type MoveStepKey,
   type MovementMode,
   type ParkingMode,
-  type TemperatureKeyboardTarget,
 } from './control'
 import {
   NavItemButton,
@@ -58,8 +55,8 @@ import {
   resolvePrintTuneKeyboardMeta,
   type PrintTuneGroupId,
   type PrintTuneNumericKeyboardTarget,
-  type TemperatureChartMode,
 } from './printTune'
+import { useHeatingFanController } from './heating'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from './printFiles'
 import type { PrinterConnectionState } from './core/transport/types'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
@@ -103,8 +100,6 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
   offline: 'Офлайн',
   shutdown: 'Klipper остановлен',
 }
-const DEFAULT_NOZZLE_TARGET_TEMP = TEMPERATURE_METRIC_DEFINITIONS.find((item) => item.key === 'nozzle')?.target ?? 220
-const DEFAULT_BED_TARGET_TEMP = TEMPERATURE_METRIC_DEFINITIONS.find((item) => item.key === 'bed')?.target ?? 60
 const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
 const Z_OFFSET_BOUNDS_MM = { min: -2, max: 2 } as const
 const BED_SCREW_MOVE_DURATION_MS = 650
@@ -263,10 +258,7 @@ function App() {
   )
   const [isPrintCancelConfirmOpen, setIsPrintCancelConfirmOpen] = useState<boolean>(false)
   const [activePrintTuneGroup, setActivePrintTuneGroup] = useState<PrintTuneGroupId | null>(null)
-  const [printNozzleTargetTemp, setPrintNozzleTargetTemp] = useState<number>(DEFAULT_NOZZLE_TARGET_TEMP)
-  const [printBedTargetTemp, setPrintBedTargetTemp] = useState<number>(DEFAULT_BED_TARGET_TEMP)
   const [printVolumetricFlowMm3S, setPrintVolumetricFlowMm3S] = useState<number>(DASHBOARD_VALUES.volumetricFlowMm3S)
-  const [printFanPercent, setPrintFanPercent] = useState<number>(Math.round(snapshot.modelFanPercent))
   const [printFlowPercent, setPrintFlowPercent] = useState<number>(DASHBOARD_VALUES.flowPercent)
   const [printSpeedMmS, setPrintSpeedMmS] = useState<number>(DASHBOARD_VALUES.speedMmS)
   const [printAccelMmS2, setPrintAccelMmS2] = useState<number>(DASHBOARD_VALUES.accelMmS2)
@@ -274,9 +266,6 @@ function App() {
   const [printRetractMm, setPrintRetractMm] = useState<number>(DASHBOARD_VALUES.retractMm)
   const [printProgressOffsetMin, setPrintProgressOffsetMin] = useState<number>(0)
   const [pauseAtLayer, setPauseAtLayer] = useState<number>(Math.max(1, DASHBOARD_VALUES.layerCurrent + 5))
-  const [temperatureChartMode, setTemperatureChartMode] = useState<TemperatureChartMode>('both')
-  const [temperatureKeyboardTarget, setTemperatureKeyboardTarget] = useState<TemperatureKeyboardTarget | null>(null)
-  const [temperatureKeyboardValue, setTemperatureKeyboardValue] = useState<string>('')
   const [printTuneKeyboardTarget, setPrintTuneKeyboardTarget] = useState<PrintTuneNumericKeyboardTarget | null>(null)
   const [printTuneKeyboardValue, setPrintTuneKeyboardValue] = useState<string>('')
   const [idleNotesText, setIdleNotesText] = useState<string>(IDLE_NOTES_DEFAULT_TEXT)
@@ -335,6 +324,23 @@ function App() {
     : DASHBOARD_VALUES.layerTotal
   const isBusy = pendingCommand !== null
   const hasActivePrint = displayPrintFileName !== null
+  const heatingController = useHeatingFanController({
+    snapshot,
+    isBusy,
+    executeCommand,
+    getCommandBlockReason,
+    closePrintTuneKeyboard,
+  })
+  const {
+    printFanPercent,
+    dashboardTemperatureTargets,
+    heatingProps,
+    fanProps,
+    printTuneTemperatureProps,
+    setTemperatureChartMode,
+    closeTemperatureKeyboard,
+    handleFanPercentChange,
+  } = heatingController
   const isFilesScreenActive = activeScreen === 'files'
   const activeNavIndex = Math.max(
     0,
@@ -374,13 +380,6 @@ function App() {
   const cloudStatusLabel = isCloudCapabilityAvailable && snapshot.connection === 'online' ? 'В сети' : 'Недоступно'
   const cloudCapabilityNotice = settingsPageProps.cloud.notice
   const isMaxPerformanceModeEnabled = settingsPageProps.interfaceSettings.isMaxPerformanceModeEnabled
-  const dashboardTemperatureTargets = useMemo(
-    () => ({
-      nozzle: printNozzleTargetTemp,
-      bed: printBedTargetTemp,
-    }),
-    [printBedTargetTemp, printNozzleTargetTemp],
-  )
   const eddyStatusLabel = snapshot.v2.eddy.status === 'ready'
     ? 'Eddy готов к Z-home/mesh'
     : snapshot.v2.eddy.status === 'uncalibrated'
@@ -433,12 +432,6 @@ function App() {
     loadFilament: getCommandBlockReason('loadFilament'),
     unloadFilament: getCommandBlockReason('unloadFilament'),
   }), [getCommandBlockReason])
-  const heatingCommandBlockReasons = useMemo<HeatingCommandBlockReasons>(() => ({
-    nozzleTarget: getCommandBlockReason('setNozzleTarget'),
-    bedTarget: getCommandBlockReason('setBedTarget'),
-    turnOffHeaters: getCommandBlockReason('turnOffHeaters'),
-  }), [getCommandBlockReason])
-  const fanCommandBlockReason = getCommandBlockReason('setFanPercent')
   const idleHeroStatusLabel = printerDisplayStatus.label
   const effectiveFilesLibrary = snapshot.source === 'live' ? snapshot.printFiles : filesLibrary
   const selectedPrintFile = useMemo(() => {
@@ -509,68 +502,6 @@ function App() {
     () => shiftTimeLabelByMinutes(DASHBOARD_VALUES.etaTime, printProgressOffsetMin),
     [printProgressOffsetMin],
   )
-  const nozzleTrendValues = useMemo(
-    () => Array.from({ length: 24 }, (_, index) => {
-      const ratio = (index + 1) / 24
-      const wave = Math.sin((index / 4.2) + 0.7) * 2.2
-      const projected = snapshot.extruderTemp + ((printNozzleTargetTemp - snapshot.extruderTemp) * ratio)
-      return clampAxisValue(projected + wave, 0, Math.max(printNozzleTargetTemp + 8, 230))
-    }),
-    [printNozzleTargetTemp, snapshot.extruderTemp],
-  )
-  const bedTrendValues = useMemo(
-    () => Array.from({ length: 24 }, (_, index) => {
-      const ratio = (index + 1) / 24
-      const wave = Math.cos((index / 5.1) + 0.4) * 1.6
-      const projected = snapshot.bedTemp + ((printBedTargetTemp - snapshot.bedTemp) * ratio)
-      return clampAxisValue(projected + wave, 0, Math.max(printBedTargetTemp + 6, 90))
-    }),
-    [printBedTargetTemp, snapshot.bedTemp],
-  )
-  const temperatureChartSeries = useMemo(
-    () => [
-      {
-        id: 'nozzle' as const,
-        label: 'Сопло',
-        tone: 'orange' as const,
-        values: nozzleTrendValues,
-        target: printNozzleTargetTemp,
-      },
-      {
-        id: 'bed' as const,
-        label: 'Стол',
-        tone: 'green' as const,
-        values: bedTrendValues,
-        target: printBedTargetTemp,
-      },
-    ],
-    [bedTrendValues, nozzleTrendValues, printBedTargetTemp, printNozzleTargetTemp],
-  )
-  const heatingControlRows = [
-    {
-      id: 'nozzle' as const,
-      keyboardTarget: 'nozzle' as const,
-      icon: 'metricNozzle' as const,
-      uiLabel: 'Сопло',
-      tone: 'orange' as const,
-      current: snapshot.extruderTemp,
-      target: printNozzleTargetTemp,
-      onTargetChange: setPrintNozzleTargetTemp,
-      testIdPrefix: 'control-heating-nozzle',
-    },
-    {
-      id: 'bed' as const,
-      keyboardTarget: 'bed' as const,
-      icon: 'metricBed' as const,
-      uiLabel: 'Стол',
-      tone: 'green' as const,
-      current: snapshot.bedTemp,
-      target: printBedTargetTemp,
-      onTargetChange: setPrintBedTargetTemp,
-      testIdPrefix: 'control-heating-bed',
-    },
-  ]
-
   const openWifiSettings = useCallback(() => {
     setActiveSettingsGroup('network')
     setActiveScreen('settings')
@@ -1204,138 +1135,6 @@ function App() {
     handlePrintTuneGroupClose()
   }
 
-  function setTemperatureTargetValue(target: TemperatureKeyboardTarget, value: number): void {
-    if (target === 'nozzle') {
-      setPrintNozzleTargetTemp(value)
-      return
-    }
-
-    setPrintBedTargetTemp(value)
-  }
-
-  function openTemperatureKeyboard(target: TemperatureKeyboardTarget): void {
-    closePrintTuneKeyboard()
-    setTemperatureKeyboardTarget(target)
-    setTemperatureKeyboardValue('')
-  }
-
-  function closeTemperatureKeyboard(): void {
-    setTemperatureKeyboardTarget(null)
-    setTemperatureKeyboardValue('')
-  }
-
-  function handleTemperatureKeyboardDigit(digit: string): void {
-    setTemperatureKeyboardValue((current) => {
-      const next = `${current}${digit}`.replace(/^0+(?=\d)/, '')
-      return next.slice(0, 3)
-    })
-  }
-
-  function handleTemperatureKeyboardBackspace(): void {
-    setTemperatureKeyboardValue((current) => current.slice(0, -1))
-  }
-
-  function handleTemperatureKeyboardSubmit(): void {
-    if (temperatureKeyboardTarget === null) {
-      return
-    }
-
-    if (temperatureKeyboardValue.trim().length === 0) {
-      return
-    }
-
-    const parsed = Number(temperatureKeyboardValue)
-    if (Number.isNaN(parsed)) {
-      return
-    }
-
-    const normalized = Math.round(clampAxisValue(parsed, 0, 300))
-    setTemperatureTargetValue(temperatureKeyboardTarget, normalized)
-    void executeCommand({
-      command: temperatureKeyboardTarget === 'nozzle' ? 'setNozzleTarget' : 'setBedTarget',
-      targetCelsius: normalized,
-    })
-    closeTemperatureKeyboard()
-  }
-
-  function handleHeatingPresetApply(nozzle: number, bed: number): void {
-    setPrintNozzleTargetTemp(nozzle)
-    setPrintBedTargetTemp(bed)
-    void executeCommand({ command: 'consoleGcode', gcode: `M104 S${nozzle}\nM140 S${bed}` })
-    closeTemperatureKeyboard()
-  }
-
-  function handleHeatingDisable(): void {
-    setPrintNozzleTargetTemp(0)
-    setPrintBedTargetTemp(0)
-    void executeCommand({ command: 'turnOffHeaters' })
-    closeTemperatureKeyboard()
-  }
-
-  function handleFanPercentChange(nextValue: number): void {
-    const normalized = Math.round(clampAxisValue(nextValue, 0, 100))
-    setPrintFanPercent(normalized)
-    void executeCommand({ command: 'setFanPercent', percent: normalized })
-  }
-
-  function renderTemperatureKeyboardPanel(className = ''): ReactNode {
-    return (
-      <aside className={`print-temp-keyboard-side ${className}`.trim()} aria-label="Цифровая клавиатура температуры">
-        <div className="print-temp-keyboard-head">
-          <p className="print-temp-keyboard-label">Температура</p>
-          <button
-            type="button"
-            className="print-cancel-modal-close print-temp-keyboard-close"
-            aria-label="Закрыть клавиатуру температуры"
-            onClick={closeTemperatureKeyboard}
-          >
-            ×
-          </button>
-        </div>
-        <p className="print-temp-keyboard-display">
-          {temperatureKeyboardValue}
-          {temperatureKeyboardValue.length > 0 ? <span> °C</span> : null}
-        </p>
-        <div className="print-temp-keyboard-grid">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-            <button
-              key={digit}
-              type="button"
-              className="settings-network-btn print-temp-keyboard-key"
-              onClick={() => handleTemperatureKeyboardDigit(digit)}
-              aria-label={`Цифра ${digit}`}
-            >
-              {digit}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="settings-network-btn print-temp-keyboard-key"
-            onClick={handleTemperatureKeyboardBackspace}
-          >
-            Стереть
-          </button>
-          <button
-            type="button"
-            className="settings-network-btn print-temp-keyboard-key"
-            onClick={() => handleTemperatureKeyboardDigit('0')}
-            aria-label="Цифра 0"
-          >
-            0
-          </button>
-          <span className="print-temp-keyboard-spacer" aria-hidden="true" />
-        </div>
-        <button
-          type="button"
-          className="settings-network-btn settings-network-btn-primary print-temp-keyboard-submit"
-          onClick={handleTemperatureKeyboardSubmit}
-        >
-          Ввод
-        </button>
-      </aside>
-    )
-  }
-
   function setPrintTuneKeyboardTargetValue(target: PrintTuneNumericKeyboardTarget, value: number): void {
     if (target === 'volumetricFlow') {
       setPrintVolumetricFlowMm3S(value)
@@ -1536,25 +1335,8 @@ function App() {
                 onAxisMove: handleAxisMove,
                 onFilamentMove: handleFilamentMove,
               }}
-              heating={{
-                rows: heatingControlRows,
-                chartSeries: temperatureChartSeries,
-                temperatureKeyboardTarget,
-                temperatureKeyboardValue,
-                printNozzleTargetTemp,
-                printBedTargetTemp,
-                commandBlockReasons: heatingCommandBlockReasons,
-                renderTemperatureKeyboardPanel,
-                onTemperatureKeyboardOpen: openTemperatureKeyboard,
-                onHeatingPresetApply: handleHeatingPresetApply,
-                onHeatingDisable: handleHeatingDisable,
-              }}
-              fan={{
-                printFanPercent,
-                isBusy,
-                commandBlockReason: fanCommandBlockReason,
-                onFanPercentChange: handleFanPercentChange,
-              }}
+              heating={heatingProps}
+              fan={fanProps}
               lighting={{
                 isMainLightEnabled,
                 isToolheadLightEnabled,
@@ -2052,21 +1834,7 @@ function App() {
           activeGroup={activePrintTuneGroup}
           onClose={handlePrintTuneGroupClose}
           onApply={handlePrintTuneApply}
-          temperature={{
-            currentNozzleTemp: snapshot.extruderTemp,
-            currentBedTemp: snapshot.bedTemp,
-            nozzleTargetTemp: printNozzleTargetTemp,
-            bedTargetTemp: printBedTargetTemp,
-            chartMode: temperatureChartMode,
-            chartSeries: temperatureChartSeries,
-            keyboardTarget: temperatureKeyboardTarget,
-            keyboardValue: temperatureKeyboardValue,
-            renderKeyboardPanel: renderTemperatureKeyboardPanel,
-            onKeyboardOpen: openTemperatureKeyboard,
-            onChartModeChange: setTemperatureChartMode,
-            onNozzleTargetChange: setPrintNozzleTargetTemp,
-            onBedTargetChange: setPrintBedTargetTemp,
-          }}
+          temperature={printTuneTemperatureProps}
           values={{
             volumetricFlowMm3S: printVolumetricFlowMm3S,
             fanPercent: printFanPercent,
