@@ -2,6 +2,27 @@ import { describe, expect, it, vi } from 'vitest'
 import { createMoonrakerCommandClient } from './moonrakerCommandClient'
 
 describe('createMoonrakerCommandClient', () => {
+  it('starts nested print file paths through Moonraker print start endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: 'ok' }),
+    })
+
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
+    })
+
+    await client.execute({ command: 'start', filename: 'jobs/benchy v2.gcode' })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://moonraker.local/printer/print/start?filename=jobs%2Fbenchy%20v2.gcode',
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    )
+  })
+
   it('maps TreeD V2 motion and service commands to Moonraker G-code scripts', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

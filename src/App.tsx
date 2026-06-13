@@ -503,6 +503,7 @@ function App() {
   const [filesSortKey, setFilesSortKey] = useState<FilesSortKey>('name')
   const [filesLibrary, setFilesLibrary] = useState<PrintFileItem[]>(() => [...PRINT_FILE_LIBRARY])
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
+  const [fileModalNotice, setFileModalNotice] = useState<string>('')
   const [activePrintFileName, setActivePrintFileName] = useState<string | null>(null)
   const [activePrintUiState, setActivePrintUiState] = useState<ActivePrintUiState | null>(null)
   const commandRuntimeContext = useMemo(
@@ -740,6 +741,7 @@ function App() {
   const printPauseBlockReason = getCommandBlockReason(printPauseCommand)
   const printCancelBlockReason = getCommandBlockReason('cancel')
   const printStartBlockReason = getCommandBlockReason('start')
+  const fileStartNotice = fileModalNotice || printStartBlockReason
   const movementCommandBlockReasons = useMemo<MovementCommandBlockReasons>(() => ({
     parking: {
       all: getCommandBlockReason('homeAll'),
@@ -1304,6 +1306,7 @@ function App() {
 
   const closeFileModal = useCallback(() => {
     setSelectedFileId(null)
+    setFileModalNotice('')
   }, [])
 
   const closePrintCancelConfirm = useCallback(() => {
@@ -1349,6 +1352,7 @@ function App() {
 
   function handlePrintFileSelect(fileId: string): void {
     setSelectedFileId(fileId)
+    setFileModalNotice('')
   }
 
   function handleDeleteSelectedFile(): void {
@@ -1356,7 +1360,7 @@ function App() {
       return
     }
 
-    if (displayPrintFileName === selectedPrintFile.name) {
+    if (displayPrintFileName === selectedPrintFile.name || displayPrintFileName === selectedPrintFile.path) {
       setActivePrintFileName(null)
       setActivePrintUiState(null)
     }
@@ -1373,15 +1377,21 @@ function App() {
 
     const ok = await executeCommand({
       command: 'start',
-      filename: selectedPrintFile.name,
+      filename: selectedPrintFile.path,
     })
-    if (ok) {
+    if (!ok) {
+      setFileModalNotice(commandError || printStartBlockReason || 'Старт печати не выполнен.')
+      return
+    }
+
+    if (snapshot.source === 'mock') {
       setActivePrintFileName(selectedPrintFile.name)
       setActivePrintUiState('printing')
-      await refresh()
-      setActiveScreen('dashboard')
-      closeFileModal()
     }
+
+    await refresh()
+    setActiveScreen('dashboard')
+    closeFileModal()
   }
 
   async function handleParkingTargetSelect(nextMode: ParkingMode, nextAxis?: AxisId): Promise<boolean> {
@@ -2749,6 +2759,7 @@ function App() {
                       <PrintFileCard
                         key={item.id}
                         name={item.name}
+                        directory={item.directory}
                         printTime={item.printTime}
                         weight={item.weight}
                         onClick={() => handlePrintFileSelect(item.id)}
@@ -3882,7 +3893,17 @@ function App() {
                   <dt>Материал</dt>
                   <dd>{selectedPrintFile.material}</dd>
                 </div>
+                {selectedPrintFile.directory !== null ? (
+                  <div className="file-modal-path">
+                    <dt>Путь</dt>
+                    <dd>{selectedPrintFile.path}</dd>
+                  </div>
+                ) : null}
               </dl>
+
+              {fileStartNotice !== null && fileStartNotice.length > 0 ? (
+                <p className="file-modal-notice" data-testid="print-file-start-notice">{fileStartNotice}</p>
+              ) : null}
 
               <div className="file-modal-actions">
                 <button

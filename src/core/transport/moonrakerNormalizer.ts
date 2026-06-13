@@ -328,10 +328,32 @@ function normalizeMaterial(metadata: MoonrakerPrintFileMetadata | undefined): st
   return firstNonEmpty(metadata?.filament_name, metadata?.filament_type, metadata?.slicer, '—')
 }
 
+function normalizeMoonrakerFilePath(path: string): string {
+  return path.trim().replace(/\\/g, '/').replace(/^\/+/, '')
+}
+
+function getFileNameFromPath(path: string): string {
+  const normalizedPath = normalizeMoonrakerFilePath(path)
+  const lastSlashIndex = normalizedPath.lastIndexOf('/')
+
+  return lastSlashIndex === -1 ? normalizedPath : normalizedPath.slice(lastSlashIndex + 1)
+}
+
+function getDirectoryFromPath(path: string): string | null {
+  const normalizedPath = normalizeMoonrakerFilePath(path)
+  const lastSlashIndex = normalizedPath.lastIndexOf('/')
+
+  if (lastSlashIndex <= 0) {
+    return null
+  }
+
+  return normalizedPath.slice(0, lastSlashIndex)
+}
+
 export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): PrinterFileItemSnapshot[] {
   return items
     .map((item): PrinterFileItemSnapshot | null => {
-      const path = firstNonEmpty(item.path, item.filename)
+      const path = normalizeMoonrakerFilePath(firstNonEmpty(item.path, item.filename))
 
       if (!path.toLowerCase().endsWith('.gcode')) {
         return null
@@ -339,7 +361,9 @@ export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): 
 
       return {
         id: normalizeFileId(path),
-        name: path,
+        path,
+        name: getFileNameFromPath(path),
+        directory: getDirectoryFromPath(path),
         printTime: formatDuration(toFiniteNumber(item.metadata?.estimated_time, 0)),
         weight: formatFilamentWeight(item.metadata?.filament_total, item.size),
         material: normalizeMaterial(item.metadata),

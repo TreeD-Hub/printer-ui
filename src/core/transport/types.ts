@@ -73,7 +73,9 @@ export interface PrinterMacroStateSnapshot {
 
 export interface PrinterFileItemSnapshot {
   id: string
+  path: string
   name: string
+  directory: string | null
   printTime: string
   weight: string
   material: string

@@ -3,13 +3,14 @@ import { joinClassNames } from './classNames'
 
 type PrintFileCardProps = {
   name: string
+  directory?: string | null
   printTime: string
   weight: string
   onClick?: () => void
   className?: string
 }
 
-export function PrintFileCard({ name, printTime, weight, onClick, className }: PrintFileCardProps) {
+export function PrintFileCard({ name, directory = null, printTime, weight, onClick, className }: PrintFileCardProps) {
   return (
     <button
       type="button"
@@ -23,6 +24,7 @@ export function PrintFileCard({ name, printTime, weight, onClick, className }: P
 
       <div className="print-file-summary">
         <p className="print-file-name">{name}</p>
+        {directory !== null ? <p className="print-file-directory">{directory}</p> : null}
 
         <dl className="print-file-meta">
           <div className="print-file-meta-row">

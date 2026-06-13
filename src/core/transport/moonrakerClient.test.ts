@@ -97,7 +97,9 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(snapshot.printFiles).toEqual([
       expect.objectContaining({
         id: 'file-v2-part-gcode',
+        path: 'v2_part.gcode',
         name: 'v2_part.gcode',
+        directory: null,
         printTime: '1 ч 01 мин',
         weight: '1 г',
         material: 'PETG',

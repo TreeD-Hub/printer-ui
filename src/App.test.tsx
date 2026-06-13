@@ -536,6 +536,33 @@ describe('App', () => {
     })
   }, 10000)
 
+  it('shows shared command catalog reason when print start is blocked', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Стоп' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+
+    const fileDialog = screen.getByRole('dialog', { name: 'Файл печати' })
+    const startButton = within(fileDialog).getByRole('button', { name: 'Старт печати' })
+
+    expect(startButton).toBeDisabled()
+    expect(within(fileDialog).getByTestId('print-file-start-notice')).toHaveTextContent(
+      'Старт печати: уже есть активная печать.',
+    )
+  }, 10000)
+
   it('opens Wi-Fi popup with network details and navigates to settings', () => {
     render(<App />)
 

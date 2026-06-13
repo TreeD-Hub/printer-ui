@@ -35,7 +35,9 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     expect(files).toEqual([
       {
         id: 'file-jobs-benchy-gcode',
-        name: 'jobs/benchy.gcode',
+        path: 'jobs/benchy.gcode',
+        name: 'benchy.gcode',
+        directory: 'jobs',
         printTime: '1 ч 02 мин',
         weight: '8 г',
         material: 'PETG-CF',

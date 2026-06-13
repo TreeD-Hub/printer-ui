@@ -1,13 +1,17 @@
 export type PrintFileItem = {
   id: string
+  path: string
   name: string
+  directory: string | null
   printTime: string
   weight: string
   material: string
   addedAt: string
 }
 
-export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
+type PrintFileSeed = Omit<PrintFileItem, 'path' | 'directory'>
+
+const PRINT_FILE_SEEDS: PrintFileSeed[] = [
   {
     id: 'file-bearing-bracket-mk2',
     name: 'bearing_bracket_mk2.gcode',
@@ -105,3 +109,9 @@ export const PRINT_FILE_LIBRARY: PrintFileItem[] = [
     addedAt: '2026-03-10T09:02:00+03:00',
   },
 ]
+
+export const PRINT_FILE_LIBRARY: PrintFileItem[] = PRINT_FILE_SEEDS.map((item) => ({
+  ...item,
+  path: item.name,
+  directory: null,
+}))
