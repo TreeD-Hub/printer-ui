@@ -52,18 +52,10 @@ import {
 } from './ui'
 import { FilesPage, PrintFileModal } from './files'
 import {
-  DEFAULT_SELECTED_WIFI_NETWORK_ID,
-  DEFAULT_TIMEZONE_OPTION,
-  LANGUAGE_OPTIONS,
-  SETTINGS_NOTIFICATION_HISTORY,
+  isSettingsKeyboardTarget,
   SettingsPage,
-  SLEEP_MODE_OPTIONS,
-  TIMEZONE_OPTIONS,
-  UPDATE_AVAILABLE_VERSION,
-  WIFI_NETWORK_LIBRARY,
-  type SettingsGroupId,
-  type SettingsNotificationItem,
-  type WifiNetworkItem,
+  useSettingsController,
+  type SettingsKeyboardTarget,
 } from './settings'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from './printFiles'
 import type { PrinterConnectionState } from './core/transport/types'
@@ -91,7 +83,7 @@ type ActivePrintUiState = 'printing' | 'paused'
 type PrintTuneNumericKeyboardTarget = 'volumetricFlow' | 'flow' | 'speed' | 'accel' | 'kFactor' | 'retract' | 'layers'
 type PrintTuneGroupId = DashboardTuneGroupId
 type TemperatureChartMode = 'nozzle' | 'bed' | 'both'
-type KeyboardTarget = 'idleNotes' | 'wifiSearch' | 'wifiPassword' | 'consoleCommand'
+type KeyboardTarget = 'idleNotes' | SettingsKeyboardTarget
 type BedScrewPointId = 'front-left' | 'front-right' | 'rear-right' | 'rear-left' | 'center'
 type BedScrewPoint = {
   id: BedScrewPointId
@@ -426,7 +418,6 @@ function App() {
   const [activeKeyboardTarget, setActiveKeyboardTarget] = useState<KeyboardTarget | null>(null)
   const [keyboardLanguage, setKeyboardLanguage] = useState<VirtualKeyboardLanguage>('ru')
   const [isKeyboardCapsEnabled, setIsKeyboardCapsEnabled] = useState<boolean>(false)
-  const [activeSettingsGroup, setActiveSettingsGroup] = useState<SettingsGroupId>('system')
   const [activeMacrosGroup, setActiveMacrosGroup] = useState<MacrosGroupId>('bedMesh')
   const [bedCalibrationStage, setBedCalibrationStage] = useState<BedCalibrationStage>('launch')
   const [isBedScrewGuideIntroOpen, setIsBedScrewGuideIntroOpen] = useState<boolean>(false)
@@ -440,32 +431,6 @@ function App() {
   const [manualBedParkingMode, setManualBedParkingMode] = useState<ParkingMode>('all')
   const [manualBedParkingAxis, setManualBedParkingAxis] = useState<AxisId>('X')
   const [bedScrewGuideNotice, setBedScrewGuideNotice] = useState<string>('Нажмите «Запустить по винтам», затем выбирайте точки на карте.')
-  const [isDarkThemeEnabled, setIsDarkThemeEnabled] = useState<boolean>(true)
-  const [isMaxPerformanceModeEnabled, setIsMaxPerformanceModeEnabled] = useState<boolean>(false)
-  const [sleepModeValue, setSleepModeValue] = useState<string>(SLEEP_MODE_OPTIONS[2])
-  const [timezoneValue, setTimezoneValue] = useState<string>(
-    TIMEZONE_OPTIONS.find((option) => option === DEFAULT_TIMEZONE_OPTION) ?? TIMEZONE_OPTIONS[0],
-  )
-  const [languageValue, setLanguageValue] = useState<string>(LANGUAGE_OPTIONS[0])
-  const [isExternalVoiceEnabled, setIsExternalVoiceEnabled] = useState<boolean>(false)
-  const [isNotificationsEnabled, setIsNotificationsEnabled] = useState<boolean>(true)
-  const [isNotificationSoundsEnabled, setIsNotificationSoundsEnabled] = useState<boolean>(true)
-  const [notificationHistory] = useState<SettingsNotificationItem[]>(SETTINGS_NOTIFICATION_HISTORY)
-  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false)
-  const [isCloudAiMonitoringEnabled, setIsCloudAiMonitoringEnabled] = useState<boolean>(false)
-  const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Сервис облака не подключен.')
-  const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
-  const [availableUpdateVersion, setAvailableUpdateVersion] = useState<string | null>(null)
-  const [updateNotice, setUpdateNotice] = useState<string>('Проверьте наличие новых версий.')
-  const [consoleCommandValue, setConsoleCommandValue] = useState<string>('')
-  const [consoleHistory, setConsoleHistory] = useState<Array<{ id: string; command: string; createdAt: string }>>([])
-  const [consoleNotice, setConsoleNotice] = useState<string>('Введите G-code или макрос и отправьте команду.')
-  const [wifiNetworks, setWifiNetworks] = useState<WifiNetworkItem[]>(() => [...WIFI_NETWORK_LIBRARY])
-  const [wifiSearchQuery, setWifiSearchQuery] = useState<string>('')
-  const [selectedWifiNetworkId, setSelectedWifiNetworkId] = useState<string | null>(DEFAULT_SELECTED_WIFI_NETWORK_ID)
-  const [wifiPasswordValue, setWifiPasswordValue] = useState<string>('')
-  const [isWifiPasswordVisible, setIsWifiPasswordVisible] = useState<boolean>(false)
-  const [wifiConnectionNotice, setWifiConnectionNotice] = useState<string>('')
   const [, setParkingMode] = useState<ParkingMode>('all')
   const [parkingAxis, setParkingAxis] = useState<AxisId>('X')
   const [movementMode, setMovementMode] = useState<MovementMode>('buttons')
@@ -482,9 +447,6 @@ function App() {
     createMaintenanceChecklistState(false),
   )
   const idleNotesInputRef = useRef<HTMLTextAreaElement | null>(null)
-  const wifiSearchInputRef = useRef<HTMLInputElement | null>(null)
-  const wifiPasswordInputRef = useRef<HTMLInputElement | null>(null)
-  const consoleInputRef = useRef<HTMLTextAreaElement | null>(null)
   const bedScrewMoveTimeoutRef = useRef<number | null>(null)
   const controlFlashTimeoutRef = useRef<number | null>(null)
   const idleWidgetHoldTimeoutRef = useRef<number | null>(null)
@@ -533,23 +495,27 @@ function App() {
   const connectionLabel = CONNECTION_LABELS[snapshot.connection]
   const wifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
   const wifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
-  const isNetworkCapabilityAvailable = snapshot.capabilities.network
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
-  const isUpdatesCapabilityAvailable = snapshot.capabilities.updates
   const powerMenuActions = POWER_MENU_ACTIONS.map((action) => ({
     ...action,
     blockReason: getCommandBlockReason(action.command),
   }))
-  const networkCapabilityNotice = isNetworkCapabilityAvailable
-    ? 'Выберите сеть и выполните подключение.'
-    : 'Недоступно: Moonraker/V2 Wi-Fi capability не подтвержден.'
+  const settingsController = useSettingsController({
+    snapshot,
+    connectionLabel,
+    executeCommand,
+    getCommandBlockReason,
+    activeKeyboardTarget: isSettingsKeyboardTarget(activeKeyboardTarget) ? activeKeyboardTarget : null,
+    openKeyboard: (target) => setActiveKeyboardTarget(target),
+    closeKeyboard: () => setActiveKeyboardTarget(null),
+  })
+  const settingsPageProps = settingsController.pageProps
+  const settingsKeyboard = settingsController.keyboard
+  const isSettingsKeyboardTargetAllowed = settingsController.isKeyboardTargetAllowed
+  const setActiveSettingsGroup = settingsPageProps.onSettingsGroupChange
   const cloudStatusLabel = isCloudCapabilityAvailable && snapshot.connection === 'online' ? 'В сети' : 'Недоступно'
-  const cloudCapabilityNotice = isCloudCapabilityAvailable
-    ? cloudConnectionNotice
-    : 'Недоступно: Moonraker/V2 cloud capability не подтвержден.'
-  const updateCapabilityNotice = isUpdatesCapabilityAvailable
-    ? updateNotice
-    : 'Недоступно: Moonraker/V2 update capability не подтвержден.'
+  const cloudCapabilityNotice = settingsPageProps.cloud.notice
+  const isMaxPerformanceModeEnabled = settingsPageProps.interfaceSettings.isMaxPerformanceModeEnabled
   const dashboardTemperatureTargets = useMemo(
     () => ({
       nozzle: printNozzleTargetTemp,
@@ -613,30 +579,6 @@ function App() {
 
     return effectiveFilesLibrary.find((item) => item.id === selectedFileId) ?? null
   }, [effectiveFilesLibrary, selectedFileId])
-  const selectedWifiNetwork = useMemo(() => {
-    if (selectedWifiNetworkId === null) {
-      return null
-    }
-
-    return wifiNetworks.find((item) => item.id === selectedWifiNetworkId) ?? null
-  }, [selectedWifiNetworkId, wifiNetworks])
-  const filteredWifiNetworks = useMemo(() => {
-    const normalizedQuery = wifiSearchQuery.trim().toLocaleLowerCase('ru-RU')
-    const nextItems = wifiNetworks
-      .filter((item) => item.ssid.toLocaleLowerCase('ru-RU').includes(normalizedQuery))
-      .sort((left, right) => {
-        if (left.connected !== right.connected) {
-          return left.connected ? -1 : 1
-        }
-        return right.signalPercent - left.signalPercent
-      })
-
-    return nextItems
-  }, [wifiNetworks, wifiSearchQuery])
-  const connectedWifiNetwork = useMemo(
-    () => wifiNetworks.find((item) => item.connected) ?? null,
-    [wifiNetworks],
-  )
   const activeBedScrewPoint = BED_SCREW_GUIDE_POINTS.find((point) => point.id === activeBedScrewPointId) ?? null
   const activeBedScrewPointLabel = activeBedScrewPoint === null
     ? 'Текущая точка не выбрана.'
@@ -647,32 +589,18 @@ function App() {
   const manualBedParkingActionLabel = manualBedParkingMode === 'all'
     ? 'Парковка по всем осям'
     : `Парковка оси ${manualBedParkingAxis}`
-  const activeSettingsKeyboardTarget = activeKeyboardTarget === 'idleNotes' ? 'consoleCommand' : activeKeyboardTarget
-  const isConsoleSettingsKeyboardOpen = activeKeyboardTarget === 'idleNotes' || activeKeyboardTarget === 'consoleCommand'
-  const settingsKeyboardValue = activeKeyboardTarget === 'idleNotes'
-    ? idleNotesText
-    : activeKeyboardTarget === 'wifiPassword'
-      ? wifiPasswordValue
-      : consoleCommandValue
-  const settingsKeyboardLabel = activeSettingsKeyboardTarget === 'wifiPassword' ? 'Ввод пароля' : 'Ввод команды'
-  const settingsKeyboardPlaceholder = activeSettingsKeyboardTarget === 'wifiPassword' ? 'Введите пароль...' : 'Введите команду...'
-  const settingsKeyboardTestId = activeSettingsKeyboardTarget === 'wifiPassword' ? 'settings-wifi-keyboard' : 'settings-console-keyboard'
-  const settingsKeyboardPreviewTestId = activeSettingsKeyboardTarget === 'wifiPassword'
-    ? 'settings-wifi-keyboard-preview'
-    : 'settings-console-keyboard-preview'
-  const keyboardLabel = activeKeyboardTarget === 'idleNotes' ? 'Ввод заметок' : settingsKeyboardLabel
-  const keyboardPlaceholder = activeKeyboardTarget === 'idleNotes' ? 'Введите заметку...' : settingsKeyboardPlaceholder
-  const keyboardTestId = activeKeyboardTarget === 'idleNotes' ? 'idle-notes-keyboard' : settingsKeyboardTestId
+  const settingsKeyboardMeta = settingsKeyboard.meta
+  const keyboardLabel = activeKeyboardTarget === 'idleNotes' ? 'Ввод заметок' : (settingsKeyboardMeta?.valueLabel ?? '')
+  const keyboardPlaceholder = activeKeyboardTarget === 'idleNotes' ? 'Введите заметку...' : (settingsKeyboardMeta?.placeholder ?? '')
+  const keyboardTestId = activeKeyboardTarget === 'idleNotes' ? 'idle-notes-keyboard' : (settingsKeyboardMeta?.testId ?? '')
   const keyboardPreviewTestId = activeKeyboardTarget === 'idleNotes'
     ? 'idle-notes-keyboard-preview'
-    : settingsKeyboardPreviewTestId
-  const keyboardDialogValue = activeKeyboardTarget === 'wifiSearch' ? wifiSearchQuery : settingsKeyboardValue
-  const keyboardDialogLabel = activeKeyboardTarget === 'wifiSearch' ? 'Ввод имени сети' : keyboardLabel
-  const keyboardDialogPlaceholder = activeKeyboardTarget === 'wifiSearch' ? 'Введите имя сети...' : keyboardPlaceholder
-  const keyboardDialogTestId = activeKeyboardTarget === 'wifiSearch' ? 'settings-wifi-search-keyboard' : keyboardTestId
-  const keyboardDialogPreviewTestId = activeKeyboardTarget === 'wifiSearch'
-    ? 'settings-wifi-search-keyboard-preview'
-    : keyboardPreviewTestId
+    : (settingsKeyboardMeta?.previewTestId ?? '')
+  const keyboardDialogValue = activeKeyboardTarget === 'idleNotes' ? idleNotesText : settingsKeyboard.value
+  const keyboardDialogLabel = keyboardLabel
+  const keyboardDialogPlaceholder = keyboardPlaceholder
+  const keyboardDialogTestId = keyboardTestId
+  const keyboardDialogPreviewTestId = keyboardPreviewTestId
 
   useEffect(() => {
     return () => {
@@ -833,7 +761,7 @@ function App() {
     setActiveSettingsGroup('network')
     setActiveScreen('settings')
     closeTopPopup()
-  }, [closeTopPopup])
+  }, [closeTopPopup, setActiveSettingsGroup])
 
   function clearIdleWidgetHoldTimeout(): void {
     if (idleWidgetHoldTimeoutRef.current === null) {
@@ -1133,19 +1061,13 @@ function App() {
     setIsPrintCancelConfirmOpen(false)
   }, [])
 
-  const setKeyboardCaret = useCallback((target: KeyboardTarget, nextCaret: number) => {
+  const setIdleNotesKeyboardCaret = useCallback((nextCaret: number) => {
     if (typeof window === 'undefined') {
       return
     }
 
     window.requestAnimationFrame(() => {
-      const input = target === 'idleNotes'
-        ? idleNotesInputRef.current
-        : target === 'wifiSearch'
-          ? wifiSearchInputRef.current
-        : target === 'wifiPassword'
-          ? wifiPasswordInputRef.current
-          : consoleInputRef.current
+      const input = idleNotesInputRef.current
       if (input === null) {
         return
       }
@@ -1262,137 +1184,6 @@ function App() {
     void executeCommand({ command: 'consoleGcode', gcode: 'M84' })
   }
 
-  function handleWifiSearchQueryChange(event: ChangeEvent<HTMLInputElement>): void {
-    setWifiSearchQuery(event.target.value)
-  }
-
-  function handleWifiSearchInputFocus(): void {
-    setActiveKeyboardTarget('wifiSearch')
-  }
-
-  function handleWifiScan(): void {
-    setWifiNetworks((current) => current.map((item, index) => ({
-      ...item,
-      signalPercent: clampAxisValue(item.signalPercent + (index % 2 === 0 ? 3 : -2), 18, 100),
-    })))
-    setWifiConnectionNotice('Список Wi-Fi сетей обновлен.')
-  }
-
-  function handleWifiNetworkSelect(networkId: string): void {
-    setSelectedWifiNetworkId(networkId)
-    setWifiConnectionNotice('')
-    setWifiPasswordValue('')
-    setIsWifiPasswordVisible(false)
-  }
-
-  function handleWifiPasswordChange(event: ChangeEvent<HTMLInputElement>): void {
-    setWifiPasswordValue(event.target.value)
-  }
-
-  function handleWifiPasswordVisibilityToggle(): void {
-    setIsWifiPasswordVisible((prevValue) => !prevValue)
-  }
-
-  function handleWifiConnect(): void {
-    if (selectedWifiNetwork === null) {
-      return
-    }
-
-    if (selectedWifiNetwork.security !== 'open' && wifiPasswordValue.trim().length < 8) {
-      setWifiConnectionNotice('Введите пароль (минимум 8 символов).')
-      return
-    }
-
-    setWifiNetworks((current) => current.map((item) => {
-      if (item.id === selectedWifiNetwork.id) {
-        return {
-          ...item,
-          connected: true,
-          saved: true,
-        }
-      }
-
-      return {
-        ...item,
-        connected: false,
-      }
-    }))
-
-    setWifiConnectionNotice(`Подключено к ${selectedWifiNetwork.ssid}.`)
-    setWifiPasswordValue('')
-    setIsWifiPasswordVisible(false)
-  }
-
-  function handleWifiForgetSelected(): void {
-    if (selectedWifiNetwork === null) {
-      return
-    }
-
-    setWifiNetworks((current) => current.map((item) => {
-      if (item.id !== selectedWifiNetwork.id) {
-        return item
-      }
-
-      return {
-        ...item,
-        connected: false,
-        saved: false,
-      }
-    }))
-    setWifiConnectionNotice(`Сеть ${selectedWifiNetwork.ssid} удалена из сохраненных.`)
-    setWifiPasswordValue('')
-    setIsWifiPasswordVisible(false)
-  }
-
-  function handleCloudConnectionToggle(): void {
-    setIsCloudConnected((prevValue) => {
-      const nextValue = !prevValue
-      setCloudConnectionNotice(
-        nextValue
-          ? 'Подключение к сервису AI-контроля ошибок активно.'
-          : 'Сервис облака отключен.',
-      )
-      if (!nextValue) {
-        setIsCloudAiMonitoringEnabled(false)
-      }
-      return nextValue
-    })
-  }
-
-  function handleCloudAiMonitoringToggle(nextValue: boolean): void {
-    if (!isCloudConnected) {
-      setCloudConnectionNotice('Сначала подключите облачный сервис.')
-      return
-    }
-    setIsCloudAiMonitoringEnabled(nextValue)
-  }
-
-  function handleCheckUpdates(): void {
-    setIsCheckingUpdates(true)
-    setAvailableUpdateVersion(UPDATE_AVAILABLE_VERSION)
-    setUpdateNotice(`Доступна версия ${UPDATE_AVAILABLE_VERSION}.`)
-    setIsCheckingUpdates(false)
-  }
-
-  function handleConsoleInputChange(event: ChangeEvent<HTMLTextAreaElement>): void {
-    setConsoleCommandValue(event.target.value)
-  }
-
-  const handleConsoleKeyboardOpen = useCallback(() => {
-    setActiveKeyboardTarget('consoleCommand')
-  }, [])
-
-  function handleWifiPasswordInputFocus(): void {
-    setActiveKeyboardTarget('wifiPassword')
-  }
-
-  function handleConsoleQuickCommandInsert(command: string): void {
-    setConsoleCommandValue(command)
-    setConsoleNotice(`Команда подготовлена: ${command}`)
-    setActiveKeyboardTarget('consoleCommand')
-    setKeyboardCaret('consoleCommand', command.length)
-  }
-
   const handleVirtualKeyboardLanguageToggle = useCallback(() => {
     setKeyboardLanguage((prevValue) => (prevValue === 'ru' ? 'en' : 'ru'))
   }, [])
@@ -1406,35 +1197,22 @@ function App() {
       return
     }
 
+    if (isSettingsKeyboardTarget(activeKeyboardTarget)) {
+      settingsKeyboard.onKeyPress(key)
+      return
+    }
+
     if (key === 'close') {
       setActiveKeyboardTarget(null)
       return
     }
 
-    const input = activeKeyboardTarget === 'idleNotes'
-      ? idleNotesInputRef.current
-      : activeKeyboardTarget === 'wifiSearch'
-        ? wifiSearchInputRef.current
-      : activeKeyboardTarget === 'wifiPassword'
-        ? wifiPasswordInputRef.current
-        : consoleInputRef.current
-    const currentValue = activeKeyboardTarget === 'idleNotes'
-      ? idleNotesText
-      : activeKeyboardTarget === 'wifiSearch'
-        ? wifiSearchQuery
-      : activeKeyboardTarget === 'wifiPassword'
-        ? wifiPasswordValue
-        : consoleCommandValue
+    const input = idleNotesInputRef.current
+    const currentValue = idleNotesText
     const selectionStart = input?.selectionStart ?? currentValue.length
     const selectionEnd = input?.selectionEnd ?? currentValue.length
     let nextValue = currentValue
     let nextCaret = selectionStart
-    const isMultilineTarget = activeKeyboardTarget === 'idleNotes' || activeKeyboardTarget === 'consoleCommand'
-
-    if (key === 'enter' && !isMultilineTarget) {
-      setActiveKeyboardTarget(null)
-      return
-    }
 
     if (key === 'backspace') {
       if (selectionStart !== selectionEnd) {
@@ -1455,56 +1233,17 @@ function App() {
     }
 
     if (nextValue === currentValue) {
-      setKeyboardCaret(activeKeyboardTarget, nextCaret)
+      setIdleNotesKeyboardCaret(nextCaret)
       return
     }
 
-    if (activeKeyboardTarget === 'idleNotes') {
-      setIdleNotesText(nextValue)
-    } else if (activeKeyboardTarget === 'wifiSearch') {
-      setWifiSearchQuery(nextValue)
-    } else if (activeKeyboardTarget === 'consoleCommand') {
-      setConsoleCommandValue(nextValue)
-    } else {
-      setWifiPasswordValue(nextValue)
-    }
-    setKeyboardCaret(activeKeyboardTarget, nextCaret)
-  }, [activeKeyboardTarget, consoleCommandValue, idleNotesText, setKeyboardCaret, wifiPasswordValue, wifiSearchQuery])
+    setIdleNotesText(nextValue)
+    setIdleNotesKeyboardCaret(nextCaret)
+  }, [activeKeyboardTarget, idleNotesText, setIdleNotesKeyboardCaret, settingsKeyboard])
   const isIdleNotesKeyboardOpen = activeKeyboardTarget === 'idleNotes'
   const handleIdleNotesKeyboardClose = handleKeyboardClose
   const handleIdleNotesKeyMouseDown = handleVirtualKeyboardKeyMouseDown
   const handleIdleNotesVirtualKey = handleVirtualKeyboardKey
-
-  function handleConsoleSubmit(): void {
-    const consoleBlockReason = getCommandBlockReason('consoleGcode')
-    if (consoleBlockReason !== null) {
-      setConsoleNotice(consoleBlockReason)
-      return
-    }
-
-    const trimmed = consoleCommandValue.trim()
-    if (trimmed.length === 0) {
-      setConsoleNotice('Введите команду перед отправкой.')
-      return
-    }
-
-    const now = new Date().toLocaleTimeString('ru-RU')
-    setConsoleHistory((current) => [
-      {
-        id: `${Date.now()}-${current.length}`,
-        command: trimmed,
-        createdAt: now,
-      },
-      ...current,
-    ])
-    setConsoleNotice(`Команда отправлена: ${trimmed}`)
-    setConsoleCommandValue('')
-    void executeCommand({ command: 'consoleGcode', gcode: trimmed }).then((ok) => {
-      if (!ok) {
-        setConsoleNotice(`Команда не выполнена: ${trimmed}`)
-      }
-    })
-  }
 
   useEffect(() => {
     if (activeScreen !== 'dashboard' && activeTopPopup !== null) {
@@ -1615,14 +1354,10 @@ function App() {
       return
     }
 
-    if ((activeKeyboardTarget === 'wifiSearch' || activeKeyboardTarget === 'wifiPassword') && activeSettingsGroup !== 'network') {
+    if (isSettingsKeyboardTarget(activeKeyboardTarget) && !isSettingsKeyboardTargetAllowed(activeKeyboardTarget)) {
       setActiveKeyboardTarget(null)
     }
-
-    if (activeKeyboardTarget === 'consoleCommand' && activeSettingsGroup !== 'console') {
-      setActiveKeyboardTarget(null)
-    }
-  }, [activeKeyboardTarget, activeScreen, activeSettingsGroup, hasActivePrint])
+  }, [activeKeyboardTarget, activeScreen, hasActivePrint, isSettingsKeyboardTargetAllowed])
 
   useEffect(() => {
     if (activeKeyboardTarget === null) {
@@ -3021,83 +2756,7 @@ function App() {
               </div>
             </section>
           ) : activeScreen === 'settings' ? (
-            <SettingsPage
-              activeSettingsGroup={activeSettingsGroup}
-              onSettingsGroupChange={setActiveSettingsGroup}
-              interfaceSettings={{
-                isDarkThemeEnabled,
-                isMaxPerformanceModeEnabled,
-                sleepModeValue,
-                timezoneValue,
-                onDarkThemeChange: setIsDarkThemeEnabled,
-                onMaxPerformanceModeChange: setIsMaxPerformanceModeEnabled,
-                onSleepModeChange: setSleepModeValue,
-                onTimezoneChange: setTimezoneValue,
-              }}
-              network={{
-                isCapabilityAvailable: isNetworkCapabilityAvailable,
-                searchInputRef: wifiSearchInputRef,
-                passwordInputRef: wifiPasswordInputRef,
-                searchQuery: wifiSearchQuery,
-                selectedWifiNetworkId,
-                selectedWifiNetwork,
-                filteredWifiNetworks,
-                passwordValue: wifiPasswordValue,
-                isPasswordVisible: isWifiPasswordVisible,
-                wifiIpLabel,
-                connectedWifiNetwork,
-                connectionLabel,
-                notice: wifiConnectionNotice,
-                capabilityNotice: networkCapabilityNotice,
-                onSearchQueryChange: handleWifiSearchQueryChange,
-                onSearchInputFocus: handleWifiSearchInputFocus,
-                onScan: handleWifiScan,
-                onNetworkSelect: handleWifiNetworkSelect,
-                onPasswordChange: handleWifiPasswordChange,
-                onPasswordInputFocus: handleWifiPasswordInputFocus,
-                onPasswordVisibilityToggle: handleWifiPasswordVisibilityToggle,
-                onConnect: handleWifiConnect,
-                onForgetSelected: handleWifiForgetSelected,
-              }}
-              notifications={{
-                isNotificationsEnabled,
-                isNotificationSoundsEnabled,
-                history: notificationHistory,
-                onNotificationsEnabledChange: setIsNotificationsEnabled,
-                onNotificationSoundsEnabledChange: setIsNotificationSoundsEnabled,
-              }}
-              cloud={{
-                isCapabilityAvailable: isCloudCapabilityAvailable,
-                isConnected: isCloudConnected,
-                isAiMonitoringEnabled: isCloudAiMonitoringEnabled,
-                notice: cloudCapabilityNotice,
-                onConnectionToggle: handleCloudConnectionToggle,
-                onAiMonitoringToggle: handleCloudAiMonitoringToggle,
-              }}
-              updates={{
-                availableUpdateVersion,
-                isCheckingUpdates,
-                isCapabilityAvailable: isUpdatesCapabilityAvailable,
-                notice: updateCapabilityNotice,
-                onCheckUpdates: handleCheckUpdates,
-              }}
-              language={{
-                languageValue,
-                isExternalVoiceEnabled,
-                onLanguageChange: setLanguageValue,
-                onExternalVoiceChange: setIsExternalVoiceEnabled,
-              }}
-              console={{
-                inputRef: consoleInputRef,
-                commandValue: consoleCommandValue,
-                notice: consoleNotice,
-                history: consoleHistory,
-                onInputChange: handleConsoleInputChange,
-                onKeyboardOpen: handleConsoleKeyboardOpen,
-                onSubmit: handleConsoleSubmit,
-                onQuickCommandInsert: handleConsoleQuickCommandInsert,
-              }}
-            />
+            <SettingsPage {...settingsPageProps} />
           ) : (
             <section className="screen-placeholder" data-testid={`screen-${activeScreen}`}>
               <p className="screen-placeholder-body">
@@ -3150,7 +2809,7 @@ function App() {
                 onKeyPress={handleVirtualKeyboardKey}
                 onClose={handleKeyboardClose}
                 onKeyMouseDown={handleVirtualKeyboardKeyMouseDown}
-                showEnterKey={isConsoleSettingsKeyboardOpen}
+                showEnterKey={settingsKeyboard.isConsoleOpen}
                 testId={keyboardDialogTestId}
                 previewTestId={keyboardDialogPreviewTestId}
               />

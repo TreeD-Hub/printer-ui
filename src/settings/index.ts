@@ -1,4 +1,12 @@
 export { SettingsPage } from './SettingsPage'
+export type { ConsoleHistoryItem, SettingsPageProps } from './SettingsPage'
+export {
+  filterWifiNetworks,
+  getSettingsKeyboardMeta,
+  isSettingsKeyboardTarget,
+  useSettingsController,
+  type SettingsKeyboardTarget,
+} from './settingsController'
 export {
   CONSOLE_QUICK_COMMANDS,
   DEFAULT_SELECTED_WIFI_NETWORK_ID,

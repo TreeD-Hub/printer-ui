@@ -670,8 +670,8 @@ describe('App', () => {
     expect(consoleInput.value).toBe('G28')
 
     fireEvent.click(screen.getByTestId('settings-console-send-button'))
-    expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('Команда отправлена: G28')
-    expect(screen.getByText('G28', { selector: 'strong' })).toBeInTheDocument()
+    expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('capability «консоль G-code» не подтвержден')
+    expect(screen.queryByText('G28', { selector: 'strong' })).not.toBeInTheDocument()
   })
 
   it('shows disabled cloud capability state instead of QR redirect', () => {

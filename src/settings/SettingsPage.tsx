@@ -19,13 +19,13 @@ import {
   type WifiNetworkSecurity,
 } from './config'
 
-type ConsoleHistoryItem = {
+export type ConsoleHistoryItem = {
   id: string
   command: string
   createdAt: string
 }
 
-type SettingsPageProps = {
+export type SettingsPageProps = {
   activeSettingsGroup: SettingsGroupId
   onSettingsGroupChange: (nextGroup: SettingsGroupId) => void
   interfaceSettings: {
