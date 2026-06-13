@@ -13,6 +13,12 @@ import type {
   PrinterToolheadRuntimeSnapshot,
   PrinterV2Snapshot,
 } from './types'
+import {
+  getPrinterFileDirectoryFromPath,
+  getPrinterFileNameFromPath,
+  normalizePrinterFileId,
+  normalizePrinterFilePath,
+} from '@treed/printer-logic'
 
 export interface MoonrakerObjectsQueryPayload {
   eventtime?: number
@@ -282,16 +288,6 @@ function normalizeWebhooks(webhooks: MoonrakerWebhooksStatus | undefined): Moonr
   }
 }
 
-function normalizeFileId(path: string): string {
-  const slug = path
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  return `file-${slug || 'gcode'}`
-}
-
 function formatDuration(seconds: number): string {
   const minutes = Math.max(0, Math.round(seconds / 60))
   const hours = Math.floor(minutes / 60)
@@ -328,42 +324,20 @@ function normalizeMaterial(metadata: MoonrakerPrintFileMetadata | undefined): st
   return firstNonEmpty(metadata?.filament_name, metadata?.filament_type, metadata?.slicer, '—')
 }
 
-function normalizeMoonrakerFilePath(path: string): string {
-  return path.trim().replace(/\\/g, '/').replace(/^\/+/, '')
-}
-
-function getFileNameFromPath(path: string): string {
-  const normalizedPath = normalizeMoonrakerFilePath(path)
-  const lastSlashIndex = normalizedPath.lastIndexOf('/')
-
-  return lastSlashIndex === -1 ? normalizedPath : normalizedPath.slice(lastSlashIndex + 1)
-}
-
-function getDirectoryFromPath(path: string): string | null {
-  const normalizedPath = normalizeMoonrakerFilePath(path)
-  const lastSlashIndex = normalizedPath.lastIndexOf('/')
-
-  if (lastSlashIndex <= 0) {
-    return null
-  }
-
-  return normalizedPath.slice(0, lastSlashIndex)
-}
-
 export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): PrinterFileItemSnapshot[] {
   return items
     .map((item): PrinterFileItemSnapshot | null => {
-      const path = normalizeMoonrakerFilePath(firstNonEmpty(item.path, item.filename))
+      const path = normalizePrinterFilePath(firstNonEmpty(item.path, item.filename))
 
       if (!path.toLowerCase().endsWith('.gcode')) {
         return null
       }
 
       return {
-        id: normalizeFileId(path),
+        id: normalizePrinterFileId(path),
         path,
-        name: getFileNameFromPath(path),
-        directory: getDirectoryFromPath(path),
+        name: getPrinterFileNameFromPath(path),
+        directory: getPrinterFileDirectoryFromPath(path),
         printTime: formatDuration(toFiniteNumber(item.metadata?.estimated_time, 0)),
         weight: formatFilamentWeight(item.metadata?.filament_total, item.size),
         material: normalizeMaterial(item.metadata),

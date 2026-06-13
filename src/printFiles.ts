@@ -1,13 +1,6 @@
-export type PrintFileItem = {
-  id: string
-  path: string
-  name: string
-  directory: string | null
-  printTime: string
-  weight: string
-  material: string
-  addedAt: string
-}
+import type { PrinterFileItem } from '@treed/printer-logic'
+
+export type PrintFileItem = PrinterFileItem
 
 type PrintFileSeed = Omit<PrintFileItem, 'path' | 'directory'>
 

@@ -39,8 +39,6 @@ import {
 import {
   HorizontalSteppedSlider,
   NavItemButton,
-  PrintFileCard,
-  PrintPreviewIcon,
   SegmentedToggle,
   SettingsInfoCard,
   SettingsSelectField,
@@ -55,6 +53,7 @@ import {
   TuneNumberControl,
   type AxisId,
 } from './ui'
+import { FilesPage, PrintFileModal } from './files'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from './printFiles'
 import type { PrinterConnectionState } from './core/transport/types'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
@@ -72,10 +71,8 @@ const TOP_BAR_BUTTON_SIZE = 56
 const TOP_BAR_BUTTON_GAP = 8
 const TOP_BAR_RIGHT_PADDING = 24
 const IDLE_WIDGET_DRAG_HOLD_MS = 3000
-const FILE_MODAL_TITLE_ID = 'print-file-modal-title'
 const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
 const PRINT_TUNE_MODAL_TITLE_ID = 'print-tune-modal-title'
-type FilesSortKey = 'name' | 'addedAt'
 type MacrosGroupId = 'bedMesh'
 type IdleWidgetId = DashboardIdleWidgetId
 type BedCalibrationStage = 'launch' | 'manual' | 'zOffset'
@@ -211,10 +208,6 @@ const PRINT_TUNE_GROUP_META: Record<PrintTuneGroupId, { label: string; note: str
   },
 }
 
-const FILES_SORT_OPTIONS: Array<{ id: FilesSortKey; label: string }> = [
-  { id: 'name', label: 'По имени' },
-  { id: 'addedAt', label: 'По добавлению' },
-]
 const MACROS_PARKING_MODE_OPTIONS: Array<{ id: ParkingMode; label: string }> = [
   { id: 'all', label: 'Все оси' },
   { id: 'axis', label: 'По оси' },
@@ -500,7 +493,6 @@ function App() {
   const [armedPowerCommand, setArmedPowerCommand] = useState<PrinterCommandId | null>(null)
   const [topPopupPosition, setTopPopupPosition] = useState<TopPopupPosition | null>(null)
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
-  const [filesSortKey, setFilesSortKey] = useState<FilesSortKey>('name')
   const [filesLibrary, setFilesLibrary] = useState<PrintFileItem[]>(() => [...PRINT_FILE_LIBRARY])
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
   const [fileModalNotice, setFileModalNotice] = useState<string>('')
@@ -552,6 +544,7 @@ function App() {
     pendingCommand,
     error: commandError,
     executeCommand,
+    getLastCommandError,
   } = usePrinterCommands(commandRuntimeContext)
   const getCommandBlockReason = useCallback(
     (command: PrinterCommandId, args?: ExecuteCommandArgs) => getTreeDCommandBlockReason(
@@ -767,17 +760,6 @@ function App() {
   const fanCommandBlockReason = getCommandBlockReason('setFanPercent')
   const idleHeroStatusLabel = printerDisplayStatus.label
   const effectiveFilesLibrary = snapshot.source === 'live' ? snapshot.printFiles : filesLibrary
-  const sortedPrintFiles = useMemo(() => {
-    const nextItems = [...effectiveFilesLibrary]
-
-    if (filesSortKey === 'addedAt') {
-      nextItems.sort((left, right) => Date.parse(right.addedAt) - Date.parse(left.addedAt))
-      return nextItems
-    }
-
-    nextItems.sort((left, right) => left.name.localeCompare(right.name, 'en'))
-    return nextItems
-  }, [effectiveFilesLibrary, filesSortKey])
   const selectedPrintFile = useMemo(() => {
     if (selectedFileId === null) {
       return null
@@ -1104,14 +1086,6 @@ function App() {
     setActiveScreen(nextScreen)
   }
 
-  function handleFilesSortChange(nextSortKey: FilesSortKey): void {
-    if (nextSortKey === filesSortKey) {
-      return
-    }
-
-    setFilesSortKey(nextSortKey)
-  }
-
   function handleMoveStepChange(nextStep: MoveStepKey): void {
     setMoveStepKey(nextStep)
   }
@@ -1380,7 +1354,7 @@ function App() {
       filename: selectedPrintFile.path,
     })
     if (!ok) {
-      setFileModalNotice(commandError || printStartBlockReason || 'Старт печати не выполнен.')
+      setFileModalNotice(getLastCommandError() || commandError || printStartBlockReason || 'Старт печати не выполнен.')
       return
     }
 
@@ -2730,47 +2704,7 @@ function App() {
               onIdleNotesKeyboardClose={handleIdleNotesKeyboardClose}
             />
           ) : isFilesScreenActive ? (
-            <section className="files-screen" data-testid="screen-files">
-              <div className="files-scroll-area" data-testid="files-scroll-area">
-                <header className="files-screen-head">
-                  <div className="files-screen-copy">
-                    <p className="files-screen-note">Прокрутите вниз, чтобы найти нужную модель.</p>
-                  </div>
-                  <div className="files-sort-group" role="group" aria-label="Сортировка файлов">
-                    <span className="files-sort-indicator" aria-hidden="true" />
-                    {FILES_SORT_OPTIONS.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={`files-sort-btn ${filesSortKey === option.id ? 'is-active' : ''}`}
-                        aria-pressed={filesSortKey === option.id}
-                        data-testid={`files-sort-${option.id}`}
-                        onClick={() => handleFilesSortChange(option.id)}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                </header>
-
-                <div className="files-grid" data-testid="file-card-grid">
-                  {sortedPrintFiles.length > 0 ? (
-                    sortedPrintFiles.map((item) => (
-                      <PrintFileCard
-                        key={item.id}
-                        name={item.name}
-                        directory={item.directory}
-                        printTime={item.printTime}
-                        weight={item.weight}
-                        onClick={() => handlePrintFileSelect(item.id)}
-                      />
-                    ))
-                  ) : (
-                    <p className="files-empty">Список файлов пуст.</p>
-                  )}
-                </div>
-              </div>
-            </section>
+            <FilesPage files={effectiveFilesLibrary} onFileSelect={handlePrintFileSelect} />
           ) : activeScreen === 'control' ? (
             <ControlPage
               activeControlGroup={activeControlGroup}
@@ -3858,75 +3792,16 @@ function App() {
         ) : null}
 
         {selectedPrintFile !== null ? (
-          <div className="file-modal-layer" role="presentation" onClick={closeFileModal}>
-            <section
-              className="file-modal-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby={FILE_MODAL_TITLE_ID}
-              data-testid="print-file-modal"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <header className="file-modal-head">
-                <h2 id={FILE_MODAL_TITLE_ID}>Файл печати</h2>
-                <button type="button" className="file-modal-close" aria-label="Закрыть окно файла" onClick={closeFileModal}>
-                  ×
-                </button>
-              </header>
-
-              <div className="file-modal-preview" aria-hidden="true">
-                <PrintPreviewIcon />
-              </div>
-
-              <p className="file-modal-name">{selectedPrintFile.name}</p>
-
-              <dl className="file-modal-meta">
-                <div>
-                  <dt>Время печати</dt>
-                  <dd>{selectedPrintFile.printTime}</dd>
-                </div>
-                <div>
-                  <dt>Масса</dt>
-                  <dd>{selectedPrintFile.weight}</dd>
-                </div>
-                <div>
-                  <dt>Материал</dt>
-                  <dd>{selectedPrintFile.material}</dd>
-                </div>
-                {selectedPrintFile.directory !== null ? (
-                  <div className="file-modal-path">
-                    <dt>Путь</dt>
-                    <dd>{selectedPrintFile.path}</dd>
-                  </div>
-                ) : null}
-              </dl>
-
-              {fileStartNotice !== null && fileStartNotice.length > 0 ? (
-                <p className="file-modal-notice" data-testid="print-file-start-notice">{fileStartNotice}</p>
-              ) : null}
-
-              <div className="file-modal-actions">
-                <button
-                  type="button"
-                  className="file-modal-action"
-                  data-testid="print-file-start-button"
-                  onClick={() => void handleStartSelectedFile()}
-                  disabled={isBusy || printStartBlockReason !== null}
-                >
-                  {pendingCommand === 'start' ? 'Запуск...' : 'Старт печати'}
-                </button>
-                <button
-                  type="button"
-                  className="file-modal-action file-modal-action-danger"
-                  data-testid="print-file-delete-button"
-                  onClick={handleDeleteSelectedFile}
-                  disabled={isBusy}
-                >
-                  Удалить файл
-                </button>
-              </div>
-            </section>
-          </div>
+          <PrintFileModal
+            file={selectedPrintFile}
+            notice={fileStartNotice}
+            isBusy={isBusy}
+            pendingCommand={pendingCommand}
+            isStartBlocked={printStartBlockReason !== null}
+            onClose={closeFileModal}
+            onStart={() => void handleStartSelectedFile()}
+            onDelete={handleDeleteSelectedFile}
+          />
         ) : null}
 
         {isPrintCancelConfirmOpen ? (

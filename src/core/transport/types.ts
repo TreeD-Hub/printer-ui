@@ -2,12 +2,14 @@ import type {
   PrinterCapabilitiesSnapshot,
   PrinterConnectionState,
   PrinterEddyStatus,
+  PrinterFileItem,
 } from '@treed/printer-logic'
 
 export type {
   PrinterCapabilitiesSnapshot,
   PrinterConnectionState,
   PrinterEddyStatus,
+  PrinterFileItem,
 } from '@treed/printer-logic'
 
 export type PrinterSource = 'mock' | 'live'
@@ -71,16 +73,7 @@ export interface PrinterMacroStateSnapshot {
   values: Record<string, Record<string, unknown>>
 }
 
-export interface PrinterFileItemSnapshot {
-  id: string
-  path: string
-  name: string
-  directory: string | null
-  printTime: string
-  weight: string
-  material: string
-  addedAt: string
-}
+export type PrinterFileItemSnapshot = PrinterFileItem
 
 export interface PrinterToolheadRuntimeSnapshot {
   rawX: number

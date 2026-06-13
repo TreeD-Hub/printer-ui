@@ -1,7 +1,10 @@
 import type { CommandClient, CommandResult, ExecuteCommandArgs } from '../src/core/commands/types'
+import type { PrinterCommandId } from '@treed/printer-logic'
 import type { PrinterSnapshot, PrinterSource, TransportClient } from '../src/core/transport/types'
 
 export const runtimeMode: PrinterSource = 'mock'
+
+let mockCommandFailure: { command: PrinterCommandId; message: string } | null = null
 
 function nowIso(): string {
   return new Date().toISOString()
@@ -69,6 +72,14 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
     default:
       return 'Mock: command executed'
   }
+}
+
+export function setMockCommandFailure(command: PrinterCommandId, message: string): void {
+  mockCommandFailure = { command, message }
+}
+
+export function clearMockCommandFailure(): void {
+  mockCommandFailure = null
 }
 
 function createMockSnapshot(): PrinterSnapshot {
@@ -187,6 +198,16 @@ export function createCommandClient(): CommandClient {
   return {
     async execute(args: ExecuteCommandArgs): Promise<CommandResult> {
       await wait(220)
+
+      if (mockCommandFailure?.command === args.command) {
+        return {
+          command: args.command,
+          ok: false,
+          kind: 'unsupported',
+          message: mockCommandFailure.message,
+          at: nowIso(),
+        }
+      }
 
       if (args.command === 'shutdownHost') {
         return {

@@ -1,6 +1,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
+import { clearMockCommandFailure, setMockCommandFailure } from '../mocks/runtime'
+
+afterEach(() => {
+  clearMockCommandFailure()
+})
 
 describe('App', () => {
   it('renders idle placeholder on dashboard before print start', async () => {
@@ -561,6 +566,21 @@ describe('App', () => {
     expect(within(fileDialog).getByTestId('print-file-start-notice')).toHaveTextContent(
       'Старт печати: уже есть активная печать.',
     )
+  }, 10000)
+
+  it('keeps print file modal open and shows command error when print start fails', async () => {
+    setMockCommandFailure('start', 'Mock: start failed')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('print-file-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('print-file-start-notice')).toHaveTextContent('Mock: start failed')
+    })
+    expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
   }, 10000)
 
   it('opens Wi-Fi popup with network details and navigates to settings', () => {

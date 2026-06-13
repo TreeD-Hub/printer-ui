@@ -149,6 +149,65 @@ export interface PrinterSnapshot {
   message: string
 }
 
+export interface PrinterFileItem {
+  id: string
+  path: string
+  name: string
+  directory: string | null
+  printTime: string
+  weight: string
+  material: string
+  addedAt: string
+}
+
+export type PrinterFileSortKey = 'name' | 'addedAt'
+
+export function normalizePrinterFilePath(path: string): string {
+  return path.trim().replace(/\\/g, '/').replace(/^\/+/, '')
+}
+
+export function normalizePrinterFileId(path: string): string {
+  const slug = normalizePrinterFilePath(path)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return `file-${slug || 'gcode'}`
+}
+
+export function getPrinterFileNameFromPath(path: string): string {
+  const normalizedPath = normalizePrinterFilePath(path)
+  const lastSlashIndex = normalizedPath.lastIndexOf('/')
+
+  return lastSlashIndex === -1 ? normalizedPath : normalizedPath.slice(lastSlashIndex + 1)
+}
+
+export function getPrinterFileDirectoryFromPath(path: string): string | null {
+  const normalizedPath = normalizePrinterFilePath(path)
+  const lastSlashIndex = normalizedPath.lastIndexOf('/')
+
+  if (lastSlashIndex <= 0) {
+    return null
+  }
+
+  return normalizedPath.slice(0, lastSlashIndex)
+}
+
+export function sortPrinterFileItems<T extends Pick<PrinterFileItem, 'name' | 'addedAt'>>(
+  items: readonly T[],
+  sortKey: PrinterFileSortKey,
+): T[] {
+  const nextItems = [...items]
+
+  if (sortKey === 'addedAt') {
+    nextItems.sort((left, right) => Date.parse(right.addedAt) - Date.parse(left.addedAt))
+    return nextItems
+  }
+
+  nextItems.sort((left, right) => left.name.localeCompare(right.name, 'en'))
+  return nextItems
+}
+
 export interface ActionAvailability {
   enabled: boolean
   reason: string | null
