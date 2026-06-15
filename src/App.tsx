@@ -13,8 +13,6 @@ import {
   BABYSTEP_STEP_OPTIONS,
   BOTTOM_NAV_ITEMS,
   DASHBOARD_VALUES,
-  PROCESS_METRIC_DEFINITIONS,
-  QUICK_METRIC_DEFINITIONS,
   type ScreenId,
 } from './dashboard/config'
 import { usePrinterDisplayStatus } from './dashboard/usePrinterDisplayStatus'
@@ -48,13 +46,9 @@ import {
 } from './settings'
 import { TopStatusPopups, useTopStatusController } from './shell'
 import {
-  appendPrintTuneKeyboardDecimal,
-  appendPrintTuneKeyboardDigit,
-  normalizePrintTuneKeyboardValue,
   PrintTuneModal,
-  resolvePrintTuneKeyboardMeta,
+  usePrintTuneController,
   type PrintTuneGroupId,
-  type PrintTuneNumericKeyboardTarget,
 } from './printTune'
 import { useHeatingFanController } from './heating'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from './printFiles'
@@ -154,27 +148,6 @@ function formatAxisCoordinate(value: number): string {
   return value.toFixed(1)
 }
 
-function shiftTimeLabelByMinutes(timeLabel: string, offsetMinutes: number): string {
-  const parts = timeLabel.split(':')
-  if (parts.length !== 2) {
-    return timeLabel
-  }
-
-  const hours = Number(parts[0])
-  const minutes = Number(parts[1])
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return timeLabel
-  }
-
-  const sourceDate = new Date()
-  sourceDate.setHours(hours, minutes, 0, 0)
-  sourceDate.setMinutes(sourceDate.getMinutes() + Math.round(offsetMinutes))
-
-  const nextHours = String(sourceDate.getHours()).padStart(2, '0')
-  const nextMinutes = String(sourceDate.getMinutes()).padStart(2, '0')
-  return `${nextHours}:${nextMinutes}`
-}
-
 const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'files' | 'settings'>, { title: string; description: string }> = {
   control: {
     title: 'Управление',
@@ -257,17 +230,6 @@ function App() {
     [],
   )
   const [isPrintCancelConfirmOpen, setIsPrintCancelConfirmOpen] = useState<boolean>(false)
-  const [activePrintTuneGroup, setActivePrintTuneGroup] = useState<PrintTuneGroupId | null>(null)
-  const [printVolumetricFlowMm3S, setPrintVolumetricFlowMm3S] = useState<number>(DASHBOARD_VALUES.volumetricFlowMm3S)
-  const [printFlowPercent, setPrintFlowPercent] = useState<number>(DASHBOARD_VALUES.flowPercent)
-  const [printSpeedMmS, setPrintSpeedMmS] = useState<number>(DASHBOARD_VALUES.speedMmS)
-  const [printAccelMmS2, setPrintAccelMmS2] = useState<number>(DASHBOARD_VALUES.accelMmS2)
-  const [printKFactor, setPrintKFactor] = useState<number>(DASHBOARD_VALUES.kFactorLaPa)
-  const [printRetractMm, setPrintRetractMm] = useState<number>(DASHBOARD_VALUES.retractMm)
-  const [printProgressOffsetMin, setPrintProgressOffsetMin] = useState<number>(0)
-  const [pauseAtLayer, setPauseAtLayer] = useState<number>(Math.max(1, DASHBOARD_VALUES.layerCurrent + 5))
-  const [printTuneKeyboardTarget, setPrintTuneKeyboardTarget] = useState<PrintTuneNumericKeyboardTarget | null>(null)
-  const [printTuneKeyboardValue, setPrintTuneKeyboardValue] = useState<string>('')
   const [idleNotesText, setIdleNotesText] = useState<string>(IDLE_NOTES_DEFAULT_TEXT)
   const [activeKeyboardTarget, setActiveKeyboardTarget] = useState<KeyboardTarget | null>(null)
   const [keyboardLanguage, setKeyboardLanguage] = useState<VirtualKeyboardLanguage>('ru')
@@ -324,6 +286,18 @@ function App() {
     : DASHBOARD_VALUES.layerTotal
   const isBusy = pendingCommand !== null
   const hasActivePrint = displayPrintFileName !== null
+  const {
+    activeGroup: activePrintTuneGroup,
+    openGroup: openPrintTuneGroup,
+    closeGroup: closePrintTuneGroup,
+    closeKeyboard: closePrintTuneKeyboard,
+    keyboard: printTuneKeyboard,
+    createQuickMetrics,
+    processMetrics,
+    adjustedEtaTime,
+    createModalValues,
+    createModalHandlers,
+  } = usePrintTuneController({ hasActivePrint })
   const heatingController = useHeatingFanController({
     snapshot,
     isBusy,
@@ -476,32 +450,16 @@ function App() {
     }
   }, [])
 
-  const quickMetricValueByKey = {
-    volumetricFlow: printVolumetricFlowMm3S,
-    fan: printFanPercent,
-    flow: printFlowPercent,
-  } as const
-
-  const quickMetrics = QUICK_METRIC_DEFINITIONS.map((definition) => ({
-    ...definition,
-    value: quickMetricValueByKey[definition.key],
-  }))
-
-  const processMetricValueByKey = {
-    speed: printSpeedMmS,
-    accel: printAccelMmS2,
-    kFactor: printKFactor,
-    retract: printRetractMm,
-  } as const
-
-  const processMetrics = PROCESS_METRIC_DEFINITIONS.map((definition) => ({
-    ...definition,
-    value: processMetricValueByKey[definition.key],
-  }))
-  const adjustedEtaTime = useMemo(
-    () => shiftTimeLabelByMinutes(DASHBOARD_VALUES.etaTime, printProgressOffsetMin),
-    [printProgressOffsetMin],
-  )
+  const quickMetrics = createQuickMetrics(printFanPercent)
+  const printTuneModalValues = createModalValues({
+    fanPercent: printFanPercent,
+    printFill,
+    displayLayerCurrent,
+    displayLayerTotal,
+  })
+  const printTuneModalHandlers = createModalHandlers({
+    onFanPercentChange: handleFanPercentChange,
+  })
   const openWifiSettings = useCallback(() => {
     setActiveSettingsGroup('network')
     setActiveScreen('settings')
@@ -1119,122 +1077,19 @@ function App() {
       setTemperatureChartMode('bed')
     } else {
       setTemperatureChartMode('both')
+      closeTemperatureKeyboard()
     }
 
-    setActivePrintTuneGroup(groupId)
-  }, [])
+    openPrintTuneGroup(groupId)
+  }, [closeTemperatureKeyboard, openPrintTuneGroup, setTemperatureChartMode])
 
-  function handlePrintTuneGroupClose(): void {
-    setActivePrintTuneGroup(null)
+  const handlePrintTuneGroupClose = useCallback((): void => {
+    closePrintTuneGroup()
     setTemperatureChartMode('both')
     closeTemperatureKeyboard()
-    closePrintTuneKeyboard()
-  }
+  }, [closePrintTuneGroup, closeTemperatureKeyboard, setTemperatureChartMode])
 
-  function handlePrintTuneApply(): void {
-    handlePrintTuneGroupClose()
-  }
-
-  function setPrintTuneKeyboardTargetValue(target: PrintTuneNumericKeyboardTarget, value: number): void {
-    if (target === 'volumetricFlow') {
-      setPrintVolumetricFlowMm3S(value)
-      return
-    }
-    if (target === 'flow') {
-      setPrintFlowPercent(value)
-      return
-    }
-    if (target === 'speed') {
-      setPrintSpeedMmS(value)
-      return
-    }
-    if (target === 'accel') {
-      setPrintAccelMmS2(value)
-      return
-    }
-    if (target === 'kFactor') {
-      setPrintKFactor(value)
-      return
-    }
-    if (target === 'retract') {
-      setPrintRetractMm(value)
-      return
-    }
-
-    setPauseAtLayer(Math.round(clampAxisValue(value, 1, DASHBOARD_VALUES.layerTotal)))
-  }
-
-  function openPrintTuneKeyboard(target: PrintTuneNumericKeyboardTarget): void {
-    closeTemperatureKeyboard()
-    setPrintTuneKeyboardTarget(target)
-    setPrintTuneKeyboardValue('')
-  }
-
-  function closePrintTuneKeyboard(): void {
-    setPrintTuneKeyboardTarget(null)
-    setPrintTuneKeyboardValue('')
-  }
-
-  function handlePrintTuneKeyboardDigit(digit: string): void {
-    setPrintTuneKeyboardValue((current) => appendPrintTuneKeyboardDigit(current, digit))
-  }
-
-  function handlePrintTuneKeyboardDecimal(): void {
-    if (printTuneKeyboardTarget === null) {
-      return
-    }
-
-    const { allowDecimal } = resolvePrintTuneKeyboardMeta(printTuneKeyboardTarget)
-    if (!allowDecimal) {
-      return
-    }
-
-    setPrintTuneKeyboardValue((current) => appendPrintTuneKeyboardDecimal(current, allowDecimal))
-  }
-
-  function handlePrintTuneKeyboardBackspace(): void {
-    setPrintTuneKeyboardValue((current) => current.slice(0, -1))
-  }
-
-  function handlePrintTuneKeyboardSubmit(): void {
-    if (printTuneKeyboardTarget === null) {
-      return
-    }
-
-    if (printTuneKeyboardValue.trim().length === 0) {
-      return
-    }
-
-    const normalized = normalizePrintTuneKeyboardValue(
-      printTuneKeyboardValue,
-      resolvePrintTuneKeyboardMeta(printTuneKeyboardTarget),
-    )
-    if (normalized === null) {
-      return
-    }
-
-    setPrintTuneKeyboardTargetValue(printTuneKeyboardTarget, normalized)
-    closePrintTuneKeyboard()
-  }
-
-  useEffect(() => {
-    if (!hasActivePrint && activePrintTuneGroup !== null) {
-      setActivePrintTuneGroup(null)
-    }
-  }, [activePrintTuneGroup, hasActivePrint])
-
-  useEffect(() => {
-    if (activePrintTuneGroup === 'nozzle' || activePrintTuneGroup === 'bed') {
-      closePrintTuneKeyboard()
-      return
-    }
-
-    closeTemperatureKeyboard()
-
-    if (printTuneKeyboardTarget !== null && activePrintTuneGroup !== printTuneKeyboardTarget) {
-      closePrintTuneKeyboard()
-    }
-  }, [activePrintTuneGroup, printTuneKeyboardTarget])
+  const handlePrintTuneApply = handlePrintTuneGroupClose
 
   useEffect(() => {
     if (!hasActivePrint || activePrintUiState === null) {
@@ -1835,41 +1690,9 @@ function App() {
           onClose={handlePrintTuneGroupClose}
           onApply={handlePrintTuneApply}
           temperature={printTuneTemperatureProps}
-          values={{
-            volumetricFlowMm3S: printVolumetricFlowMm3S,
-            fanPercent: printFanPercent,
-            flowPercent: printFlowPercent,
-            speedMmS: printSpeedMmS,
-            accelMmS2: printAccelMmS2,
-            kFactor: printKFactor,
-            retractMm: printRetractMm,
-            progressOffsetMin: printProgressOffsetMin,
-            pauseAtLayer,
-            printFill,
-            adjustedEtaTime,
-            displayLayerCurrent,
-            displayLayerTotal,
-          }}
-          handlers={{
-            onVolumetricFlowChange: setPrintVolumetricFlowMm3S,
-            onFanPercentChange: handleFanPercentChange,
-            onFlowPercentChange: (nextValue) => setPrintFlowPercent(Math.round(nextValue)),
-            onSpeedChange: setPrintSpeedMmS,
-            onAccelChange: setPrintAccelMmS2,
-            onKFactorChange: setPrintKFactor,
-            onRetractChange: setPrintRetractMm,
-            onProgressOffsetChange: setPrintProgressOffsetMin,
-          }}
-          keyboard={{
-            target: printTuneKeyboardTarget,
-            value: printTuneKeyboardValue,
-            onOpen: openPrintTuneKeyboard,
-            onClose: closePrintTuneKeyboard,
-            onDigit: handlePrintTuneKeyboardDigit,
-            onDecimal: handlePrintTuneKeyboardDecimal,
-            onBackspace: handlePrintTuneKeyboardBackspace,
-            onSubmit: handlePrintTuneKeyboardSubmit,
-          }}
+          values={printTuneModalValues}
+          handlers={printTuneModalHandlers}
+          keyboard={printTuneKeyboard}
         />
 
         {isBedScrewGuideIntroOpen ? (

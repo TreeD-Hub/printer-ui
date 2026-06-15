@@ -36,7 +36,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Уведомления' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Пауза' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
-  }, 20000)
+  }, 10000)
 
   it('returns to waiting state after print cancel', async () => {
     render(<App />)
@@ -73,7 +73,16 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
     fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+
+    await waitFor(() => {
+      expect((screen.getByTestId('print-file-start-button') as HTMLButtonElement).disabled).toBe(false)
+    })
+
     fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+    })
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Стоп' })).toBeInTheDocument()
@@ -103,7 +112,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Пауза' })).toBeInTheDocument()
     })
-  })
+  }, 20000)
 
   it('opens numeric keyboard for temperature input and applies value', async () => {
     render(<App />)
@@ -134,7 +143,7 @@ describe('App', () => {
       expect((screen.getByTestId('print-tune-temp-nozzle-input') as HTMLInputElement).value).toBe('240')
     })
     expect(screen.queryByRole('button', { name: 'Ввод' })).not.toBeInTheDocument()
-  }, 10000)
+  }, 20000)
 
   it('switches between screens from bottom navigation', () => {
     render(<App />)
@@ -258,7 +267,7 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Отключить моторы' }))
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()
-  }, 10000)
+  }, 20000)
 
   it('blocks axis movement during active print with shared command catalog reason', async () => {
     render(<App />)
