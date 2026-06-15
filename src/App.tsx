@@ -12,7 +12,6 @@ import { DashboardStatusDock } from './dashboard/DashboardStatusDock'
 import {
   BABYSTEP_STEP_OPTIONS,
   BOTTOM_NAV_ITEMS,
-  DASHBOARD_VALUES,
   type ScreenId,
 } from './dashboard/config'
 import { usePrinterDisplayStatus } from './dashboard/usePrinterDisplayStatus'
@@ -27,10 +26,7 @@ import {
 } from './control'
 import {
   NavItemButton,
-  SegmentedToggle,
-  SettingsSidebarMenu,
   SettingsVirtualKeyboard,
-  type SettingsMenuOption,
   type VirtualKeyboardLanguage,
   type AxisId,
 } from './ui'
@@ -56,32 +52,8 @@ import './App.css'
 const DEFAULT_SCREEN: ScreenId = 'dashboard'
 const IDLE_WIDGET_DRAG_HOLD_MS = 3000
 const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
-type MacrosGroupId = 'bedMesh'
 type IdleWidgetId = DashboardIdleWidgetId
-type BedCalibrationStage = 'launch' | 'manual' | 'zOffset'
 type KeyboardTarget = 'idleNotes' | SettingsKeyboardTarget
-type BedScrewPointId = 'front-left' | 'front-right' | 'rear-right' | 'rear-left' | 'center'
-type BedScrewPoint = {
-  id: BedScrewPointId
-  label: string
-  xMm: number
-  yMm: number
-  mapX: number
-  mapY: number
-}
-
-const MACROS_PARKING_MODE_OPTIONS: Array<{ id: ParkingMode; label: string }> = [
-  { id: 'all', label: 'Все оси' },
-  { id: 'axis', label: 'По оси' },
-]
-const MACROS_PARKING_AXIS_OPTIONS: Array<{ id: AxisId; label: string }> = [
-  { id: 'X', label: 'X' },
-  { id: 'Y', label: 'Y' },
-  { id: 'Z', label: 'Z' },
-]
-const MACROS_GROUP_OPTIONS: Array<SettingsMenuOption<MacrosGroupId>> = [
-  { id: 'bedMesh', label: 'Карта стола', icon: 'menuDashboard' },
-]
 const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
   connecting: 'Подключение',
   online: 'Подключено',
@@ -91,15 +63,6 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
   shutdown: 'Klipper остановлен',
 }
 const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
-const Z_OFFSET_BOUNDS_MM = { min: -2, max: 2 } as const
-const BED_SCREW_MOVE_DURATION_MS = 650
-const BED_SCREW_GUIDE_POINTS: BedScrewPoint[] = [
-  { id: 'front-left', label: 'Передний левый', xMm: 35, yMm: 35, mapX: 14, mapY: 18 },
-  { id: 'front-right', label: 'Передний правый', xMm: 215, yMm: 35, mapX: 86, mapY: 18 },
-  { id: 'rear-right', label: 'Задний правый', xMm: 215, yMm: 215, mapX: 86, mapY: 82 },
-  { id: 'rear-left', label: 'Задний левый', xMm: 35, yMm: 215, mapX: 14, mapY: 82 },
-  { id: 'center', label: 'Центр', xMm: 125, yMm: 125, mapX: 50, mapY: 50 },
-]
 const MAINTENANCE_STATUS = {
   runtimeHours: 874,
   hoursLeft: 126,
@@ -136,22 +99,9 @@ function createMaintenanceChecklistState(checked: boolean): Record<MaintenanceCh
   }, {} as Record<MaintenanceChecklistItemId, boolean>)
 }
 
-function clampAxisValue(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
-}
-
-function formatAxisCoordinate(value: number): string {
-  return value.toFixed(1)
-}
-
-const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'files' | 'settings'>, { title: string; description: string }> = {
-  control: {
-    title: 'Управление',
-    description: 'Раздел управления принтером подключен в навигацию и готов к наполнению рабочими блоками.',
-  },
+const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'control' | 'files' | 'settings'>, { description: string }> = {
   macros: {
-    title: 'Макросы',
-    description: 'Экран макросов подключен в каркас маршрутизации. Здесь будут быстрые сценарии и сервисные команды.',
+    description: '',
   },
 }
 
@@ -209,19 +159,6 @@ function App() {
   const [activeKeyboardTarget, setActiveKeyboardTarget] = useState<KeyboardTarget | null>(null)
   const [keyboardLanguage, setKeyboardLanguage] = useState<VirtualKeyboardLanguage>('ru')
   const [isKeyboardCapsEnabled, setIsKeyboardCapsEnabled] = useState<boolean>(false)
-  const [activeMacrosGroup, setActiveMacrosGroup] = useState<MacrosGroupId>('bedMesh')
-  const [bedCalibrationStage, setBedCalibrationStage] = useState<BedCalibrationStage>('launch')
-  const [isBedScrewGuideIntroOpen, setIsBedScrewGuideIntroOpen] = useState<boolean>(false)
-  const [isManualCalibrationFinalizeStep, setIsManualCalibrationFinalizeStep] = useState<boolean>(false)
-  const [storedZOffsetMm, setStoredZOffsetMm] = useState<number>(DASHBOARD_VALUES.zOffsetMm)
-  const [zOffsetNotice, setZOffsetNotice] = useState<string>('Измените значение и сохраните его в настройки принтера.')
-  const [isBedScrewGuideStarted, setIsBedScrewGuideStarted] = useState<boolean>(false)
-  const [isBedScrewPointMoving, setIsBedScrewPointMoving] = useState<boolean>(false)
-  const [activeBedScrewPointId, setActiveBedScrewPointId] = useState<BedScrewPointId | null>(null)
-  const [visitedBedScrewPointIds, setVisitedBedScrewPointIds] = useState<BedScrewPointId[]>([])
-  const [manualBedParkingMode, setManualBedParkingMode] = useState<ParkingMode>('all')
-  const [manualBedParkingAxis, setManualBedParkingAxis] = useState<AxisId>('X')
-  const [bedScrewGuideNotice, setBedScrewGuideNotice] = useState<string>('Нажмите «Запустить по винтам», затем выбирайте точки на карте.')
   const [, setParkingMode] = useState<ParkingMode>('all')
   const [parkingAxis, setParkingAxis] = useState<AxisId>('X')
   const [movementMode, setMovementMode] = useState<MovementMode>('buttons')
@@ -238,7 +175,6 @@ function App() {
     createMaintenanceChecklistState(false),
   )
   const idleNotesInputRef = useRef<HTMLTextAreaElement | null>(null)
-  const bedScrewMoveTimeoutRef = useRef<number | null>(null)
   const controlFlashTimeoutRef = useRef<number | null>(null)
   const idleWidgetHoldTimeoutRef = useRef<number | null>(null)
   const idleWidgetRefs = useRef<Record<IdleWidgetId, HTMLElement | null>>({
@@ -334,13 +270,6 @@ function App() {
   const cloudStatusLabel = isCloudCapabilityAvailable && snapshot.connection === 'online' ? 'В сети' : 'Недоступно'
   const cloudCapabilityNotice = settingsPageProps.cloud.notice
   const isMaxPerformanceModeEnabled = settingsPageProps.interfaceSettings.isMaxPerformanceModeEnabled
-  const eddyStatusLabel = snapshot.v2.eddy.status === 'ready'
-    ? 'Eddy готов к Z-home/mesh'
-    : snapshot.v2.eddy.status === 'uncalibrated'
-      ? 'Eddy не калиброван'
-    : snapshot.v2.eddy.status === 'requires_xy_home'
-      ? 'Eddy требует homing XY'
-      : 'Eddy статус неизвестен'
   const printerDisplayStatus = usePrinterDisplayStatus()
   const currentPrinterNotification = printerDisplayStatus.notification
   const currentPrinterNotificationId = currentPrinterNotification?.id ?? null
@@ -390,16 +319,6 @@ function App() {
     unloadFilament: getCommandBlockReason('unloadFilament'),
   }), [getCommandBlockReason])
   const idleHeroStatusLabel = printerDisplayStatus.label
-  const activeBedScrewPoint = BED_SCREW_GUIDE_POINTS.find((point) => point.id === activeBedScrewPointId) ?? null
-  const activeBedScrewPointLabel = activeBedScrewPoint === null
-    ? 'Текущая точка не выбрана.'
-    : `Текущая: ${activeBedScrewPoint.label} | X ${formatAxisCoordinate(activeBedScrewPoint.xMm)} | Y ${formatAxisCoordinate(activeBedScrewPoint.yMm)}`
-  const bedScrewGuideProgressLabel = `${visitedBedScrewPointIds.length} / ${BED_SCREW_GUIDE_POINTS.length}`
-  const isBedScrewGuideDone = visitedBedScrewPointIds.length === BED_SCREW_GUIDE_POINTS.length
-  const isManualBedControlsLocked = isBedScrewPointMoving || isBusy
-  const manualBedParkingActionLabel = manualBedParkingMode === 'all'
-    ? 'Парковка по всем осям'
-    : `Парковка оси ${manualBedParkingAxis}`
   const settingsKeyboardMeta = settingsKeyboard.meta
   const keyboardLabel = activeKeyboardTarget === 'idleNotes' ? 'Ввод заметок' : (settingsKeyboardMeta?.valueLabel ?? '')
   const keyboardPlaceholder = activeKeyboardTarget === 'idleNotes' ? 'Введите заметку...' : (settingsKeyboardMeta?.placeholder ?? '')
@@ -548,186 +467,6 @@ function App() {
 
   function handleControlMenuCompactToggle(): void {
     setIsControlMenuCompact((currentState) => !currentState)
-  }
-
-  function handleMacroZOffsetAdjust(direction: -1 | 1): void {
-    setStoredZOffsetMm((currentValue) => {
-      const nextValue = clampAxisValue(
-        currentValue + (direction * babystepStep),
-        Z_OFFSET_BOUNDS_MM.min,
-        Z_OFFSET_BOUNDS_MM.max,
-      )
-      return Math.round(nextValue * 1000) / 1000
-    })
-    setZOffsetNotice('Значение изменено. Сохраните его в настройки принтера.')
-  }
-
-  function handleMacroZOffsetSave(): void {
-    setZOffsetNotice(`Z-offset сохранён: ${storedZOffsetMm.toFixed(3)} мм.`)
-  }
-
-  function handleBedScrewGuideStart(): void {
-    setIsBedScrewGuideStarted(true)
-    setActiveBedScrewPointId(null)
-    setVisitedBedScrewPointIds([])
-    setBedScrewGuideNotice('Выберите точку на карте, чтобы переместить голову к нужному винту.')
-  }
-
-  function handleBedScrewGuideReset(): void {
-    setIsBedScrewGuideStarted(false)
-    setActiveBedScrewPointId(null)
-    setVisitedBedScrewPointIds([])
-    setBedScrewGuideNotice('Нажмите «Запустить по винтам», затем выбирайте точки на карте.')
-  }
-
-  function handleBedScrewPointSelect(pointId: BedScrewPointId): void {
-    if (!isBedScrewGuideStarted) {
-      return
-    }
-
-    const selectedPointIndex = BED_SCREW_GUIDE_POINTS.findIndex((point) => point.id === pointId)
-    const selectedPoint = BED_SCREW_GUIDE_POINTS[selectedPointIndex]
-    if (selectedPoint === undefined) {
-      return
-    }
-
-    clearBedScrewMoveTimeout()
-    setIsBedScrewPointMoving(true)
-    setActiveBedScrewPointId(selectedPoint.id)
-    setBedScrewGuideNotice(`Перемещение к точке ${selectedPointIndex + 1}...`)
-    setVisitedBedScrewPointIds((currentPoints) => {
-      const nextPoints = currentPoints.includes(selectedPoint.id)
-        ? currentPoints
-        : [...currentPoints, selectedPoint.id]
-      if (nextPoints.length === BED_SCREW_GUIDE_POINTS.length) {
-        setBedScrewGuideNotice('Все точки пройдены. При необходимости повторите проход для точной регулировки.')
-      } else {
-        setBedScrewGuideNotice(`Точка «${selectedPoint.label}»: выполните регулировку и перейдите к следующей.`)
-      }
-      return nextPoints
-    })
-  }
-
-  function handleMacroZOffsetPrimaryAction(): void {
-    if (isManualCalibrationFinalizeStep) {
-      setIsManualCalibrationFinalizeStep(false)
-      setZOffsetNotice(`Калибровка завершена. Z-offset ${storedZOffsetMm.toFixed(3)} мм сохранён.`)
-      return
-    }
-
-    handleMacroZOffsetSave()
-  }
-
-  function clearBedScrewMoveTimeout(): void {
-    if (bedScrewMoveTimeoutRef.current !== null) {
-      window.clearTimeout(bedScrewMoveTimeoutRef.current)
-      bedScrewMoveTimeoutRef.current = null
-    }
-  }
-
-  function handleBedScrewGuideIntroOpen(): void {
-    setIsBedScrewGuideIntroOpen(true)
-  }
-
-  function handleBedScrewGuideIntroClose(): void {
-    setIsBedScrewGuideIntroOpen(false)
-  }
-
-  function handleBedScrewGuideIntroConfirm(): void {
-    clearBedScrewMoveTimeout()
-    setIsBedScrewGuideIntroOpen(false)
-    setIsManualCalibrationFinalizeStep(false)
-    setActiveMacrosGroup('bedMesh')
-    setBedCalibrationStage('manual')
-    setIsBedScrewGuideStarted(true)
-    setIsBedScrewPointMoving(false)
-    setActiveBedScrewPointId(null)
-    setVisitedBedScrewPointIds([])
-    setBedScrewGuideNotice('Нажимайте на точки 1-5, чтобы перемещать голову по винтам стола.')
-  }
-
-  function handleManualBedParkingAction(): void {
-    if (isManualBedControlsLocked) {
-      return
-    }
-
-    setBedScrewGuideNotice(`${manualBedParkingActionLabel}: команда будет подключена при пересборке макросов.`)
-  }
-
-  function handleManualBedPointPick(pointId: BedScrewPointId): void {
-    if (!isBedScrewGuideStarted || isManualBedControlsLocked) {
-      return
-    }
-
-    const selectedPointIndex = BED_SCREW_GUIDE_POINTS.findIndex((point) => point.id === pointId)
-    const selectedPoint = BED_SCREW_GUIDE_POINTS[selectedPointIndex]
-    if (selectedPoint === undefined) {
-      return
-    }
-
-    clearBedScrewMoveTimeout()
-    setIsBedScrewPointMoving(true)
-    setActiveBedScrewPointId(selectedPoint.id)
-    setBedScrewGuideNotice(`Перемещение к точке ${selectedPointIndex + 1}...`)
-
-    bedScrewMoveTimeoutRef.current = window.setTimeout(() => {
-      bedScrewMoveTimeoutRef.current = null
-      setVisitedBedScrewPointIds((currentPoints) => {
-        const nextPoints = currentPoints.includes(selectedPoint.id)
-          ? currentPoints
-          : [...currentPoints, selectedPoint.id]
-
-        if (nextPoints.length === BED_SCREW_GUIDE_POINTS.length) {
-          setBedScrewGuideNotice('Все точки пройдены. Нажмите «Завершить», чтобы перейти к Z-offset.')
-        } else {
-          setBedScrewGuideNotice(`Точка ${selectedPointIndex + 1} достигнута. Выберите следующую.`)
-        }
-
-        return nextPoints
-      })
-      setIsBedScrewPointMoving(false)
-      setActiveBedScrewPointId(null)
-    }, BED_SCREW_MOVE_DURATION_MS)
-  }
-
-  function handleBedScrewGuideFinishAndGoToZOffset(): void {
-    clearBedScrewMoveTimeout()
-    setIsBedScrewGuideStarted(false)
-    setIsBedScrewPointMoving(false)
-    setActiveBedScrewPointId(null)
-    setVisitedBedScrewPointIds([])
-    setActiveMacrosGroup('bedMesh')
-    setBedCalibrationStage('zOffset')
-    setIsManualCalibrationFinalizeStep(true)
-    setZOffsetNotice('Калибровка по точкам завершена. Подстройте Z-offset и нажмите «Завершить калибровку».')
-    setBedScrewGuideNotice('Нажмите «Запустить по винтам», затем выбирайте точки на карте.')
-  }
-
-  function handleOpenDirectZOffset(): void {
-    clearBedScrewMoveTimeout()
-    setIsBedScrewGuideIntroOpen(false)
-    setIsBedScrewGuideStarted(false)
-    setIsBedScrewPointMoving(false)
-    setActiveBedScrewPointId(null)
-    setVisitedBedScrewPointIds([])
-    setActiveMacrosGroup('bedMesh')
-    setIsManualCalibrationFinalizeStep(false)
-    setBedCalibrationStage('zOffset')
-    setZOffsetNotice('Измените значение и сохраните его в настройки принтера.')
-    setBedScrewGuideNotice('Нажмите «Запуск калибровки вручную», затем выбирайте точки на карте.')
-  }
-
-  function handleBackToBedCalibrationLaunch(): void {
-    clearBedScrewMoveTimeout()
-    setIsBedScrewGuideIntroOpen(false)
-    setIsBedScrewGuideStarted(false)
-    setIsBedScrewPointMoving(false)
-    setActiveBedScrewPointId(null)
-    setVisitedBedScrewPointIds([])
-    setActiveMacrosGroup('bedMesh')
-    setIsManualCalibrationFinalizeStep(false)
-    setBedCalibrationStage('launch')
-    setBedScrewGuideNotice('Нажмите «Запуск калибровки вручную», затем выбирайте точки на карте.')
   }
 
   const setIdleNotesKeyboardCaret = useCallback((nextCaret: number) => {
@@ -980,13 +719,6 @@ function App() {
 
   const handlePrintTuneApply = handlePrintTuneGroupClose
 
-  useEffect(() => () => {
-    if (bedScrewMoveTimeoutRef.current !== null) {
-      window.clearTimeout(bedScrewMoveTimeoutRef.current)
-      bedScrewMoveTimeoutRef.current = null
-    }
-  }, [])
-
   const dashboardStatusDock = (
     <DashboardStatusDock
       activeTopPopup={topStatusController.activeTopPopup}
@@ -1094,414 +826,6 @@ function App() {
                 onChecklistComplete: () => setMaintenanceChecklistState(createMaintenanceChecklistState(true)),
               }}
             />
-          ) : activeScreen === 'macros' ? (
-            // Temporary screen: macros will be rewritten after verifying treed-mainshellOS macro/runtime contracts.
-            <section className="macros-screen" data-testid="screen-macros">
-              <div className="settings-layout macros-layout">
-                <aside className="settings-menu-shell macros-menu-shell">
-                  <SettingsSidebarMenu
-                    options={MACROS_GROUP_OPTIONS}
-                    value={activeMacrosGroup}
-                    onChange={setActiveMacrosGroup}
-                    ariaLabel="Группы калибровки"
-                    testIdPrefix="macros-group"
-                  />
-                </aside>
-
-                <div className="settings-content-shell macros-content-shell">
-                  {bedCalibrationStage === 'zOffset' ? (
-                    <div className="settings-group-stack macros-group-stack">
-                      <header className="settings-group-head">
-                        <h3>Карта стола</h3>
-                        <p>
-                          {isManualCalibrationFinalizeStep
-                            ? 'Финальный этап: подстройте Z-offset и завершите калибровку.'
-                            : 'Настройка Z-offset с сохранением в параметры принтера.'}
-                        </p>
-                      </header>
-
-                      <article className="settings-description-card macros-zoffset-card">
-                        <div className="macros-zoffset-head">
-                          <p className="label">Z-offset</p>
-                          <p className="value macros-zoffset-value" data-testid="macros-zoffset-value">
-                            {storedZOffsetMm.toFixed(3)}<span>мм</span>
-                          </p>
-                        </div>
-
-                        <div
-                          className="step-selector"
-                          role="group"
-                          aria-label="шаг калибровки Z-offset"
-                          style={{ '--step-active-index': String(babystepActiveIndex) } as CSSProperties}
-                        >
-                          <span className="step-selector-indicator" aria-hidden="true" />
-                          {BABYSTEP_STEP_OPTIONS.map((step) => (
-                            <button
-                              key={step}
-                              type="button"
-                              className={`step-btn ${babystepStep === step ? 'is-active' : ''}`}
-                              onClick={() => setBabystepStep(step)}
-                              aria-pressed={babystepStep === step}
-                            >
-                              {step}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="babystep-controls" role="group" aria-label="корректировка Z-offset">
-                          <button
-                            type="button"
-                            className="babystep-btn"
-                            onClick={() => handleMacroZOffsetAdjust(-1)}
-                            aria-label={`Уменьшить Z-offset на ${babystepStep}`}
-                            data-testid="macros-zoffset-minus"
-                          >
-                            -
-                          </button>
-                          <button
-                            type="button"
-                            className="babystep-btn"
-                            onClick={() => handleMacroZOffsetAdjust(1)}
-                            aria-label={`Увеличить Z-offset на ${babystepStep}`}
-                            data-testid="macros-zoffset-plus"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        <div className="macros-zoffset-actions">
-                          <button
-                            type="button"
-                            className="settings-network-btn settings-network-btn-primary macros-zoffset-save"
-                            onClick={handleMacroZOffsetPrimaryAction}
-                            data-testid="macros-zoffset-save"
-                          >
-                            {isManualCalibrationFinalizeStep ? 'Завершить калибровку' : 'Сохранить в настройки'}
-                          </button>
-                          <button
-                            type="button"
-                            className="settings-network-btn macros-zoffset-back"
-                            onClick={handleBackToBedCalibrationLaunch}
-                            data-testid="macros-zoffset-back"
-                          >
-                            К сценариям
-                          </button>
-                          <p className="macros-zoffset-notice" data-testid="macros-zoffset-notice">{zOffsetNotice}</p>
-                        </div>
-                      </article>
-                    </div>
-                  ) : (
-                    <div className="settings-group-stack macros-group-stack">
-                      <header className="settings-group-head">
-                        <h3>Карта стола</h3>
-                        <p>Ручная и автоматическая калибровка плоскости стола.</p>
-                        <p data-testid="eddy-runtime-status">{eddyStatusLabel}</p>
-                      </header>
-
-                      {bedCalibrationStage === 'manual' ? (
-                        <article className="settings-description-card macros-bed-map-workspace" data-testid="macros-bed-map-workspace">
-                          <div className="macros-bed-map-stack">
-                            <p className="macros-bed-guide-progress" data-testid="macros-bed-progress">
-                              <span>Пройдено точек</span>
-                              <strong>{bedScrewGuideProgressLabel}</strong>
-                            </p>
-
-                            <div className="macros-bed-map is-active" data-testid="macros-bed-map">
-                              {BED_SCREW_GUIDE_POINTS.map((point, index) => {
-                                const isVisited = visitedBedScrewPointIds.includes(point.id)
-                                const isCurrent = activeBedScrewPointId === point.id
-                                return (
-                                  <button
-                                    key={point.id}
-                                    type="button"
-                                    className={`macros-bed-point ${isVisited ? 'is-visited' : ''} ${isCurrent ? 'is-current' : ''}`}
-                                    style={
-                                      {
-                                        '--bed-point-left': `${point.mapX}%`,
-                                        '--bed-point-top': `${point.mapY}%`,
-                                      } as CSSProperties
-                                    }
-                                    onClick={() => handleManualBedPointPick(point.id)}
-                                    disabled={isManualBedControlsLocked}
-                                    aria-label={`Точка ${index + 1}`}
-                                    data-testid={`macros-bed-point-${point.id}`}
-                                  >
-                                    {index + 1}
-                                  </button>
-                                )
-                              })}
-                            </div>
-
-                            <p className="macros-bed-guide-notice" data-testid="macros-bed-notice">{bedScrewGuideNotice}</p>
-                          </div>
-
-                          <aside className="macros-bed-parking-panel" data-testid="macros-bed-parking-panel">
-                            <h4>Парковка осей</h4>
-                            <div className={`macros-toggle-lock ${isManualBedControlsLocked ? 'is-locked' : ''}`}>
-                            <SegmentedToggle
-                              options={MACROS_PARKING_MODE_OPTIONS}
-                              value={manualBedParkingMode}
-                              onChange={setManualBedParkingMode}
-                              ariaLabel="Режим парковки в ручной калибровке"
-                              testIdPrefix="macros-bed-parking-mode"
-                            />
-                            </div>
-                            {manualBedParkingMode === 'axis' ? (
-                              <div className={`macros-toggle-lock ${isManualBedControlsLocked ? 'is-locked' : ''}`}>
-                              <SegmentedToggle
-                                options={MACROS_PARKING_AXIS_OPTIONS}
-                                value={manualBedParkingAxis}
-                                onChange={setManualBedParkingAxis}
-                                ariaLabel="Выбор оси парковки в ручной калибровке"
-                                testIdPrefix="macros-bed-parking-axis"
-                              />
-                              </div>
-                            ) : null}
-                            <button
-                              type="button"
-                              className="settings-network-btn"
-                              onClick={handleManualBedParkingAction}
-                              disabled={isManualBedControlsLocked}
-                              data-testid="macros-bed-parking-action"
-                            >
-                              {manualBedParkingActionLabel}
-                            </button>
-                            <button
-                              type="button"
-                              className="settings-network-btn settings-network-btn-primary macros-bed-finish-btn"
-                              onClick={handleBedScrewGuideFinishAndGoToZOffset}
-                              disabled={!isBedScrewGuideDone || isManualBedControlsLocked}
-                              data-testid="macros-bed-finish-button"
-                            >
-                              Завершить
-                            </button>
-                            <button
-                              type="button"
-                              className="settings-network-btn"
-                              onClick={handleBackToBedCalibrationLaunch}
-                              disabled={isManualBedControlsLocked}
-                              data-testid="macros-bed-back-button"
-                            >
-                              К сценариям
-                            </button>
-                          </aside>
-                        </article>
-                      ) : (
-                        <div className="macros-bed-launch-grid">
-                          <article className="settings-description-card macros-bed-launch-card" data-testid="macros-bed-manual-card">
-                            <h4>Ручная калибровка</h4>
-                            <p className="macros-bed-launch-copy">Пошаговый проход по 5 точкам стола с интерактивной парковкой осей.</p>
-                            <button
-                              type="button"
-                              className="settings-network-btn settings-network-btn-primary macros-bed-launch-action"
-                              onClick={handleBedScrewGuideIntroOpen}
-                              data-testid="macros-bed-start-button"
-                            >
-                              Запуск калибровки вручную
-                            </button>
-                          </article>
-
-                          <article className="settings-description-card macros-bed-launch-card" data-testid="macros-bed-auto-card">
-                            <h4>Автокалибровка</h4>
-                            <p className="macros-bed-launch-copy">Пустой виджет. Сценарий автоматической калибровки будет добавлен следующим этапом.</p>
-                            <button
-                              type="button"
-                              className="settings-network-btn macros-bed-launch-action"
-                              disabled
-                              data-testid="macros-bed-auto-button"
-                            >
-                              Скоро доступно
-                            </button>
-                          </article>
-
-                          <article className="settings-description-card macros-bed-launch-card" data-testid="macros-bed-zoffset-card">
-                            <h4>Z-offset</h4>
-                            <p className="macros-bed-launch-copy">Быстрая коррекция Z-offset без выравнивания стола.</p>
-                            <button
-                              type="button"
-                              className="settings-network-btn macros-bed-launch-action"
-                              onClick={handleOpenDirectZOffset}
-                              data-testid="macros-bed-zoffset-open"
-                            >
-                              Открыть Z-offset
-                            </button>
-                          </article>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
-          ) : false ? (
-            <section className="macros-screen" data-testid="screen-macros">
-              <div className="settings-layout macros-layout">
-                <aside className="settings-menu-shell macros-menu-shell">
-                  <SettingsSidebarMenu
-                    options={MACROS_GROUP_OPTIONS}
-                    value={activeMacrosGroup}
-                    onChange={setActiveMacrosGroup}
-                    ariaLabel="Группы калибровки"
-                    testIdPrefix="macros-group"
-                  />
-                </aside>
-
-                <div className="settings-content-shell macros-content-shell">
-                  {bedCalibrationStage === 'zOffset' ? (
-                    <div className="settings-group-stack macros-group-stack">
-                      <header className="settings-group-head">
-                        <h3>Калибровка стола</h3>
-                        <p>Настройка Z-offset с сохранением в параметры принтера.</p>
-                      </header>
-
-                      <article className="settings-description-card macros-zoffset-card">
-                        <div className="macros-zoffset-head">
-                          <p className="label">Z-offset</p>
-                          <p className="value macros-zoffset-value" data-testid="macros-zoffset-value">
-                            {storedZOffsetMm.toFixed(3)}<span>мм</span>
-                          </p>
-                        </div>
-
-                        <div
-                          className="step-selector"
-                          role="group"
-                          aria-label="шаг калибровки Z-offset"
-                          style={{ '--step-active-index': String(babystepActiveIndex) } as CSSProperties}
-                        >
-                          <span className="step-selector-indicator" aria-hidden="true" />
-                          {BABYSTEP_STEP_OPTIONS.map((step) => (
-                            <button
-                              key={step}
-                              type="button"
-                              className={`step-btn ${babystepStep === step ? 'is-active' : ''}`}
-                              onClick={() => setBabystepStep(step)}
-                              aria-pressed={babystepStep === step}
-                            >
-                              {step}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="babystep-controls" role="group" aria-label="корректировка Z-offset">
-                          <button
-                            type="button"
-                            className="babystep-btn"
-                            onClick={() => handleMacroZOffsetAdjust(-1)}
-                            aria-label={`Уменьшить Z-offset на ${babystepStep}`}
-                            data-testid="macros-zoffset-minus"
-                          >
-                            -
-                          </button>
-                          <button
-                            type="button"
-                            className="babystep-btn"
-                            onClick={() => handleMacroZOffsetAdjust(1)}
-                            aria-label={`Увеличить Z-offset на ${babystepStep}`}
-                            data-testid="macros-zoffset-plus"
-                          >
-                            +
-                          </button>
-                        </div>
-
-                        <div className="macros-zoffset-actions">
-                          <button
-                            type="button"
-                            className="settings-network-btn settings-network-btn-primary macros-zoffset-save"
-                            onClick={handleMacroZOffsetPrimaryAction}
-                            data-testid="macros-zoffset-save"
-                          >
-                            Сохранить в настройки
-                          </button>
-                          <p className="macros-zoffset-notice" data-testid="macros-zoffset-notice">{zOffsetNotice}</p>
-                        </div>
-                      </article>
-                    </div>
-                  ) : (
-                    <div className="settings-group-stack macros-group-stack">
-                      <header className="settings-group-head">
-                        <h3>Карта стола</h3>
-                        <p>Полуручная калибровка по винтам: выбирайте точку, выравнивайте и переходите дальше.</p>
-                      </header>
-
-                      <article className="settings-description-card macros-bed-guide-card">
-                        <div className="macros-bed-guide-actions">
-                          <button
-                            type="button"
-                            className="settings-network-btn settings-network-btn-primary"
-                            onClick={handleBedScrewGuideStart}
-                            data-testid="macros-bed-start-button"
-                          >
-                            Запустить по винтам
-                          </button>
-                          <button
-                            type="button"
-                            className="settings-network-btn"
-                            onClick={handleBedScrewGuideReset}
-                            data-testid="macros-bed-reset-button"
-                          >
-                            Сбросить проход
-                          </button>
-                        </div>
-                        <p className="macros-bed-guide-progress" data-testid="macros-bed-progress">
-                          <span>Пройдено точек</span>
-                          <strong>{bedScrewGuideProgressLabel}</strong>
-                        </p>
-                        <p className="macros-bed-guide-notice" data-testid="macros-bed-notice">{bedScrewGuideNotice}</p>
-                      </article>
-
-                      <article className="settings-description-card macros-bed-map-card">
-                        <div
-                          className={`macros-bed-map ${isBedScrewGuideStarted ? 'is-active' : ''}`}
-                          data-testid="macros-bed-map"
-                        >
-                          {BED_SCREW_GUIDE_POINTS.map((point, index) => {
-                            const isVisited = visitedBedScrewPointIds.includes(point.id)
-                            const isCurrent = activeBedScrewPointId === point.id
-                            return (
-                              <button
-                                key={point.id}
-                                type="button"
-                                className={`macros-bed-point ${isVisited ? 'is-visited' : ''} ${isCurrent ? 'is-current' : ''}`}
-                                style={
-                                  {
-                                    '--bed-point-left': `${point.mapX}%`,
-                                    '--bed-point-top': `${point.mapY}%`,
-                                  } as CSSProperties
-                                }
-                                onClick={() => handleBedScrewPointSelect(point.id)}
-                                disabled={!isBedScrewGuideStarted}
-                                aria-label={`Точка ${point.label}`}
-                                data-testid={`macros-bed-point-${point.id}`}
-                              >
-                                {index + 1}
-                              </button>
-                            )
-                          })}
-                        </div>
-
-                        <div className="macros-bed-points-list">
-                          {BED_SCREW_GUIDE_POINTS.map((point, index) => (
-                            <p
-                              key={point.id}
-                              className={`macros-bed-points-row ${visitedBedScrewPointIds.includes(point.id) ? 'is-visited' : ''}`}
-                            >
-                              <span>{index + 1}. {point.label}</span>
-                              <strong>X {point.xMm} | Y {point.yMm}</strong>
-                            </p>
-                          ))}
-                          <p className="macros-bed-current" data-testid="macros-bed-current-point">
-                            {activeBedScrewPointLabel}
-                          </p>
-                          {isBedScrewGuideDone ? (
-                            <p className="macros-bed-complete">Проход завершён. Можно повторить калибровку для контроля.</p>
-                          ) : null}
-                        </div>
-                      </article>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
           ) : activeScreen === 'settings' ? (
             <SettingsPage {...settingsPageProps} />
           ) : (
@@ -1573,60 +897,6 @@ function App() {
           handlers={printTuneModalHandlers}
           keyboard={printTuneKeyboard}
         />
-
-        {isBedScrewGuideIntroOpen ? (
-          <div
-            className="macros-intro-layer"
-            role="presentation"
-            data-testid="macros-bed-intro-layer"
-            onClick={handleBedScrewGuideIntroClose}
-          >
-            <section
-              className="macros-intro-dialog"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="macros-bed-intro-title"
-              data-testid="macros-bed-intro-modal"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <header className="print-cancel-modal-head">
-                <h2 id="macros-bed-intro-title">Ручная калибровка стола</h2>
-                <button
-                  type="button"
-                  className="print-cancel-modal-close"
-                  aria-label="Закрыть окно ручной калибровки"
-                  onClick={handleBedScrewGuideIntroClose}
-                >
-                  ×
-                </button>
-              </header>
-
-              <p className="macros-intro-body">
-                Принтер будет перемещаться между 5 точками стола. Нажимайте точки на карте в нужном порядке,
-                выравнивайте стол и затем переходите к Z-offset.
-              </p>
-
-              <div className="macros-intro-actions">
-                <button
-                  type="button"
-                  className="settings-network-btn"
-                  data-testid="macros-bed-intro-cancel"
-                  onClick={handleBedScrewGuideIntroClose}
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  className="settings-network-btn settings-network-btn-primary"
-                  data-testid="macros-bed-intro-next"
-                  onClick={handleBedScrewGuideIntroConfirm}
-                >
-                  Далее
-                </button>
-              </div>
-            </section>
-          </div>
-        ) : null}
 
         {selectedPrintFile !== null ? (
           <PrintFileModal

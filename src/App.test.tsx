@@ -429,99 +429,22 @@ describe('App', () => {
     }
   })
 
-  it.skip('renders macros calibration screen and completes screw guide flow', async () => {
+  it('keeps macros tab empty after removing temporary implementation', () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Макросы' }))
 
     expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Статус Wi-Fi' })).not.toBeInTheDocument()
-    expect(screen.getByTestId('macros-zoffset-value')).toHaveTextContent('-0.080')
-
-    fireEvent.click(screen.getByTestId('macros-zoffset-plus'))
-    expect(screen.getByTestId('macros-zoffset-value')).toHaveTextContent('-0.030')
-    fireEvent.click(screen.getByTestId('macros-zoffset-save'))
-    expect(screen.getByTestId('macros-zoffset-notice')).toHaveTextContent('Z-offset сохранён')
-
-    fireEvent.click(screen.getByTestId('macros-group-bedMesh'))
-    fireEvent.click(screen.getByTestId('macros-bed-start-button'))
-
-    for (const [index, pointId] of ['front-right', 'rear-right', 'rear-left', 'center'].entries()) {
-      fireEvent.click(screen.getByTestId(`macros-bed-point-${pointId}`))
-      await waitFor(() => {
-        expect(screen.getByTestId('macros-bed-progress')).toHaveTextContent(`${index + 2} / 5`)
-      })
-    }
-
-    expect(screen.getByTestId('macros-bed-progress')).toHaveTextContent('5 / 5')
-    expect(screen.getByTestId('macros-bed-notice')).toHaveTextContent('Все точки пройдены')
-  })
-
-  it('runs manual bed calibration flow with intro modal and finish handoff to z-offset', async () => {
-    render(<App />)
-
-    const navButtons = within(screen.getByRole('navigation')).getAllByRole('button')
-    fireEvent.click(navButtons[3])
-
-    expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
-    expect(screen.getByTestId('macros-group-bedMesh')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByTestId('macros-bed-manual-card')).toBeInTheDocument()
-    expect(screen.getByTestId('macros-bed-auto-card')).toBeInTheDocument()
-    expect(screen.getByTestId('macros-bed-zoffset-card')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByTestId('screen-macros').textContent).toBe('')
+    expect(screen.queryByTestId('macros-group-bedMesh')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('macros-bed-manual-card')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('macros-bed-auto-card')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('macros-bed-zoffset-card')).not.toBeInTheDocument()
     expect(screen.queryByTestId('macros-bed-map-workspace')).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId('macros-bed-start-button'))
-    expect(screen.getByTestId('macros-bed-intro-modal')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('macros-bed-intro-cancel'))
     expect(screen.queryByTestId('macros-bed-intro-modal')).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByTestId('macros-bed-start-button'))
-    fireEvent.click(screen.getByTestId('macros-bed-intro-next'))
-    expect(screen.getByTestId('macros-bed-map-workspace')).toBeInTheDocument()
-    expect(screen.getByTestId('macros-bed-parking-panel')).toBeInTheDocument()
-
-    const frontLeftPoint = screen.getByTestId('macros-bed-point-front-left')
-    const frontRightPoint = screen.getByTestId('macros-bed-point-front-right')
-    const parkingActionButton = screen.getByTestId('macros-bed-parking-action')
-    const finishButton = screen.getByTestId('macros-bed-finish-button')
-
-    fireEvent.click(frontLeftPoint)
-    expect(frontRightPoint).toBeDisabled()
-    expect(parkingActionButton).toBeDisabled()
-    expect(finishButton).toBeDisabled()
-
-    await waitFor(() => {
-      expect(screen.getByTestId('macros-bed-progress')).toHaveTextContent('1 / 5')
-      expect(frontLeftPoint).toBeEnabled()
-      expect(frontRightPoint).toBeEnabled()
-      expect(parkingActionButton).toBeEnabled()
-    })
-
-    fireEvent.click(frontLeftPoint)
-    await waitFor(() => {
-      expect(screen.getByTestId('macros-bed-progress')).toHaveTextContent('1 / 5')
-      expect(frontLeftPoint).toBeEnabled()
-    })
-
-    fireEvent.click(screen.getByTestId('macros-bed-parking-mode-axis'))
-    expect(screen.getByTestId('macros-bed-parking-axis-X')).toBeInTheDocument()
-    fireEvent.click(screen.getByTestId('macros-bed-parking-action'))
-
-    for (const [index, pointId] of ['front-right', 'rear-right', 'rear-left', 'center'].entries()) {
-      fireEvent.click(screen.getByTestId(`macros-bed-point-${pointId}`))
-      await waitFor(() => {
-        expect(screen.getByTestId('macros-bed-progress')).toHaveTextContent(`${index + 2} / 5`)
-      })
-    }
-
-    expect(screen.getByTestId('macros-bed-progress')).toHaveTextContent('5 / 5')
-    expect(screen.getByTestId('macros-bed-finish-button')).toBeEnabled()
-    fireEvent.click(screen.getByTestId('macros-bed-finish-button'))
-
-    expect(screen.getByTestId('macros-zoffset-save')).toHaveTextContent(/Завершить калибровку/i)
-    fireEvent.click(screen.getByTestId('macros-zoffset-save'))
-    expect(screen.getByTestId('macros-zoffset-notice')).toHaveTextContent(/Калибровка завершена/i)
-  }, 10000)
+    expect(screen.queryByTestId('macros-zoffset-value')).not.toBeInTheDocument()
+  })
 
   it('opens print file modal and handles start and delete actions', async () => {
     render(<App />)
