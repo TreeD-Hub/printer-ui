@@ -16,10 +16,7 @@ import {
   type ScreenId,
 } from './dashboard/config'
 import { usePrinterDisplayStatus } from './dashboard/usePrinterDisplayStatus'
-import {
-  clampPercent,
-  statusLabel,
-} from './dashboard/helpers'
+import { clampPercent } from './dashboard/helpers'
 import {
   ControlPage,
   type ControlGroupId,
@@ -50,8 +47,8 @@ import {
   usePrintTuneController,
   type PrintTuneGroupId,
 } from './printTune'
+import { usePrintSessionController } from './printSession'
 import { useHeatingFanController } from './heating'
-import { PRINT_FILE_LIBRARY, type PrintFileItem } from './printFiles'
 import type { PrinterConnectionState } from './core/transport/types'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
@@ -62,7 +59,6 @@ const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
 type MacrosGroupId = 'bedMesh'
 type IdleWidgetId = DashboardIdleWidgetId
 type BedCalibrationStage = 'launch' | 'manual' | 'zOffset'
-type ActivePrintUiState = 'printing' | 'paused'
 type KeyboardTarget = 'idleNotes' | SettingsKeyboardTarget
 type BedScrewPointId = 'front-left' | 'front-right' | 'rear-right' | 'rear-left' | 'center'
 type BedScrewPoint = {
@@ -164,27 +160,12 @@ function App() {
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(BABYSTEP_STEP_OPTIONS[1])
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
-  const [filesLibrary, setFilesLibrary] = useState<PrintFileItem[]>(() => [...PRINT_FILE_LIBRARY])
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
-  const [fileModalNotice, setFileModalNotice] = useState<string>('')
-  const [activePrintFileName, setActivePrintFileName] = useState<string | null>(null)
-  const [activePrintUiState, setActivePrintUiState] = useState<ActivePrintUiState | null>(null)
+  const printSessionController = usePrintSessionController({ snapshot })
   const commandRuntimeContext = useMemo(
     () => ({
       capabilities: snapshot.capabilities,
       connection: snapshot.connection,
-      printJob: snapshot.source === 'live'
-        ? {
-            state: snapshot.printJob.state,
-            isActive: snapshot.printJob.isActive,
-            isPaused: snapshot.printJob.isPaused,
-          }
-        : {
-            state: activePrintUiState ??
-              (activePrintFileName === null ? snapshot.printJob.state : 'printing'),
-            isActive: activePrintFileName !== null,
-            isPaused: activePrintUiState === 'paused',
-          },
+      printJob: printSessionController.commandRuntimePrintJob,
       homedAxes: snapshot.homedAxes,
       toolhead: {
         rawX: snapshot.toolhead.rawX,
@@ -195,16 +176,11 @@ function App() {
       extruderTemp: snapshot.extruderTemp,
     }),
     [
-      activePrintFileName,
-      activePrintUiState,
+      printSessionController.commandRuntimePrintJob,
       snapshot.capabilities,
       snapshot.connection,
       snapshot.extruderTemp,
       snapshot.homedAxes,
-      snapshot.printJob.isActive,
-      snapshot.printJob.isPaused,
-      snapshot.printJob.state,
-      snapshot.source,
       snapshot.toolhead.rawX,
       snapshot.toolhead.rawY,
       snapshot.toolhead.rawZ,
@@ -229,7 +205,6 @@ function App() {
     (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
     [],
   )
-  const [isPrintCancelConfirmOpen, setIsPrintCancelConfirmOpen] = useState<boolean>(false)
   const [idleNotesText, setIdleNotesText] = useState<string>(IDLE_NOTES_DEFAULT_TEXT)
   const [activeKeyboardTarget, setActiveKeyboardTarget] = useState<KeyboardTarget | null>(null)
   const [keyboardLanguage, setKeyboardLanguage] = useState<VirtualKeyboardLanguage>('ru')
@@ -272,20 +247,25 @@ function App() {
   })
   const draggingIdleWidgetIdRef = useRef<IdleWidgetId | null>(null)
 
-  const displayPrintFileName = snapshot.source === 'live' && snapshot.printJob.isActive
-    ? snapshot.printJob.filename
-    : activePrintFileName
-  const printFill = snapshot.source === 'live'
-    ? Math.round(clampAxisValue(snapshot.printJob.progress * 100, 0, 100))
-    : Math.max(0, Math.min(100, DASHBOARD_VALUES.progressPercent))
-  const displayLayerCurrent = snapshot.source === 'live'
-    ? (snapshot.printJob.currentLayer ?? DASHBOARD_VALUES.layerCurrent)
-    : DASHBOARD_VALUES.layerCurrent
-  const displayLayerTotal = snapshot.source === 'live'
-    ? (snapshot.printJob.totalLayer ?? DASHBOARD_VALUES.layerTotal)
-    : DASHBOARD_VALUES.layerTotal
+  const {
+    files: effectiveFilesLibrary,
+    selectedPrintFile,
+    displayPrintFileName,
+    hasActivePrint,
+    isPrintPaused,
+    printPauseCommand,
+    printFill,
+    displayLayerCurrent,
+    displayLayerTotal,
+    isPrintCancelConfirmOpen,
+    selectFile: handlePrintFileSelect,
+    closeFileModal,
+    deleteSelectedFile: handleDeleteSelectedFile,
+    closePrintCancelConfirm,
+    getFileStartNotice,
+    createCommandHandlers: createPrintSessionCommandHandlers,
+  } = printSessionController
   const isBusy = pendingCommand !== null
-  const hasActivePrint = displayPrintFileName !== null
   const {
     activeGroup: activePrintTuneGroup,
     openGroup: openPrintTuneGroup,
@@ -361,12 +341,6 @@ function App() {
     : snapshot.v2.eddy.status === 'requires_xy_home'
       ? 'Eddy требует homing XY'
       : 'Eddy статус неизвестен'
-  const effectiveActivePrintState = snapshot.source === 'live'
-    ? snapshot.printJob.state
-    : hasActivePrint
-      ? (activePrintUiState ?? snapshot.state)
-      : snapshot.state
-  const isPrintPaused = hasActivePrint && statusLabel(effectiveActivePrintState) === 'Пауза'
   const printerDisplayStatus = usePrinterDisplayStatus()
   const currentPrinterNotification = printerDisplayStatus.notification
   const currentPrinterNotificationId = currentPrinterNotification?.id ?? null
@@ -384,11 +358,20 @@ function App() {
   const closeTopPopup = topStatusController.closeTopPopup
   const openTopPopup = topStatusController.openTopPopup
   const setTopButtonRef = topStatusController.setTopButtonRef
-  const printPauseCommand = isPrintPaused ? 'resume' : 'pause'
   const printPauseBlockReason = getCommandBlockReason(printPauseCommand)
   const printCancelBlockReason = getCommandBlockReason('cancel')
   const printStartBlockReason = getCommandBlockReason('start')
-  const fileStartNotice = fileModalNotice || printStartBlockReason
+  const fileStartNotice = getFileStartNotice(printStartBlockReason)
+  const printSessionCommandHandlers = createPrintSessionCommandHandlers({
+    executeCommand,
+    getLastCommandError,
+    commandError,
+    printStartBlockReason,
+    printCancelBlockReason,
+    requiresCommandConfirmation,
+    refresh,
+    onOpenDashboard: () => setActiveScreen('dashboard'),
+  })
   const movementCommandBlockReasons = useMemo<MovementCommandBlockReasons>(() => ({
     parking: {
       all: getCommandBlockReason('homeAll'),
@@ -407,14 +390,6 @@ function App() {
     unloadFilament: getCommandBlockReason('unloadFilament'),
   }), [getCommandBlockReason])
   const idleHeroStatusLabel = printerDisplayStatus.label
-  const effectiveFilesLibrary = snapshot.source === 'live' ? snapshot.printFiles : filesLibrary
-  const selectedPrintFile = useMemo(() => {
-    if (selectedFileId === null) {
-      return null
-    }
-
-    return effectiveFilesLibrary.find((item) => item.id === selectedFileId) ?? null
-  }, [effectiveFilesLibrary, selectedFileId])
   const activeBedScrewPoint = BED_SCREW_GUIDE_POINTS.find((point) => point.id === activeBedScrewPointId) ?? null
   const activeBedScrewPointLabel = activeBedScrewPoint === null
     ? 'Текущая точка не выбрана.'
@@ -755,15 +730,6 @@ function App() {
     setBedScrewGuideNotice('Нажмите «Запуск калибровки вручную», затем выбирайте точки на карте.')
   }
 
-  const closeFileModal = useCallback(() => {
-    setSelectedFileId(null)
-    setFileModalNotice('')
-  }, [])
-
-  const closePrintCancelConfirm = useCallback(() => {
-    setIsPrintCancelConfirmOpen(false)
-  }, [])
-
   const setIdleNotesKeyboardCaret = useCallback((nextCaret: number) => {
     if (typeof window === 'undefined') {
       return
@@ -793,50 +759,6 @@ function App() {
 
   function handleVirtualKeyboardKeyMouseDown(event: MouseEvent<HTMLButtonElement>): void {
     event.preventDefault()
-  }
-
-  function handlePrintFileSelect(fileId: string): void {
-    setSelectedFileId(fileId)
-    setFileModalNotice('')
-  }
-
-  function handleDeleteSelectedFile(): void {
-    if (selectedPrintFile === null) {
-      return
-    }
-
-    if (displayPrintFileName === selectedPrintFile.name || displayPrintFileName === selectedPrintFile.path) {
-      setActivePrintFileName(null)
-      setActivePrintUiState(null)
-    }
-    if (snapshot.source !== 'live') {
-      setFilesLibrary((currentItems) => currentItems.filter((item) => item.id !== selectedPrintFile.id))
-    }
-    closeFileModal()
-  }
-
-  async function handleStartSelectedFile(): Promise<void> {
-    if (selectedPrintFile === null) {
-      return
-    }
-
-    const ok = await executeCommand({
-      command: 'start',
-      filename: selectedPrintFile.path,
-    })
-    if (!ok) {
-      setFileModalNotice(getLastCommandError() || commandError || printStartBlockReason || 'Старт печати не выполнен.')
-      return
-    }
-
-    if (snapshot.source === 'mock') {
-      setActivePrintFileName(selectedPrintFile.name)
-      setActivePrintUiState('printing')
-    }
-
-    await refresh()
-    setActiveScreen('dashboard')
-    closeFileModal()
   }
 
   async function handleParkingTargetSelect(nextMode: ParkingMode, nextAxis?: AxisId): Promise<boolean> {
@@ -949,7 +871,7 @@ function App() {
   const handleIdleNotesVirtualKey = handleVirtualKeyboardKey
 
   useEffect(() => {
-    if (selectedFileId === null || typeof window === 'undefined') {
+    if (selectedPrintFile === null || typeof window === 'undefined') {
       return
     }
 
@@ -963,7 +885,7 @@ function App() {
     return () => {
       window.removeEventListener('keydown', handleEscape)
     }
-  }, [closeFileModal, selectedFileId])
+  }, [closeFileModal, selectedPrintFile])
 
   useEffect(() => {
     if (!isPrintCancelConfirmOpen || typeof window === 'undefined') {
@@ -1032,43 +954,10 @@ function App() {
   }, [activeKeyboardTarget])
 
   useEffect(() => {
-    if (activeScreen !== 'files' && selectedFileId !== null) {
+    if (activeScreen !== 'files' && selectedPrintFile !== null) {
       closeFileModal()
     }
-  }, [activeScreen, closeFileModal, selectedFileId])
-
-  async function handlePause(): Promise<void> {
-    const nextCommand = printPauseCommand
-    const ok = await executeCommand({ command: nextCommand })
-    if (ok) {
-      setActivePrintUiState(isPrintPaused ? 'printing' : 'paused')
-      await refresh()
-    }
-  }
-
-  function handleStopRequest(): void {
-    if (printCancelBlockReason !== null) {
-      return
-    }
-
-    if (requiresCommandConfirmation('cancel')) {
-      setIsPrintCancelConfirmOpen(true)
-      return
-    }
-
-    void handleStopConfirm()
-  }
-
-  async function handleStopConfirm(): Promise<void> {
-    const ok = await executeCommand({ command: 'cancel' })
-    if (ok) {
-      setActivePrintFileName(null)
-      setActivePrintUiState(null)
-      await refresh()
-      setActiveScreen('dashboard')
-      closePrintCancelConfirm()
-    }
-  }
+  }, [activeScreen, closeFileModal, selectedPrintFile])
 
   const handlePrintTuneGroupOpen = useCallback((groupId: PrintTuneGroupId): void => {
     if (groupId === 'nozzle') {
@@ -1090,16 +979,6 @@ function App() {
   }, [closePrintTuneGroup, closeTemperatureKeyboard, setTemperatureChartMode])
 
   const handlePrintTuneApply = handlePrintTuneGroupClose
-
-  useEffect(() => {
-    if (!hasActivePrint || activePrintUiState === null) {
-      return
-    }
-
-    if (snapshot.state.toLowerCase() === activePrintUiState) {
-      setActivePrintUiState(null)
-    }
-  }, [activePrintUiState, hasActivePrint, snapshot.state])
 
   useEffect(() => () => {
     if (bedScrewMoveTimeoutRef.current !== null) {
@@ -1152,8 +1031,8 @@ function App() {
               isIdleNotesKeyboardOpen={isIdleNotesKeyboardOpen}
               idleNotesKeyboardRows={IDLE_NOTES_KEYBOARD_ROWS}
               onPrintTuneGroupOpen={handlePrintTuneGroupOpen}
-              onPause={() => void handlePause()}
-              onStopRequest={handleStopRequest}
+              onPause={() => void printSessionCommandHandlers.togglePause()}
+              onStopRequest={() => void printSessionCommandHandlers.requestStop()}
               onBabystepStepChange={setBabystepStep}
               onIdleWidgetTargetOpen={openIdleWidgetTarget}
               onIdleWidgetDragPointerDown={handleIdleWidgetDragPointerDown}
@@ -1757,7 +1636,7 @@ function App() {
             pendingCommand={pendingCommand}
             isStartBlocked={printStartBlockReason !== null}
             onClose={closeFileModal}
-            onStart={() => void handleStartSelectedFile()}
+            onStart={() => void printSessionCommandHandlers.startSelectedFile()}
             onDelete={handleDeleteSelectedFile}
           />
         ) : null}
@@ -1803,7 +1682,7 @@ function App() {
                   type="button"
                   className="file-modal-action file-modal-action-danger"
                   data-testid="print-cancel-confirm-button"
-                  onClick={() => void handleStopConfirm()}
+                  onClick={() => void printSessionCommandHandlers.confirmStop()}
                   disabled={isBusy}
                 >
                   {pendingCommand === 'cancel' ? 'Остановка...' : 'Остановить печать'}
