@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   filterWifiNetworks,
+  type WifiNetworkItem,
+} from '@treed/printer-logic'
+import {
   getSettingsKeyboardMeta,
   isSettingsKeyboardTarget,
-  type WifiNetworkItem,
 } from './settingsController'
 
 const wifiNetworks: WifiNetworkItem[] = [

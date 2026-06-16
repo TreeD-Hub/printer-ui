@@ -1,4 +1,7 @@
+import type { WifiNetworkItem, WifiNetworkSecurity } from '@treed/printer-logic'
 import type { SettingsMenuOption } from '../ui'
+
+export type { WifiNetworkItem, WifiNetworkSecurity }
 
 export type SettingsGroupId =
   | 'system'
@@ -10,17 +13,6 @@ export type SettingsGroupId =
   | 'updates'
   | 'language'
   | 'console'
-
-export type WifiNetworkSecurity = 'open' | 'wpa2' | 'wpa3'
-
-export type WifiNetworkItem = {
-  id: string
-  ssid: string
-  signalPercent: number
-  security: WifiNetworkSecurity
-  saved: boolean
-  connected: boolean
-}
 
 export type SettingsNotificationItem = {
   id: string

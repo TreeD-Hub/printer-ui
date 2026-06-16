@@ -1,7 +1,14 @@
+export {
+  filterWifiNetworks,
+  getPreferredWifiNetworkId,
+} from '@treed/printer-logic'
+export type {
+  WifiNetworkItem,
+  WifiNetworkSecurity,
+} from '@treed/printer-logic'
 export { SettingsPage } from './SettingsPage'
 export type { ConsoleHistoryItem, SettingsPageProps } from './SettingsPage'
 export {
-  filterWifiNetworks,
   getSettingsKeyboardMeta,
   isSettingsKeyboardTarget,
   useSettingsController,
@@ -19,6 +26,4 @@ export {
   WIFI_NETWORK_LIBRARY,
   type SettingsGroupId,
   type SettingsNotificationItem,
-  type WifiNetworkItem,
-  type WifiNetworkSecurity,
 } from './config'

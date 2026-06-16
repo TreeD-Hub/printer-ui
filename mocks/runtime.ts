@@ -1,10 +1,17 @@
 import type { CommandClient, CommandResult, ExecuteCommandArgs } from '../src/core/commands/types'
+import {
+  createUnavailableHostNetworkStatus,
+  type HostNetworkClient,
+  type HostNetworkStatus,
+} from '../src/core/hostNetwork'
 import type { PrinterCommandId } from '@treed/printer-logic'
 import type { PrinterSnapshot, PrinterSource, TransportClient } from '../src/core/transport/types'
 
 export const runtimeMode: PrinterSource = 'mock'
 
 let mockCommandFailure: { command: PrinterCommandId; message: string } | null = null
+let mockNetworkStatus = createUnavailableHostNetworkStatus('Host network bridge недоступен.')
+let mockNetworkOperations: string[] = []
 
 function nowIso(): string {
   return new Date().toISOString()
@@ -80,6 +87,26 @@ export function setMockCommandFailure(command: PrinterCommandId, message: string
 
 export function clearMockCommandFailure(): void {
   mockCommandFailure = null
+}
+
+function cloneHostNetworkStatus(status: HostNetworkStatus): HostNetworkStatus {
+  return {
+    ...status,
+    networks: status.networks.map((network) => ({ ...network })),
+  }
+}
+
+export function setMockNetworkStatus(status: HostNetworkStatus): void {
+  mockNetworkStatus = cloneHostNetworkStatus(status)
+}
+
+export function getMockNetworkOperations(): string[] {
+  return [...mockNetworkOperations]
+}
+
+export function clearMockNetworkRuntime(): void {
+  mockNetworkStatus = createUnavailableHostNetworkStatus('Host network bridge недоступен.')
+  mockNetworkOperations = []
 }
 
 export function createMockSnapshot(): PrinterSnapshot {
@@ -225,6 +252,46 @@ export function createCommandClient(): CommandClient {
         message: buildMockCommandMessage(args),
         at: nowIso(),
       }
+    },
+  }
+}
+
+export function createHostNetworkClient(): HostNetworkClient {
+  return {
+    async getStatus() {
+      return cloneHostNetworkStatus(mockNetworkStatus)
+    },
+    async scan() {
+      mockNetworkOperations.push('scan')
+      return cloneHostNetworkStatus(mockNetworkStatus)
+    },
+    async connect({ ssid }) {
+      mockNetworkOperations.push(`connect:${ssid}`)
+      mockNetworkStatus = {
+        ...mockNetworkStatus,
+        ssid,
+        networks: mockNetworkStatus.networks.map((network) => ({
+          ...network,
+          connected: network.ssid === ssid,
+          saved: network.ssid === ssid ? true : network.saved,
+        })),
+        message: `Mock: connected to ${ssid}`,
+      }
+      return cloneHostNetworkStatus(mockNetworkStatus)
+    },
+    async forget({ ssid }) {
+      mockNetworkOperations.push(`forget:${ssid}`)
+      mockNetworkStatus = {
+        ...mockNetworkStatus,
+        ssid: mockNetworkStatus.ssid === ssid ? null : mockNetworkStatus.ssid,
+        networks: mockNetworkStatus.networks.map((network) => (
+          network.ssid === ssid
+            ? { ...network, connected: false, saved: false }
+            : network
+        )),
+        message: `Mock: forgot ${ssid}`,
+      }
+      return cloneHostNetworkStatus(mockNetworkStatus)
     },
   }
 }

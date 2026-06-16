@@ -6,6 +6,7 @@ AGENTS.md text eol=lf
 *.json text eol=lf
 *.md text eol=lf
 *.ps1 text eol=lf
+*.rs text eol=lf
 *.ts text eol=lf
 *.tsx text eol=lf
 *.toml text eol=lf

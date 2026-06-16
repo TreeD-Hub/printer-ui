@@ -1,4 +1,5 @@
 import { type ChangeEvent, type CSSProperties, type MouseEvent, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createHostNetworkClient } from '#runtime'
 import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
@@ -251,12 +252,14 @@ function App() {
   }, [snapshot.updatedAt])
   const isRuntimeCurrent = snapshot.connection === 'online' || snapshot.connection === 'degraded'
   const connectionLabel = CONNECTION_LABELS[snapshot.connection]
-  const wifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
-  const wifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
+  const snapshotWifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
+  const snapshotWifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
+  const hostNetworkClient = useMemo(() => createHostNetworkClient(), [])
   const settingsController = useSettingsController({
     snapshot,
     connectionLabel,
+    networkClient: hostNetworkClient,
     executeCommand,
     getCommandBlockReason,
     activeKeyboardTarget: isSettingsKeyboardTarget(activeKeyboardTarget) ? activeKeyboardTarget : null,
@@ -264,6 +267,10 @@ function App() {
     closeKeyboard: () => setActiveKeyboardTarget(null),
   })
   const settingsPageProps = settingsController.pageProps
+  const wifiSsidLabel = settingsPageProps.network.currentSsid ?? snapshotWifiSsidLabel
+  const wifiIpLabel = settingsPageProps.network.wifiIpLabel !== '—'
+    ? settingsPageProps.network.wifiIpLabel
+    : snapshotWifiIpLabel
   const settingsKeyboard = settingsController.keyboard
   const isSettingsKeyboardTargetAllowed = settingsController.isKeyboardTargetAllowed
   const setActiveSettingsGroup = settingsPageProps.onSettingsGroupChange

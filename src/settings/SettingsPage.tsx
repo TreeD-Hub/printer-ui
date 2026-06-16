@@ -40,6 +40,7 @@ export type SettingsPageProps = {
   }
   network: {
     isCapabilityAvailable: boolean
+    isBusy: boolean
     searchInputRef: RefObject<HTMLInputElement | null>
     passwordInputRef: RefObject<HTMLInputElement | null>
     searchQuery: string
@@ -48,6 +49,7 @@ export type SettingsPageProps = {
     filteredWifiNetworks: WifiNetworkItem[]
     passwordValue: string
     isPasswordVisible: boolean
+    currentSsid: string | null
     wifiIpLabel: string
     connectedWifiNetwork: WifiNetworkItem | null
     connectionLabel: string
@@ -220,7 +222,7 @@ export function SettingsPage({
                         onClick={network.isCapabilityAvailable ? network.onSearchInputFocus : undefined}
                         placeholder="Введите имя сети"
                         data-testid="settings-network-search"
-                        disabled={!network.isCapabilityAvailable}
+                        disabled={!network.isCapabilityAvailable || network.isBusy}
                       />
                     </label>
                     <button
@@ -228,9 +230,9 @@ export function SettingsPage({
                       className="settings-network-btn settings-network-btn-primary"
                       onClick={network.onScan}
                       data-testid="settings-network-scan"
-                      disabled={!network.isCapabilityAvailable}
+                      disabled={!network.isCapabilityAvailable || network.isBusy}
                     >
-                      Поиск
+                      {network.isBusy ? '...' : 'Поиск'}
                     </button>
                   </div>
 
@@ -244,7 +246,7 @@ export function SettingsPage({
                           aria-pressed={network.selectedWifiNetworkId === item.id}
                           onClick={() => network.onNetworkSelect(item.id)}
                           data-testid={`settings-network-item-${item.id}`}
-                          disabled={!network.isCapabilityAvailable}
+                          disabled={!network.isCapabilityAvailable || network.isBusy}
                         >
                           <div className="settings-network-item-copy">
                             <strong>{item.ssid}</strong>
@@ -285,14 +287,14 @@ export function SettingsPage({
                               onClick={network.isCapabilityAvailable ? network.onPasswordInputFocus : undefined}
                               placeholder="Введите пароль"
                               data-testid="settings-network-password-input"
-                              disabled={!network.isCapabilityAvailable}
+                              disabled={!network.isCapabilityAvailable || network.isBusy}
                             />
                             <button
                               type="button"
                               className="settings-network-btn"
                               onClick={network.onPasswordVisibilityToggle}
                               data-testid="settings-network-password-visibility"
-                              disabled={!network.isCapabilityAvailable}
+                              disabled={!network.isCapabilityAvailable || network.isBusy}
                             >
                               {network.isPasswordVisible ? 'Скрыть' : 'Показать'}
                             </button>
@@ -308,16 +310,16 @@ export function SettingsPage({
                           className="settings-network-btn settings-network-btn-primary"
                           onClick={network.onConnect}
                           data-testid="settings-network-connect-button"
-                          disabled={!network.isCapabilityAvailable}
+                          disabled={!network.isCapabilityAvailable || network.isBusy}
                         >
-                          Подключить
+                          {network.isBusy ? '...' : 'Подключить'}
                         </button>
                         <button
                           type="button"
                           className="settings-network-btn"
                           onClick={network.onForgetSelected}
                           data-testid="settings-network-forget-button"
-                          disabled={!network.isCapabilityAvailable}
+                          disabled={!network.isCapabilityAvailable || network.isBusy}
                         >
                           Забыть сеть
                         </button>
@@ -325,7 +327,12 @@ export function SettingsPage({
 
                       <article className="settings-description-card settings-network-status-card">
                         <p><span>IP адрес</span><strong>{network.wifiIpLabel}</strong></p>
-                        <p><span>Статус</span><strong>{network.connectedWifiNetwork ? 'Подключено' : network.connectionLabel}</strong></p>
+                        <p>
+                          <span>Статус</span>
+                          <strong>
+                            {network.currentSsid ? 'Подключено' : network.isCapabilityAvailable ? 'Не подключено' : network.connectionLabel}
+                          </strong>
+                        </p>
                       </article>
 
                       <p className="settings-network-notice" data-testid="settings-network-notice">
@@ -335,7 +342,14 @@ export function SettingsPage({
                       </p>
                     </>
                   ) : (
-                    <p className="settings-network-empty">Выберите сеть слева.</p>
+                    <>
+                      <p className="settings-network-empty">Выберите сеть слева.</p>
+                      <p className="settings-network-notice" data-testid="settings-network-notice">
+                        {network.isCapabilityAvailable && network.notice.length > 0
+                          ? network.notice
+                          : network.capabilityNotice}
+                      </p>
+                    </>
                   )}
                 </section>
               </div>

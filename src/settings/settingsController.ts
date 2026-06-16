@@ -1,22 +1,31 @@
-import { type ChangeEvent, useCallback, useMemo, useRef, useState } from 'react'
+import {
+  filterWifiNetworks,
+  getPreferredWifiNetworkId,
+  type WifiNetworkItem,
+} from '@treed/printer-logic'
+import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
+import {
+  areHostNetworkStatusesEqual,
+  createUnavailableHostNetworkStatus,
+  getHostNetworkErrorMessage,
+  type HostNetworkClient,
+  type HostNetworkStatus,
+} from '../core/hostNetwork'
 import type { PrinterSnapshot } from '../core/transport/types'
 import {
-  DEFAULT_SELECTED_WIFI_NETWORK_ID,
   DEFAULT_TIMEZONE_OPTION,
   LANGUAGE_OPTIONS,
   SETTINGS_NOTIFICATION_HISTORY,
   SLEEP_MODE_OPTIONS,
   TIMEZONE_OPTIONS,
   UPDATE_AVAILABLE_VERSION,
-  WIFI_NETWORK_LIBRARY,
   type SettingsGroupId,
   type SettingsNotificationItem,
-  type WifiNetworkItem,
 } from './config'
 import type { SettingsPageProps } from './SettingsPage'
 
-export type { WifiNetworkItem } from './config'
+export type { WifiNetworkItem } from '@treed/printer-logic'
 
 export type SettingsKeyboardTarget = 'wifiSearch' | 'wifiPassword' | 'consoleCommand'
 
@@ -31,6 +40,7 @@ type SettingsKeyboardMeta = {
 type UseSettingsControllerArgs = {
   snapshot: PrinterSnapshot
   connectionLabel: string
+  networkClient: HostNetworkClient
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   activeKeyboardTarget: SettingsKeyboardTarget | null
@@ -50,10 +60,6 @@ type UseSettingsControllerResult = {
   pageProps: SettingsPageProps
   keyboard: SettingsKeyboardController
   isKeyboardTargetAllowed: (target: SettingsKeyboardTarget) => boolean
-}
-
-function clampSignalPercent(value: number): number {
-  return Math.min(100, Math.max(18, value))
 }
 
 export function isSettingsKeyboardTarget(target: string | null): target is SettingsKeyboardTarget {
@@ -90,22 +96,10 @@ export function getSettingsKeyboardMeta(target: SettingsKeyboardTarget): Setting
   }
 }
 
-export function filterWifiNetworks(networks: readonly WifiNetworkItem[], query: string): WifiNetworkItem[] {
-  const normalizedQuery = query.trim().toLocaleLowerCase('ru-RU')
-
-  return networks
-    .filter((item) => item.ssid.toLocaleLowerCase('ru-RU').includes(normalizedQuery))
-    .sort((left, right) => {
-      if (left.connected !== right.connected) {
-        return left.connected ? -1 : 1
-      }
-      return right.signalPercent - left.signalPercent
-    })
-}
-
 export function useSettingsController({
   snapshot,
   connectionLabel,
+  networkClient,
   executeCommand,
   getCommandBlockReason,
   activeKeyboardTarget,
@@ -133,23 +127,26 @@ export function useSettingsController({
   const [consoleCommandValue, setConsoleCommandValue] = useState<string>('')
   const [consoleHistory, setConsoleHistory] = useState<Array<{ id: string; command: string; createdAt: string }>>([])
   const [consoleNotice, setConsoleNotice] = useState<string>('Введите G-code или макрос и отправьте команду.')
-  const [wifiNetworks, setWifiNetworks] = useState<WifiNetworkItem[]>(() => [...WIFI_NETWORK_LIBRARY])
+  const [hostNetworkStatus, setHostNetworkStatus] = useState<HostNetworkStatus>(() =>
+    createUnavailableHostNetworkStatus('Host network bridge недоступен.'),
+  )
+  const [isNetworkBusy, setIsNetworkBusy] = useState<boolean>(false)
+  const [wifiNetworks, setWifiNetworks] = useState<WifiNetworkItem[]>([])
   const [wifiSearchQuery, setWifiSearchQuery] = useState<string>('')
-  const [selectedWifiNetworkId, setSelectedWifiNetworkId] = useState<string | null>(DEFAULT_SELECTED_WIFI_NETWORK_ID)
+  const [selectedWifiNetworkId, setSelectedWifiNetworkId] = useState<string | null>(null)
   const [wifiPasswordValue, setWifiPasswordValue] = useState<string>('')
   const [isWifiPasswordVisible, setIsWifiPasswordVisible] = useState<boolean>(false)
   const [wifiConnectionNotice, setWifiConnectionNotice] = useState<string>('')
   const wifiSearchInputRef = useRef<HTMLInputElement | null>(null)
   const wifiPasswordInputRef = useRef<HTMLInputElement | null>(null)
   const consoleInputRef = useRef<HTMLTextAreaElement | null>(null)
-  const isRuntimeCurrent = snapshot.connection === 'online' || snapshot.connection === 'degraded'
-  const isNetworkCapabilityAvailable = snapshot.capabilities.network
+  const isNetworkCapabilityAvailable = hostNetworkStatus.available
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const isUpdatesCapabilityAvailable = snapshot.capabilities.updates
-  const wifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
+  const wifiIpLabel = hostNetworkStatus.ipAddress ?? '—'
   const networkCapabilityNotice = isNetworkCapabilityAvailable
-    ? 'Выберите сеть и выполните подключение.'
-    : 'Недоступно: Moonraker/V2 Wi-Fi capability не подтвержден.'
+    ? hostNetworkStatus.message
+    : `Недоступно: ${hostNetworkStatus.message}`
   const cloudCapabilityNotice = isCloudCapabilityAvailable
     ? cloudConnectionNotice
     : 'Недоступно: Moonraker/V2 cloud capability не подтвержден.'
@@ -209,6 +206,51 @@ export function useSettingsController({
     })
   }, [])
 
+  const applyHostNetworkStatus = useCallback((nextStatus: HostNetworkStatus, notice?: string): void => {
+    setHostNetworkStatus((currentStatus) =>
+      areHostNetworkStatusesEqual(currentStatus, nextStatus) ? currentStatus : nextStatus,
+    )
+    setWifiNetworks((currentNetworks) =>
+      areHostNetworkStatusesEqual(
+        { ...nextStatus, networks: currentNetworks },
+        nextStatus,
+      )
+        ? currentNetworks
+        : nextStatus.networks,
+    )
+    setSelectedWifiNetworkId((previousNetworkId) =>
+      getPreferredWifiNetworkId(nextStatus.networks, previousNetworkId),
+    )
+    if (notice !== undefined) {
+      setWifiConnectionNotice(notice)
+    }
+  }, [])
+
+  const applyHostNetworkError = useCallback((error: unknown, fallback: string): void => {
+    const message = getHostNetworkErrorMessage(error, fallback)
+    applyHostNetworkStatus(createUnavailableHostNetworkStatus(message), message)
+  }, [applyHostNetworkStatus])
+
+  useEffect(() => {
+    let isDisposed = false
+
+    void networkClient.getStatus()
+      .then((nextStatus) => {
+        if (!isDisposed) {
+          applyHostNetworkStatus(nextStatus)
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isDisposed) {
+          applyHostNetworkError(error, 'Не удалось получить статус Wi-Fi.')
+        }
+      })
+
+    return () => {
+      isDisposed = true
+    }
+  }, [applyHostNetworkError, applyHostNetworkStatus, networkClient])
+
   function handleWifiSearchQueryChange(event: ChangeEvent<HTMLInputElement>): void {
     setWifiSearchQuery(event.target.value)
   }
@@ -218,19 +260,30 @@ export function useSettingsController({
   }
 
   function handleWifiScan(): void {
-    if (!isNetworkCapabilityAvailable) {
+    if (!isNetworkCapabilityAvailable || isNetworkBusy) {
       setWifiConnectionNotice(networkCapabilityNotice)
       return
     }
 
-    setWifiNetworks((current) => current.map((item, index) => ({
-      ...item,
-      signalPercent: clampSignalPercent(item.signalPercent + (index % 2 === 0 ? 3 : -2)),
-    })))
-    setWifiConnectionNotice('Список Wi-Fi сетей обновлен.')
+    setIsNetworkBusy(true)
+    setWifiConnectionNotice('Поиск Wi-Fi сетей...')
+    void networkClient.scan()
+      .then((nextStatus) => {
+        applyHostNetworkStatus(nextStatus, 'Список Wi-Fi сетей обновлен.')
+      })
+      .catch((error: unknown) => {
+        setWifiConnectionNotice(getHostNetworkErrorMessage(error, 'Не удалось обновить список Wi-Fi сетей.'))
+      })
+      .finally(() => {
+        setIsNetworkBusy(false)
+      })
   }
 
   function handleWifiNetworkSelect(networkId: string): void {
+    if (!isNetworkCapabilityAvailable || isNetworkBusy) {
+      return
+    }
+
     setSelectedWifiNetworkId(networkId)
     setWifiConnectionNotice('')
     setWifiPasswordValue('')
@@ -250,7 +303,7 @@ export function useSettingsController({
   }
 
   function handleWifiConnect(): void {
-    if (!isNetworkCapabilityAvailable) {
+    if (!isNetworkCapabilityAvailable || isNetworkBusy) {
       setWifiConnectionNotice(networkCapabilityNotice)
       return
     }
@@ -264,28 +317,27 @@ export function useSettingsController({
       return
     }
 
-    setWifiNetworks((current) => current.map((item) => {
-      if (item.id === selectedWifiNetwork.id) {
-        return {
-          ...item,
-          connected: true,
-          saved: true,
-        }
-      }
-
-      return {
-        ...item,
-        connected: false,
-      }
-    }))
-
-    setWifiConnectionNotice(`Подключено к ${selectedWifiNetwork.ssid}.`)
-    setWifiPasswordValue('')
-    setIsWifiPasswordVisible(false)
+    setIsNetworkBusy(true)
+    setWifiConnectionNotice(`Подключение к ${selectedWifiNetwork.ssid}...`)
+    void networkClient.connect({
+      ssid: selectedWifiNetwork.ssid,
+      password: selectedWifiNetwork.security === 'open' ? undefined : wifiPasswordValue,
+    })
+      .then((nextStatus) => {
+        applyHostNetworkStatus(nextStatus, nextStatus.message)
+        setWifiPasswordValue('')
+        setIsWifiPasswordVisible(false)
+      })
+      .catch((error: unknown) => {
+        setWifiConnectionNotice(getHostNetworkErrorMessage(error, `Не удалось подключиться к ${selectedWifiNetwork.ssid}.`))
+      })
+      .finally(() => {
+        setIsNetworkBusy(false)
+      })
   }
 
   function handleWifiForgetSelected(): void {
-    if (!isNetworkCapabilityAvailable) {
+    if (!isNetworkCapabilityAvailable || isNetworkBusy) {
       setWifiConnectionNotice(networkCapabilityNotice)
       return
     }
@@ -294,20 +346,20 @@ export function useSettingsController({
       return
     }
 
-    setWifiNetworks((current) => current.map((item) => {
-      if (item.id !== selectedWifiNetwork.id) {
-        return item
-      }
-
-      return {
-        ...item,
-        connected: false,
-        saved: false,
-      }
-    }))
-    setWifiConnectionNotice(`Сеть ${selectedWifiNetwork.ssid} удалена из сохраненных.`)
-    setWifiPasswordValue('')
-    setIsWifiPasswordVisible(false)
+    setIsNetworkBusy(true)
+    setWifiConnectionNotice(`Удаление сети ${selectedWifiNetwork.ssid}...`)
+    void networkClient.forget({ ssid: selectedWifiNetwork.ssid })
+      .then((nextStatus) => {
+        applyHostNetworkStatus(nextStatus, nextStatus.message)
+        setWifiPasswordValue('')
+        setIsWifiPasswordVisible(false)
+      })
+      .catch((error: unknown) => {
+        setWifiConnectionNotice(getHostNetworkErrorMessage(error, `Не удалось забыть сеть ${selectedWifiNetwork.ssid}.`))
+      })
+      .finally(() => {
+        setIsNetworkBusy(false)
+      })
   }
 
   function handleCloudConnectionToggle(): void {
@@ -487,6 +539,7 @@ export function useSettingsController({
     },
     network: {
       isCapabilityAvailable: isNetworkCapabilityAvailable,
+      isBusy: isNetworkBusy,
       searchInputRef: wifiSearchInputRef,
       passwordInputRef: wifiPasswordInputRef,
       searchQuery: wifiSearchQuery,
@@ -495,6 +548,7 @@ export function useSettingsController({
       filteredWifiNetworks,
       passwordValue: wifiPasswordValue,
       isPasswordVisible: isWifiPasswordVisible,
+      currentSsid: hostNetworkStatus.ssid,
       wifiIpLabel,
       connectedWifiNetwork,
       connectionLabel,

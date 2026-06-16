@@ -1,7 +1,14 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
-import { clearMockCommandFailure, createMockSnapshot, setMockCommandFailure } from '../mocks/runtime'
+import {
+  clearMockCommandFailure,
+  clearMockNetworkRuntime,
+  createMockSnapshot,
+  getMockNetworkOperations,
+  setMockCommandFailure,
+  setMockNetworkStatus,
+} from '../mocks/runtime'
 
 beforeEach(() => {
   act(() => {
@@ -11,6 +18,7 @@ beforeEach(() => {
 
 afterEach(() => {
   clearMockCommandFailure()
+  clearMockNetworkRuntime()
 })
 
 describe('App', () => {
@@ -521,7 +529,7 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
   }, 10000)
 
-  it('opens Wi-Fi popup with network details and navigates to settings', () => {
+  it('opens Wi-Fi popup with network details and navigates to settings', async () => {
     render(<App />)
 
     const wifiButton = screen.getByRole('button', { name: 'Статус Wi-Fi' })
@@ -550,12 +558,53 @@ describe('App', () => {
     expect(screen.queryByTestId('settings-wifi-search-keyboard')).not.toBeInTheDocument()
 
     expect(screen.getByTestId('settings-network-scan')).toBeDisabled()
-    expect(screen.getByTestId('settings-network-item-office-main-5g')).toBeDisabled()
-    expect(screen.getByTestId('settings-network-connect-button')).toBeDisabled()
-    expect(screen.getByTestId('settings-network-forget-button')).toBeDisabled()
-    expect(screen.getByTestId('settings-network-notice')).toHaveTextContent('Wi-Fi capability не подтвержден')
+    expect(screen.queryByTestId('settings-network-item-office-main-5g')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-network-connect-button')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-network-forget-button')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-network-notice')).toHaveTextContent('network bridge недоступен')
+    })
     expect(screen.queryByText('Текущая сеть')).not.toBeInTheDocument()
     expect(screen.queryByTestId('top-popup-wifi')).not.toBeInTheDocument()
+  })
+
+  it('enables Wi-Fi controls through host network runtime and opens password keyboard', async () => {
+    setMockNetworkStatus({
+      available: true,
+      ssid: null,
+      ipAddress: null,
+      message: 'Mock network bridge ready',
+      networks: [
+        {
+          id: 'office-main-5g',
+          ssid: 'Office_Main_5G',
+          signalPercent: 73,
+          security: 'wpa2',
+          saved: true,
+          connected: false,
+        },
+      ],
+    })
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Настройки' }))
+    fireEvent.click(screen.getByTestId('settings-group-network'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-network-scan')).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByTestId('settings-network-item-office-main-5g'))
+    const passwordInput = screen.getByTestId('settings-network-password-input') as HTMLInputElement
+    fireEvent.focus(passwordInput)
+    expect(screen.getByTestId('settings-wifi-keyboard')).toBeInTheDocument()
+
+    fireEvent.change(passwordInput, { target: { value: '12345678' } })
+    fireEvent.click(screen.getByTestId('settings-network-connect-button'))
+
+    await waitFor(() => {
+      expect(getMockNetworkOperations()).toContain('connect:Office_Main_5G')
+    })
   })
 
   it('renders extended settings sections and handles interactions', () => {

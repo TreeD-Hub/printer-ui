@@ -111,6 +111,17 @@ export interface CommandClient {
   execute: (args: ExecuteCommandArgs) => Promise<CommandResult>
 }
 
+export type WifiNetworkSecurity = 'open' | 'wpa2' | 'wpa3'
+
+export interface WifiNetworkItem {
+  id: string
+  ssid: string
+  signalPercent: number
+  security: WifiNetworkSecurity
+  saved: boolean
+  connected: boolean
+}
+
 export interface PrinterCapabilitiesSnapshot {
   print: boolean
   motion: boolean
@@ -147,6 +158,31 @@ export interface PrinterSnapshot {
   modelFanPercent: number
   updatedAt: string
   message: string
+}
+
+export function filterWifiNetworks(networks: readonly WifiNetworkItem[], query: string): WifiNetworkItem[] {
+  const normalizedQuery = query.trim().toLocaleLowerCase('ru-RU')
+
+  return networks
+    .filter((item) => item.ssid.toLocaleLowerCase('ru-RU').includes(normalizedQuery))
+    .sort((left, right) => {
+      if (left.connected !== right.connected) {
+        return left.connected ? -1 : 1
+      }
+      return right.signalPercent - left.signalPercent
+    })
+}
+
+export function getPreferredWifiNetworkId(
+  networks: readonly WifiNetworkItem[],
+  previousNetworkId: string | null,
+): string | null {
+  return (
+    networks.find((item) => item.connected)?.id ??
+    networks.find((item) => item.id === previousNetworkId)?.id ??
+    networks[0]?.id ??
+    null
+  )
 }
 
 export interface PrinterFileItem {
