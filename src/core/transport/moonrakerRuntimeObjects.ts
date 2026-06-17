@@ -7,6 +7,7 @@ export const MOONRAKER_RUNTIME_OBJECTS = [
   'extruder',
   'heater_bed',
   'fan',
+  'firmware_retraction',
   'display_status',
   'pause_resume',
   'idle_timeout',
@@ -20,4 +21,5 @@ export const MOONRAKER_RUNTIME_OBJECTS = [
   'gcode_macro _TREED_UPDATES',
   'gcode_macro _TREED_CAMERA',
   'gcode_macro _TREED_SERVICE_COMMANDS',
+  'gcode_macro _TREED_UI_TUNE_STATE',
 ] as const

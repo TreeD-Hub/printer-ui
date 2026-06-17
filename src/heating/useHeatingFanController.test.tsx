@@ -19,6 +19,10 @@ function TestHarness({
       extruderTemp: 201,
       bedTemp: 58,
       modelFanPercent: 43,
+      thermalTargets: {
+        nozzle: 215,
+        bed: 60,
+      },
     },
     isBusy: false,
     executeCommand,

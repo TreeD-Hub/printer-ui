@@ -9,7 +9,9 @@ import type {
   PrinterPositionSnapshot,
   PrinterPrintJobSnapshot,
   PrinterRuntimeSnapshot,
+  PrinterRuntimeTuneSnapshot,
   PrinterSource,
+  PrinterThermalTargetsSnapshot,
   PrinterToolheadRuntimeSnapshot,
   PrinterV2Snapshot,
 } from './types'
@@ -33,6 +35,7 @@ export interface MoonrakerPrinterObjectsStatus {
   extruder?: MoonrakerHeaterStatus
   heater_bed?: MoonrakerHeaterStatus
   fan?: MoonrakerFanStatus
+  firmware_retraction?: MoonrakerFirmwareRetractionStatus
   display_status?: MoonrakerDisplayStatus
   pause_resume?: MoonrakerPauseResumeStatus
   webhooks?: MoonrakerWebhooksStatus
@@ -42,6 +45,7 @@ export interface MoonrakerPrinterObjectsStatus {
 export interface MoonrakerToolheadStatus {
   position?: Array<number | null | undefined>
   homed_axes?: string
+  max_accel?: number
 }
 
 export interface MoonrakerGcodeMoveStatus {
@@ -79,10 +83,15 @@ export interface MoonrakerVirtualSdCardStatus {
 export interface MoonrakerHeaterStatus {
   temperature?: number
   target?: number
+  pressure_advance?: number
 }
 
 export interface MoonrakerFanStatus {
   speed?: number
+}
+
+export interface MoonrakerFirmwareRetractionStatus {
+  retract_length?: number
 }
 
 export interface MoonrakerDisplayStatus {
@@ -266,6 +275,39 @@ function normalizeHeater(value: MoonrakerHeaterStatus | undefined): number {
 
 function normalizeFan(value: MoonrakerFanStatus | undefined): number {
   return clamp(toFiniteNumber(value?.speed, 0) * 100, 0, 100)
+}
+
+function normalizeThermalTargets(
+  extruder: MoonrakerHeaterStatus | undefined,
+  heaterBed: MoonrakerHeaterStatus | undefined,
+): PrinterThermalTargetsSnapshot {
+  return {
+    nozzle: toFiniteNumber(extruder?.target, 0),
+    bed: toFiniteNumber(heaterBed?.target, 0),
+  }
+}
+
+function normalizeRuntimeTune(
+  toolhead: MoonrakerToolheadStatus | undefined,
+  gcodeMove: PrinterGeometrySnapshot,
+  extruder: MoonrakerHeaterStatus | undefined,
+  firmwareRetraction: MoonrakerFirmwareRetractionStatus | undefined,
+  macros: PrinterMacroStateSnapshot,
+): PrinterRuntimeTuneSnapshot {
+  const uiTuneState = readMacro(macros.values, '_TREED_UI_TUNE_STATE')
+  const contractVersion = typeof uiTuneState?.contract_version === 'string'
+    ? uiTuneState.contract_version
+    : null
+
+  return {
+    contractVersion,
+    speedFactorPercent: Math.round(gcodeMove.speedFactor * 100),
+    flowFactorPercent: Math.round(gcodeMove.extrudeFactor * 100),
+    accelMmS2: toFiniteNumber(toolhead?.max_accel, 0),
+    pressureAdvance: toFiniteNumber(extruder?.pressure_advance, 0),
+    retractLengthMm: toFiniteNumber(firmwareRetraction?.retract_length, 0),
+    appliedBabystepMm: toFiniteNumber(uiTuneState?.applied_babystep, 0),
+  }
 }
 
 function normalizeDisplayStatus(displayStatus: MoonrakerDisplayStatus | undefined): MoonrakerDisplayStatus {
@@ -611,6 +653,8 @@ export function normalizeMoonrakerRuntimeSnapshot(
       speed: gcodeMove.speed,
       extrudeFactor: gcodeMove.extrudeFactor,
     },
+    thermalTargets: normalizeThermalTargets(status.extruder, status.heater_bed),
+    runtimeTune: normalizeRuntimeTune(status.toolhead, gcodeMove, status.extruder, status.firmware_retraction, macros),
     macros,
     printFiles: normalizeMoonrakerPrintFiles(options.printFiles ?? []),
     v2: normalizeV2Snapshot(macros, webhooks, homedAxes),

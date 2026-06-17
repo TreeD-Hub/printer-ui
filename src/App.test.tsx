@@ -5,6 +5,7 @@ import {
   clearMockCommandFailure,
   clearMockNetworkRuntime,
   createMockSnapshot,
+  getMockCommandOperations,
   getMockNetworkOperations,
   setMockCommandFailure,
   setMockNetworkStatus,
@@ -151,6 +152,46 @@ describe('App', () => {
       expect((screen.getByTestId('print-tune-temp-nozzle-input') as HTMLInputElement).value).toBe('240')
     })
     expect(screen.queryByRole('button', { name: 'Ввод' })).not.toBeInTheDocument()
+  }, 20000)
+
+  it('routes print tune speed and Z-offset controls through printer commands', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('print-tune-group-speed')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId('print-tune-group-speed'))
+    fireEvent.click(screen.getByTestId('print-tune-speed-plus'))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'setPrintSpeedFactorPercent',
+            percent: 105,
+          }),
+        ]),
+      )
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Babystep плюс 0.05' }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'adjustZOffset',
+            deltaMm: 0.05,
+          }),
+        ]),
+      )
+    })
   }, 20000)
 
   it('switches between screens from bottom navigation', () => {
@@ -475,7 +516,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
     })
-    expect(screen.getByTestId('print-tune-group-progress')).toBeInTheDocument()
+    expect(screen.getByTestId('print-progress-summary')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
     fireEvent.click(screen.getAllByTestId('print-file-card')[0])

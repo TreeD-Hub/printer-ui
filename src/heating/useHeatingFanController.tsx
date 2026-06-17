@@ -1,7 +1,6 @@
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
-import { TEMPERATURE_METRIC_DEFINITIONS } from '../dashboard/config'
 import type {
   FanControlPanelProps,
   HeatingCommandBlockReasons,
@@ -12,13 +11,14 @@ import type {
 } from '../control/types'
 import type { PrintTuneModalProps, TemperatureChartMode } from '../printTune'
 
-const DEFAULT_NOZZLE_TARGET_TEMP = TEMPERATURE_METRIC_DEFINITIONS.find((item) => item.key === 'nozzle')?.target ?? 220
-const DEFAULT_BED_TARGET_TEMP = TEMPERATURE_METRIC_DEFINITIONS.find((item) => item.key === 'bed')?.target ?? 60
-
 type HeatingSnapshot = {
   extruderTemp: number
   bedTemp: number
   modelFanPercent: number
+  thermalTargets: {
+    nozzle: number
+    bed: number
+  }
 }
 
 type UseHeatingFanControllerArgs = {
@@ -60,8 +60,8 @@ export function useHeatingFanController({
   getCommandBlockReason,
   closePrintTuneKeyboard,
 }: UseHeatingFanControllerArgs): UseHeatingFanControllerResult {
-  const [printNozzleTargetTemp, setPrintNozzleTargetTemp] = useState<number>(DEFAULT_NOZZLE_TARGET_TEMP)
-  const [printBedTargetTemp, setPrintBedTargetTemp] = useState<number>(DEFAULT_BED_TARGET_TEMP)
+  const [printNozzleTargetTemp, setPrintNozzleTargetTemp] = useState<number>(snapshot.thermalTargets.nozzle)
+  const [printBedTargetTemp, setPrintBedTargetTemp] = useState<number>(snapshot.thermalTargets.bed)
   const [printFanPercent, setPrintFanPercent] = useState<number>(Math.round(snapshot.modelFanPercent))
   const [temperatureChartMode, setTemperatureChartMode] = useState<TemperatureChartMode>('both')
   const [temperatureKeyboardTarget, setTemperatureKeyboardTarget] = useState<TemperatureKeyboardTarget | null>(null)
@@ -81,6 +81,14 @@ export function useHeatingFanController({
     turnOffHeaters: getCommandBlockReason('turnOffHeaters'),
   }), [getCommandBlockReason])
   const fanCommandBlockReason = getCommandBlockReason('setFanPercent')
+
+  useEffect(() => {
+    setPrintNozzleTargetTemp(snapshot.thermalTargets.nozzle)
+  }, [snapshot.thermalTargets.nozzle])
+
+  useEffect(() => {
+    setPrintBedTargetTemp(snapshot.thermalTargets.bed)
+  }, [snapshot.thermalTargets.bed])
 
   const nozzleTrendValues = useMemo(
     () => Array.from({ length: 24 }, (_, index) => {
@@ -129,7 +137,7 @@ export function useHeatingFanController({
       tone: 'orange',
       current: snapshot.extruderTemp,
       target: printNozzleTargetTemp,
-      onTargetChange: setPrintNozzleTargetTemp,
+      onTargetChange: handleNozzleTargetChange,
       testIdPrefix: 'control-heating-nozzle',
     },
     {
@@ -140,7 +148,7 @@ export function useHeatingFanController({
       tone: 'green',
       current: snapshot.bedTemp,
       target: printBedTargetTemp,
-      onTargetChange: setPrintBedTargetTemp,
+      onTargetChange: handleBedTargetChange,
       testIdPrefix: 'control-heating-bed',
     },
   ]
@@ -152,6 +160,18 @@ export function useHeatingFanController({
     }
 
     setPrintBedTargetTemp(value)
+  }
+
+  function handleNozzleTargetChange(value: number): void {
+    const normalized = Math.round(clampHeatingValue(value, 0, 300))
+    setPrintNozzleTargetTemp(normalized)
+    void executeCommand({ command: 'setNozzleTarget', targetCelsius: normalized })
+  }
+
+  function handleBedTargetChange(value: number): void {
+    const normalized = Math.round(clampHeatingValue(value, 0, 300))
+    setPrintBedTargetTemp(normalized)
+    void executeCommand({ command: 'setBedTarget', targetCelsius: normalized })
   }
 
   function openTemperatureKeyboard(target: TemperatureKeyboardTarget): void {
@@ -310,8 +330,8 @@ export function useHeatingFanController({
     renderKeyboardPanel: renderTemperatureKeyboardPanel,
     onKeyboardOpen: openTemperatureKeyboard,
     onChartModeChange: setTemperatureChartMode,
-    onNozzleTargetChange: setPrintNozzleTargetTemp,
-    onBedTargetChange: setPrintBedTargetTemp,
+    onNozzleTargetChange: handleNozzleTargetChange,
+    onBedTargetChange: handleBedTargetChange,
   }
 
   return {

@@ -156,6 +156,21 @@ function App() {
     (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
     [],
   )
+  const handlePrintSpeedFactorChange = useCallback((percent: number): void => {
+    void executeCommand({ command: 'setPrintSpeedFactorPercent', percent })
+  }, [executeCommand])
+  const handlePrintFlowFactorChange = useCallback((percent: number): void => {
+    void executeCommand({ command: 'setPrintFlowFactorPercent', percent })
+  }, [executeCommand])
+  const handlePrintAccelChange = useCallback((accelMmS2: number): void => {
+    void executeCommand({ command: 'setPrintAccel', accelMmS2 })
+  }, [executeCommand])
+  const handlePressureAdvanceChange = useCallback((advance: number): void => {
+    void executeCommand({ command: 'setPressureAdvance', advance })
+  }, [executeCommand])
+  const handleRetractionLengthChange = useCallback((retractLengthMm: number): void => {
+    void executeCommand({ command: 'setRetractionLength', retractLengthMm })
+  }, [executeCommand])
   const [idleNotesText, setIdleNotesText] = useState<string>(IDLE_NOTES_DEFAULT_TEXT)
   const [activeKeyboardTarget, setActiveKeyboardTarget] = useState<KeyboardTarget | null>(null)
   const [keyboardLanguage, setKeyboardLanguage] = useState<VirtualKeyboardLanguage>('ru')
@@ -214,7 +229,15 @@ function App() {
     adjustedEtaTime,
     createModalValues,
     createModalHandlers,
-  } = usePrintTuneController({ hasActivePrint })
+  } = usePrintTuneController({
+    hasActivePrint,
+    runtimeTune: snapshot.runtimeTune,
+    onPrintSpeedFactorPercentChange: handlePrintSpeedFactorChange,
+    onPrintFlowFactorPercentChange: handlePrintFlowFactorChange,
+    onPrintAccelChange: handlePrintAccelChange,
+    onPressureAdvanceChange: handlePressureAdvanceChange,
+    onRetractionLengthChange: handleRetractionLengthChange,
+  })
   const heatingController = useHeatingFanController({
     snapshot,
     isBusy,
@@ -297,6 +320,10 @@ function App() {
   const printPauseBlockReason = getCommandBlockReason(printPauseCommand)
   const printCancelBlockReason = getCommandBlockReason('cancel')
   const printStartBlockReason = getCommandBlockReason('start')
+  const babystepBlockReason = getCommandBlockReason('adjustZOffset', {
+    command: 'adjustZOffset',
+    deltaMm: babystepStep,
+  })
   const fileStartNotice = getFileStartNotice(printStartBlockReason)
   const printSessionCommandHandlers = createPrintSessionCommandHandlers({
     executeCommand,
@@ -354,9 +381,6 @@ function App() {
   const quickMetrics = createQuickMetrics(printFanPercent)
   const printTuneModalValues = createModalValues({
     fanPercent: printFanPercent,
-    printFill,
-    displayLayerCurrent,
-    displayLayerTotal,
   })
   const printTuneModalHandlers = createModalHandlers({
     onFanPercentChange: handleFanPercentChange,
@@ -366,6 +390,9 @@ function App() {
     setActiveScreen('settings')
     closeTopPopup()
   }, [closeTopPopup, setActiveSettingsGroup])
+  const handleBabystepAdjust = useCallback((deltaMm: number): void => {
+    void executeCommand({ command: 'adjustZOffset', deltaMm })
+  }, [executeCommand])
 
   function clearIdleWidgetHoldTimeout(): void {
     if (idleWidgetHoldTimeoutRef.current === null) {
@@ -759,6 +786,8 @@ function App() {
               printCancelBlockReason={printCancelBlockReason}
               babystepStep={babystepStep}
               babystepActiveIndex={babystepActiveIndex}
+              zOffsetMm={snapshot.runtimeTune.appliedBabystepMm}
+              babystepBlockReason={babystepBlockReason}
               idleHeroStatusLabel={idleHeroStatusLabel}
               idleWidgetOrder={idleWidgetOrder}
               armedIdleWidgetId={armedIdleWidgetId}
@@ -773,6 +802,7 @@ function App() {
               onPause={() => void printSessionCommandHandlers.togglePause()}
               onStopRequest={() => void printSessionCommandHandlers.requestStop()}
               onBabystepStepChange={setBabystepStep}
+              onBabystepAdjust={handleBabystepAdjust}
               onIdleWidgetTargetOpen={openIdleWidgetTarget}
               onIdleWidgetDragPointerDown={handleIdleWidgetDragPointerDown}
               onIdleWidgetDragPointerMove={handleIdleWidgetDragPointerMove}

@@ -23,6 +23,12 @@ export type PrinterCommandId =
   | 'setBedTarget'
   | 'turnOffHeaters'
   | 'setFanPercent'
+  | 'setPrintSpeedFactorPercent'
+  | 'setPrintFlowFactorPercent'
+  | 'setPrintAccel'
+  | 'setPressureAdvance'
+  | 'setRetractionLength'
+  | 'adjustZOffset'
   | 'loadFilament'
   | 'unloadFilament'
   | 'zParkZeroEddy'
@@ -78,6 +84,26 @@ export type ExecuteCommandArgs =
   | {
       command: 'setFanPercent'
       percent: number
+    }
+  | {
+      command: 'setPrintSpeedFactorPercent' | 'setPrintFlowFactorPercent'
+      percent: number
+    }
+  | {
+      command: 'setPrintAccel'
+      accelMmS2: number
+    }
+  | {
+      command: 'setPressureAdvance'
+      advance: number
+    }
+  | {
+      command: 'setRetractionLength'
+      retractLengthMm: number
+    }
+  | {
+      command: 'adjustZOffset'
+      deltaMm: number
     }
   | {
       command: 'loadFilament' | 'unloadFilament'
@@ -602,6 +628,48 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'fan',
     requiresConfirmation: false,
   },
+  setPrintSpeedFactorPercent: {
+    id: 'setPrintSpeedFactorPercent',
+    risk: 'safe',
+    label: 'Скорость печати',
+    capability: 'print',
+    requiresConfirmation: false,
+  },
+  setPrintFlowFactorPercent: {
+    id: 'setPrintFlowFactorPercent',
+    risk: 'safe',
+    label: 'Поток экструдера',
+    capability: 'print',
+    requiresConfirmation: false,
+  },
+  setPrintAccel: {
+    id: 'setPrintAccel',
+    risk: 'caution',
+    label: 'Ускорение печати',
+    capability: 'print',
+    requiresConfirmation: false,
+  },
+  setPressureAdvance: {
+    id: 'setPressureAdvance',
+    risk: 'caution',
+    label: 'Pressure advance',
+    capability: 'print',
+    requiresConfirmation: false,
+  },
+  setRetractionLength: {
+    id: 'setRetractionLength',
+    risk: 'caution',
+    label: 'Откат',
+    capability: 'print',
+    requiresConfirmation: false,
+  },
+  adjustZOffset: {
+    id: 'adjustZOffset',
+    risk: 'caution',
+    label: 'Z-offset',
+    capability: 'print',
+    requiresConfirmation: false,
+  },
   loadFilament: {
     id: 'loadFilament',
     risk: 'caution',
@@ -698,6 +766,14 @@ export function isDangerousTreeDCommand(command: PrinterCommandId): boolean {
 
 const ACTIVE_PRINT_STATES = new Set(['printing', 'paused'])
 const PAUSED_PRINT_STATES = new Set(['paused'])
+const RUNTIME_TUNE_COMMANDS = new Set<PrinterCommandId>([
+  'setPrintSpeedFactorPercent',
+  'setPrintFlowFactorPercent',
+  'setPrintAccel',
+  'setPressureAdvance',
+  'setRetractionLength',
+  'adjustZOffset',
+])
 const MOTION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'home',
   'homeAll',
@@ -784,6 +860,16 @@ function getCommandSpecificBlockReason(
 
   if (command === 'cancel' && !activePrint) {
     return `${item.label}: нет активной печати.`
+  }
+
+  if (RUNTIME_TUNE_COMMANDS.has(command)) {
+    if (!activePrint) {
+      return `${item.label}: нет активной печати.`
+    }
+
+    if (command === 'adjustZOffset' && !context.homedAxes?.toLowerCase().includes('z')) {
+      return `${item.label}: сначала выполните Home Z.`
+    }
   }
 
   if (activePrint && MOTION_COMMANDS_BLOCKED_DURING_PRINT.has(command)) {

@@ -10,6 +10,7 @@ import type { PrinterSnapshot, PrinterSource, TransportClient } from '../src/cor
 export const runtimeMode: PrinterSource = 'mock'
 
 let mockCommandFailure: { command: PrinterCommandId; message: string } | null = null
+let mockCommandOperations: ExecuteCommandArgs[] = []
 let mockNetworkStatus = createUnavailableHostNetworkStatus('Host network bridge недоступен.')
 let mockNetworkOperations: string[] = []
 
@@ -52,6 +53,18 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
       return 'Mock: heaters off'
     case 'setFanPercent':
       return `Mock: fan set to ${args.percent}%`
+    case 'setPrintSpeedFactorPercent':
+      return `Mock: print speed factor set to ${args.percent}%`
+    case 'setPrintFlowFactorPercent':
+      return `Mock: print flow factor set to ${args.percent}%`
+    case 'setPrintAccel':
+      return `Mock: print accel set to ${args.accelMmS2}`
+    case 'setPressureAdvance':
+      return `Mock: pressure advance set to ${args.advance}`
+    case 'setRetractionLength':
+      return `Mock: retract length set to ${args.retractLengthMm}`
+    case 'adjustZOffset':
+      return `Mock: Z-offset adjusted by ${args.deltaMm}`
     case 'loadFilament':
       return 'Mock: load filament sent'
     case 'unloadFilament':
@@ -87,6 +100,11 @@ export function setMockCommandFailure(command: PrinterCommandId, message: string
 
 export function clearMockCommandFailure(): void {
   mockCommandFailure = null
+  mockCommandOperations = []
+}
+
+export function getMockCommandOperations(): ExecuteCommandArgs[] {
+  return mockCommandOperations.map((operation) => ({ ...operation }))
 }
 
 function cloneHostNetworkStatus(status: HostNetworkStatus): HostNetworkStatus {
@@ -196,6 +214,19 @@ export function createMockSnapshot(): PrinterSnapshot {
       speed: 0,
       extrudeFactor: 1,
     },
+    thermalTargets: {
+      nozzle: 220,
+      bed: 60,
+    },
+    runtimeTune: {
+      contractVersion: '1.0',
+      speedFactorPercent: 100,
+      flowFactorPercent: 100,
+      accelMmS2: 6000,
+      pressureAdvance: 0.08,
+      retractLengthMm: 0.8,
+      appliedBabystepMm: 0,
+    },
     macros: {
       available: [],
       values: {},
@@ -225,6 +256,7 @@ export function createCommandClient(): CommandClient {
   return {
     async execute(args: ExecuteCommandArgs): Promise<CommandResult> {
       await wait(220)
+      mockCommandOperations.push(args)
 
       if (mockCommandFailure?.command === args.command) {
         return {

@@ -43,6 +43,21 @@ export interface PrinterGeometrySnapshot {
   extrudeFactor: number
 }
 
+export interface PrinterThermalTargetsSnapshot {
+  nozzle: number
+  bed: number
+}
+
+export interface PrinterRuntimeTuneSnapshot {
+  contractVersion: string | null
+  speedFactorPercent: number
+  flowFactorPercent: number
+  accelMmS2: number
+  pressureAdvance: number
+  retractLengthMm: number
+  appliedBabystepMm: number
+}
+
 export interface PrinterFilesSnapshot {
   type: 'virtual_sdcard' | 'unknown'
   path: string | null
@@ -117,6 +132,8 @@ export interface PrinterRuntimeSnapshot {
   files: PrinterFilesSnapshot
   toolhead: PrinterToolheadRuntimeSnapshot
   geometry: PrinterGeometrySnapshot
+  thermalTargets: PrinterThermalTargetsSnapshot
+  runtimeTune: PrinterRuntimeTuneSnapshot
   macros: PrinterMacroStateSnapshot
   printFiles: PrinterFileItemSnapshot[]
   v2: PrinterV2Snapshot

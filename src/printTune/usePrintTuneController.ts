@@ -5,6 +5,7 @@ import {
   PROCESS_METRIC_DEFINITIONS,
   QUICK_METRIC_DEFINITIONS,
 } from '../dashboard/config'
+import type { PrinterRuntimeTuneSnapshot } from '../core/transport/types'
 import type { PrintTuneModalProps } from './PrintTuneModal'
 import {
   appendPrintTuneKeyboardDecimal,
@@ -17,6 +18,12 @@ import {
 
 type UsePrintTuneControllerArgs = {
   hasActivePrint: boolean
+  runtimeTune: PrinterRuntimeTuneSnapshot
+  onPrintSpeedFactorPercentChange: (value: number) => void
+  onPrintFlowFactorPercentChange: (value: number) => void
+  onPrintAccelChange: (value: number) => void
+  onPressureAdvanceChange: (value: number) => void
+  onRetractionLengthChange: (value: number) => void
 }
 
 type QuickMetric = {
@@ -36,9 +43,6 @@ type ProcessMetric = {
 
 type CreateModalValuesArgs = {
   fanPercent: number
-  printFill: number
-  displayLayerCurrent: number
-  displayLayerTotal: number
 }
 
 type CreateModalHandlersArgs = {
@@ -61,16 +65,19 @@ export type UsePrintTuneControllerResult = {
 
 export function usePrintTuneController({
   hasActivePrint,
+  runtimeTune,
+  onPrintSpeedFactorPercentChange,
+  onPrintFlowFactorPercentChange,
+  onPrintAccelChange,
+  onPressureAdvanceChange,
+  onRetractionLengthChange,
 }: UsePrintTuneControllerArgs): UsePrintTuneControllerResult {
   const [activeGroup, setActiveGroup] = useState<PrintTuneGroupId | null>(null)
-  const [volumetricFlowMm3S, setVolumetricFlowMm3S] = useState<number>(DASHBOARD_VALUES.volumetricFlowMm3S)
-  const [flowPercent, setFlowPercent] = useState<number>(DASHBOARD_VALUES.flowPercent)
-  const [speedMmS, setSpeedMmS] = useState<number>(DASHBOARD_VALUES.speedMmS)
-  const [accelMmS2, setAccelMmS2] = useState<number>(DASHBOARD_VALUES.accelMmS2)
-  const [kFactor, setKFactor] = useState<number>(DASHBOARD_VALUES.kFactorLaPa)
-  const [retractMm, setRetractMm] = useState<number>(DASHBOARD_VALUES.retractMm)
-  const [progressOffsetMin, setProgressOffsetMin] = useState<number>(0)
-  const [pauseAtLayer, setPauseAtLayer] = useState<number>(Math.max(1, DASHBOARD_VALUES.layerCurrent + 5))
+  const [flowPercent, setFlowPercent] = useState<number>(runtimeTune.flowFactorPercent)
+  const [speedFactorPercent, setSpeedFactorPercent] = useState<number>(runtimeTune.speedFactorPercent)
+  const [accelMmS2, setAccelMmS2] = useState<number>(runtimeTune.accelMmS2)
+  const [kFactor, setKFactor] = useState<number>(runtimeTune.pressureAdvance)
+  const [retractMm, setRetractMm] = useState<number>(runtimeTune.retractLengthMm)
   const [keyboardTarget, setKeyboardTarget] = useState<PrintTuneNumericKeyboardTarget | null>(null)
   const [keyboardValue, setKeyboardValue] = useState<string>('')
 
@@ -91,14 +98,8 @@ export function usePrintTuneController({
 
   const applyGroup = closeGroup
 
-  const adjustedEtaTime = useMemo(
-    () => shiftTimeLabelByMinutes(DASHBOARD_VALUES.etaTime, progressOffsetMin),
-    [progressOffsetMin],
-  )
-
   const createQuickMetrics = useCallback((fanPercent: number): QuickMetric[] => {
     const valueByKey = {
-      volumetricFlow: volumetricFlowMm3S,
       fan: fanPercent,
       flow: flowPercent,
     } as const
@@ -107,11 +108,11 @@ export function usePrintTuneController({
       ...definition,
       value: valueByKey[definition.key],
     }))
-  }, [flowPercent, volumetricFlowMm3S])
+  }, [flowPercent])
 
   const processMetrics = useMemo<ProcessMetric[]>(() => {
     const valueByKey = {
-      speed: speedMmS,
+      speed: speedFactorPercent,
       accel: accelMmS2,
       kFactor,
       retract: retractMm,
@@ -121,36 +122,42 @@ export function usePrintTuneController({
       ...definition,
       value: valueByKey[definition.key],
     }))
-  }, [accelMmS2, kFactor, retractMm, speedMmS])
+  }, [accelMmS2, kFactor, retractMm, speedFactorPercent])
 
   const setKeyboardTargetValue = useCallback((target: PrintTuneNumericKeyboardTarget, value: number): void => {
-    if (target === 'volumetricFlow') {
-      setVolumetricFlowMm3S(value)
-      return
-    }
     if (target === 'flow') {
-      setFlowPercent(value)
+      const nextValue = Math.round(value)
+      setFlowPercent(nextValue)
+      onPrintFlowFactorPercentChange(nextValue)
       return
     }
     if (target === 'speed') {
-      setSpeedMmS(value)
+      const nextValue = Math.round(value)
+      setSpeedFactorPercent(nextValue)
+      onPrintSpeedFactorPercentChange(nextValue)
       return
     }
     if (target === 'accel') {
-      setAccelMmS2(value)
+      const nextValue = Math.round(value)
+      setAccelMmS2(nextValue)
+      onPrintAccelChange(nextValue)
       return
     }
     if (target === 'kFactor') {
       setKFactor(value)
-      return
-    }
-    if (target === 'retract') {
-      setRetractMm(value)
+      onPressureAdvanceChange(value)
       return
     }
 
-    setPauseAtLayer(Math.round(clampValue(value, 1, DASHBOARD_VALUES.layerTotal)))
-  }, [])
+    setRetractMm(value)
+    onRetractionLengthChange(value)
+  }, [
+    onPressureAdvanceChange,
+    onPrintAccelChange,
+    onPrintFlowFactorPercentChange,
+    onPrintSpeedFactorPercentChange,
+    onRetractionLengthChange,
+  ])
 
   const openKeyboard = useCallback((target: PrintTuneNumericKeyboardTarget): void => {
     setKeyboardTarget(target)
@@ -221,53 +228,75 @@ export function usePrintTuneController({
 
   const createModalValues = useCallback(({
     fanPercent,
-    printFill,
-    displayLayerCurrent,
-    displayLayerTotal,
   }: CreateModalValuesArgs): PrintTuneModalProps['values'] => ({
-    volumetricFlowMm3S,
     fanPercent,
     flowPercent,
-    speedMmS,
+    speedFactorPercent,
     accelMmS2,
     kFactor,
     retractMm,
-    progressOffsetMin,
-    pauseAtLayer,
-    printFill,
-    adjustedEtaTime,
-    displayLayerCurrent,
-    displayLayerTotal,
   }), [
     accelMmS2,
-    adjustedEtaTime,
     flowPercent,
     kFactor,
-    pauseAtLayer,
-    progressOffsetMin,
     retractMm,
-    speedMmS,
-    volumetricFlowMm3S,
+    speedFactorPercent,
   ])
 
   const createModalHandlers = useCallback(({
     onFanPercentChange,
   }: CreateModalHandlersArgs): PrintTuneModalProps['handlers'] => ({
-    onVolumetricFlowChange: setVolumetricFlowMm3S,
     onFanPercentChange,
-    onFlowPercentChange: (nextValue) => setFlowPercent(Math.round(nextValue)),
-    onSpeedChange: setSpeedMmS,
-    onAccelChange: setAccelMmS2,
-    onKFactorChange: setKFactor,
-    onRetractChange: setRetractMm,
-    onProgressOffsetChange: setProgressOffsetMin,
-  }), [])
+    onFlowPercentChange: (nextValue) => {
+      const normalized = Math.round(nextValue)
+      setFlowPercent(normalized)
+      onPrintFlowFactorPercentChange(normalized)
+    },
+    onSpeedFactorChange: (nextValue) => {
+      const normalized = Math.round(nextValue)
+      setSpeedFactorPercent(normalized)
+      onPrintSpeedFactorPercentChange(normalized)
+    },
+    onAccelChange: (nextValue) => {
+      const normalized = Math.round(nextValue)
+      setAccelMmS2(normalized)
+      onPrintAccelChange(normalized)
+    },
+    onKFactorChange: (nextValue) => {
+      setKFactor(nextValue)
+      onPressureAdvanceChange(nextValue)
+    },
+    onRetractChange: (nextValue) => {
+      setRetractMm(nextValue)
+      onRetractionLengthChange(nextValue)
+    },
+  }), [
+    onPressureAdvanceChange,
+    onPrintAccelChange,
+    onPrintFlowFactorPercentChange,
+    onPrintSpeedFactorPercentChange,
+    onRetractionLengthChange,
+  ])
 
   useEffect(() => {
     if (!hasActivePrint) {
       setActiveGroup(null)
     }
   }, [hasActivePrint])
+
+  useEffect(() => {
+    setFlowPercent(runtimeTune.flowFactorPercent)
+    setSpeedFactorPercent(runtimeTune.speedFactorPercent)
+    setAccelMmS2(runtimeTune.accelMmS2)
+    setKFactor(runtimeTune.pressureAdvance)
+    setRetractMm(runtimeTune.retractLengthMm)
+  }, [
+    runtimeTune.accelMmS2,
+    runtimeTune.flowFactorPercent,
+    runtimeTune.pressureAdvance,
+    runtimeTune.retractLengthMm,
+    runtimeTune.speedFactorPercent,
+  ])
 
   return {
     activeGroup,
@@ -278,33 +307,8 @@ export function usePrintTuneController({
     keyboard,
     createQuickMetrics,
     processMetrics,
-    adjustedEtaTime,
+    adjustedEtaTime: DASHBOARD_VALUES.etaTime,
     createModalValues,
     createModalHandlers,
   }
-}
-
-function clampValue(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value))
-}
-
-function shiftTimeLabelByMinutes(timeLabel: string, offsetMinutes: number): string {
-  const parts = timeLabel.split(':')
-  if (parts.length !== 2) {
-    return timeLabel
-  }
-
-  const hours = Number(parts[0])
-  const minutes = Number(parts[1])
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return timeLabel
-  }
-
-  const sourceDate = new Date()
-  sourceDate.setHours(hours, minutes, 0, 0)
-  sourceDate.setMinutes(sourceDate.getMinutes() + Math.round(offsetMinutes))
-
-  const nextHours = String(sourceDate.getHours()).padStart(2, '0')
-  const nextMinutes = String(sourceDate.getMinutes()).padStart(2, '0')
-  return `${nextHours}:${nextMinutes}`
 }

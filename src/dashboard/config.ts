@@ -13,18 +13,11 @@ export const TEMPERATURE_METRIC_DEFINITIONS: readonly TemperatureMetricDefinitio
 ]
 
 export const DASHBOARD_VALUES = {
-  flowPercent: 95,
   fileName: 'test_cube_v2.gcode',
   progressPercent: 67,
   etaTime: '12:34',
   layerCurrent: 145,
   layerTotal: 218,
-  speedMmS: 180,
-  accelMmS2: 6000,
-  volumetricFlowMm3S: 14.2,
-  kFactorLaPa: 0.035,
-  retractMm: 0.8,
-  zOffsetMm: -0.08,
 } as const
 
 export const BABYSTEP_STEP_OPTIONS = [0.1, 0.05, 0.025] as const
@@ -63,19 +56,13 @@ export const BOTTOM_NAV_ITEMS: readonly NavItemAsset[] = [
 ]
 
 export type QuickMetricDefinition = {
-  key: 'volumetricFlow' | 'fan' | 'flow'
+  key: 'fan' | 'flow'
   label: string
   unit: string
   valueClassName: 'process-value' | 'percent'
 }
 
 export const QUICK_METRIC_DEFINITIONS: readonly QuickMetricDefinition[] = [
-  {
-    key: 'volumetricFlow',
-    label: 'Объемный расход',
-    unit: 'мм³/с',
-    valueClassName: 'process-value',
-  },
   {
     key: 'fan',
     label: 'Обдув',
@@ -97,7 +84,7 @@ export type ProcessMetricDefinition = {
 }
 
 export const PROCESS_METRIC_DEFINITIONS: readonly ProcessMetricDefinition[] = [
-  { key: 'speed', label: 'Скорость', unit: 'мм/с' },
+  { key: 'speed', label: 'Скорость', unit: '%' },
   { key: 'accel', label: 'Ускорение', unit: 'мм/с²' },
   { key: 'kFactor', label: 'K-factor' },
   { key: 'retract', label: 'Откат', unit: 'мм' },

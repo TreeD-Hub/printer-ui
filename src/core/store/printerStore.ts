@@ -90,6 +90,19 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     speed: 0,
     extrudeFactor: 1,
   },
+  thermalTargets: {
+    nozzle: 0,
+    bed: 0,
+  },
+  runtimeTune: {
+    contractVersion: null,
+    speedFactorPercent: 100,
+    flowFactorPercent: 100,
+    accelMmS2: 0,
+    pressureAdvance: 0,
+    retractLengthMm: 0,
+    appliedBabystepMm: 0,
+  },
   macros: {
     available: [],
     values: {},

@@ -109,6 +109,18 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'Heaters off sent'
     case 'setFanPercent':
       return `Fan set to ${args.percent}%`
+    case 'setPrintSpeedFactorPercent':
+      return `Print speed factor set to ${args.percent}%`
+    case 'setPrintFlowFactorPercent':
+      return `Print flow factor set to ${args.percent}%`
+    case 'setPrintAccel':
+      return `Print acceleration set to ${args.accelMmS2}mm/s²`
+    case 'setPressureAdvance':
+      return `Pressure advance set to ${args.advance}`
+    case 'setRetractionLength':
+      return `Retraction length set to ${args.retractLengthMm}mm`
+    case 'adjustZOffset':
+      return `Z-offset adjusted by ${args.deltaMm}mm`
     case 'loadFilament':
       return 'LOAD_FILAMENT sent'
     case 'unloadFilament':
@@ -200,6 +212,18 @@ function executeMoonrakerCommand(
       return sendScript('TURN_OFF_HEATERS', options)
     case 'setFanPercent':
       return sendScript(`M106 S${mapFanPercentToM106(args.percent)}`, options)
+    case 'setPrintSpeedFactorPercent':
+      return sendScript(`TREED_UI_SET_SPEED_FACTOR PERCENT=${args.percent}`, options)
+    case 'setPrintFlowFactorPercent':
+      return sendScript(`TREED_UI_SET_FLOW_FACTOR PERCENT=${args.percent}`, options)
+    case 'setPrintAccel':
+      return sendScript(`TREED_UI_SET_ACCEL ACCEL=${args.accelMmS2}`, options)
+    case 'setPressureAdvance':
+      return sendScript(`TREED_UI_SET_PRESSURE_ADVANCE ADVANCE=${args.advance}`, options)
+    case 'setRetractionLength':
+      return sendScript(`TREED_UI_SET_RETRACTION RETRACT_LENGTH=${args.retractLengthMm}`, options)
+    case 'adjustZOffset':
+      return sendScript(`TREED_UI_ADJUST_Z_OFFSET DELTA=${args.deltaMm}`, options)
     case 'loadFilament':
       return sendScript(formatFilamentScript('LOAD_FILAMENT', args), options)
     case 'unloadFilament':

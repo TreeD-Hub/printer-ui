@@ -21,20 +21,17 @@ import {
 export type DashboardTuneGroupId =
   | 'nozzle'
   | 'bed'
-  | 'volumetricFlow'
   | 'fan'
   | 'flow'
   | 'speed'
   | 'accel'
   | 'kFactor'
   | 'retract'
-  | 'progress'
-  | 'layers'
 
 export type DashboardIdleWidgetId = 'temperature' | 'maintenance'
 
 type DashboardQuickMetric = {
-  key: Extract<DashboardTuneGroupId, 'volumetricFlow' | 'fan' | 'flow'>
+  key: Extract<DashboardTuneGroupId, 'fan' | 'flow'>
   label: string
   unit: string
   value: number
@@ -79,6 +76,8 @@ type DashboardPageProps = {
   printCancelBlockReason: string | null
   babystepStep: number
   babystepActiveIndex: number
+  zOffsetMm: number
+  babystepBlockReason: string | null
   idleHeroStatusLabel: string
   idleWidgetOrder: DashboardIdleWidgetId[]
   armedIdleWidgetId: DashboardIdleWidgetId | null
@@ -93,6 +92,7 @@ type DashboardPageProps = {
   onPause: () => void
   onStopRequest: () => void
   onBabystepStepChange: (step: number) => void
+  onBabystepAdjust: (deltaMm: number) => void
   onIdleWidgetTargetOpen: (widgetId: DashboardIdleWidgetId) => void
   onIdleWidgetDragPointerDown: (event: PointerEvent<HTMLButtonElement>, widgetId: DashboardIdleWidgetId) => void
   onIdleWidgetDragPointerMove: (event: PointerEvent<HTMLButtonElement>, widgetId: DashboardIdleWidgetId) => void
@@ -124,6 +124,8 @@ export function DashboardPage({
   printCancelBlockReason,
   babystepStep,
   babystepActiveIndex,
+  zOffsetMm,
+  babystepBlockReason,
   idleHeroStatusLabel,
   idleWidgetOrder,
   armedIdleWidgetId,
@@ -138,6 +140,7 @@ export function DashboardPage({
   onPause,
   onStopRequest,
   onBabystepStepChange,
+  onBabystepAdjust,
   onIdleWidgetTargetOpen,
   onIdleWidgetDragPointerDown,
   onIdleWidgetDragPointerMove,
@@ -163,13 +166,7 @@ export function DashboardPage({
           <div className="job-info">
             <p className="job-name">{displayPrintFileName ?? DASHBOARD_VALUES.fileName}</p>
 
-            <button
-              type="button"
-              className="print-tune-hitbox print-tune-hitbox-progress"
-              onClick={() => onPrintTuneGroupOpen('progress')}
-              aria-label="Открыть параметры прогресса печати"
-              data-testid="print-tune-group-progress"
-            >
+            <div className="print-tune-hitbox print-tune-hitbox-progress" data-testid="print-progress-summary">
               <div className="job-metrics">
                 <div>
                   <p className="label">Прогресс</p>
@@ -184,22 +181,16 @@ export function DashboardPage({
               <div className="job-meter">
                 <div className="job-meter-fill" style={{ width: `${printFill}%` }} />
               </div>
-            </button>
+            </div>
 
-            <button
-              type="button"
-              className="print-tune-hitbox print-tune-hitbox-layer"
-              onClick={() => onPrintTuneGroupOpen('layers')}
-              aria-label="Открыть параметры слоя"
-              data-testid="print-tune-group-layers"
-            >
+            <div className="print-tune-hitbox print-tune-hitbox-layer" data-testid="print-layer-summary">
               <div className="job-layer-row">
                 <span className="label">Слой</span>
                 <strong>
                   {displayLayerCurrent} / {displayLayerTotal}
                 </strong>
               </div>
-            </button>
+            </div>
           </div>
         </section>
 
@@ -284,7 +275,7 @@ export function DashboardPage({
               <div className="zoffset-head">
                 <p className="label">Z-offset</p>
                 <p className="value zoffset-value">
-                  {DASHBOARD_VALUES.zOffsetMm.toFixed(2)}<span>мм</span>
+                  {zOffsetMm.toFixed(3)}<span>мм</span>
                 </p>
               </div>
               <div
@@ -311,6 +302,8 @@ export function DashboardPage({
                   type="button"
                   className="babystep-btn"
                   aria-label={`Babystep минус ${babystepStep}`}
+                  onClick={() => onBabystepAdjust(-babystepStep)}
+                  disabled={isBusy || babystepBlockReason !== null}
                 >
                   -
                 </button>
@@ -318,6 +311,8 @@ export function DashboardPage({
                   type="button"
                   className="babystep-btn"
                   aria-label={`Babystep плюс ${babystepStep}`}
+                  onClick={() => onBabystepAdjust(babystepStep)}
+                  disabled={isBusy || babystepBlockReason !== null}
                 >
                   +
                 </button>

@@ -1712,12 +1712,14 @@ body {
 
 .idle-notes-keyboard {
   position: absolute;
-  left: var(--space-sm);
-  right: calc(292px + (var(--space-sm) * 2));
-  bottom: var(--space-sm);
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2;
-  border-radius: 12px;
+  border-radius: 0;
   border: 1px solid var(--color-border-default);
+  border-left: none;
+  border-right: none;
   background: linear-gradient(180deg, var(--color-surface-elevated), var(--color-block-surface));
   box-shadow: 0 12px 28px var(--color-shadow-strong);
   padding: var(--space-xs);

@@ -24,6 +24,12 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'setBedTarget',
   'turnOffHeaters',
   'setFanPercent',
+  'setPrintSpeedFactorPercent',
+  'setPrintFlowFactorPercent',
+  'setPrintAccel',
+  'setPressureAdvance',
+  'setRetractionLength',
+  'adjustZOffset',
   'loadFilament',
   'unloadFilament',
   'zParkZeroEddy',
@@ -122,6 +128,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
 
     expect(isDangerousTreeDCommand('pause')).toBe(false)
     expect(isDangerousTreeDCommand('setFanPercent')).toBe(false)
+    expect(isDangerousTreeDCommand('setPrintSpeedFactorPercent')).toBe(false)
     expect(getTreeDCommandCatalogItem('emergencyStop').requiresConfirmation).toBe(false)
   })
 
@@ -187,5 +194,29 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       axis: 'X',
       distanceMm: 1,
     })).toContain('во время печати')
+  })
+
+  it('allows runtime tune commands only during active print and requires homed Z for Z-offset', () => {
+    expect(getTreeDCommandBlockReason('setPrintSpeedFactorPercent', PRINTING_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('setPrintFlowFactorPercent', PAUSED_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('setPrintAccel', PRINTING_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('setPressureAdvance', PRINTING_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('setRetractionLength', PAUSED_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('adjustZOffset', {
+      ...PRINTING_CONTEXT,
+      homedAxes: 'xyz',
+    }, {
+      command: 'adjustZOffset',
+      deltaMm: 0.025,
+    })).toBeNull()
+
+    expect(getTreeDCommandBlockReason('setPrintSpeedFactorPercent', IDLE_CONTEXT)).toContain('нет активной печати')
+    expect(getTreeDCommandBlockReason('adjustZOffset', {
+      ...PRINTING_CONTEXT,
+      homedAxes: 'xy',
+    }, {
+      command: 'adjustZOffset',
+      deltaMm: 0.025,
+    })).toContain('Home Z')
   })
 })

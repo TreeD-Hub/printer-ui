@@ -52,6 +52,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         toolhead: {
           position: [120.5, 95.25, 12.4, 0],
           homed_axes: 'xyz',
+          max_accel: 12000,
         },
         gcode_move: {
           speed_factor: 0.85,
@@ -84,12 +85,18 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         },
         extruder: {
           temperature: 214.7,
+          target: 220,
+          pressure_advance: 0.075,
         },
         heater_bed: {
           temperature: 59.9,
+          target: 60,
         },
         fan: {
           speed: 0.76,
+        },
+        firmware_retraction: {
+          retract_length: 0.9,
         },
         display_status: {
           message: 'Layer 24/96',
@@ -113,6 +120,10 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         },
         'gcode_macro _TREED_CLOUD': {
           enabled: false,
+        },
+        'gcode_macro _TREED_UI_TUNE_STATE': {
+          contract_version: '1.0',
+          applied_babystep: -0.025,
         },
       }),
       { moonrakerUrl: 'http://192.168.0.42:7125' },
@@ -190,6 +201,19 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       speedFactor: 0.85,
       speed: 180,
       extrudeFactor: 0.98,
+    })
+    expect(snapshot.thermalTargets).toEqual({
+      nozzle: 220,
+      bed: 60,
+    })
+    expect(snapshot.runtimeTune).toEqual({
+      contractVersion: '1.0',
+      speedFactorPercent: 85,
+      flowFactorPercent: 98,
+      accelMmS2: 12000,
+      pressureAdvance: 0.075,
+      retractLengthMm: 0.9,
+      appliedBabystepMm: -0.025,
     })
     expect(snapshot.macros.available).toContain('_TREED_PROFILE')
     expect(snapshot.macros.available).toContain('_TREED_SERVICE_COMMANDS')
@@ -321,6 +345,19 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       speedFactor: 1,
       speed: 0,
       extrudeFactor: 1,
+    })
+    expect(snapshot.thermalTargets).toEqual({
+      nozzle: 0,
+      bed: 0,
+    })
+    expect(snapshot.runtimeTune).toEqual({
+      contractVersion: null,
+      speedFactorPercent: 100,
+      flowFactorPercent: 100,
+      accelMmS2: 0,
+      pressureAdvance: 0,
+      retractLengthMm: 0,
+      appliedBabystepMm: 0,
     })
     expect(snapshot.printJob).toEqual({
       filename: '',

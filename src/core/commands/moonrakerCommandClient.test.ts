@@ -42,6 +42,12 @@ describe('createMoonrakerCommandClient', () => {
     await client.execute({ command: 'consoleGcode', script: 'M115' })
     await client.execute({ command: 'setNozzleTarget', targetCelsius: 230, wait: true })
     await client.execute({ command: 'setBedTarget', targetCelsius: 70, wait: true })
+    await client.execute({ command: 'setPrintSpeedFactorPercent', percent: 120 })
+    await client.execute({ command: 'setPrintFlowFactorPercent', percent: 97 })
+    await client.execute({ command: 'setPrintAccel', accelMmS2: 12000 })
+    await client.execute({ command: 'setPressureAdvance', advance: 0.075 })
+    await client.execute({ command: 'setRetractionLength', retractLengthMm: 0.9 })
+    await client.execute({ command: 'adjustZOffset', deltaMm: -0.025 })
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -98,6 +104,48 @@ describe('createMoonrakerCommandClient', () => {
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
         body: JSON.stringify({ script: 'M190 S70' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      9,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'TREED_UI_SET_SPEED_FACTOR PERCENT=120' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      10,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'TREED_UI_SET_FLOW_FACTOR PERCENT=97' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      11,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'TREED_UI_SET_ACCEL ACCEL=12000' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      12,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'TREED_UI_SET_PRESSURE_ADVANCE ADVANCE=0.075' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      13,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'TREED_UI_SET_RETRACTION RETRACT_LENGTH=0.9' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      14,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'TREED_UI_ADJUST_Z_OFFSET DELTA=-0.025' }),
       }),
     )
   })

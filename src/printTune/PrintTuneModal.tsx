@@ -1,14 +1,12 @@
 import type { ReactNode } from 'react'
 
 import type { TemperatureKeyboardTarget } from '../control'
-import { DASHBOARD_VALUES } from '../dashboard/config'
 import { rounded } from '../dashboard/helpers'
 import {
   HorizontalSteppedSlider,
   TemperatureTrendChart,
   TuneCompactStepperInput,
   TuneModeToggle,
-  TuneNumberControl,
 } from '../ui'
 import {
   formatTuneKeyboardValue,
@@ -46,30 +44,21 @@ type PrintTuneTemperatureProps = {
 }
 
 type PrintTuneValuesProps = {
-  volumetricFlowMm3S: number
   fanPercent: number
   flowPercent: number
-  speedMmS: number
+  speedFactorPercent: number
   accelMmS2: number
   kFactor: number
   retractMm: number
-  progressOffsetMin: number
-  pauseAtLayer: number
-  printFill: number
-  adjustedEtaTime: string
-  displayLayerCurrent: number
-  displayLayerTotal: number
 }
 
 type PrintTuneValueHandlers = {
-  onVolumetricFlowChange: (value: number) => void
   onFanPercentChange: (value: number) => void
   onFlowPercentChange: (value: number) => void
-  onSpeedChange: (value: number) => void
+  onSpeedFactorChange: (value: number) => void
   onAccelChange: (value: number) => void
   onKFactorChange: (value: number) => void
   onRetractChange: (value: number) => void
-  onProgressOffsetChange: (value: number) => void
 }
 
 type PrintTuneKeyboardProps = {
@@ -374,30 +363,6 @@ export function PrintTuneModal({
   }
 
   function renderCompactTuneGroupContent(): ReactNode {
-    if (activeGroup === 'volumetricFlow') {
-      return renderCompactTuneContent(
-        <>
-          {renderCompactCurrentRow('Текущее значение', `${formatTuneKeyboardValue(values.volumetricFlowMm3S, 1)} мм³/с`)}
-          {renderCompactTuneEditor({
-            label: 'Лимит расхода',
-            value: values.volumetricFlowMm3S,
-            min: 1,
-            max: 30,
-            step: 0.1,
-            fractionDigits: 1,
-            unit: 'мм³/с',
-            onChange: handlers.onVolumetricFlowChange,
-            testIdPrefix: 'print-tune-volumetric',
-            displayValue:
-              keyboard.target === 'volumetricFlow'
-                ? keyboard.value
-                : formatTuneKeyboardValue(values.volumetricFlowMm3S, 1),
-            onInputFocus: () => keyboard.onOpen('volumetricFlow'),
-          })}
-        </>,
-      )
-    }
-
     if (activeGroup === 'fan') {
       return (
         <div className="print-tune-modal-stack">
@@ -443,20 +408,20 @@ export function PrintTuneModal({
     if (activeGroup === 'speed') {
       return renderCompactTuneContent(
         <>
-          {renderCompactCurrentRow('Текущее значение', `${formatTuneKeyboardValue(values.speedMmS, 0)} мм/с`)}
+          {renderCompactCurrentRow('Текущее значение', `${formatTuneKeyboardValue(values.speedFactorPercent, 0)}%`)}
           {renderCompactTuneEditor({
             label: 'Скорость печати',
-            value: values.speedMmS,
-            min: 30,
+            value: values.speedFactorPercent,
+            min: 10,
             max: 300,
             step: 5,
-            unit: 'мм/с',
-            onChange: handlers.onSpeedChange,
+            unit: '%',
+            onChange: handlers.onSpeedFactorChange,
             testIdPrefix: 'print-tune-speed',
             displayValue:
               keyboard.target === 'speed'
                 ? keyboard.value
-                : formatTuneKeyboardValue(values.speedMmS, 0),
+                : formatTuneKeyboardValue(values.speedFactorPercent, 0),
             onInputFocus: () => keyboard.onOpen('speed'),
           })}
         </>,
@@ -517,7 +482,7 @@ export function PrintTuneModal({
             label: 'Откат',
             value: values.retractMm,
             min: 0,
-            max: 8,
+            max: 5,
             step: 0.1,
             fractionDigits: 1,
             unit: 'мм',
@@ -533,51 +498,7 @@ export function PrintTuneModal({
       )
     }
 
-    if (activeGroup === 'progress') {
-      return (
-        <div className="print-tune-modal-stack">
-          <p className="print-tune-current-row">
-            <span>Прогресс</span>
-            <strong>{values.printFill}%</strong>
-          </p>
-          <p className="print-tune-current-row">
-            <span>Расчётное завершение</span>
-            <strong>{values.adjustedEtaTime}</strong>
-          </p>
-          <TuneNumberControl
-            label="Коррекция времени завершения"
-            value={values.progressOffsetMin}
-            min={-180}
-            max={180}
-            step={1}
-            unit="мин"
-            onChange={handlers.onProgressOffsetChange}
-            testIdPrefix="print-tune-progress-offset"
-          />
-        </div>
-      )
-    }
-
-    return renderCompactTuneContent(
-      <>
-        {renderCompactCurrentRow('Текущий слой', `${values.displayLayerCurrent} / ${values.displayLayerTotal}`)}
-        <label className="print-tune-input-wrap print-tune-input-wrap-layer print-tune-input-wrap-layer-compact">
-          <span>Пауза на слое</span>
-          <input
-            type="number"
-            className="print-tune-input"
-            value={keyboard.target === 'layers' ? keyboard.value : values.pauseAtLayer}
-            min={1}
-            max={DASHBOARD_VALUES.layerTotal}
-            step={1}
-            readOnly={true}
-            onFocus={() => keyboard.onOpen('layers')}
-            onClick={() => keyboard.onOpen('layers')}
-            data-testid="print-tune-layer-pause-input"
-          />
-        </label>
-      </>,
-    )
+    return null
   }
 
   const content = isTemperatureGroup ? renderTemperatureTuneContent() : renderCompactTuneGroupContent()

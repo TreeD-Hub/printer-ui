@@ -1,14 +1,11 @@
-import { DASHBOARD_VALUES } from '../dashboard/config'
 import type { DashboardTuneGroupId } from '../dashboard/DashboardPage'
 
 export type PrintTuneNumericKeyboardTarget =
-  | 'volumetricFlow'
   | 'flow'
   | 'speed'
   | 'accel'
   | 'kFactor'
   | 'retract'
-  | 'layers'
 
 export type PrintTuneGroupId = DashboardTuneGroupId
 export type TemperatureChartMode = 'nozzle' | 'bed' | 'both'
@@ -30,10 +27,6 @@ export const PRINT_TUNE_GROUP_META: Record<PrintTuneGroupId, { label: string; no
   bed: {
     label: 'Температуры',
     note: '',
-  },
-  volumetricFlow: {
-    label: 'Объемный расход',
-    note: 'Настройте лимит объемного расхода.',
   },
   fan: {
     label: 'Обдув',
@@ -59,14 +52,6 @@ export const PRINT_TUNE_GROUP_META: Record<PrintTuneGroupId, { label: string; no
     label: 'Откат',
     note: 'Настройте параметры отката.',
   },
-  progress: {
-    label: 'Прогресс печати',
-    note: 'Проверьте прогресс и скорректируйте расчетное время завершения.',
-  },
-  layers: {
-    label: 'Слой',
-    note: 'Задайте слой, на котором нужно поставить печать на паузу.',
-  },
 }
 
 function clampAxisValue(value: number, min: number, max: number): number {
@@ -84,14 +69,11 @@ export function formatTuneKeyboardValue(value: number, fractionDigits: number): 
 }
 
 export function resolvePrintTuneKeyboardMeta(target: PrintTuneNumericKeyboardTarget): PrintTuneKeyboardMeta {
-  if (target === 'volumetricFlow') {
-    return { label: 'Объемный расход', unit: 'мм³/с', min: 1, max: 30, fractionDigits: 1, allowDecimal: true }
-  }
   if (target === 'flow') {
     return { label: 'Поток', unit: '%', min: 50, max: 150, fractionDigits: 0, allowDecimal: false }
   }
   if (target === 'speed') {
-    return { label: 'Скорость', unit: 'мм/с', min: 30, max: 300, fractionDigits: 0, allowDecimal: false }
+    return { label: 'Скорость', unit: '%', min: 10, max: 300, fractionDigits: 0, allowDecimal: false }
   }
   if (target === 'accel') {
     return { label: 'Ускорение', unit: 'мм/с²', min: 500, max: 12000, fractionDigits: 0, allowDecimal: false }
@@ -100,10 +82,11 @@ export function resolvePrintTuneKeyboardMeta(target: PrintTuneNumericKeyboardTar
     return { label: 'K-factor', unit: '', min: 0, max: 0.2, fractionDigits: 3, allowDecimal: true }
   }
   if (target === 'retract') {
-    return { label: 'Откат', unit: 'мм', min: 0, max: 8, fractionDigits: 1, allowDecimal: true }
+    return { label: 'Откат', unit: 'мм', min: 0, max: 5, fractionDigits: 1, allowDecimal: true }
   }
 
-  return { label: 'Пауза на слое', unit: '', min: 1, max: DASHBOARD_VALUES.layerTotal, fractionDigits: 0, allowDecimal: false }
+  const exhaustiveTarget: never = target
+  throw new Error(`Unknown print tune keyboard target: ${exhaustiveTarget}`)
 }
 
 export function appendPrintTuneKeyboardDigit(currentValue: string, digit: string): string {

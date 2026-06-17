@@ -24,7 +24,8 @@ describe('print tune keyboard helpers', () => {
   it('normalizes submitted value by target bounds and precision', () => {
     expect(normalizePrintTuneKeyboardValue('999', resolvePrintTuneKeyboardMeta('flow'))).toBe(150)
     expect(normalizePrintTuneKeyboardValue('0.256', resolvePrintTuneKeyboardMeta('kFactor'))).toBe(0.2)
-    expect(normalizePrintTuneKeyboardValue('1.26', resolvePrintTuneKeyboardMeta('volumetricFlow'))).toBe(1.3)
+    expect(normalizePrintTuneKeyboardValue('999', resolvePrintTuneKeyboardMeta('speed'))).toBe(300)
+    expect(normalizePrintTuneKeyboardValue('9', resolvePrintTuneKeyboardMeta('speed'))).toBe(10)
     expect(normalizePrintTuneKeyboardValue('abc', resolvePrintTuneKeyboardMeta('speed'))).toBeNull()
   })
 

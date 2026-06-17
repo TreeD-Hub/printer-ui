@@ -7,6 +7,8 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_GEOMETRY_CFG')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_EDDY_Z_OFFSET_AUTOSAVE_STATE')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_SERVICE_COMMANDS')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('firmware_retraction')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_UI_TUNE_STATE')
   })
 
   it('normalizes TreeD V2 Moonraker objects into a runtime snapshot', () => {
@@ -24,13 +26,17 @@ describe('normalizeMoonrakerSnapshot', () => {
           toolhead: {
             position: [122.5, 65, 12.34, 4.5],
             homed_axes: 'xyz',
+            max_accel: 12000,
           },
           gcode_move: {
+            speed_factor: 1.2,
+            extrude_factor: 0.97,
             homing_origin: [0, 0, -0.04],
           },
           extruder: {
             temperature: 214.6,
             target: 220,
+            pressure_advance: 0.075,
           },
           heater_bed: {
             temperature: 59.2,
@@ -38,6 +44,9 @@ describe('normalizeMoonrakerSnapshot', () => {
           },
           fan: {
             speed: 0.42,
+          },
+          firmware_retraction: {
+            retract_length: 0.9,
           },
           print_stats: {
             state: 'printing',
@@ -67,6 +76,10 @@ describe('normalizeMoonrakerSnapshot', () => {
             enabled: 1,
             has_pending: 0,
           },
+          'gcode_macro _TREED_UI_TUNE_STATE': {
+            contract_version: '1.0',
+            applied_babystep: -0.025,
+          },
         },
       },
       files: [
@@ -94,6 +107,19 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(snapshot.toolhead.printOffsetY).toBe(65)
     expect(snapshot.printJob.filename).toBe('v2_part.gcode')
     expect(snapshot.printJob.progressPercent).toBe(37)
+    expect(snapshot.thermalTargets).toEqual({
+      nozzle: 220,
+      bed: 60,
+    })
+    expect(snapshot.runtimeTune).toEqual({
+      contractVersion: '1.0',
+      speedFactorPercent: 120,
+      flowFactorPercent: 97,
+      accelMmS2: 12000,
+      pressureAdvance: 0.075,
+      retractLengthMm: 0.9,
+      appliedBabystepMm: -0.025,
+    })
     expect(snapshot.printFiles).toEqual([
       expect.objectContaining({
         id: 'file-v2-part-gcode',
