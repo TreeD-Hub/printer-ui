@@ -53,6 +53,8 @@ npm run tauri:build:printer
 
 Общая логика подключается как локальный workspace-пакет. CI больше не читает отдельный private GitHub repo для `@treed/printer-logic`.
 
+Целевой runtime-контур описан отдельно: `docs/ui-runtime-delivery/README.md`.
+
 ## UI release для printer loader
 
 Release workflow находится в `.github/workflows/release-ui.yml`.
@@ -73,7 +75,9 @@ Release workflow находится в `.github/workflows/release-ui.yml`.
 
 ## Web UI release
 
-Workflow `.github/workflows/release-web-ui.yml` собирает `apps/web-ui` командой `npm run build:web-ui`, добавляет manifest `apps/web-ui/dist/treed-web-ui-manifest.json` и выпускает `treed-web-ui.zip` в GitHub Release.
+Workflow `.github/workflows/release-web-ui.yml` запускается только вручную через `workflow_dispatch`. Он собирает `apps/web-ui` командой `npm run build:web-ui`, добавляет manifest `apps/web-ui/dist/treed-web-ui-manifest.json` и выпускает `treed-web-ui.zip` в GitHub Release.
+
+`treed-web-ui.zip` не используется printer loader. Это playground будущей вебморды.
 
 ## Logic package build
 

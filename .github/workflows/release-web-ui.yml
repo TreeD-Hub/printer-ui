@@ -1,9 +1,6 @@
 name: Release Web UI
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -49,7 +46,7 @@ jobs:
       - name: Write release notes
         run: |
           {
-            echo "treed-web-ui bundle for printer loader."
+            echo "treed-web-ui manual playground bundle. Not used by the printer loader."
             echo ""
             echo "Branch: ${GITHUB_REF_NAME}"
             echo "Commit: ${GITHUB_SHA}"
