@@ -1,4 +1,6 @@
 import type { ComponentProps } from 'react'
+import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
+import { BABYSTEP_STEP_OPTIONS } from './config'
 import { DashboardPage } from './DashboardPage'
 
 type DashboardPageProps = ComponentProps<typeof DashboardPage>
@@ -16,18 +18,19 @@ type DashboardPrintProps = Pick<
   | 'pendingCommand'
   | 'printCancelBlockReason'
   | 'printFill'
-  | 'printPauseBlockReason'
->
+> & {
+  printPauseCommand: Extract<PrinterCommandId, 'pause' | 'resume'>
+}
 type DashboardTuneProps = Pick<
   DashboardPageProps,
-  | 'babystepActiveIndex'
-  | 'babystepBlockReason'
   | 'babystepStep'
   | 'processMetrics'
-  | 'quickMetrics'
   | 'temperatureTargets'
   | 'zOffsetMm'
->
+> & {
+  printFanPercent: number
+  createQuickMetrics: (fanPercent: number) => DashboardPageProps['quickMetrics']
+}
 type DashboardIdleProps = Pick<
   DashboardPageProps,
   | 'armedIdleWidgetId'
@@ -66,6 +69,7 @@ export type DashboardContainerProps = {
   tune: DashboardTuneProps
   idle: DashboardIdleProps
   actions: DashboardActionProps
+  getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
 }
 
 export function DashboardContainer({
@@ -74,12 +78,31 @@ export function DashboardContainer({
   tune,
   idle,
   actions,
+  getCommandBlockReason,
 }: DashboardContainerProps) {
+  const quickMetrics = tune.createQuickMetrics(tune.printFanPercent)
+  const babystepActiveIndex = Math.max(
+    0,
+    BABYSTEP_STEP_OPTIONS.findIndex((step) => step === tune.babystepStep),
+  )
+  const printPauseBlockReason = getCommandBlockReason(print.printPauseCommand)
+  const babystepBlockReason = getCommandBlockReason('adjustZOffset', {
+    command: 'adjustZOffset',
+    deltaMm: tune.babystepStep,
+  })
+
   return (
     <DashboardPage
       {...chrome}
       {...print}
-      {...tune}
+      printPauseBlockReason={printPauseBlockReason}
+      temperatureTargets={tune.temperatureTargets}
+      quickMetrics={quickMetrics}
+      processMetrics={tune.processMetrics}
+      babystepStep={tune.babystepStep}
+      babystepActiveIndex={babystepActiveIndex}
+      zOffsetMm={tune.zOffsetMm}
+      babystepBlockReason={babystepBlockReason}
       {...idle}
       {...actions}
     />

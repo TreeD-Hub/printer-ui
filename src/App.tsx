@@ -16,10 +16,8 @@ import {
   type ScreenId,
 } from './dashboard/config'
 import { usePrinterDisplayStatus } from './dashboard/usePrinterDisplayStatus'
-import { clampPercent } from './dashboard/helpers'
 import {
   type ControlGroupId,
-  type MovementCommandBlockReasons,
   type MoveStepKey,
   type MovementMode,
   type ParkingMode,
@@ -60,7 +58,6 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
   offline: 'Офлайн',
   shutdown: 'Klipper остановлен',
 }
-const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
 const MAINTENANCE_STATUS = {
   runtimeHours: 874,
   hoursLeft: 126,
@@ -247,12 +244,6 @@ function App() {
     handleFanPercentChange,
   } = heatingController
   const isFilesScreenActive = activeScreen === 'files'
-  const babystepActiveIndex = Math.max(
-    0,
-    BABYSTEP_STEP_OPTIONS.findIndex((step) => step === babystepStep),
-  )
-  const maintenanceProgressPercent = clampPercent(MAINTENANCE_STATUS.runtimeHours, MAINTENANCE_STATUS.intervalHours)
-  const isMaintenanceChecklistComplete = MAINTENANCE_CHECKLIST_ITEMS.every((item) => maintenanceChecklistState[item.id])
   const formattedSnapshotTime = useMemo(() => {
     const parsed = new Date(snapshot.updatedAt)
     if (Number.isNaN(parsed.getTime())) {
@@ -304,13 +295,8 @@ function App() {
   const closeTopPopup = topStatusController.closeTopPopup
   const openTopPopup = topStatusController.openTopPopup
   const setTopButtonRef = topStatusController.setTopButtonRef
-  const printPauseBlockReason = getCommandBlockReason(printPauseCommand)
   const printCancelBlockReason = getCommandBlockReason('cancel')
   const printStartBlockReason = getCommandBlockReason('start')
-  const babystepBlockReason = getCommandBlockReason('adjustZOffset', {
-    command: 'adjustZOffset',
-    deltaMm: babystepStep,
-  })
   const fileStartNotice = getFileStartNotice(printStartBlockReason)
   const printSessionCommandHandlers = createPrintSessionCommandHandlers({
     executeCommand,
@@ -322,24 +308,6 @@ function App() {
     refresh,
     onOpenDashboard: () => setActiveScreen('dashboard'),
   })
-  const movementCommandBlockReasons = useMemo<MovementCommandBlockReasons>(() => ({
-    parking: {
-      all: getCommandBlockReason('homeAll'),
-      axis: {
-        X: getCommandBlockReason('homeXY'),
-        Y: getCommandBlockReason('homeXY'),
-        Z: getCommandBlockReason('homeZ'),
-      },
-    },
-    moveAxis: {
-      X: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: 1 }),
-      Y: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Y', distanceMm: 1 }),
-      Z: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Z', distanceMm: 1 }),
-    },
-    disableMotors: getCommandBlockReason('disableMotors'),
-    loadFilament: getCommandBlockReason('loadFilament'),
-    unloadFilament: getCommandBlockReason('unloadFilament'),
-  }), [getCommandBlockReason])
   const idleHeroStatusLabel = printerDisplayStatus.label
   const settingsKeyboardMeta = settingsKeyboard.meta
   const keyboardLabel = activeKeyboardTarget === 'idleNotes' ? 'Ввод заметок' : (settingsKeyboardMeta?.valueLabel ?? '')
@@ -366,7 +334,6 @@ function App() {
     }
   }, [])
 
-  const quickMetrics = createQuickMetrics(printFanPercent)
   const printTuneModalValues = createModalValues({
     fanPercent: printFanPercent,
   })
@@ -479,14 +446,6 @@ function App() {
     setActiveScreen(nextScreen)
   }
 
-  function handleMoveStepChange(nextStep: MoveStepKey): void {
-    setMoveStepKey(nextStep)
-  }
-
-  function handleMovementModeChange(nextMode: MovementMode): void {
-    setMovementMode(nextMode)
-  }
-
   function handleControlMenuCompactToggle(): void {
     setIsControlMenuCompact((currentState) => !currentState)
   }
@@ -568,6 +527,17 @@ function App() {
 
   function handleMotorsDisable(): void {
     void executeCommand({ command: 'disableMotors' })
+  }
+
+  function handleMaintenanceChecklistItemChange(itemId: string, checked: boolean): void {
+    setMaintenanceChecklistState((current) => ({
+      ...current,
+      [itemId]: checked,
+    }))
+  }
+
+  function handleMaintenanceChecklistComplete(): void {
+    setMaintenanceChecklistState(createMaintenanceChecklistState(true))
   }
 
   const handleVirtualKeyboardLanguageToggle = useCallback(() => {
@@ -770,19 +740,18 @@ function App() {
               displayLayerCurrent,
               displayLayerTotal,
               isPrintPaused,
+              printPauseCommand,
               pendingCommand,
               isBusy,
-              printPauseBlockReason,
               printCancelBlockReason,
             },
             tune: {
               temperatureTargets: dashboardTemperatureTargets,
-              quickMetrics,
+              printFanPercent,
+              createQuickMetrics,
               processMetrics,
               babystepStep,
-              babystepActiveIndex,
               zOffsetMm: snapshot.runtimeTune.appliedBabystepMm,
-              babystepBlockReason,
             },
             idle: {
               idleHeroStatusLabel,
@@ -813,6 +782,7 @@ function App() {
               onIdleNotesVirtualKey: handleIdleNotesVirtualKey,
               onIdleNotesKeyboardClose: handleIdleNotesKeyboardClose,
             },
+            getCommandBlockReason,
           }}
           files={{
             files: effectiveFilesLibrary,
@@ -821,48 +791,34 @@ function App() {
           control={{
             activeControlGroup,
             isControlMenuCompact,
+            pendingCommand,
+            isBusy,
+            activeControlFlashKey,
+            movementMode,
+            moveStepKey,
+            getCommandBlockReason,
             onControlGroupChange: setActiveControlGroup,
             onControlMenuCompactToggle: handleControlMenuCompactToggle,
-            movement: {
-              pendingCommand,
-              isBusy,
-              activeControlFlashKey,
-              movementMode,
-              moveStepKey,
-              commandBlockReasons: movementCommandBlockReasons,
-              zBounds: HEAD_Z_BOUNDS_MM,
-              onParkingTargetSelect: handleParkingTargetSelect,
-              onServiceModeToggle: handleServiceModeToggle,
-              onMotorsDisable: handleMotorsDisable,
-              onMovementModeChange: handleMovementModeChange,
-              onMoveStepChange: handleMoveStepChange,
-              onAxisMove: handleAxisMove,
-              onFilamentMove: handleFilamentMove,
-            },
+            onParkingTargetSelect: handleParkingTargetSelect,
+            onServiceModeToggle: handleServiceModeToggle,
+            onMotorsDisable: handleMotorsDisable,
+            onMovementModeChange: setMovementMode,
+            onMoveStepChange: setMoveStepKey,
+            onAxisMove: handleAxisMove,
+            onFilamentMove: handleFilamentMove,
             heating: heatingProps,
             fan: fanProps,
-            lighting: {
-              isMainLightEnabled,
-              isToolheadLightEnabled,
-              onMainLightToggle: () => setIsMainLightEnabled((current) => !current),
-              onToolheadLightToggle: () => setIsToolheadLightEnabled((current) => !current),
-            },
-            maintenance: {
-              status: MAINTENANCE_STATUS,
-              historyItems: MAINTENANCE_HISTORY_ITEMS,
-              checklistItems: MAINTENANCE_CHECKLIST_ITEMS,
-              progressTicks: MAINTENANCE_PROGRESS_TICKS,
-              progressPercent: maintenanceProgressPercent,
-              checklistState: maintenanceChecklistState,
-              isChecklistComplete: isMaintenanceChecklistComplete,
-              onChecklistItemChange: (itemId, checked) => {
-                setMaintenanceChecklistState((current) => ({
-                  ...current,
-                  [itemId]: checked,
-                }))
-              },
-              onChecklistComplete: () => setMaintenanceChecklistState(createMaintenanceChecklistState(true)),
-            },
+            isMainLightEnabled,
+            isToolheadLightEnabled,
+            onMainLightEnabledChange: setIsMainLightEnabled,
+            onToolheadLightEnabledChange: setIsToolheadLightEnabled,
+            maintenanceStatus: MAINTENANCE_STATUS,
+            maintenanceHistoryItems: MAINTENANCE_HISTORY_ITEMS,
+            maintenanceChecklistItems: MAINTENANCE_CHECKLIST_ITEMS,
+            maintenanceProgressTicks: MAINTENANCE_PROGRESS_TICKS,
+            maintenanceChecklistState,
+            onMaintenanceChecklistItemChange: handleMaintenanceChecklistItemChange,
+            onMaintenanceChecklistComplete: handleMaintenanceChecklistComplete,
           }}
           settings={settingsPageProps}
         />
