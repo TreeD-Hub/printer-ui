@@ -238,7 +238,6 @@ export function usePrintSessionController({
   }, [
     closeFileModal,
     closePrintCancelConfirm,
-    commandRuntimePrintJob,
     isPrintPaused,
     printPauseCommand,
     selectedPrintFile,
