@@ -75,7 +75,9 @@ export const ControlPage = memo(function ControlPage({
                 </p>
               </div>
               <p className="control-maintenance-status-pill">
-                Следующее ТО через {maintenance.status.hoursLeft} ч
+                {maintenance.status.isRuntimeBacked
+                  ? `Следующее ТО через ${maintenance.status.hoursLeft} ч`
+                  : 'ТО не подключено'}
                 <span aria-hidden="true" />
               </p>
             </div>

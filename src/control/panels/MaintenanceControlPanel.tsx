@@ -13,8 +13,21 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
   onChecklistItemChange,
   onChecklistComplete,
 }: MaintenanceControlPanelProps) {
+  const runtimeHoursLabel = status.isRuntimeBacked ? `${status.runtimeHours} ч` : '—'
+  const hoursLeftLabel = status.isRuntimeBacked ? `${status.hoursLeft} ч` : '—'
+  const intervalHoursLabel = status.isRuntimeBacked ? `${status.intervalHours} ч` : '—'
+  const nextActionLabel = status.isRuntimeBacked
+    ? `Рекомендуется через ${status.hoursLeft} ч`
+    : 'Runtime ТО не подключен'
+
   return (
     <div className="control-maintenance-grid">
+      {!status.isRuntimeBacked ? (
+        <p className="control-maintenance-runtime-notice" data-testid="maintenance-runtime-notice">
+          {status.notice}
+        </p>
+      ) : null}
+
       <section className="control-maintenance-metrics" aria-label="Сводка технического обслуживания">
         <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
           <span className="control-maintenance-icon-box" aria-hidden="true">
@@ -22,7 +35,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
           </span>
           <p>
             <span>Пробег</span>
-            <strong>{status.runtimeHours} <span>ч</span></strong>
+            <strong>{runtimeHoursLabel}</strong>
           </p>
         </article>
 
@@ -32,7 +45,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
           </span>
           <p>
             <span>До Т.О</span>
-            <strong>{status.hoursLeft} <span>ч</span></strong>
+            <strong>{hoursLeftLabel}</strong>
           </p>
         </article>
 
@@ -42,7 +55,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
           </span>
           <p>
             <span>Интервал ТО</span>
-            <strong>{status.intervalHours} <span>ч</span></strong>
+            <strong>{intervalHoursLabel}</strong>
           </p>
         </article>
       </section>
@@ -61,7 +74,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
           <span className="control-maintenance-progress-line" />
           <span className="control-maintenance-progress-fill" />
           <span className="control-maintenance-progress-marker">
-            <span>{status.runtimeHours} ч</span>
+            <span>{runtimeHoursLabel}</span>
           </span>
           <span className="control-maintenance-progress-ticks">
             {progressTicks.map((tick) => (
@@ -79,7 +92,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
           <span className="control-maintenance-progress-labels">
             <span>0</span>
             <span>500</span>
-            <span>{status.intervalHours} ч</span>
+            <span>{intervalHoursLabel}</span>
           </span>
         </div>
       </section>
@@ -144,7 +157,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
             </span>
             <span className="control-maintenance-next-copy">
               <strong>Плановое ТО</strong>
-              <span>Рекомендуется через {status.hoursLeft} ч</span>
+              <span>{nextActionLabel}</span>
             </span>
             <IconMask name="utilityChevron" size={18} className="control-maintenance-chevron" />
           </button>

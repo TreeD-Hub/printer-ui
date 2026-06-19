@@ -5,6 +5,9 @@ export type { ControlContainerProps } from './ControlContainer'
 export type {
   ControlGroupId,
   HeatingCommandBlockReasons,
+  MaintenanceChecklistItem,
+  MaintenanceHistoryItem,
+  MaintenanceStatus,
   MovementCommandBlockReasons,
   MoveStepKey,
   MovementMode,

@@ -9,6 +9,7 @@ import {
   type PrinterCommandId,
 } from './core/commands'
 import { usePrinterSnapshot } from './core/store/usePrinterSnapshot'
+import type { DashboardContainerProps } from './dashboard/DashboardContainer'
 import { DashboardStatusDock } from './dashboard/DashboardStatusDock'
 import {
   BABYSTEP_STEP_OPTIONS,
@@ -41,6 +42,7 @@ import {
 } from './printTune'
 import { usePrintSessionController } from './printSession'
 import { useHeatingFanController } from './heating'
+import { useMaintenanceController } from './maintenance'
 import type { PrinterConnectionState } from './core/transport/types'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
@@ -55,31 +57,6 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
   reconnecting: 'Переподключение',
   offline: 'Офлайн',
   shutdown: 'Klipper остановлен',
-}
-const MAINTENANCE_STATUS = {
-  runtimeHours: 874,
-  hoursLeft: 126,
-  intervalHours: 1000,
-} as const
-const MAINTENANCE_HISTORY_ITEMS = [
-  { id: '3', date: '03.05.2024', runtimeHours: 748, label: 'Плановое ТО' },
-] as const
-const MAINTENANCE_CHECKLIST_ITEMS = [
-  { id: 'belts', label: 'Проверка натяжения ремней' },
-  { id: 'guides', label: 'Очистка направляющих и винтов' },
-  { id: 'axes', label: 'Смазка осей и подшипников' },
-  { id: 'fans', label: 'Проверка вентиляторов и обдува' },
-  { id: 'hotend', label: 'Осмотр сопла и хотэнда' },
-  { id: 'calibration', label: 'Калибровка стола (при необходимости)' },
-] as const
-const MAINTENANCE_PROGRESS_TICKS = Array.from({ length: 31 }, (_, index) => index)
-type MaintenanceChecklistItemId = (typeof MAINTENANCE_CHECKLIST_ITEMS)[number]['id']
-
-function createMaintenanceChecklistState(checked: boolean): Record<MaintenanceChecklistItemId, boolean> {
-  return MAINTENANCE_CHECKLIST_ITEMS.reduce<Record<MaintenanceChecklistItemId, boolean>>((state, item) => {
-    state[item.id] = checked
-    return state
-  }, {} as Record<MaintenanceChecklistItemId, boolean>)
 }
 
 function App() {
@@ -159,9 +136,7 @@ function App() {
   const [activeControlFlashKey, setActiveControlFlashKey] = useState<string | null>(null)
   const [isMainLightEnabled, setIsMainLightEnabled] = useState<boolean>(false)
   const [isToolheadLightEnabled, setIsToolheadLightEnabled] = useState<boolean>(false)
-  const [maintenanceChecklistState, setMaintenanceChecklistState] = useState<Record<MaintenanceChecklistItemId, boolean>>(() =>
-    createMaintenanceChecklistState(false),
-  )
+  const maintenanceController = useMaintenanceController()
   const controlFlashTimeoutRef = useRef<number | null>(null)
 
   const {
@@ -398,17 +373,6 @@ function App() {
     void executeCommand({ command: 'disableMotors' })
   }
 
-  function handleMaintenanceChecklistItemChange(itemId: string, checked: boolean): void {
-    setMaintenanceChecklistState((current) => ({
-      ...current,
-      [itemId]: checked,
-    }))
-  }
-
-  function handleMaintenanceChecklistComplete(): void {
-    setMaintenanceChecklistState(createMaintenanceChecklistState(true))
-  }
-
   const handleVirtualKeyboardLanguageToggle = useCallback(() => {
     setKeyboardLanguage((prevValue) => (prevValue === 'ru' ? 'en' : 'ru'))
   }, [])
@@ -543,6 +507,63 @@ function App() {
       onButtonRef={setTopButtonRef}
     />
   )
+  const dashboardProps: DashboardContainerProps = {
+    chrome: {
+      statusDock: dashboardStatusDock,
+      logoSrc: treeDLogoAsset,
+    },
+    print: {
+      hasActivePrint,
+      displayPrintFileName,
+      printFill,
+      adjustedEtaTime,
+      displayLayerCurrent,
+      displayLayerTotal,
+      isPrintPaused,
+      printPauseCommand,
+      pendingCommand,
+      isBusy,
+      printCancelBlockReason,
+    },
+    tune: {
+      temperatureTargets: dashboardTemperatureTargets,
+      printFanPercent,
+      createQuickMetrics,
+      processMetrics,
+      babystepStep,
+      zOffsetMm: snapshot.runtimeTune.appliedBabystepMm,
+    },
+    idle: {
+      idleHeroStatusLabel,
+      idleWidgetOrder: dashboardIdleController.idleWidgetOrder,
+      armedIdleWidgetId: dashboardIdleController.armedIdleWidgetId,
+      draggingIdleWidgetId: dashboardIdleController.draggingIdleWidgetId,
+      idleWidgetRefs: dashboardIdleController.idleWidgetRefs,
+      maintenanceSummary: maintenanceController.status,
+      idleNotesInputRef: dashboardIdleController.idleNotesInputRef,
+      idleNotesText: dashboardIdleController.idleNotesText,
+      isIdleNotesKeyboardOpen: dashboardIdleController.isIdleNotesKeyboardOpen,
+      idleNotesKeyboardRows: dashboardIdleController.idleNotesKeyboardRows,
+    },
+    actions: {
+      onPrintTuneGroupOpen: handlePrintTuneGroupOpen,
+      onPause: () => void printSessionCommandHandlers.togglePause(),
+      onStopRequest: () => void printSessionCommandHandlers.requestStop(),
+      onBabystepStepChange: setBabystepStep,
+      onBabystepAdjust: handleBabystepAdjust,
+      onIdleWidgetTargetOpen: dashboardIdleController.openIdleWidgetTarget,
+      onIdleWidgetDragPointerDown: dashboardIdleController.handleIdleWidgetDragPointerDown,
+      onIdleWidgetDragPointerMove: dashboardIdleController.handleIdleWidgetDragPointerMove,
+      onIdleWidgetDragPointerEnd: dashboardIdleController.handleIdleWidgetDragPointerEnd,
+      onIdleWidgetDragHandleClick: dashboardIdleController.handleIdleWidgetDragHandleClick,
+      onIdleNotesKeyboardOpen: dashboardIdleController.handleIdleNotesKeyboardOpen,
+      onIdleNotesChange: dashboardIdleController.handleIdleNotesChange,
+      onIdleNotesKeyMouseDown: dashboardIdleController.handleIdleNotesKeyMouseDown,
+      onIdleNotesVirtualKey: dashboardIdleController.handleIdleNotesVirtualKey,
+      onIdleNotesKeyboardClose: dashboardIdleController.handleIdleNotesKeyboardClose,
+    },
+    getCommandBlockReason,
+  }
 
   return (
     <main className={`app-root ${isMaxPerformanceModeEnabled ? 'is-performance-mode' : ''}`}>
@@ -551,63 +572,7 @@ function App() {
           activeScreen={activeScreen}
           isFilesScreenActive={isFilesScreenActive}
           onScreenSelect={handleScreenSelect}
-          dashboard={{
-            chrome: {
-              statusDock: dashboardStatusDock,
-              logoSrc: treeDLogoAsset,
-            },
-            print: {
-              hasActivePrint,
-              displayPrintFileName,
-              printFill,
-              adjustedEtaTime,
-              displayLayerCurrent,
-              displayLayerTotal,
-              isPrintPaused,
-              printPauseCommand,
-              pendingCommand,
-              isBusy,
-              printCancelBlockReason,
-            },
-            tune: {
-              temperatureTargets: dashboardTemperatureTargets,
-              printFanPercent,
-              createQuickMetrics,
-              processMetrics,
-              babystepStep,
-              zOffsetMm: snapshot.runtimeTune.appliedBabystepMm,
-            },
-            idle: {
-              idleHeroStatusLabel,
-              idleWidgetOrder: dashboardIdleController.idleWidgetOrder,
-              armedIdleWidgetId: dashboardIdleController.armedIdleWidgetId,
-              draggingIdleWidgetId: dashboardIdleController.draggingIdleWidgetId,
-              idleWidgetRefs: dashboardIdleController.idleWidgetRefs,
-              maintenanceSummary: MAINTENANCE_STATUS,
-              idleNotesInputRef: dashboardIdleController.idleNotesInputRef,
-              idleNotesText: dashboardIdleController.idleNotesText,
-              isIdleNotesKeyboardOpen: dashboardIdleController.isIdleNotesKeyboardOpen,
-              idleNotesKeyboardRows: dashboardIdleController.idleNotesKeyboardRows,
-            },
-            actions: {
-              onPrintTuneGroupOpen: handlePrintTuneGroupOpen,
-              onPause: () => void printSessionCommandHandlers.togglePause(),
-              onStopRequest: () => void printSessionCommandHandlers.requestStop(),
-              onBabystepStepChange: setBabystepStep,
-              onBabystepAdjust: handleBabystepAdjust,
-              onIdleWidgetTargetOpen: dashboardIdleController.openIdleWidgetTarget,
-              onIdleWidgetDragPointerDown: dashboardIdleController.handleIdleWidgetDragPointerDown,
-              onIdleWidgetDragPointerMove: dashboardIdleController.handleIdleWidgetDragPointerMove,
-              onIdleWidgetDragPointerEnd: dashboardIdleController.handleIdleWidgetDragPointerEnd,
-              onIdleWidgetDragHandleClick: dashboardIdleController.handleIdleWidgetDragHandleClick,
-              onIdleNotesKeyboardOpen: dashboardIdleController.handleIdleNotesKeyboardOpen,
-              onIdleNotesChange: dashboardIdleController.handleIdleNotesChange,
-              onIdleNotesKeyMouseDown: dashboardIdleController.handleIdleNotesKeyMouseDown,
-              onIdleNotesVirtualKey: dashboardIdleController.handleIdleNotesVirtualKey,
-              onIdleNotesKeyboardClose: dashboardIdleController.handleIdleNotesKeyboardClose,
-            },
-            getCommandBlockReason,
-          }}
+          dashboard={dashboardProps}
           files={{
             files: effectiveFilesLibrary,
             onFileSelect: handlePrintFileSelect,
@@ -636,13 +601,13 @@ function App() {
             isToolheadLightEnabled,
             onMainLightEnabledChange: setIsMainLightEnabled,
             onToolheadLightEnabledChange: setIsToolheadLightEnabled,
-            maintenanceStatus: MAINTENANCE_STATUS,
-            maintenanceHistoryItems: MAINTENANCE_HISTORY_ITEMS,
-            maintenanceChecklistItems: MAINTENANCE_CHECKLIST_ITEMS,
-            maintenanceProgressTicks: MAINTENANCE_PROGRESS_TICKS,
-            maintenanceChecklistState,
-            onMaintenanceChecklistItemChange: handleMaintenanceChecklistItemChange,
-            onMaintenanceChecklistComplete: handleMaintenanceChecklistComplete,
+            maintenanceStatus: maintenanceController.status,
+            maintenanceHistoryItems: maintenanceController.historyItems,
+            maintenanceChecklistItems: maintenanceController.checklistItems,
+            maintenanceProgressTicks: maintenanceController.progressTicks,
+            maintenanceChecklistState: maintenanceController.checklistState,
+            onMaintenanceChecklistItemChange: maintenanceController.handleChecklistItemChange,
+            onMaintenanceChecklistComplete: maintenanceController.handleChecklistComplete,
           }}
           settings={settingsPageProps}
         />

@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ChangeEvent } from 'react'
 import { useDashboardIdleController } from './useDashboardIdleController'
 
@@ -12,6 +12,10 @@ function changeEvent(value: string): ChangeEvent<HTMLTextAreaElement> {
 }
 
 describe('useDashboardIdleController', () => {
+  beforeEach(() => {
+    window.localStorage.clear()
+  })
+
   it('routes idle widgets to their control groups', () => {
     const onControlGroupOpen = vi.fn()
     const { result } = renderHook(() => useDashboardIdleController({
@@ -72,5 +76,28 @@ describe('useDashboardIdleController', () => {
       result.current.handleIdleNotesVirtualKey('close')
     })
     expect(onKeyboardClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('restores edited idle notes after remount', () => {
+    const { result, unmount } = renderHook(() => useDashboardIdleController({
+      isKeyboardOpen: false,
+      onKeyboardOpen: () => undefined,
+      onKeyboardClose: () => undefined,
+      onControlGroupOpen: () => undefined,
+    }))
+
+    act(() => {
+      result.current.handleIdleNotesChange(changeEvent('First layer: OK'))
+    })
+    unmount()
+
+    const { result: nextResult } = renderHook(() => useDashboardIdleController({
+      isKeyboardOpen: false,
+      onKeyboardOpen: () => undefined,
+      onKeyboardClose: () => undefined,
+      onControlGroupOpen: () => undefined,
+    }))
+
+    expect(nextResult.current.idleNotesText).toBe('First layer: OK')
   })
 })

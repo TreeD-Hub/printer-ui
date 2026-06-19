@@ -25,11 +25,36 @@ const IDLE_NOTES_DEFAULT_TEXT = [
   'Перед запуском проверьте очистку стола и состояние поверхности.',
   'Если модель новая, сделайте короткий тест первого слоя.',
 ].join('\n')
+const IDLE_NOTES_STORAGE_KEY = 'treed-shell:dashboard-idle-notes'
 const IDLE_NOTES_KEYBOARD_ROWS: string[][] = [
   ['Й', 'Ц', 'У', 'К', 'Е', 'Н', 'Г', 'Ш', 'Щ', 'З', 'Х'],
   ['Ф', 'Ы', 'В', 'А', 'П', 'Р', 'О', 'Л', 'Д', 'Ж', 'Э'],
   ['Я', 'Ч', 'С', 'М', 'И', 'Т', 'Ь', 'Б', 'Ю'],
 ]
+
+function readIdleNotesText(): string {
+  if (typeof window === 'undefined') {
+    return IDLE_NOTES_DEFAULT_TEXT
+  }
+
+  try {
+    return window.localStorage.getItem(IDLE_NOTES_STORAGE_KEY) ?? IDLE_NOTES_DEFAULT_TEXT
+  } catch {
+    return IDLE_NOTES_DEFAULT_TEXT
+  }
+}
+
+function writeIdleNotesText(value: string): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  try {
+    window.localStorage.setItem(IDLE_NOTES_STORAGE_KEY, value)
+  } catch {
+    // Ignore storage failures; notes should keep working for the current session.
+  }
+}
 
 export function useDashboardIdleController({
   isKeyboardOpen,
@@ -37,7 +62,7 @@ export function useDashboardIdleController({
   onKeyboardClose,
   onControlGroupOpen,
 }: UseDashboardIdleControllerArgs) {
-  const [idleNotesText, setIdleNotesText] = useState<string>(IDLE_NOTES_DEFAULT_TEXT)
+  const [idleNotesText, setIdleNotesText] = useState<string>(readIdleNotesText)
   const [idleWidgetOrder, setIdleWidgetOrder] = useState<IdleWidgetId[]>(['temperature', 'maintenance'])
   const [armedIdleWidgetId, setArmedIdleWidgetId] = useState<IdleWidgetId | null>(null)
   const [draggingIdleWidgetId, setDraggingIdleWidgetId] = useState<IdleWidgetId | null>(null)
@@ -157,9 +182,14 @@ export function useDashboardIdleController({
     event.stopPropagation()
   }, [])
 
-  const handleIdleNotesChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
-    setIdleNotesText(event.target.value)
+  const updateIdleNotesText = useCallback((nextValue: string): void => {
+    setIdleNotesText(nextValue)
+    writeIdleNotesText(nextValue)
   }, [])
+
+  const handleIdleNotesChange = useCallback((event: ChangeEvent<HTMLTextAreaElement>) => {
+    updateIdleNotesText(event.target.value)
+  }, [updateIdleNotesText])
 
   const handleIdleNotesKeyboardOpen = useCallback(() => {
     onKeyboardOpen()
@@ -209,9 +239,9 @@ export function useDashboardIdleController({
       return
     }
 
-    setIdleNotesText(nextValue)
+    updateIdleNotesText(nextValue)
     setIdleNotesKeyboardCaret(nextCaret)
-  }, [idleNotesText, isKeyboardOpen, onKeyboardClose, setIdleNotesKeyboardCaret])
+  }, [idleNotesText, isKeyboardOpen, onKeyboardClose, setIdleNotesKeyboardCaret, updateIdleNotesText])
 
   useEffect(() => {
     return () => {

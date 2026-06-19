@@ -101,10 +101,12 @@ export function ControlContainer({
     loadFilament: getCommandBlockReason('loadFilament'),
     unloadFilament: getCommandBlockReason('unloadFilament'),
   }), [getCommandBlockReason])
-  const maintenanceProgressPercent = clampPercent(
-    maintenanceStatus.runtimeHours,
-    maintenanceStatus.intervalHours,
-  )
+  const maintenanceProgressPercent = maintenanceStatus.isRuntimeBacked
+    ? clampPercent(
+        maintenanceStatus.runtimeHours,
+        maintenanceStatus.intervalHours,
+      )
+    : 0
   const isMaintenanceChecklistComplete = maintenanceChecklistItems.every((item) => maintenanceChecklistState[item.id])
 
   return (

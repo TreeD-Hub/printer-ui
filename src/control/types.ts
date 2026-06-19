@@ -76,6 +76,8 @@ export type MaintenanceStatus = {
   runtimeHours: number
   hoursLeft: number
   intervalHours: number
+  isRuntimeBacked: boolean
+  notice: string
 }
 
 export type MaintenanceHistoryItem = {
