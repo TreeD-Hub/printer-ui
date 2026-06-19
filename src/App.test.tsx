@@ -658,8 +658,12 @@ describe('App', () => {
     })
   })
 
-  it('renders extended settings sections and handles interactions', () => {
+  it('renders extended settings sections and handles interactions', async () => {
     render(<App />)
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
 
     fireEvent.click(screen.getByRole('button', { name: 'Настройки' }))
     expect(screen.getByTestId('screen-settings')).toBeInTheDocument()
@@ -711,7 +715,14 @@ describe('App', () => {
     expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('подтверждения')
 
     fireEvent.click(screen.getByTestId('settings-console-send-button'))
-    expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('Команда отправлена: G28')
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('Команда отправлена: G28')
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'consoleGcode', gcode: 'G28' }),
+        ]),
+      )
+    })
     expect(screen.getByText('G28', { selector: 'strong' })).toBeInTheDocument()
   })
 
