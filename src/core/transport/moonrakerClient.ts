@@ -11,6 +11,22 @@ import type { PrinterSnapshot, TransportClient } from './types'
 
 type MoonrakerResponse<T> = {
   result?: T
+  error?: {
+    message?: string
+  }
+}
+
+type MoonrakerTransportErrorKind = 'http' | 'timeout' | 'invalid-result'
+
+type MoonrakerClientOptions = {
+  moonrakerUrl?: string
+  fetchImpl?: typeof fetch
+  fetchTimeoutMs?: number
+  metadataConcurrency?: number
+}
+
+type MoonrakerFetchContext = Required<MoonrakerClientOptions> & {
+  metadataCache: Map<string, MoonrakerPrintFileMetadata>
 }
 
 type NormalizeMoonrakerSnapshotInput = {
@@ -32,21 +48,73 @@ type MoonrakerFileListItem = {
   size?: number
 }
 
+const DEFAULT_FETCH_TIMEOUT_MS = 8_000
+const DEFAULT_METADATA_CONCURRENCY = 4
+
+export class MoonrakerTransportError extends Error {
+  readonly kind: MoonrakerTransportErrorKind
+  readonly status?: number
+
+  constructor(kind: MoonrakerTransportErrorKind, message: string, status?: number) {
+    super(message)
+    this.name = 'MoonrakerTransportError'
+    this.kind = kind
+    this.status = status
+  }
+}
+
 export const MOONRAKER_RUNTIME_OBJECTS_QUERY = `/printer/objects/query?${MOONRAKER_RUNTIME_OBJECTS
   .map((objectName) => encodeURIComponent(objectName))
   .join('&')}`
 
-async function fetchMoonraker<T>(path: string): Promise<T> {
-  const response = await fetch(`${moonrakerUrl}${path}`)
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
+async function parseMoonrakerError(response: Response): Promise<string> {
+  try {
+    const payload = (await response.json()) as MoonrakerResponse<unknown>
+    if (payload.error?.message) {
+      return payload.error.message
+    }
+  } catch {
+    // Fall back to HTTP status below.
+  }
+
+  return `HTTP ${response.status}`
+}
+
+async function fetchMoonraker<T>(path: string, context: MoonrakerFetchContext): Promise<T> {
+  const controller = new AbortController()
+  let didTimeout = false
+  const timeoutId = window.setTimeout(() => {
+    didTimeout = true
+    controller.abort()
+  }, context.fetchTimeoutMs)
+  let response: Response
+
+  try {
+    response = await context.fetchImpl(`${context.moonrakerUrl}${path}`, {
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (didTimeout || isAbortError(error)) {
+      throw new MoonrakerTransportError('timeout', `Moonraker request timed out after ${context.fetchTimeoutMs}ms`)
+    }
+
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`)
+    throw new MoonrakerTransportError('http', await parseMoonrakerError(response), response.status)
   }
 
   const payload = (await response.json()) as MoonrakerResponse<T>
 
-  if (!payload.result) {
-    throw new Error('Moonraker result is missing')
+  if (payload.result === undefined) {
+    throw new MoonrakerTransportError('invalid-result', 'Moonraker result is missing')
   }
 
   return payload.result
@@ -56,17 +124,60 @@ function getMoonrakerFilePath(item: MoonrakerFileListItem): string {
   return item.path ?? item.filename ?? ''
 }
 
-async function fetchPrintFileWithMetadata(item: MoonrakerFileListItem): Promise<MoonrakerPrintFileInput> {
+function getMetadataCacheKey(path: string, item: MoonrakerFileListItem): string {
+  return `${path}|${item.modified ?? 'unknown'}|${item.size ?? 'unknown'}`
+}
+
+async function mapWithConcurrency<T, U>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<U>,
+): Promise<U[]> {
+  const results = new Array<U>(items.length)
+  let nextIndex = 0
+  const workerCount = Math.max(1, Math.min(limit, items.length))
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      const item = items[currentIndex]
+      if (item !== undefined) {
+        results[currentIndex] = await mapper(item)
+      }
+    }
+  })
+
+  await Promise.all(workers)
+
+  return results
+}
+
+async function fetchPrintFileWithMetadata(
+  item: MoonrakerFileListItem,
+  context: MoonrakerFetchContext,
+): Promise<MoonrakerPrintFileInput> {
   const path = getMoonrakerFilePath(item)
 
   if (!path.toLowerCase().endsWith('.gcode')) {
     return item
   }
 
+  const cacheKey = getMetadataCacheKey(path, item)
+  const cachedMetadata = context.metadataCache.get(cacheKey)
+  if (cachedMetadata !== undefined) {
+    return {
+      ...item,
+      path,
+      metadata: cachedMetadata,
+    }
+  }
+
   try {
     const metadata = await fetchMoonraker<MoonrakerPrintFileMetadata>(
       `/server/files/metadata?filename=${encodeURIComponent(path)}`,
+      context,
     )
+    context.metadataCache.set(cacheKey, metadata)
 
     return {
       ...item,
@@ -81,10 +192,14 @@ async function fetchPrintFileWithMetadata(item: MoonrakerFileListItem): Promise<
   }
 }
 
-async function fetchPrintFiles(): Promise<MoonrakerPrintFileInput[]> {
-  const items = await fetchMoonraker<MoonrakerFileListItem[]>('/server/files/list?root=gcodes')
+async function fetchPrintFiles(context: MoonrakerFetchContext): Promise<MoonrakerPrintFileInput[]> {
+  const items = await fetchMoonraker<MoonrakerFileListItem[]>('/server/files/list?root=gcodes', context)
 
-  return Promise.all(items.map(fetchPrintFileWithMetadata))
+  return mapWithConcurrency(
+    items,
+    context.metadataConcurrency,
+    (item) => fetchPrintFileWithMetadata(item, context),
+  )
 }
 
 export function normalizeMoonrakerSnapshot(input: NormalizeMoonrakerSnapshotInput): PrinterSnapshot {
@@ -119,18 +234,26 @@ export function normalizeMoonrakerSnapshot(input: NormalizeMoonrakerSnapshotInpu
   )
 }
 
-export function createMoonrakerClient(): TransportClient {
+export function createMoonrakerClient(options: MoonrakerClientOptions = {}): TransportClient {
+  const context: MoonrakerFetchContext = {
+    moonrakerUrl: options.moonrakerUrl ?? moonrakerUrl,
+    fetchImpl: options.fetchImpl ?? fetch,
+    fetchTimeoutMs: options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
+    metadataConcurrency: options.metadataConcurrency ?? DEFAULT_METADATA_CONCURRENCY,
+    metadataCache: new Map(),
+  }
+
   return {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
       const [objects, printFiles] = await Promise.all([
-        fetchMoonraker<MoonrakerObjectsQueryPayload>(MOONRAKER_RUNTIME_OBJECTS_QUERY),
-        fetchPrintFiles(),
+        fetchMoonraker<MoonrakerObjectsQueryPayload>(MOONRAKER_RUNTIME_OBJECTS_QUERY, context),
+        fetchPrintFiles(context),
       ])
 
-      return normalizeMoonrakerRuntimeSnapshot(objects, { moonrakerUrl, source: 'live', printFiles })
+      return normalizeMoonrakerRuntimeSnapshot(objects, { moonrakerUrl: context.moonrakerUrl, source: 'live', printFiles })
     },
     subscribe(handlers) {
-      return subscribeToMoonrakerStatus(handlers, { moonrakerUrl })
+      return subscribeToMoonrakerStatus(handlers, { moonrakerUrl: context.moonrakerUrl })
     },
   }
 }

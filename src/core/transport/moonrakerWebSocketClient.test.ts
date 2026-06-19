@@ -65,6 +65,7 @@ function subscribeForTest() {
     {
       moonrakerUrl: 'http://127.0.0.1:7125',
       reconnectDelayMs: 50,
+      reconnectJitterRatio: 0,
       WebSocketCtor: TestWebSocket as unknown as typeof WebSocket,
     },
   )
@@ -224,6 +225,51 @@ describe('moonrakerWebSocketClient', () => {
       connection: 'connecting',
       message: undefined,
     })
+
+    subscription.close()
+  })
+
+  it('uses capped exponential backoff between repeated reconnect attempts', () => {
+    vi.useFakeTimers()
+    const subscription = subscribeToMoonrakerStatus(
+      {
+        onSnapshot() {
+          return undefined
+        },
+        onConnectionChange() {
+          return undefined
+        },
+      },
+      {
+        moonrakerUrl: 'http://127.0.0.1:7125',
+        reconnectDelayMs: 50,
+        reconnectMaxDelayMs: 200,
+        reconnectJitterRatio: 0,
+        WebSocketCtor: TestWebSocket as unknown as typeof WebSocket,
+      },
+    )
+
+    TestWebSocket.instances[0]?.failClose()
+    vi.advanceTimersByTime(49)
+    expect(TestWebSocket.instances).toHaveLength(1)
+    vi.advanceTimersByTime(1)
+    expect(TestWebSocket.instances).toHaveLength(2)
+
+    TestWebSocket.instances[1]?.failClose()
+    vi.advanceTimersByTime(99)
+    expect(TestWebSocket.instances).toHaveLength(2)
+    vi.advanceTimersByTime(1)
+    expect(TestWebSocket.instances).toHaveLength(3)
+
+    TestWebSocket.instances[2]?.failClose()
+    vi.advanceTimersByTime(199)
+    expect(TestWebSocket.instances).toHaveLength(3)
+    vi.advanceTimersByTime(1)
+    expect(TestWebSocket.instances).toHaveLength(4)
+
+    TestWebSocket.instances[3]?.failClose()
+    vi.advanceTimersByTime(200)
+    expect(TestWebSocket.instances).toHaveLength(5)
 
     subscription.close()
   })

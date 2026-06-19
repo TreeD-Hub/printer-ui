@@ -174,6 +174,15 @@ export const MovementControlPanel = memo(function MovementControlPanel({
     await onParkingTargetSelect(nextMode, nextAxis)
   }
 
+  function handleMotorsDisableClick(): void {
+    if (commandBlockReasons.disableMotors !== null) {
+      showParkingLockPopup(commandBlockReasons.disableMotors)
+      return
+    }
+
+    onMotorsDisable()
+  }
+
   return (
     <div className="control-grid">
       <article className="control-card control-card-parking">
@@ -243,7 +252,8 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           type="button"
           className="control-action-btn control-action-btn-danger"
           data-testid="motors-disable-button"
-          onClick={onMotorsDisable}
+          onClick={handleMotorsDisableClick}
+          aria-disabled={commandBlockReasons.disableMotors !== null || undefined}
           disabled={isBusy}
         >
           Отключить моторы

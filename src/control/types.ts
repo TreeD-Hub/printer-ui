@@ -41,6 +41,7 @@ export type MovementCommandBlockReasons = {
     axis: Record<AxisId, string | null>
   }
   moveAxis: Record<AxisId, string | null>
+  disableMotors: string | null
   loadFilament: string | null
   unloadFilament: string | null
 }

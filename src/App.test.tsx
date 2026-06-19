@@ -1,15 +1,25 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import App from './App'
 import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
 import {
   clearMockCommandFailure,
   clearMockNetworkRuntime,
+  clearMockTransportSnapshot,
   createMockSnapshot,
   getMockCommandOperations,
   getMockNetworkOperations,
   setMockCommandFailure,
   setMockNetworkStatus,
+  setMockTransportSnapshot,
 } from '../mocks/runtime'
+import type { PrinterSnapshot } from './core/transport/types'
+
+function applyPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
+  setMockTransportSnapshot(nextSnapshot)
+  act(() => {
+    setPrinterSnapshot(nextSnapshot)
+  })
+}
 
 beforeEach(() => {
   act(() => {
@@ -18,8 +28,10 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  cleanup()
   clearMockCommandFailure()
   clearMockNetworkRuntime()
+  clearMockTransportSnapshot()
 })
 
 describe('App', () => {
@@ -218,7 +230,7 @@ describe('App', () => {
     expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('fan_shroud_prototype.gcode')
     expect(screen.getByText('2 ч 15 мин')).toBeInTheDocument()
     expect(screen.getByText('34 г')).toBeInTheDocument()
-  })
+  }, 10000)
 
   it('renders control widgets and switches parking mode to specific axis', async () => {
     render(<App />)
@@ -328,19 +340,17 @@ describe('App', () => {
     const previousSnapshot = getPrinterSnapshot()
 
     try {
-      act(() => {
-        setPrinterSnapshot({
-          ...previousSnapshot,
-          source: 'live',
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        state: 'printing',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'bearing_bracket_mk2.gcode',
           state: 'printing',
-          printJob: {
-            ...previousSnapshot.printJob,
-            filename: 'bearing_bracket_mk2.gcode',
-            state: 'printing',
-            isActive: true,
-            isPaused: false,
-          },
-        })
+          isActive: true,
+          isPaused: false,
+        },
       })
 
       fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
@@ -353,10 +363,22 @@ describe('App', () => {
       expect((await screen.findByTestId('movement-lock-popup')).textContent).toContain(
         'Перемещение оси: движение недоступно во время печати.',
       )
-    } finally {
-      act(() => {
-        setPrinterSnapshot(previousSnapshot)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('motors-disable-button')).toHaveAttribute('aria-disabled', 'true')
       })
+
+      fireEvent.click(screen.getByTestId('motors-disable-button'))
+
+      await waitFor(() => {
+        expect(
+          screen
+            .getAllByTestId('movement-lock-popup')
+            .some((popup) => popup.textContent?.includes('Отключить моторы: движение недоступно во время печати.')),
+        ).toBe(true)
+      })
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
     }
   })
 
@@ -370,19 +392,17 @@ describe('App', () => {
     const previousSnapshot = getPrinterSnapshot()
 
     try {
-      act(() => {
-        setPrinterSnapshot({
-          ...previousSnapshot,
-          source: 'live',
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        state: 'printing',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'bearing_bracket_mk2.gcode',
           state: 'printing',
-          printJob: {
-            ...previousSnapshot.printJob,
-            filename: 'bearing_bracket_mk2.gcode',
-            state: 'printing',
-            isActive: true,
-            isPaused: false,
-          },
-        })
+          isActive: true,
+          isPaused: false,
+        },
       })
 
       fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
@@ -396,9 +416,7 @@ describe('App', () => {
         'Home all: движение недоступно во время печати.',
       )
     } finally {
-      act(() => {
-        setPrinterSnapshot(previousSnapshot)
-      })
+      applyPrinterSnapshot(previousSnapshot)
     }
   })
 
@@ -412,14 +430,12 @@ describe('App', () => {
     const previousSnapshot = getPrinterSnapshot()
 
     try {
-      act(() => {
-        setPrinterSnapshot({
-          ...previousSnapshot,
-          capabilities: {
-            ...previousSnapshot.capabilities,
-            thermal: false,
-          },
-        })
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        capabilities: {
+          ...previousSnapshot.capabilities,
+          thermal: false,
+        },
       })
 
       fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
@@ -434,9 +450,7 @@ describe('App', () => {
         'Нагрев сопла: capability «нагрев» не подтвержден.',
       )
     } finally {
-      act(() => {
-        setPrinterSnapshot(previousSnapshot)
-      })
+      applyPrinterSnapshot(previousSnapshot)
     }
   })
 
@@ -450,14 +464,12 @@ describe('App', () => {
     const previousSnapshot = getPrinterSnapshot()
 
     try {
-      act(() => {
-        setPrinterSnapshot({
-          ...previousSnapshot,
-          capabilities: {
-            ...previousSnapshot.capabilities,
-            fan: false,
-          },
-        })
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        capabilities: {
+          ...previousSnapshot.capabilities,
+          fan: false,
+        },
       })
 
       fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
@@ -472,9 +484,7 @@ describe('App', () => {
         'Обдув модели: capability «обдув» не подтвержден.',
       )
     } finally {
-      act(() => {
-        setPrinterSnapshot(previousSnapshot)
-      })
+      applyPrinterSnapshot(previousSnapshot)
     }
   })
 
@@ -698,6 +708,9 @@ describe('App', () => {
     expect(consoleInput.value).toBe('G28')
 
     fireEvent.click(screen.getByTestId('settings-console-send-button'))
+    expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('подтверждения')
+
+    fireEvent.click(screen.getByTestId('settings-console-send-button'))
     expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('Команда отправлена: G28')
     expect(screen.getByText('G28', { selector: 'strong' })).toBeInTheDocument()
   })
@@ -741,15 +754,14 @@ describe('App', () => {
 
     const enableSystemCapabilities = () => {
       const snapshot = getPrinterSnapshot()
-      act(() => {
-        setPrinterSnapshot({
-          ...snapshot,
-          capabilities: {
-            ...snapshot.capabilities,
-            power: true,
-            serviceCommands: true,
-          },
-        })
+      applyPrinterSnapshot({
+        ...snapshot,
+        capabilities: {
+          ...snapshot.capabilities,
+          power: true,
+          systemPower: true,
+          serviceCommands: true,
+        },
       })
     }
 

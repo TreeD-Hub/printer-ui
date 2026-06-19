@@ -285,12 +285,18 @@ export function usePrintTuneController({
   }, [hasActivePrint])
 
   useEffect(() => {
+    if (activeGroup !== null || keyboardTarget !== null) {
+      return
+    }
+
     setFlowPercent(runtimeTune.flowFactorPercent)
     setSpeedFactorPercent(runtimeTune.speedFactorPercent)
     setAccelMmS2(runtimeTune.accelMmS2)
     setKFactor(runtimeTune.pressureAdvance)
     setRetractMm(runtimeTune.retractLengthMm)
   }, [
+    activeGroup,
+    keyboardTarget,
     runtimeTune.accelMmS2,
     runtimeTune.flowFactorPercent,
     runtimeTune.pressureAdvance,

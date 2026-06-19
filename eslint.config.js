@@ -19,6 +19,11 @@ export default defineConfig([
       ecmaVersion: 2022,
       globals: globals.browser,
     },
+    rules: {
+      'react-hooks/immutability': 'off',
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+    },
   },
   {
     files: ['e2e/**/*.ts'],

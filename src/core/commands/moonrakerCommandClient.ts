@@ -1,4 +1,5 @@
 import { moonrakerUrl } from '../../config'
+import { MoonrakerTransportError } from '../transport/moonrakerClient'
 import type {
   CommandClient,
   CommandResult,
@@ -13,6 +14,7 @@ type CommandCapabilityOptions = {
 type MoonrakerCommandClientOptions = {
   moonrakerUrl?: string
   fetchImpl?: typeof fetch
+  fetchTimeoutMs?: number
   capabilities?: CommandCapabilityOptions
 }
 
@@ -20,6 +22,12 @@ type MoonrakerEnvelope = {
   error?: {
     message?: string
   }
+}
+
+const DEFAULT_COMMAND_FETCH_TIMEOUT_MS = 8_000
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError'
 }
 
 async function parseMoonrakerError(response: Response): Promise<string> {
@@ -38,10 +46,17 @@ async function parseMoonrakerError(response: Response): Promise<string> {
 async function callMoonraker(
   path: string,
   body: unknown,
-  options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'moonrakerUrl'>>,
+  options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'fetchTimeoutMs' | 'moonrakerUrl'>>,
 ): Promise<void> {
+  const controller = new AbortController()
+  let didTimeout = false
+  const timeoutId = window.setTimeout(() => {
+    didTimeout = true
+    controller.abort()
+  }, options.fetchTimeoutMs)
   const init: RequestInit = {
     method: 'POST',
+    signal: controller.signal,
   }
 
   if (body !== undefined) {
@@ -51,7 +66,18 @@ async function callMoonraker(
     init.body = JSON.stringify(body)
   }
 
-  const response = await options.fetchImpl(`${options.moonrakerUrl}${path}`, init)
+  let response: Response
+  try {
+    response = await options.fetchImpl(`${options.moonrakerUrl}${path}`, init)
+  } catch (error) {
+    if (didTimeout || isAbortError(error)) {
+      throw new MoonrakerTransportError('timeout', `Moonraker request timed out after ${options.fetchTimeoutMs}ms`)
+    }
+
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 
   if (!response.ok) {
     throw new Error(await parseMoonrakerError(response))
@@ -60,7 +86,7 @@ async function callMoonraker(
 
 function sendScript(
   script: string,
-  options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'moonrakerUrl'>>,
+  options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'fetchTimeoutMs' | 'moonrakerUrl'>>,
 ): Promise<void> {
   return callMoonraker('/printer/gcode/script', { script }, options)
 }
@@ -105,6 +131,8 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return `Nozzle target set to ${args.targetCelsius}C`
     case 'setBedTarget':
       return `Bed target set to ${args.targetCelsius}C`
+    case 'setHeatingTargets':
+      return `Heating targets set to nozzle ${args.nozzleCelsius}C, bed ${args.bedCelsius}C`
     case 'turnOffHeaters':
       return 'Heaters off sent'
     case 'setFanPercent':
@@ -133,6 +161,8 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'TREED_SHAPER_CALIBRATE_FULL sent'
     case 'xyMotionTest':
       return 'TREED_XY_MOTION_TEST sent'
+    case 'disableMotors':
+      return 'M84 sent'
     case 'consoleGcode':
       return 'Console G-code sent'
     case 'rebootHost':
@@ -167,6 +197,7 @@ function formatFilamentScript(command: 'LOAD_FILAMENT' | 'UNLOAD_FILAMENT', args
 function executeMoonrakerCommand(
   args: ExecuteCommandArgs,
   options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'moonrakerUrl'>> & {
+    fetchTimeoutMs: number
     capabilities: CommandCapabilityOptions
   },
 ): Promise<void> | CommandUnsupportedResult {
@@ -208,6 +239,8 @@ function executeMoonrakerCommand(
       return sendScript(`${args.wait ? 'M109' : 'M104'} S${args.targetCelsius}`, options)
     case 'setBedTarget':
       return sendScript(`${args.wait ? 'M190' : 'M140'} S${args.targetCelsius}`, options)
+    case 'setHeatingTargets':
+      return sendScript(`M104 S${args.nozzleCelsius}\nM140 S${args.bedCelsius}`, options)
     case 'turnOffHeaters':
       return sendScript('TURN_OFF_HEATERS', options)
     case 'setFanPercent':
@@ -236,6 +269,8 @@ function executeMoonrakerCommand(
       return sendScript('TREED_SHAPER_CALIBRATE_FULL', options)
     case 'xyMotionTest':
       return sendScript('TREED_XY_MOTION_TEST', options)
+    case 'disableMotors':
+      return sendScript('M84', options)
     case 'consoleGcode':
       return sendScript((args.script ?? args.gcode ?? '').trim(), options)
     case 'rebootHost':
@@ -264,6 +299,7 @@ export function createMoonrakerCommandClient(options: MoonrakerCommandClientOpti
   const clientOptions = {
     moonrakerUrl: options.moonrakerUrl ?? moonrakerUrl,
     fetchImpl: options.fetchImpl ?? fetch,
+    fetchTimeoutMs: options.fetchTimeoutMs ?? DEFAULT_COMMAND_FETCH_TIMEOUT_MS,
     capabilities: options.capabilities ?? {},
   }
 

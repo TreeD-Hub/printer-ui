@@ -2,6 +2,36 @@ import { describe, expect, it, vi } from 'vitest'
 import { createMoonrakerCommandClient } from './moonrakerCommandClient'
 
 describe('createMoonrakerCommandClient', () => {
+  it('aborts stuck Moonraker command requests after timeout', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      })
+    }))
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+      fetchTimeoutMs: 25,
+    })
+
+    const promise = client.execute({ command: 'turnOffHeaters' })
+    const timeoutExpectation = expect(promise).rejects.toMatchObject({
+      kind: 'timeout',
+      message: expect.stringContaining('25ms'),
+    })
+
+    await vi.advanceTimersByTimeAsync(25)
+    await timeoutExpectation
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    )
+    vi.useRealTimers()
+  })
+
   it('starts nested print file paths through Moonraker print start endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -39,7 +69,9 @@ describe('createMoonrakerCommandClient', () => {
     await client.execute({ command: 'moveAxis', axis: 'X', distanceMm: 10, speedMmS: 50 })
     await client.execute({ command: 'loadFilament', lengthMm: 80, speedMmS: 6 })
     await client.execute({ command: 'zParkZeroEddy' })
+    await client.execute({ command: 'disableMotors' })
     await client.execute({ command: 'consoleGcode', script: 'M115' })
+    await client.execute({ command: 'setHeatingTargets', nozzleCelsius: 230, bedCelsius: 70 })
     await client.execute({ command: 'setNozzleTarget', targetCelsius: 230, wait: true })
     await client.execute({ command: 'setBedTarget', targetCelsius: 70, wait: true })
     await client.execute({ command: 'setPrintSpeedFactorPercent', percent: 120 })
@@ -89,60 +121,74 @@ describe('createMoonrakerCommandClient', () => {
       6,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'M115' }),
+        body: JSON.stringify({ script: 'M84' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       7,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'M109 S230' }),
+        body: JSON.stringify({ script: 'M115' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       8,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'M190 S70' }),
+        body: JSON.stringify({ script: 'M104 S230\nM140 S70' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       9,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'TREED_UI_SET_SPEED_FACTOR PERCENT=120' }),
+        body: JSON.stringify({ script: 'M109 S230' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       10,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'TREED_UI_SET_FLOW_FACTOR PERCENT=97' }),
+        body: JSON.stringify({ script: 'M190 S70' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       11,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'TREED_UI_SET_ACCEL ACCEL=12000' }),
+        body: JSON.stringify({ script: 'TREED_UI_SET_SPEED_FACTOR PERCENT=120' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       12,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'TREED_UI_SET_PRESSURE_ADVANCE ADVANCE=0.075' }),
+        body: JSON.stringify({ script: 'TREED_UI_SET_FLOW_FACTOR PERCENT=97' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       13,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'TREED_UI_SET_RETRACTION RETRACT_LENGTH=0.9' }),
+        body: JSON.stringify({ script: 'TREED_UI_SET_ACCEL ACCEL=12000' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       14,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'TREED_UI_SET_PRESSURE_ADVANCE ADVANCE=0.075' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      15,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'TREED_UI_SET_RETRACTION RETRACT_LENGTH=0.9' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      16,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
         body: JSON.stringify({ script: 'TREED_UI_ADJUST_Z_OFFSET DELTA=-0.025' }),

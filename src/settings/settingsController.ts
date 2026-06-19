@@ -125,6 +125,7 @@ export function useSettingsController({
   const [availableUpdateVersion, setAvailableUpdateVersion] = useState<string | null>(null)
   const [updateNotice, setUpdateNotice] = useState<string>('Проверьте наличие новых версий.')
   const [consoleCommandValue, setConsoleCommandValue] = useState<string>('')
+  const [pendingConsoleCommand, setPendingConsoleCommand] = useState<string | null>(null)
   const [consoleHistory, setConsoleHistory] = useState<Array<{ id: string; command: string; createdAt: string }>>([])
   const [consoleNotice, setConsoleNotice] = useState<string>('Введите G-code или макрос и отправьте команду.')
   const [hostNetworkStatus, setHostNetworkStatus] = useState<HostNetworkStatus>(() =>
@@ -184,6 +185,7 @@ export function useSettingsController({
       setWifiPasswordValue(nextValue)
     } else {
       setConsoleCommandValue(nextValue)
+      setPendingConsoleCommand(null)
     }
   }, [])
 
@@ -409,6 +411,7 @@ export function useSettingsController({
 
   function handleConsoleInputChange(event: ChangeEvent<HTMLTextAreaElement>): void {
     setConsoleCommandValue(event.target.value)
+    setPendingConsoleCommand(null)
   }
 
   function handleConsoleKeyboardOpen(): void {
@@ -417,6 +420,7 @@ export function useSettingsController({
 
   function handleConsoleQuickCommandInsert(command: string): void {
     setConsoleCommandValue(command)
+    setPendingConsoleCommand(null)
     setConsoleNotice(`Команда подготовлена: ${command}`)
     openKeyboard('consoleCommand')
     setKeyboardCaret('consoleCommand', command.length)
@@ -432,6 +436,13 @@ export function useSettingsController({
     const trimmed = consoleCommandValue.trim()
     if (trimmed.length === 0) {
       setConsoleNotice('Введите команду перед отправкой.')
+      setPendingConsoleCommand(null)
+      return
+    }
+
+    if (pendingConsoleCommand !== trimmed) {
+      setPendingConsoleCommand(trimmed)
+      setConsoleNotice(`Опасная команда подготовлена: ${trimmed}. Нажмите "Отправить" еще раз для подтверждения.`)
       return
     }
 
@@ -446,6 +457,7 @@ export function useSettingsController({
     ])
     setConsoleNotice(`Команда отправлена: ${trimmed}`)
     setConsoleCommandValue('')
+    setPendingConsoleCommand(null)
     void executeCommand({ command: 'consoleGcode', gcode: trimmed }).then((ok) => {
       if (!ok) {
         setConsoleNotice(`Команда не выполнена: ${trimmed}`)

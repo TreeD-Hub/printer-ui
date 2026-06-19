@@ -11,6 +11,7 @@ export const runtimeMode: PrinterSource = 'mock'
 
 let mockCommandFailure: { command: PrinterCommandId; message: string } | null = null
 let mockCommandOperations: ExecuteCommandArgs[] = []
+let mockTransportSnapshot: PrinterSnapshot | null = null
 let mockNetworkStatus = createUnavailableHostNetworkStatus('Host network bridge недоступен.')
 let mockNetworkOperations: string[] = []
 
@@ -105,6 +106,14 @@ export function clearMockCommandFailure(): void {
 
 export function getMockCommandOperations(): ExecuteCommandArgs[] {
   return mockCommandOperations.map((operation) => ({ ...operation }))
+}
+
+export function setMockTransportSnapshot(snapshot: PrinterSnapshot | null): void {
+  mockTransportSnapshot = snapshot === null ? null : structuredClone(snapshot)
+}
+
+export function clearMockTransportSnapshot(): void {
+  mockTransportSnapshot = null
 }
 
 function cloneHostNetworkStatus(status: HostNetworkStatus): HostNetworkStatus {
@@ -247,7 +256,7 @@ export function createMockSnapshot(): PrinterSnapshot {
 export function createTransportClient(): TransportClient {
   return {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
-      return createMockSnapshot()
+      return mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
     },
   }
 }

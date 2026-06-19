@@ -1,11 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi } from 'vitest'
+import type { ChangeEvent } from 'react'
 import {
   filterWifiNetworks,
   type WifiNetworkItem,
 } from '@treed/printer-logic'
+import { createMockSnapshot } from '../../mocks/runtime'
+import type { HostNetworkClient } from '../core/hostNetwork'
 import {
   getSettingsKeyboardMeta,
   isSettingsKeyboardTarget,
+  useSettingsController,
 } from './settingsController'
 
 const wifiNetworks: WifiNetworkItem[] = [
@@ -35,6 +40,27 @@ const wifiNetworks: WifiNetworkItem[] = [
   },
 ]
 
+const unavailableNetworkClient: HostNetworkClient = {
+  getStatus: () => Promise.resolve({
+    available: false,
+    ssid: null,
+    ipAddress: null,
+    message: 'offline',
+    networks: [],
+  }),
+  scan: () => Promise.reject(new Error('offline')),
+  connect: () => Promise.reject(new Error('offline')),
+  forget: () => Promise.reject(new Error('offline')),
+}
+
+function changeEvent(value: string): ChangeEvent<HTMLTextAreaElement> {
+  return {
+    target: {
+      value,
+    },
+  } as ChangeEvent<HTMLTextAreaElement>
+}
+
 describe('settings controller helpers', () => {
   it('keeps connected Wi-Fi first and sorts the rest by signal after filtering', () => {
     expect(filterWifiNetworks(wifiNetworks, '5g').map((item) => item.id)).toEqual([
@@ -59,6 +85,40 @@ describe('settings controller helpers', () => {
       testId: 'settings-console-keyboard',
       previewTestId: 'settings-console-keyboard-preview',
       isMultiline: true,
+    })
+  })
+
+  it('requires an explicit second submit before sending raw console G-code', async () => {
+    const executeCommand = vi.fn().mockResolvedValue(true)
+    const { result } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(),
+      connectionLabel: 'Подключено',
+      networkClient: unavailableNetworkClient,
+      executeCommand,
+      getCommandBlockReason: () => null,
+      activeKeyboardTarget: null,
+      openKeyboard: () => undefined,
+      closeKeyboard: () => undefined,
+    }))
+
+    act(() => {
+      result.current.pageProps.onSettingsGroupChange('console')
+      result.current.pageProps.console.onInputChange(changeEvent('G28'))
+    })
+
+    act(() => {
+      result.current.pageProps.console.onSubmit()
+    })
+
+    expect(executeCommand).not.toHaveBeenCalled()
+    expect(result.current.pageProps.console.notice).toContain('подтверждения')
+
+    act(() => {
+      result.current.pageProps.console.onSubmit()
+    })
+
+    await waitFor(() => {
+      expect(executeCommand).toHaveBeenCalledWith({ command: 'consoleGcode', gcode: 'G28' })
     })
   })
 })

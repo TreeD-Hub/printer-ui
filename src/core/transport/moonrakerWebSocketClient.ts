@@ -26,6 +26,8 @@ type MoonrakerWebSocketHandlers = {
 type MoonrakerWebSocketClientOptions = {
   moonrakerUrl?: string
   reconnectDelayMs?: number
+  reconnectMaxDelayMs?: number
+  reconnectJitterRatio?: number
   WebSocketCtor?: typeof WebSocket
 }
 
@@ -35,6 +37,8 @@ export type MoonrakerWebSocketSubscription = {
 
 const SUBSCRIPTION_REQUEST_ID = 1
 const DEFAULT_RECONNECT_DELAY_MS = 2_000
+const DEFAULT_RECONNECT_MAX_DELAY_MS = 30_000
+const DEFAULT_RECONNECT_JITTER_RATIO = 0.2
 
 export const MOONRAKER_SUBSCRIPTION_OBJECTS = Object.fromEntries(
   MOONRAKER_RUNTIME_OBJECTS.map((objectName) => [objectName, null]),
@@ -126,12 +130,15 @@ export function subscribeToMoonrakerStatus(
 ): MoonrakerWebSocketSubscription {
   const runtimeUrl = options.moonrakerUrl ?? moonrakerUrl
   const WebSocketConstructor = options.WebSocketCtor ?? WebSocket
-  const reconnectDelayMs = options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS
+  const reconnectBaseDelayMs = options.reconnectDelayMs ?? DEFAULT_RECONNECT_DELAY_MS
+  const reconnectMaxDelayMs = options.reconnectMaxDelayMs ?? DEFAULT_RECONNECT_MAX_DELAY_MS
+  const reconnectJitterRatio = Math.max(0, options.reconnectJitterRatio ?? DEFAULT_RECONNECT_JITTER_RATIO)
   let socket: WebSocket | null = null
   let reconnectTimer: number | null = null
   let closedByClient = false
   let cachedStatus: MoonrakerPrinterObjectsStatus = {}
   let cachedEventtime: number | undefined
+  let reconnectAttempt = 0
 
   function clearReconnectTimer(): void {
     if (reconnectTimer === null) {
@@ -154,11 +161,18 @@ export function subscribeToMoonrakerStatus(
       return
     }
 
+    const cappedDelayMs = Math.min(
+      reconnectMaxDelayMs,
+      reconnectBaseDelayMs * (2 ** reconnectAttempt),
+    )
+    const jitterMs = cappedDelayMs * reconnectJitterRatio * Math.random()
+    const nextDelayMs = Math.round(cappedDelayMs + jitterMs)
+    reconnectAttempt += 1
     handlers.onConnectionChange('reconnecting', message)
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = null
       connect()
-    }, reconnectDelayMs)
+    }, nextDelayMs)
   }
 
   function sendSubscriptionRequest(nextSocket: WebSocket): void {
@@ -229,6 +243,7 @@ export function subscribeToMoonrakerStatus(
     }
 
     socket.onopen = () => {
+      reconnectAttempt = 0
       handlers.onConnectionChange('connecting')
       if (socket !== null) {
         sendSubscriptionRequest(socket)

@@ -1,5 +1,36 @@
-import { describe, expect, it } from 'vitest'
-import { MOONRAKER_RUNTIME_OBJECTS_QUERY, normalizeMoonrakerSnapshot } from './moonrakerClient'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  createMoonrakerClient,
+  MOONRAKER_RUNTIME_OBJECTS_QUERY,
+  MoonrakerTransportError,
+  normalizeMoonrakerSnapshot,
+} from './moonrakerClient'
+
+function moonrakerResponse(result: unknown): Response {
+  return {
+    ok: true,
+    json: async () => ({ result }),
+  } as Response
+}
+
+function moonrakerHttpError(status: number): Response {
+  return {
+    ok: false,
+    status,
+    json: async () => ({ error: { message: `Moonraker ${status}` } }),
+  } as Response
+}
+
+function runtimeObjects() {
+  return {
+    status: {
+      webhooks: {
+        state: 'ready',
+        state_message: 'Printer is ready',
+      },
+    },
+  }
+}
 
 describe('normalizeMoonrakerSnapshot', () => {
   it('requests TreeD V2 runtime objects and macro state from Moonraker', () => {
@@ -160,5 +191,125 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(snapshot.connection).toBe('shutdown')
     expect(snapshot.v2.eddy.status).toBe('uncalibrated')
     expect(snapshot.message).toContain('Must calibrate probe_eddy_current first')
+  })
+})
+
+describe('createMoonrakerClient', () => {
+  it('aborts stuck Moonraker HTTP requests after timeout', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
+      if (url.includes('/server/files/list')) {
+        return Promise.resolve(moonrakerResponse([]))
+      }
+
+      return new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      })
+      })
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+      fetchTimeoutMs: 25,
+    })
+
+    const promise = client.fetchSnapshot()
+    const timeoutExpectation = expect(promise).rejects.toMatchObject({
+      kind: 'timeout',
+      message: expect.stringContaining('25ms'),
+    })
+
+    await vi.advanceTimersByTimeAsync(25)
+    await timeoutExpectation
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(MOONRAKER_RUNTIME_OBJECTS_QUERY),
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      }),
+    )
+    vi.useRealTimers()
+  })
+
+  it('throws typed transport errors for Moonraker HTTP failures', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/query')) {
+        return Promise.resolve(moonrakerHttpError(500))
+      }
+
+      return Promise.resolve(moonrakerResponse([]))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    await expect(client.fetchSnapshot()).rejects.toBeInstanceOf(MoonrakerTransportError)
+    await expect(client.fetchSnapshot()).rejects.toMatchObject({
+      kind: 'http',
+      status: 500,
+      message: 'Moonraker 500',
+    })
+  })
+
+  it('limits concurrent metadata requests and caches metadata by file identity', async () => {
+    const files = Array.from({ length: 5 }, (_item, index) => ({
+      path: `part-${index}.gcode`,
+      modified: 1_800_000_000 + index,
+      size: 1_024 + index,
+    }))
+    let activeMetadataRequests = 0
+    let maxActiveMetadataRequests = 0
+    let metadataRequestCount = 0
+    const metadataResolvers: Array<() => void> = []
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/query')) {
+        return Promise.resolve(moonrakerResponse(runtimeObjects()))
+      }
+
+      if (url.includes('/server/files/list')) {
+        return Promise.resolve(moonrakerResponse(files))
+      }
+
+      metadataRequestCount += 1
+      activeMetadataRequests += 1
+      maxActiveMetadataRequests = Math.max(maxActiveMetadataRequests, activeMetadataRequests)
+
+      return new Promise<Response>((resolve) => {
+        metadataResolvers.push(() => {
+          activeMetadataRequests -= 1
+          resolve(moonrakerResponse({
+            estimated_time: 1200 + metadataRequestCount,
+            filament_total: 300,
+          }))
+        })
+      })
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+      metadataConcurrency: 2,
+    })
+
+    const firstSnapshot = client.fetchSnapshot()
+    await vi.waitFor(() => {
+      expect(metadataResolvers).toHaveLength(2)
+    })
+
+    for (let resolvedCount = 0; resolvedCount < files.length; resolvedCount += 1) {
+      await vi.waitFor(() => {
+        expect(metadataResolvers.length).toBeGreaterThan(0)
+      })
+      metadataResolvers.shift()?.()
+      await Promise.resolve()
+    }
+    await firstSnapshot
+
+    expect(maxActiveMetadataRequests).toBeLessThanOrEqual(2)
+    expect(metadataRequestCount).toBe(5)
+
+    await client.fetchSnapshot()
+
+    expect(metadataRequestCount).toBe(5)
   })
 })

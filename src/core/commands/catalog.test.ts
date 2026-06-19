@@ -22,6 +22,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'moveAxis',
   'setNozzleTarget',
   'setBedTarget',
+  'setHeatingTargets',
   'turnOffHeaters',
   'setFanPercent',
   'setPrintSpeedFactorPercent',
@@ -36,6 +37,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'shaperCalibrateLight',
   'shaperCalibrateFull',
   'xyMotionTest',
+  'disableMotors',
   'consoleGcode',
   'rebootHost',
   'restartKlipper',
@@ -128,7 +130,9 @@ describe('TREE_D_COMMAND_CATALOG', () => {
 
     expect(isDangerousTreeDCommand('pause')).toBe(false)
     expect(isDangerousTreeDCommand('setFanPercent')).toBe(false)
+    expect(isDangerousTreeDCommand('disableMotors')).toBe(false)
     expect(getTreeDCommandCatalogItem('emergencyStop').requiresConfirmation).toBe(false)
+    expect(getTreeDCommandCatalogItem('consoleGcode').requiresConfirmation).toBe(true)
   })
 
   it('keeps Eddy Z-home and TreeD calibration commands out of safe tier', () => {
@@ -212,6 +216,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       axis: 'X',
       distanceMm: 1,
     })).toContain('во время печати')
+    expect(getTreeDCommandBlockReason('disableMotors', PRINTING_CONTEXT)).toContain('во время печати')
   })
 
   it('allows confirmed host power and service commands during active print', () => {

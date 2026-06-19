@@ -21,6 +21,7 @@ export type PrinterCommandId =
   | 'moveAxis'
   | 'setNozzleTarget'
   | 'setBedTarget'
+  | 'setHeatingTargets'
   | 'turnOffHeaters'
   | 'setFanPercent'
   | 'setPrintSpeedFactorPercent'
@@ -35,6 +36,7 @@ export type PrinterCommandId =
   | 'shaperCalibrateLight'
   | 'shaperCalibrateFull'
   | 'xyMotionTest'
+  | 'disableMotors'
   | 'consoleGcode'
   | 'rebootHost'
   | 'restartKlipper'
@@ -59,6 +61,7 @@ export type ExecuteCommandArgs =
         | 'homeXY'
         | 'homeZ'
         | 'turnOffHeaters'
+        | 'disableMotors'
         | 'zParkZeroEddy'
         | 'shaperCalibrateLight'
         | 'shaperCalibrateFull'
@@ -80,6 +83,11 @@ export type ExecuteCommandArgs =
       command: 'setNozzleTarget' | 'setBedTarget'
       targetCelsius: number
       wait?: boolean
+    }
+  | {
+      command: 'setHeatingTargets'
+      nozzleCelsius: number
+      bedCelsius: number
     }
   | {
       command: 'setFanPercent'
@@ -682,6 +690,13 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'thermal',
     requiresConfirmation: false,
   },
+  setHeatingTargets: {
+    id: 'setHeatingTargets',
+    risk: 'caution',
+    label: 'Нагрев сопла и стола',
+    capability: 'thermal',
+    requiresConfirmation: false,
+  },
   turnOffHeaters: {
     id: 'turnOffHeaters',
     risk: 'safe',
@@ -780,12 +795,19 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'motionTest',
     requiresConfirmation: true,
   },
+  disableMotors: {
+    id: 'disableMotors',
+    risk: 'caution',
+    label: 'Отключить моторы',
+    capability: 'motion',
+    requiresConfirmation: false,
+  },
   consoleGcode: {
     id: 'consoleGcode',
     risk: 'danger',
     label: 'Console G-code',
     capability: 'console',
-    requiresConfirmation: false,
+    requiresConfirmation: true,
   },
   rebootHost: {
     id: 'rebootHost',
@@ -848,6 +870,7 @@ const MOTION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'homeXY',
   'homeZ',
   'moveAxis',
+  'disableMotors',
   'zParkZeroEddy',
   'shaperCalibrateLight',
   'shaperCalibrateFull',

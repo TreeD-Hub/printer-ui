@@ -187,4 +187,35 @@ describe('usePrintTuneController', () => {
       expect(screen.getByTestId('active-group')).toHaveTextContent('closed')
     })
   })
+
+  it('keeps local tune draft while a tune modal is open', async () => {
+    const { rerender } = render(<TestHarness hasActivePrint={true} />)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'open speed' }))
+      fireEvent.click(screen.getByRole('button', { name: 'set flow' }))
+    })
+
+    expect(screen.getByTestId('flow-value')).toHaveTextContent('124')
+
+    rerender(
+      <TestHarness
+        hasActivePrint={true}
+        runtimeTune={{
+          ...DEFAULT_RUNTIME_TUNE,
+          flowFactorPercent: 88,
+        }}
+      />,
+    )
+
+    expect(screen.getByTestId('flow-value')).toHaveTextContent('124')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'close group' }))
+    })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('flow-value')).toHaveTextContent('88')
+    })
+  })
 })

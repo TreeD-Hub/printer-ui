@@ -349,6 +349,7 @@ function App() {
       Y: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Y', distanceMm: 1 }),
       Z: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Z', distanceMm: 1 }),
     },
+    disableMotors: getCommandBlockReason('disableMotors'),
     loadFilament: getCommandBlockReason('loadFilament'),
     unloadFilament: getCommandBlockReason('unloadFilament'),
   }), [getCommandBlockReason])
@@ -579,7 +580,7 @@ function App() {
   }
 
   function handleMotorsDisable(): void {
-    void executeCommand({ command: 'consoleGcode', gcode: 'M84' })
+    void executeCommand({ command: 'disableMotors' })
   }
 
   const handleVirtualKeyboardLanguageToggle = useCallback(() => {

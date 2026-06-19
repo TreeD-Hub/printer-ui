@@ -222,7 +222,7 @@ export function useHeatingFanController({
   function handleHeatingPresetApply(nozzle: number, bed: number): void {
     setPrintNozzleTargetTemp(nozzle)
     setPrintBedTargetTemp(bed)
-    void executeCommand({ command: 'consoleGcode', gcode: `M104 S${nozzle}\nM140 S${bed}` })
+    void executeCommand({ command: 'setHeatingTargets', nozzleCelsius: nozzle, bedCelsius: bed })
     closeTemperatureKeyboard()
   }
 
