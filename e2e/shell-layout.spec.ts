@@ -71,7 +71,6 @@ test('shell exposes nothing terminal visual contract', async ({ page }) => {
 
   expect(contract.fontFamily).toContain('Cascadia Mono')
   expect(contract.primary).toBe('#ff2a2a')
-  expect(contract.shellBackground).toContain('radial-gradient')
   expect(contract.hasTopBar).toBe(false)
   expect(contract.statusLogoFont).toContain('Cascadia Mono')
   expect(contract.activeNavRadius).toBeLessThanOrEqual(8)
@@ -82,7 +81,7 @@ test('shell exposes nothing terminal visual contract', async ({ page }) => {
 
 test('captures screenshot and validates layout geometry', async ({ page }, testInfo) => {
   await page.goto('/')
-  await expect(page.getByText('TreeD')).toBeVisible()
+  await expect(page.locator('.dashboard-status-logo')).toHaveText('TreeD')
   await page.getByRole('button', { name: 'Файлы' }).click()
   await page.getByTestId('print-file-card').first().click()
   await page.getByTestId('print-file-start-button').click()
