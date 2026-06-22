@@ -44,21 +44,16 @@ type DashboardIdleProps = {
   draggingIdleWidgetId: DashboardIdleWidgetId | null
   idleHeroStatusLabel: string
   idleNotesInputRef: RefObject<HTMLTextAreaElement | null>
-  idleNotesKeyboardRows: string[][]
   idleNotesText: string
   idleWidgetOrder: DashboardIdleWidgetId[]
   idleWidgetRefs: IdleWidgetRefs
-  isIdleNotesKeyboardOpen: boolean
   maintenanceSummary: MaintenanceSummary
 }
 type DashboardActionProps = {
   onBabystepAdjust: (deltaMm: number) => void
   onBabystepStepChange: (step: number) => void
   onIdleNotesChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
-  onIdleNotesKeyboardClose: () => void
   onIdleNotesKeyboardOpen: () => void
-  onIdleNotesKeyMouseDown: (event: MouseEvent<HTMLButtonElement>) => void
-  onIdleNotesVirtualKey: (key: string) => void
   onIdleWidgetDragHandleClick: (event: MouseEvent<HTMLButtonElement>) => void
   onIdleWidgetDragPointerDown: (event: PointerEvent<HTMLButtonElement>, widgetId: DashboardIdleWidgetId) => void
   onIdleWidgetDragPointerEnd: (event: PointerEvent<HTMLButtonElement>) => void

@@ -1,7 +1,20 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMoonrakerCommandClient } from './moonrakerCommandClient'
 
+let consoleDebug: ReturnType<typeof vi.spyOn>
+let consoleError: ReturnType<typeof vi.spyOn>
+
 describe('createMoonrakerCommandClient', () => {
+  beforeEach(() => {
+    consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => undefined)
+    consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    consoleDebug.mockRestore()
+    consoleError.mockRestore()
+  })
+
   it('aborts stuck Moonraker command requests after timeout', async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
@@ -100,7 +113,7 @@ describe('createMoonrakerCommandClient', () => {
       3,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'G91\nG1 X10 F3000\nG90' }),
+        body: JSON.stringify({ script: 'TREED_UI_MOVE_AXIS AXIS=X DISTANCE=10 FEEDRATE=3000' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -196,6 +209,15 @@ describe('createMoonrakerCommandClient', () => {
     )
   })
 
+  it('rejects invalid heating and movement arguments before transport', async () => {
+    const fetchImpl = vi.fn<typeof fetch>()
+    const client = createMoonrakerCommandClient({ fetchImpl })
+
+    await expect(client.execute({ command: 'setBedTarget', targetCelsius: 121 })).rejects.toThrow('0…120')
+    await expect(client.execute({ command: 'moveAxis', axis: 'X', distanceMm: Number.NaN })).rejects.toThrow('DISTANCE')
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
   it('rejects unsupported capability commands before hitting Moonraker', async () => {
     const fetchMock = vi.fn()
     const client = createMoonrakerCommandClient({
@@ -259,6 +281,35 @@ describe('createMoonrakerCommandClient', () => {
       5,
       'http://moonraker.local/server/restart',
       expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('rejects Moonraker JSON-RPC errors and logs command details', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ error: { message: 'Klipper rejected command' } }),
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
+    })
+
+    await expect(client.execute({ command: 'setFanPercent', percent: 50 })).rejects.toThrow('Klipper rejected command')
+
+    expect(consoleDebug).toHaveBeenCalledWith(
+      '[treed-command] sending',
+      expect.objectContaining({
+        command: 'setFanPercent',
+        path: '/printer/gcode/script',
+        body: { script: 'M106 S128' },
+      }),
+    )
+    expect(consoleError).toHaveBeenCalledWith(
+      '[treed-command] failed',
+      expect.objectContaining({
+        command: 'setFanPercent',
+        error: 'Klipper rejected command',
+      }),
     )
   })
 })

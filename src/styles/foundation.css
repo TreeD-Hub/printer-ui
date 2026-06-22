@@ -51,12 +51,12 @@
   --terminal-border-active: rgba(244, 244, 240, 0.86);
 
   /* 00_Foundation: typography */
-  --font-size-heading-large: 20px;
-  --font-size-heading-medium: 22px;
-  --font-size-body-large: 15px;
-  --font-size-body: 14px;
-  --font-size-small: 12px;
-  --font-size-tiny: 10px;
+  --font-size-heading-large: 24px;
+  --font-size-heading-medium: 26px;
+  --font-size-body-large: 18px;
+  --font-size-body: 17px;
+  --font-size-small: 14px;
+  --font-size-tiny: 12px;
 
   --font-weight-medium: 500;
   --font-weight-regular: 400;
@@ -78,11 +78,11 @@
 
   /* spacing scale */
   --space-micro: 2px;
-  --space-xxs: 4px;
-  --space-xs: 8px;
-  --space-sm: 12px;
-  --space-md: 16px;
-  --space-lg: 20px;
+  --space-xxs: 5px;
+  --space-xs: 10px;
+  --space-sm: 14px;
+  --space-md: 19px;
+  --space-lg: 24px;
 
   /* device contract */
   --screen-width: 960px;
@@ -92,7 +92,7 @@
   --layout-block-padding-y: var(--space-md);
   --layout-block-padding-x: var(--space-md);
   --layout-block-content-align: center;
-  --layout-block-label-size: 16px;
-  --layout-block-value-size: 22px;
-  --layout-block-unit-size: 16px;
+  --layout-block-label-size: 19px;
+  --layout-block-value-size: 26px;
+  --layout-block-unit-size: 19px;
 }

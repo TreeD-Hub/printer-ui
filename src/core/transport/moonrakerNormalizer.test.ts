@@ -13,6 +13,84 @@ function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']
 }
 
 describe('normalizeMoonrakerRuntimeSnapshot', () => {
+  it('uses a compatible device contract for limits and capabilities', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: { state: 'ready' },
+      'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '1.0',
+        profile: 'treed_v2_corexy_v1',
+        model: 'TreeD V2 Contract',
+        revision: '2',
+        nozzle_max_c: 275,
+        bed_max_c: 115,
+        axis_x_min: 0,
+        axis_x_max: 240,
+        axis_y_min: 1,
+        axis_y_max: 241,
+        axis_z_min: -2,
+        axis_z_max: 250,
+        capability_print: 1,
+        capability_motion: 1,
+        capability_thermal: 1,
+        capability_fan: 1,
+        capability_filament: 1,
+        capability_console: 1,
+        capability_eddy: 1,
+        capability_shaper: 1,
+        capability_motion_test: 1,
+        capability_network: 1,
+        capability_camera: 1,
+        capability_system_power: 1,
+        capability_service_commands: 1,
+        required_macros: 'TREED_UI_MOVE_AXIS',
+      },
+      'gcode_macro TREED_UI_MOVE_AXIS': {},
+      'gcode_macro _TREED_SYSTEM_POWER': { enabled: 1 },
+      'gcode_macro _TREED_SERVICE_COMMANDS': { enabled: 1 },
+    }))
+
+    expect(snapshot.uiContract).toMatchObject({
+      status: 'compatible',
+      contractVersion: '1.0',
+      profile: 'treed_v2_corexy_v1',
+      missingMacros: [],
+    })
+    expect(snapshot.hardware).toMatchObject({ model: 'TreeD V2 Contract', revision: '2' })
+    expect(snapshot.limits).toEqual({
+      nozzleMaxC: 275,
+      bedMaxC: 115,
+      axis: {
+        X: { min: 0, max: 240 },
+        Y: { min: 1, max: 241 },
+        Z: { min: -2, max: 250 },
+      },
+    })
+    expect(snapshot.capabilities).toMatchObject({
+      motion: true,
+      network: true,
+      systemPower: true,
+      serviceCommands: true,
+    })
+  })
+
+  it('fails closed for an explicitly incompatible device contract', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: { state: 'ready' },
+      'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '2.0',
+        profile: 'treed_v2_corexy_v1',
+        capability_print: 1,
+        required_macros: 'TREED_UI_MOVE_AXIS',
+      },
+    }))
+
+    expect(snapshot.uiContract.status).toBe('incompatible')
+    expect(snapshot.uiContract.message).toContain('версия 2.0')
+    expect(snapshot.uiContract.missingMacros).toEqual(['TREED_UI_MOVE_AXIS'])
+    expect(snapshot.capabilities.print).toBe(false)
+    expect(snapshot.capabilities.motion).toBe(false)
+  })
+
   it('normalizes Moonraker file list and metadata into V2 print cards', () => {
     const files = normalizeMoonrakerPrintFiles([
       {
@@ -22,6 +100,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         metadata: {
           estimated_time: 3720,
           filament_total: 8150,
+          filament_weight_total: 23.4,
           filament_name: 'PETG-CF',
         },
       },
@@ -39,7 +118,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         name: 'benchy.gcode',
         directory: 'jobs',
         printTime: '1 ч 02 мин',
-        weight: '8 г',
+        weight: '23 г',
         material: 'PETG-CF',
         addedAt: '2024-03-09T16:00:00.000Z',
       },

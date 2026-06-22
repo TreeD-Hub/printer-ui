@@ -28,6 +28,11 @@ export type ConsoleHistoryItem = {
 export type SettingsPageProps = {
   activeSettingsGroup: SettingsGroupId
   onSettingsGroupChange: (nextGroup: SettingsGroupId) => void
+  system: {
+    contractStatus: string
+    runtimeStatus: string
+    onExportDiagnostics: () => void
+  }
   interfaceSettings: {
     isDarkThemeEnabled: boolean
     isMaxPerformanceModeEnabled: boolean
@@ -116,6 +121,7 @@ function wifiSecurityLabel(security: WifiNetworkSecurity): string {
 export function SettingsPage({
   activeSettingsGroup,
   onSettingsGroupChange,
+  system,
   interfaceSettings,
   network,
   notifications,
@@ -167,6 +173,17 @@ export function SettingsPage({
                   ]}
                   loadPercent={38}
                 />
+              </div>
+              <div className="settings-network-notice" role="status">
+                <p>{system.contractStatus}</p>
+                <p>{system.runtimeStatus}</p>
+                <button
+                  type="button"
+                  className="settings-network-btn"
+                  onClick={system.onExportDiagnostics}
+                >
+                  Экспорт диагностики
+                </button>
               </div>
             </div>
           ) : activeSettingsGroup === 'interface' ? (

@@ -50,6 +50,8 @@ function subscribeForTest() {
   const snapshots: PrinterSnapshot[] = []
   const connectionChanges: Array<{ connection: PrinterConnectionState, message?: string }> = []
   const errors: string[] = []
+  const fileListChanges: number[] = []
+  const gcodeResponses: string[] = []
   const subscription = subscribeToMoonrakerStatus(
     {
       onSnapshot(snapshot) {
@@ -60,6 +62,12 @@ function subscribeForTest() {
       },
       onError(message) {
         errors.push(message)
+      },
+      onFileListChanged() {
+        fileListChanges.push(Date.now())
+      },
+      onGcodeResponse(message) {
+        gcodeResponses.push(message)
       },
     },
     {
@@ -73,6 +81,8 @@ function subscribeForTest() {
   return {
     connectionChanges,
     errors,
+    fileListChanges,
+    gcodeResponses,
     snapshots,
     subscription,
   }
@@ -201,6 +211,21 @@ describe('moonrakerWebSocketClient', () => {
 
     expect(snapshots[1]?.connection).toBe('shutdown')
     expect(snapshots[1]?.message).toBe('Klippy shutdown')
+
+    subscription.close()
+  })
+
+  it('routes file and G-code notifications to typed handlers', () => {
+    const { fileListChanges, gcodeResponses, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.message({ method: 'notify_filelist_changed', params: [{ action: 'create_file' }] })
+    socket?.message({ method: 'notify_metadata_update', params: [{ filename: 'benchy.gcode' }] })
+    socket?.message({ method: 'notify_gcode_response', params: ['ok T:220'] })
+
+    expect(fileListChanges).toHaveLength(2)
+    expect(gcodeResponses).toEqual(['ok T:220'])
 
     subscription.close()
   })

@@ -8,11 +8,14 @@ import type {
   PrinterMacroStateSnapshot,
   PrinterPositionSnapshot,
   PrinterPrintJobSnapshot,
+  PrinterRevisionSource,
   PrinterRuntimeSnapshot,
   PrinterRuntimeTuneSnapshot,
   PrinterSource,
+  PrinterTransportState,
   PrinterThermalTargetsSnapshot,
   PrinterToolheadRuntimeSnapshot,
+  PrinterUiContractSnapshot,
   PrinterV2Snapshot,
 } from './types'
 import {
@@ -20,7 +23,11 @@ import {
   getPrinterFileNameFromPath,
   normalizePrinterFileId,
   normalizePrinterFilePath,
+  TREED_V2_COREXY_V1_LIMITS,
 } from '@treed/printer-logic'
+
+const EXPECTED_UI_CONTRACT_VERSION = '1.0' as const
+const EXPECTED_UI_PROFILE = 'treed_v2_corexy_v1'
 
 export interface MoonrakerObjectsQueryPayload {
   eventtime?: number
@@ -110,15 +117,20 @@ export interface MoonrakerWebhooksStatus {
 
 export interface MoonrakerNormalizeOptions {
   source?: PrinterSource
+  revisionSource?: PrinterRevisionSource
+  transportState?: PrinterTransportState
+  receivedAt?: number
   moonrakerUrl?: string
   wifiSsid?: string
   printFiles?: MoonrakerPrintFileInput[]
+  printFilesError?: string | null
   nowIso?: string
 }
 
 export interface MoonrakerPrintFileMetadata {
   estimated_time?: number
   filament_total?: number
+  filament_weight_total?: number
   filament_name?: string
   filament_type?: string
   slicer?: string
@@ -171,30 +183,50 @@ function firstNonEmpty(...values: Array<string | undefined | null>): string {
   return ''
 }
 
-function normalizeConnectionState(webhooks?: MoonrakerWebhooksStatus): PrinterConnectionState {
+function normalizeKlippyState(webhooks?: MoonrakerWebhooksStatus): PrinterRuntimeSnapshot['klippy'] {
   const state = webhooks?.state?.toLowerCase()
-
-  if (!state) {
-    return 'degraded'
-  }
+  const message = webhooks?.state_message ?? ''
 
   if (state === 'ready') {
-    return 'online'
+    return { state: 'ready', message }
   }
 
   if (state === 'startup') {
-    return 'connecting'
+    return { state: 'startup', message }
   }
 
   if (state === 'shutdown') {
-    return 'shutdown'
+    return { state: 'shutdown', message }
   }
 
   if (state === 'error') {
-    return 'offline'
+    return { state: 'error', message }
   }
 
-  return 'degraded'
+  return { state: 'disconnected', message }
+}
+
+function normalizeConnectionState(
+  transportState: PrinterTransportState,
+  klippyState: PrinterRuntimeSnapshot['klippy']['state'],
+): PrinterConnectionState {
+  if (transportState !== 'online') {
+    return transportState
+  }
+
+  if (klippyState === 'ready') {
+    return 'online'
+  }
+
+  if (klippyState === 'startup') {
+    return 'connecting'
+  }
+
+  if (klippyState === 'shutdown') {
+    return 'shutdown'
+  }
+
+  return 'offline'
 }
 
 function normalizeToolhead(
@@ -342,13 +374,9 @@ function formatDuration(seconds: number): string {
   return `${restMinutes} мин`
 }
 
-function formatFilamentWeight(filamentMm: number | undefined, sizeBytes: number | undefined): string {
-  if (typeof filamentMm === 'number' && Number.isFinite(filamentMm) && filamentMm > 0) {
-    return `${Math.max(1, Math.round(filamentMm / 1000))} г`
-  }
-
-  if (typeof sizeBytes === 'number' && Number.isFinite(sizeBytes) && sizeBytes > 0) {
-    return `${Math.max(1, Math.round(sizeBytes / 1024))} КБ`
+function formatFilamentWeight(weightGrams: number | undefined): string {
+  if (typeof weightGrams === 'number' && Number.isFinite(weightGrams) && weightGrams > 0) {
+    return `${Math.max(1, Math.round(weightGrams))} г`
   }
 
   return '—'
@@ -363,7 +391,7 @@ function normalizeModifiedDate(modified: number | undefined): string {
 }
 
 function normalizeMaterial(metadata: MoonrakerPrintFileMetadata | undefined): string {
-  return firstNonEmpty(metadata?.filament_name, metadata?.filament_type, metadata?.slicer, '—')
+  return firstNonEmpty(metadata?.filament_name, metadata?.filament_type, '—')
 }
 
 export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): PrinterFileItemSnapshot[] {
@@ -381,7 +409,7 @@ export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): 
         name: getPrinterFileNameFromPath(path),
         directory: getPrinterFileDirectoryFromPath(path),
         printTime: formatDuration(toFiniteNumber(item.metadata?.estimated_time, 0)),
-        weight: formatFilamentWeight(item.metadata?.filament_total, item.size),
+        weight: formatFilamentWeight(item.metadata?.filament_weight_total),
         material: normalizeMaterial(item.metadata),
         addedAt: normalizeModifiedDate(item.modified),
       }
@@ -398,7 +426,7 @@ function normalizeMacroValues(status: MoonrakerPrinterObjectsStatus | undefined)
   }
 
   for (const [key, value] of Object.entries(status)) {
-    if (!key.toLowerCase().startsWith('gcode_macro _treed_')) {
+    if (!key.toLowerCase().startsWith('gcode_macro ')) {
       continue
     }
 
@@ -482,14 +510,108 @@ function readBooleanMacroFlag(values: Record<string, Record<string, unknown>>, m
   return true
 }
 
-function normalizeHardware(macros: PrinterMacroStateSnapshot): PrinterHardwareSnapshot {
+function normalizeUiContract(macros: PrinterMacroStateSnapshot): PrinterUiContractSnapshot {
+  const contract = readMacro(macros.values, '_TREED_UI_CONTRACT')
+  if (contract === undefined) {
+    return {
+      status: 'legacy',
+      expectedVersion: EXPECTED_UI_CONTRACT_VERSION,
+      contractVersion: null,
+      profile: null,
+      requiredMacros: [],
+      missingMacros: [],
+      message: 'Device contract еще не опубликован.',
+    }
+  }
+
+  const contractVersion = typeof contract.contract_version === 'string'
+    ? contract.contract_version.trim()
+    : null
+  const profile = typeof contract.profile === 'string' ? contract.profile.trim() : null
+  const requiredMacros = typeof contract.required_macros === 'string'
+    ? contract.required_macros.split(',').map((item) => item.trim()).filter(Boolean)
+    : []
+  const availableMacros = new Set(macros.available.map((macro) => macro.toUpperCase()))
+  const missingMacros = requiredMacros.filter((macro) => !availableMacros.has(macro.toUpperCase()))
+  const incompatibilities: string[] = []
+
+  if (contractVersion !== EXPECTED_UI_CONTRACT_VERSION) {
+    incompatibilities.push(`версия ${contractVersion ?? 'не указана'}`)
+  }
+  if (profile !== EXPECTED_UI_PROFILE) {
+    incompatibilities.push(`профиль ${profile ?? 'не указан'}`)
+  }
+  if (missingMacros.length > 0) {
+    incompatibilities.push(`нет macro: ${missingMacros.join(', ')}`)
+  }
+
+  return {
+    status: incompatibilities.length === 0 ? 'compatible' : 'incompatible',
+    expectedVersion: EXPECTED_UI_CONTRACT_VERSION,
+    contractVersion,
+    profile,
+    requiredMacros,
+    missingMacros,
+    message: incompatibilities.length === 0
+      ? null
+      : `Несовместимый TreeD UI contract: ${incompatibilities.join('; ')}.`,
+  }
+}
+
+function readContractNumber(
+  contract: Record<string, unknown> | undefined,
+  field: string,
+  fallback: number,
+): number {
+  const value = contract?.[field]
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeLimits(
+  macros: PrinterMacroStateSnapshot,
+  uiContract: PrinterUiContractSnapshot,
+): typeof TREED_V2_COREXY_V1_LIMITS {
+  if (uiContract.status !== 'compatible') {
+    return TREED_V2_COREXY_V1_LIMITS
+  }
+
+  const contract = readMacro(macros.values, '_TREED_UI_CONTRACT')
+  return {
+    nozzleMaxC: readContractNumber(contract, 'nozzle_max_c', TREED_V2_COREXY_V1_LIMITS.nozzleMaxC),
+    bedMaxC: readContractNumber(contract, 'bed_max_c', TREED_V2_COREXY_V1_LIMITS.bedMaxC),
+    axis: {
+      X: {
+        min: readContractNumber(contract, 'axis_x_min', TREED_V2_COREXY_V1_LIMITS.axis.X.min),
+        max: readContractNumber(contract, 'axis_x_max', TREED_V2_COREXY_V1_LIMITS.axis.X.max),
+      },
+      Y: {
+        min: readContractNumber(contract, 'axis_y_min', TREED_V2_COREXY_V1_LIMITS.axis.Y.min),
+        max: readContractNumber(contract, 'axis_y_max', TREED_V2_COREXY_V1_LIMITS.axis.Y.max),
+      },
+      Z: {
+        min: readContractNumber(contract, 'axis_z_min', TREED_V2_COREXY_V1_LIMITS.axis.Z.min),
+        max: readContractNumber(contract, 'axis_z_max', TREED_V2_COREXY_V1_LIMITS.axis.Z.max),
+      },
+    },
+  }
+}
+
+function normalizeHardware(
+  macros: PrinterMacroStateSnapshot,
+  uiContract: PrinterUiContractSnapshot,
+): PrinterHardwareSnapshot {
   const profileMacro = readMacro(macros.values, '_TREED_PROFILE')
+  const contractMacro = uiContract.status === 'compatible'
+    ? readMacro(macros.values, '_TREED_UI_CONTRACT')
+    : undefined
   const model = firstNonEmpty(
+    typeof contractMacro?.model === 'string' ? contractMacro.model : undefined,
     typeof profileMacro?.model === 'string' ? profileMacro.model : undefined,
     typeof profileMacro?.name === 'string' ? profileMacro.name : undefined,
     'TreeD V2',
   )
   const revision = firstNonEmpty(
+    typeof contractMacro?.revision === 'string' ? contractMacro.revision : undefined,
     typeof profileMacro?.revision === 'string' ? profileMacro.revision : undefined,
     typeof profileMacro?.variant === 'string' ? profileMacro.variant : undefined,
   )
@@ -506,8 +628,56 @@ function normalizeHardware(macros: PrinterMacroStateSnapshot): PrinterHardwareSn
   }
 }
 
-function normalizeCapabilities(macros: PrinterMacroStateSnapshot): PrinterCapabilitiesSnapshot {
+function normalizeCapabilities(
+  macros: PrinterMacroStateSnapshot,
+  uiContract: PrinterUiContractSnapshot,
+): PrinterCapabilitiesSnapshot {
   const systemPower = readBooleanMacroFlag(macros.values, '_TREED_SYSTEM_POWER')
+
+  if (uiContract.status === 'incompatible') {
+    return {
+      print: false,
+      motion: false,
+      thermal: false,
+      fan: false,
+      filament: false,
+      console: false,
+      eddy: false,
+      shaper: false,
+      motionTest: false,
+      power: false,
+      network: false,
+      cloud: false,
+      updates: false,
+      systemPower: false,
+      camera: false,
+      serviceCommands: false,
+    }
+  }
+
+  if (uiContract.status === 'compatible') {
+    const contract = readMacro(macros.values, '_TREED_UI_CONTRACT') ?? {}
+    const capability = (name: string): boolean => parseMacroBoolean(contract[`capability_${name}`]) === true
+
+    return {
+      print: capability('print'),
+      motion: capability('motion'),
+      thermal: capability('thermal'),
+      fan: capability('fan'),
+      filament: capability('filament'),
+      console: capability('console'),
+      eddy: capability('eddy'),
+      shaper: capability('shaper'),
+      motionTest: capability('motion_test'),
+      power: capability('system_power') && systemPower,
+      network: capability('network'),
+      cloud: readBooleanMacroFlag(macros.values, '_TREED_CLOUD'),
+      updates: readBooleanMacroFlag(macros.values, '_TREED_UPDATES'),
+      systemPower: capability('system_power') && systemPower,
+      camera: capability('camera'),
+      serviceCommands: capability('service_commands') && readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
+    }
+  }
 
   return {
     print: true,
@@ -612,11 +782,38 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const webhooks = normalizeWebhooks(status.webhooks)
   const printJob = normalizePrintStats(status.print_stats, status.virtual_sdcard, status.display_status, status.pause_resume, status.webhooks)
   const macros = normalizeMacroValues(status)
+  const uiContract = normalizeUiContract(macros)
   const homedAxes = typeof status.toolhead?.homed_axes === 'string' ? status.toolhead.homed_axes : ''
+  const source = options.source ?? 'live'
+  const revisionSource = options.revisionSource ?? (source === 'mock' ? 'mock' : 'http')
+  const receivedAt = options.receivedAt ?? Date.now()
+  const transportState = options.transportState ?? 'online'
+  const klippy = normalizeKlippyState(status.webhooks)
 
   return {
-    source: options.source ?? 'live',
-    connection: normalizeConnectionState(status.webhooks),
+    source,
+    revisions: {
+      printerObjects: {
+        eventtime: toNullableNumber(payload.eventtime),
+        receivedAt,
+        source: revisionSource,
+      },
+      files: options.printFiles === undefined
+        ? null
+        : {
+            eventtime: null,
+            receivedAt,
+            source: revisionSource,
+          },
+    },
+    transport: {
+      state: transportState,
+      message: null,
+    },
+    klippy,
+    connection: uiContract.status === 'incompatible'
+      ? 'degraded'
+      : normalizeConnectionState(transportState, klippy.state),
     wifiSsid: options.wifiSsid ?? 'Moonraker Network',
     ipAddress: normalizeIpAddress(options.moonrakerUrl),
     state: firstNonEmpty(printJob.state, webhooks.state, 'unknown'),
@@ -628,9 +825,16 @@ export function normalizeMoonrakerRuntimeSnapshot(
     bedTemp: normalizeHeater(status.heater_bed),
     modelFanPercent: normalizeFan(status.fan),
     updatedAt: options.nowIso ?? new Date().toISOString(),
-    message: firstNonEmpty(printJob.message, displayStatus.message, webhooks.state_message),
-    hardware: normalizeHardware(macros),
-    capabilities: normalizeCapabilities(macros),
+    message: firstNonEmpty(
+      uiContract.status === 'incompatible' ? uiContract.message : null,
+      printJob.message,
+      displayStatus.message,
+      webhooks.state_message,
+    ),
+    hardware: normalizeHardware(macros, uiContract),
+    uiContract,
+    capabilities: normalizeCapabilities(macros, uiContract),
+    limits: normalizeLimits(macros, uiContract),
     printJob,
     files: virtualSdCard.type === 'virtual_sdcard'
       ? virtualSdCard
@@ -642,6 +846,10 @@ export function normalizeMoonrakerRuntimeSnapshot(
           filePosition: 0,
           fileSize: null,
         },
+    fileList: {
+      state: options.printFilesError ? 'error' : options.printFiles === undefined ? 'unknown' : 'ready',
+      message: options.printFilesError ?? null,
+    },
     toolhead: normalizeToolheadRuntime(toolhead, homedAxes, macros),
     geometry: {
       toolhead,
@@ -664,6 +872,8 @@ export function normalizeMoonrakerRuntimeSnapshot(
 export {
   normalizeCapabilities,
   normalizeConnectionState,
+  normalizeKlippyState,
+  normalizeUiContract,
   normalizeDisplayStatus,
   normalizeFan,
   normalizeGcodeMove,

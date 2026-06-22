@@ -138,17 +138,11 @@ describe('App', () => {
   it('opens numeric keyboard for temperature input and applies value', async () => {
     render(<App />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
-    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
-    fireEvent.click(screen.getByTestId('print-file-start-button'))
+    fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+    fireEvent.click(screen.getByTestId('control-group-heating'))
 
-    await waitFor(() => {
-      expect(screen.getByTestId('print-tune-group-nozzle')).toBeInTheDocument()
-    })
-
-    fireEvent.click(screen.getByTestId('print-tune-group-nozzle'))
-
-    const nozzleInput = screen.getByTestId('print-tune-temp-nozzle-input') as HTMLInputElement
+    const nozzleInput = screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement
+    const confirmedTargetBeforeCommand = nozzleInput.value
     fireEvent.focus(nozzleInput)
     expect(screen.getByRole('button', { name: 'Ввод' })).toBeInTheDocument()
 
@@ -161,9 +155,19 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Ввод' }))
 
     await waitFor(() => {
-      expect((screen.getByTestId('print-tune-temp-nozzle-input') as HTMLInputElement).value).toBe('240')
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'setNozzleTarget',
+            targetCelsius: 240,
+          }),
+        ]),
+      )
     })
-    expect(screen.queryByRole('button', { name: 'Ввод' })).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Ввод' })).not.toBeInTheDocument()
+    })
+    expect((screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement).value).toBe(confirmedTargetBeforeCommand)
   }, 20000)
 
   it('routes print tune speed and Z-offset controls through printer commands', async () => {
@@ -265,8 +269,15 @@ describe('App', () => {
     fireEvent.click(parkingAxisXButton)
 
     expect(parkingAllButton).toHaveAttribute('aria-pressed', 'false')
-    expect(parkingAxisXButton).toHaveAttribute('aria-pressed', 'true')
     expect(screen.queryByRole('button', { name: 'Парковка оси X' })).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'homeXY' }),
+        ]),
+      )
+      expect(parkingAxisXButton).toHaveAttribute('aria-pressed', 'true')
+    })
     await waitFor(() => {
       expect(parkingAxisXButton).toHaveAttribute('aria-pressed', 'false')
     }, { timeout: 1500 })
@@ -305,9 +316,9 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('control-group-movement'))
     const moveButtonsMode = screen.getByTestId('move-mode-buttons')
-    const moveJoystickMode = screen.getByTestId('move-mode-joystick')
 
     expect(moveButtonsMode).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('move-mode-joystick')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг Y в плюс' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг X в минус' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toBeInTheDocument()
@@ -317,14 +328,16 @@ describe('App', () => {
     expect(screen.getByTestId('move-step-1')).toBeInTheDocument()
     expect(screen.getByTestId('axis-coordinates')).toBeInTheDocument()
 
-    fireEvent.click(moveJoystickMode)
-
-    expect(moveJoystickMode).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByTestId('axis-joystick')).toBeInTheDocument()
-    expect(screen.getByTestId('axis-z-slider')).toBeInTheDocument()
-    expect(screen.queryByTestId('move-step-1')).not.toBeInTheDocument()
-    expect(screen.getByTestId('axis-coordinates')).toBeInTheDocument()
-    expect(screen.getByText(/Скорость XY/)).toBeInTheDocument()
+    const coordinatesBeforeMove = screen.getByTestId('axis-coordinates').textContent
+    fireEvent.click(screen.getByRole('button', { name: 'Сдвиг X в плюс' }))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'moveAxis', axis: 'X', distanceMm: 1 }),
+        ]),
+      )
+    })
+    expect(screen.getByTestId('axis-coordinates').textContent).toBe(coordinatesBeforeMove)
 
     fireEvent.click(screen.getByRole('button', { name: 'Отключить моторы' }))
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()

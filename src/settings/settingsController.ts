@@ -5,6 +5,7 @@ import {
 } from '@treed/printer-logic'
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
+import { downloadDiagnosticReport } from '../diagnostics'
 import {
   areHostNetworkStatusesEqual,
   createUnavailableHostNetworkStatus,
@@ -20,6 +21,7 @@ import {
   SLEEP_MODE_OPTIONS,
   TIMEZONE_OPTIONS,
   UPDATE_AVAILABLE_VERSION,
+  UPDATE_CURRENT_VERSION,
   type SettingsGroupId,
   type SettingsNotificationItem,
 } from './config'
@@ -52,7 +54,13 @@ type SettingsKeyboardController = {
   value: string
   meta: SettingsKeyboardMeta | null
   isConsoleOpen: boolean
-  onKeyPress: (key: string) => void
+  onKeyPress: (key: string, selection?: KeyboardSelectionRange) => void
+  onPreviewChange: (value: string, selection: KeyboardSelectionRange) => void
+}
+
+type KeyboardSelectionRange = {
+  selectionStart: number
+  selectionEnd: number
 }
 
 type UseSettingsControllerResult = {
@@ -465,7 +473,15 @@ export function useSettingsController({
     })
   }
 
-  const handleKeyboardKey = useCallback((key: string): void => {
+  const handleKeyboardPreviewChange = useCallback((nextValue: string): void => {
+    if (activeKeyboardTarget === null) {
+      return
+    }
+
+    setKeyboardValue(activeKeyboardTarget, nextValue)
+  }, [activeKeyboardTarget, setKeyboardValue])
+
+  const handleKeyboardKey = useCallback((key: string, selection?: KeyboardSelectionRange): void => {
     if (activeKeyboardTarget === null) {
       return
     }
@@ -486,8 +502,14 @@ export function useSettingsController({
         ? wifiPasswordValue
         : consoleCommandValue
     const meta = getSettingsKeyboardMeta(activeKeyboardTarget)
-    const selectionStart = input?.selectionStart ?? currentValue.length
-    const selectionEnd = input?.selectionEnd ?? currentValue.length
+    const selectionStart = Math.min(
+      selection?.selectionStart ?? input?.selectionStart ?? currentValue.length,
+      currentValue.length,
+    )
+    const selectionEnd = Math.min(
+      selection?.selectionEnd ?? input?.selectionEnd ?? currentValue.length,
+      currentValue.length,
+    )
     let nextValue = currentValue
     let nextCaret = selectionStart
 
@@ -517,7 +539,9 @@ export function useSettingsController({
     if (nextValue !== currentValue) {
       setKeyboardValue(activeKeyboardTarget, nextValue)
     }
-    setKeyboardCaret(activeKeyboardTarget, nextCaret)
+    if (selection === undefined) {
+      setKeyboardCaret(activeKeyboardTarget, nextCaret)
+    }
   }, [
     activeKeyboardTarget,
     closeKeyboard,
@@ -539,6 +563,15 @@ export function useSettingsController({
   const pageProps: SettingsPageProps = {
     activeSettingsGroup,
     onSettingsGroupChange: setActiveSettingsGroup,
+    system: {
+      contractStatus: snapshot.uiContract.status === 'compatible'
+        ? `UI contract ${snapshot.uiContract.contractVersion}: совместим`
+        : snapshot.uiContract.status === 'legacy'
+          ? 'UI contract: legacy runtime'
+          : snapshot.uiContract.message ?? 'UI contract: несовместим',
+      runtimeStatus: `Transport: ${snapshot.transport.state}; Klippy: ${snapshot.klippy.state}`,
+      onExportDiagnostics: () => downloadDiagnosticReport(snapshot, UPDATE_CURRENT_VERSION),
+    },
     interfaceSettings: {
       isDarkThemeEnabled,
       isMaxPerformanceModeEnabled,
@@ -624,6 +657,7 @@ export function useSettingsController({
       meta: keyboardMeta,
       isConsoleOpen: activeKeyboardTarget === 'consoleCommand',
       onKeyPress: handleKeyboardKey,
+      onPreviewChange: handleKeyboardPreviewChange,
     },
     isKeyboardTargetAllowed,
   }

@@ -393,23 +393,7 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
     }
 
     const distanceMm = direction * moveStepMm
-    const ok = await onAxisMove(axis, distanceMm)
-    if (!ok) {
-      return
-    }
-
-    setPrintHeadPosition((prevPosition) => ({
-      ...prevPosition,
-      x: axis === 'X'
-        ? clampAxisValue(prevPosition.x + distanceMm, HEAD_X_BOUNDS_MM.min, HEAD_X_BOUNDS_MM.max)
-        : prevPosition.x,
-      y: axis === 'Y'
-        ? clampAxisValue(prevPosition.y + distanceMm, HEAD_Y_BOUNDS_MM.min, HEAD_Y_BOUNDS_MM.max)
-        : prevPosition.y,
-      z: axis === 'Z'
-        ? clampAxisValue(prevPosition.z + distanceMm, zBounds.min, zBounds.max)
-        : prevPosition.z,
-    }))
+    await onAxisMove(axis, distanceMm)
   }
 
   async function handleFilamentMove(direction: -1 | 1): Promise<void> {
@@ -421,15 +405,7 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
       return
     }
 
-    const ok = await onFilamentMove(direction)
-    if (!ok) {
-      return
-    }
-
-    setPrintHeadPosition((prevPosition) => ({
-      ...prevPosition,
-      e: prevPosition.e - (direction * moveStepMm),
-    }))
+    await onFilamentMove(direction)
   }
 
   function handleJoystickZChange(nextValue: number): void {

@@ -34,6 +34,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run quality gate
+        run: npm run quality
+
+      - name: Install Chromium for kiosk smoke tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Run kiosk smoke tests
+        run: npm run test:e2e
+
       - name: Build printer UI
         run: npm run build:ui:printer
 

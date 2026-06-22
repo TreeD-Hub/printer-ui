@@ -8,6 +8,7 @@ import {
 import { subscribeToMoonrakerStatus } from './moonrakerWebSocketClient'
 import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
 import type { PrinterSnapshot, TransportClient } from './types'
+import { normalizePrinterFilePath } from '@treed/printer-logic'
 
 type MoonrakerResponse<T> = {
   result?: T
@@ -39,7 +40,13 @@ type NormalizeMoonrakerSnapshotInput = {
   }
   objects?: MoonrakerObjectsQueryPayload
   files?: MoonrakerPrintFileInput[]
+  filesError?: string | null
   fileMetadata?: Record<string, MoonrakerPrintFileMetadata>
+}
+
+type PrintFilesFetchResult = {
+  files: MoonrakerPrintFileInput[]
+  error: string | null
 }
 
 type MoonrakerFileListItem = {
@@ -86,7 +93,11 @@ async function parseMoonrakerError(response: Response): Promise<string> {
   return `HTTP ${response.status}`
 }
 
-async function fetchMoonraker<T>(path: string, context: MoonrakerFetchContext): Promise<T> {
+async function fetchMoonraker<T>(
+  path: string,
+  context: MoonrakerFetchContext,
+  init: RequestInit = {},
+): Promise<T> {
   const controller = new AbortController()
   let didTimeout = false
   const timeoutId = window.setTimeout(() => {
@@ -97,6 +108,7 @@ async function fetchMoonraker<T>(path: string, context: MoonrakerFetchContext): 
 
   try {
     response = await context.fetchImpl(`${context.moonrakerUrl}${path}`, {
+      ...init,
       signal: controller.signal,
     })
   } catch (error) {
@@ -128,6 +140,15 @@ function getMoonrakerFilePath(item: MoonrakerFileListItem): string {
 
 function getMetadataCacheKey(path: string, item: MoonrakerFileListItem): string {
   return `${path}|${item.modified ?? 'unknown'}|${item.size ?? 'unknown'}`
+}
+
+function clearFileMetadataCache(path: string, context: MoonrakerFetchContext): void {
+  const prefix = `${path}|`
+  for (const key of context.metadataCache.keys()) {
+    if (key.startsWith(prefix)) {
+      context.metadataCache.delete(key)
+    }
+  }
 }
 
 async function mapWithConcurrency<T, U>(
@@ -225,6 +246,16 @@ async function fetchPrintFiles(context: MoonrakerFetchContext): Promise<Moonrake
   )
 }
 
+async function fetchPrintFilesBestEffort(context: MoonrakerFetchContext): Promise<PrintFilesFetchResult> {
+  try {
+    return { files: await fetchPrintFiles(context), error: null }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn('[treed-runtime] file list unavailable', message)
+    return { files: [], error: message }
+  }
+}
+
 export function normalizeMoonrakerSnapshot(input: NormalizeMoonrakerSnapshotInput): PrinterSnapshot {
   const status = input.objects?.status ?? {}
   const files = (input.files ?? []).map((file) => {
@@ -253,6 +284,7 @@ export function normalizeMoonrakerSnapshot(input: NormalizeMoonrakerSnapshotInpu
       moonrakerUrl: input.moonrakerUrl,
       nowIso: input.nowIso,
       printFiles: files,
+      printFilesError: input.filesError,
     },
   )
 }
@@ -269,12 +301,29 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
 
   return {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
-      const [objects, printFiles] = await Promise.all([
+      const [objects, printFilesResult] = await Promise.all([
         fetchMoonraker<MoonrakerObjectsQueryPayload>(MOONRAKER_RUNTIME_OBJECTS_QUERY, context),
-        fetchPrintFiles(context),
+        fetchPrintFilesBestEffort(context),
       ])
 
-      return normalizeMoonrakerRuntimeSnapshot(objects, { moonrakerUrl: context.moonrakerUrl, source: 'live', printFiles })
+      return normalizeMoonrakerRuntimeSnapshot(objects, {
+        moonrakerUrl: context.moonrakerUrl,
+        source: 'live',
+        printFiles: printFilesResult.files,
+        printFilesError: printFilesResult.error,
+      })
+    },
+    async deletePrintFile(path: string): Promise<void> {
+      const normalizedPath = normalizePrinterFilePath(path)
+      if (!normalizedPath.toLowerCase().endsWith('.gcode')) {
+        throw new Error('Удалять через UI можно только G-code файлы.')
+      }
+
+      const encodedPath = normalizedPath.split('/').map(encodeURIComponent).join('/')
+      await fetchMoonraker<unknown>(`/server/files/gcodes/${encodedPath}`, context, {
+        method: 'DELETE',
+      })
+      clearFileMetadataCache(normalizedPath, context)
     },
     subscribe(handlers) {
       return subscribeToMoonrakerStatus(handlers, { moonrakerUrl: context.moonrakerUrl })

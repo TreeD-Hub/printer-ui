@@ -4,7 +4,7 @@ import {
   type HostNetworkClient,
   type HostNetworkStatus,
 } from '../src/core/hostNetwork'
-import type { PrinterCommandId } from '@treed/printer-logic'
+import { TREED_V2_COREXY_V1_LIMITS, type PrinterCommandId } from '@treed/printer-logic'
 import type { PrinterSnapshot, PrinterSource, TransportClient } from '../src/core/transport/types'
 
 export const runtimeMode: PrinterSource = 'mock'
@@ -139,6 +139,26 @@ export function clearMockNetworkRuntime(): void {
 export function createMockSnapshot(): PrinterSnapshot {
   return {
     source: 'mock',
+    revisions: {
+      printerObjects: {
+        eventtime: null,
+        receivedAt: Date.now(),
+        source: 'mock',
+      },
+      files: {
+        eventtime: null,
+        receivedAt: Date.now(),
+        source: 'mock',
+      },
+    },
+    transport: {
+      state: 'online',
+      message: null,
+    },
+    klippy: {
+      state: 'ready',
+      message: 'TreeD V2 runtime mock',
+    },
     connection: 'online',
     wifiSsid: 'TreeD-Lab',
     ipAddress: '192.168.0.21',
@@ -162,6 +182,15 @@ export function createMockSnapshot(): PrinterSnapshot {
       model: 'TreeD V2',
       revision: 'mock',
     },
+    uiContract: {
+      status: 'compatible',
+      expectedVersion: '1.0',
+      contractVersion: '1.0',
+      profile: 'treed_v2_corexy_v1',
+      requiredMacros: [],
+      missingMacros: [],
+      message: null,
+    },
     capabilities: {
       print: true,
       motion: true,
@@ -180,6 +209,7 @@ export function createMockSnapshot(): PrinterSnapshot {
       camera: false,
       serviceCommands: true,
     },
+    limits: TREED_V2_COREXY_V1_LIMITS,
     printJob: {
       filename: '',
       filePath: null,
@@ -258,6 +288,11 @@ export function createTransportClient(): TransportClient {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
       return mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
     },
+    async deletePrintFile(path: string): Promise<void> {
+      if (mockTransportSnapshot !== null) {
+        mockTransportSnapshot.printFiles = mockTransportSnapshot.printFiles.filter((item) => item.path !== path)
+      }
+    },
   }
 }
 
@@ -280,6 +315,7 @@ export function createCommandClient(): CommandClient {
       return {
         command: args.command,
         ok: true,
+        status: 'confirmed',
         message: buildMockCommandMessage(args),
         at: nowIso(),
       }

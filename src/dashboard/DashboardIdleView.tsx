@@ -12,8 +12,6 @@ export function DashboardIdleView({
   maintenanceSummary,
   idleNotesInputRef,
   idleNotesText,
-  isIdleNotesKeyboardOpen,
-  idleNotesKeyboardRows,
   onIdleWidgetTargetOpen,
   onIdleWidgetDragPointerDown,
   onIdleWidgetDragPointerMove,
@@ -21,16 +19,13 @@ export function DashboardIdleView({
   onIdleWidgetDragHandleClick,
   onIdleNotesKeyboardOpen,
   onIdleNotesChange,
-  onIdleNotesKeyMouseDown,
-  onIdleNotesVirtualKey,
-  onIdleNotesKeyboardClose,
 }: DashboardIdleViewProps) {
   const maintenanceRuntimeLabel = maintenanceSummary.isRuntimeBacked
     ? `${maintenanceSummary.runtimeHours} ч`
     : '—'
   const maintenanceDueLabel = maintenanceSummary.isRuntimeBacked
     ? `${maintenanceSummary.hoursLeft} ч`
-    : 'Не подключено'
+    : '—'
 
   return (
     <section className="dashboard-idle-screen" data-testid="screen-dashboard-idle">
@@ -75,7 +70,7 @@ export function DashboardIdleView({
                     <p className="idle-mini-label">Т.О</p>
                     <div className="idle-service-metrics">
                       <p><span>Пробег</span><strong>{maintenanceRuntimeLabel}</strong></p>
-                      <p><span>Т.О</span><strong>{maintenanceDueLabel}</strong></p>
+                      <p><span>До Т.О</span><strong>{maintenanceDueLabel}</strong></p>
                     </div>
                   </>
                 )}
@@ -102,75 +97,17 @@ export function DashboardIdleView({
           <h3>Заметки</h3>
           <textarea
             ref={idleNotesInputRef}
-            className="dashboard-idle-notes-input"
+            className="settings-console-input dashboard-idle-notes-input"
             value={idleNotesText}
             onFocus={onIdleNotesKeyboardOpen}
             onChange={onIdleNotesChange}
+            placeholder="Введите заметку..."
+            aria-label="Текст заметки"
             spellCheck={false}
             data-testid="idle-notes-input"
           />
         </article>
       </aside>
-
-      {isIdleNotesKeyboardOpen ? (
-        <div className="idle-notes-keyboard" data-testid="idle-notes-keyboard">
-          {idleNotesKeyboardRows.map((row, rowIndex) => (
-            <div className="idle-notes-keyboard-row" key={`idle-notes-keyboard-row-${rowIndex}`}>
-              {row.map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  className="idle-notes-keyboard-key"
-                  aria-label={`Символ ${label}`}
-                  onMouseDown={onIdleNotesKeyMouseDown}
-                  onClick={() => onIdleNotesVirtualKey(label.toLocaleLowerCase('ru-RU'))}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          ))}
-
-          <div className="idle-notes-keyboard-row idle-notes-keyboard-row-actions">
-            <button
-              type="button"
-              className="idle-notes-keyboard-key idle-notes-keyboard-key-action"
-              aria-label="Удалить символ"
-              onMouseDown={onIdleNotesKeyMouseDown}
-              onClick={() => onIdleNotesVirtualKey('backspace')}
-            >
-              ⌫
-            </button>
-            <button
-              type="button"
-              className="idle-notes-keyboard-key idle-notes-keyboard-key-space"
-              aria-label="Пробел"
-              onMouseDown={onIdleNotesKeyMouseDown}
-              onClick={() => onIdleNotesVirtualKey('space')}
-            >
-              Пробел
-            </button>
-            <button
-              type="button"
-              className="idle-notes-keyboard-key idle-notes-keyboard-key-action"
-              aria-label="Новая строка"
-              onMouseDown={onIdleNotesKeyMouseDown}
-              onClick={() => onIdleNotesVirtualKey('enter')}
-            >
-              ↵
-            </button>
-            <button
-              type="button"
-              className="idle-notes-keyboard-key idle-notes-keyboard-key-close"
-              aria-label="Скрыть клавиатуру"
-              onMouseDown={onIdleNotesKeyMouseDown}
-              onClick={onIdleNotesKeyboardClose}
-            >
-              Скрыть
-            </button>
-          </div>
-        </div>
-      ) : null}
     </section>
   )
 }

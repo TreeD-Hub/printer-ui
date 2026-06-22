@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createCommandClient } from '#runtime'
-import { getTreeDCommandBlockReason, type TreeDCommandRuntimeContext } from './catalog'
+import { recordOperationalDiagnostic } from '../../diagnostics'
+import {
+  getTreeDCommandBlockReason,
+  getTreeDCommandCatalogItem,
+  type TreeDCommandRuntimeContext,
+} from './catalog'
 import type { CommandResult, ExecuteCommandArgs, PrinterCommandId } from './types'
 
 type QueuedCoalescedCommand = {
@@ -8,7 +13,14 @@ type QueuedCoalescedCommand = {
   resolve: (value: boolean) => void
 }
 
+type PendingCommandConfirmation = {
+  args: ExecuteCommandArgs
+  acceptedResult: Extract<CommandResult, { ok: true }>
+  timeoutId: number
+}
+
 const COALESCED_COMMAND_RATE_LIMIT_MS = 120
+const COMMAND_CONFIRMATION_TIMEOUT_MS = 12_000
 const COALESCED_COMMANDS = new Set<PrinterCommandId>([
   'setFanPercent',
   'setPrintSpeedFactorPercent',
@@ -20,6 +32,43 @@ const COALESCED_COMMANDS = new Set<PrinterCommandId>([
 
 function isCoalescedCommand(command: PrinterCommandId): boolean {
   return COALESCED_COMMANDS.has(command)
+}
+
+function isNear(left: number | undefined, right: number, tolerance = 0.5): boolean {
+  return left !== undefined && Number.isFinite(left) && Math.abs(left - right) <= tolerance
+}
+
+function isCommandConfirmed(
+  args: ExecuteCommandArgs,
+  context: TreeDCommandRuntimeContext,
+): boolean | null {
+  if (context.source === 'mock') {
+    return true
+  }
+
+  switch (args.command) {
+    case 'start': {
+      const currentFilename = context.printJob?.filename?.replace(/^\/+gcodes\//, '')
+      const expectedFilename = args.filename.replace(/^\/+gcodes\//, '')
+      return context.printJob?.state.toLowerCase() === 'printing' && currentFilename === expectedFilename
+    }
+    case 'pause':
+      return context.printJob?.isPaused === true || context.printJob?.state.toLowerCase() === 'paused'
+    case 'resume':
+      return context.printJob?.isActive === true && context.printJob.isPaused === false && context.printJob.state.toLowerCase() === 'printing'
+    case 'cancel':
+      return context.printJob?.isActive === false && !['printing', 'paused'].includes(context.printJob.state.toLowerCase())
+    case 'turnOffHeaters':
+      return isNear(context.thermalTargets?.nozzle, 0) && isNear(context.thermalTargets?.bed, 0)
+    case 'setNozzleTarget':
+      return isNear(context.thermalTargets?.nozzle, args.targetCelsius)
+    case 'setBedTarget':
+      return isNear(context.thermalTargets?.bed, args.targetCelsius)
+    case 'setHeatingTargets':
+      return isNear(context.thermalTargets?.nozzle, args.nozzleCelsius) && isNear(context.thermalTargets?.bed, args.bedCelsius)
+    default:
+      return null
+  }
 }
 
 export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
@@ -34,6 +83,8 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
   const queuedCoalescedCommandsRef = useRef<Map<PrinterCommandId, QueuedCoalescedCommand>>(new Map())
   const coalescedCommandTimersRef = useRef<Map<PrinterCommandId, number>>(new Map())
   const lastCoalescedCommandRunAtRef = useRef<Map<PrinterCommandId, number>>(new Map())
+  const pendingConfirmationRef = useRef<PendingCommandConfirmation | null>(null)
+  const emergencyGenerationRef = useRef(0)
   const runtimeContextRef = useRef(runtimeContext)
 
   const client = useMemo(() => {
@@ -96,6 +147,59 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         })
       }
 
+      function clearQueuedCommands(): void {
+        for (const timerId of coalescedCommandTimersRef.current.values()) {
+          window.clearTimeout(timerId)
+        }
+        coalescedCommandTimersRef.current.clear()
+        for (const queued of queuedCoalescedCommandsRef.current.values()) {
+          queued.resolve(false)
+        }
+        queuedCoalescedCommandsRef.current.clear()
+      }
+
+      if (command === 'emergencyStop') {
+        emergencyGenerationRef.current += 1
+        const pendingConfirmation = pendingConfirmationRef.current
+        if (pendingConfirmation !== null) {
+          window.clearTimeout(pendingConfirmation.timeoutId)
+          pendingConfirmationRef.current = null
+          setPendingCommand(null)
+        }
+        clearQueuedCommands()
+        recordOperationalDiagnostic('command', `${command}: dispatched`)
+        try {
+          const result = await client.execute(args)
+          setLastResult(result)
+          if (!result.ok) {
+            lastErrorRef.current = result.message
+            setError(result.message)
+            recordOperationalDiagnostic('command', `${command}: rejected`, result.message)
+            return false
+          }
+          recordOperationalDiagnostic('command', `${command}: ${result.status}`)
+          return true
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Unknown emergency stop error'
+          const result: CommandResult = {
+            command,
+            ok: false,
+            kind: 'failed',
+            message,
+            at: new Date().toISOString(),
+          }
+          lastErrorRef.current = message
+          setError(message)
+          setLastResult(result)
+          recordOperationalDiagnostic('command', `${command}: failed`, message)
+          return false
+        }
+      }
+
+      if (pendingConfirmationRef.current !== null) {
+        return false
+      }
+
       if (activeCommandRef.current !== null) {
         if (isCoalescedCommand(command)) {
           return queueCoalescedCommand()
@@ -130,6 +234,7 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
       }
 
       activeCommandRef.current = command
+      const emergencyGeneration = emergencyGenerationRef.current
       if (isCoalescedCommand(command)) {
         lastCoalescedCommandRunAtRef.current.set(command, Date.now())
       }
@@ -138,34 +243,114 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
       setError('')
 
       try {
+        recordOperationalDiagnostic('command', `${command}: dispatched`)
         const result = await client.execute(args)
+        if (emergencyGeneration !== emergencyGenerationRef.current) {
+          recordOperationalDiagnostic('command', `${command}: superseded_by_emergency_stop`)
+          return false
+        }
         setLastResult(result)
         if (!result.ok) {
           lastErrorRef.current = result.message
           setError(result.message)
+          recordOperationalDiagnostic('command', `${command}: rejected`, result.message)
           return false
+        }
+        recordOperationalDiagnostic('command', `${command}: ${result.status}`)
+
+        const confirmed = result.status === 'confirmed'
+          ? true
+          : isCommandConfirmed(args, runtimeContextRef.current)
+        if (confirmed !== null) {
+          if (confirmed) {
+            setLastResult({
+              ...result,
+              status: 'confirmed',
+            })
+          } else {
+            const timeoutId = window.setTimeout(() => {
+              const pending = pendingConfirmationRef.current
+              if (pending === null || pending.timeoutId !== timeoutId) {
+                return
+              }
+
+              const message = `${getTreeDCommandCatalogItem(command).label}: подтверждение состояния не получено.`
+              const timeoutResult: CommandResult = {
+                command,
+                ok: false,
+                kind: 'confirmation_timeout',
+                message,
+                at: new Date().toISOString(),
+              }
+              pendingConfirmationRef.current = null
+              lastErrorRef.current = message
+              setError(message)
+              setLastResult(timeoutResult)
+              setPendingCommand(null)
+              recordOperationalDiagnostic('command', `${command}: confirmation_timeout`, message)
+            }, COMMAND_CONFIRMATION_TIMEOUT_MS)
+            pendingConfirmationRef.current = {
+              args,
+              acceptedResult: result,
+              timeoutId,
+            }
+          }
         }
 
         return true
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown command error'
+        const result: CommandResult = {
+          command,
+          ok: false,
+          kind: 'failed',
+          message,
+          at: new Date().toISOString(),
+        }
         lastErrorRef.current = message
         setError(message)
+        setLastResult(result)
+        recordOperationalDiagnostic('command', `${command}: failed`, message)
         return false
       } finally {
         activeCommandRef.current = null
-        setPendingCommand(null)
-        runQueuedCommand()
+        if (pendingConfirmationRef.current?.args.command !== command) {
+          setPendingCommand(null)
+          runQueuedCommand()
+        }
       }
     },
     [client],
   )
 
   useEffect(() => {
+    const pending = pendingConfirmationRef.current
+    if (pending === null || isCommandConfirmed(pending.args, runtimeContext) !== true) {
+      return
+    }
+
+    window.clearTimeout(pending.timeoutId)
+    pendingConfirmationRef.current = null
+    lastErrorRef.current = ''
+    setError('')
+    setLastResult({
+      ...pending.acceptedResult,
+      status: 'confirmed',
+      at: new Date().toISOString(),
+    })
+    setPendingCommand(null)
+    recordOperationalDiagnostic('command', `${pending.args.command}: confirmed`)
+  }, [runtimeContext])
+
+  useEffect(() => {
     const coalescedCommandTimers = coalescedCommandTimersRef.current
     const queuedCoalescedCommands = queuedCoalescedCommandsRef.current
 
     return () => {
+      const pendingConfirmation = pendingConfirmationRef.current
+      if (pendingConfirmation !== null) {
+        window.clearTimeout(pendingConfirmation.timeoutId)
+      }
       for (const timerId of coalescedCommandTimers.values()) {
         window.clearTimeout(timerId)
       }

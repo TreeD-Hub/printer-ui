@@ -36,9 +36,11 @@ const ALL_CAPABILITIES = {
 } as const
 
 const RUNTIME_CONTEXT: TreeDCommandRuntimeContext = {
+  source: 'live',
   capabilities: ALL_CAPABILITIES,
   connection: 'online',
   printJob: {
+    filename: 'jobs/benchy.gcode',
     state: 'printing',
     isActive: true,
     isPaused: false,
@@ -51,6 +53,11 @@ const RUNTIME_CONTEXT: TreeDCommandRuntimeContext = {
   },
   eddyStatus: 'ready',
   extruderTemp: 210,
+  thermalTargets: {
+    nozzle: 220,
+    bed: 60,
+  },
+  modelFanPercent: 50,
 }
 
 type PrinterCommandsApi = ReturnType<typeof usePrinterCommands>
@@ -69,13 +76,30 @@ function success(command: ExecuteCommandArgs['command']): CommandResult {
   return {
     command,
     ok: true,
+    status: 'confirmed',
     message: 'ok',
     at: '2026-06-18T00:00:00.000Z',
   }
 }
 
-function Harness({ onReady }: { onReady: (api: PrinterCommandsApi) => void }) {
-  const api = usePrinterCommands(RUNTIME_CONTEXT)
+function accepted(command: ExecuteCommandArgs['command']): CommandResult {
+  return {
+    command,
+    ok: true,
+    status: 'accepted',
+    message: 'accepted',
+    at: '2026-06-18T00:00:00.000Z',
+  }
+}
+
+function Harness({
+  context = RUNTIME_CONTEXT,
+  onReady,
+}: {
+  context?: TreeDCommandRuntimeContext
+  onReady: (api: PrinterCommandsApi) => void
+}) {
+  const api = usePrinterCommands(context)
 
   useEffect(() => {
     onReady(api)
@@ -209,5 +233,100 @@ describe('usePrinterCommands', () => {
       firstResult.resolve(success('turnOffHeaters'))
       await firstPromise
     })
+  })
+
+  it('dispatches emergency stop even while another command is in flight', async () => {
+    const firstResult = createDeferred<CommandResult>()
+    runtimeMocks.execute
+      .mockReturnValueOnce(firstResult.promise)
+      .mockResolvedValueOnce(success('emergencyStop'))
+    let api: PrinterCommandsApi | null = null
+
+    render(<Harness onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    let regularPromise!: Promise<boolean>
+    let emergencyPromise!: Promise<boolean>
+    await act(async () => {
+      regularPromise = api!.executeCommand({ command: 'turnOffHeaters' })
+      emergencyPromise = api!.executeCommand({ command: 'emergencyStop' })
+      await emergencyPromise
+    })
+
+    expect(runtimeMocks.execute).toHaveBeenCalledTimes(2)
+    expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, { command: 'emergencyStop' })
+    await expect(emergencyPromise).resolves.toBe(true)
+
+    await act(async () => {
+      firstResult.resolve(success('turnOffHeaters'))
+      await regularPromise
+    })
+    await expect(regularPromise).resolves.toBe(false)
+  })
+
+  it('keeps a stateful command pending until runtime state confirms it', async () => {
+    runtimeMocks.execute.mockResolvedValue(accepted('pause'))
+    let api: PrinterCommandsApi | null = null
+    const onReady = (nextApi: PrinterCommandsApi) => {
+      api = nextApi
+    }
+    const { rerender } = render(<Harness context={RUNTIME_CONTEXT} onReady={onReady} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    await act(async () => {
+      await api!.executeCommand({ command: 'pause' })
+    })
+
+    await waitFor(() => {
+      expect(api!.pendingCommand).toBe('pause')
+      expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'accepted' }))
+    })
+
+    rerender(<Harness context={{
+      ...RUNTIME_CONTEXT,
+      printJob: {
+        ...RUNTIME_CONTEXT.printJob!,
+        state: 'paused',
+        isPaused: true,
+      },
+    }} onReady={onReady} />)
+
+    await waitFor(() => {
+      expect(api!.pendingCommand).toBeNull()
+      expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'confirmed' }))
+    })
+  })
+
+  it('reports confirmation timeout when runtime state does not change', async () => {
+    runtimeMocks.execute.mockResolvedValue(accepted('turnOffHeaters'))
+    let api: PrinterCommandsApi | null = null
+
+    render(<Harness onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    vi.useFakeTimers()
+    await act(async () => {
+      await api!.executeCommand({ command: 'turnOffHeaters' })
+      await vi.advanceTimersByTimeAsync(12_000)
+    })
+
+    expect(api!.pendingCommand).toBeNull()
+    expect(api!.lastResult).toEqual(expect.objectContaining({
+      ok: false,
+      kind: 'confirmation_timeout',
+    }))
   })
 })

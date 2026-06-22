@@ -3,6 +3,7 @@ import type {
   PrinterConnectionState,
   PrinterEddyStatus,
   PrinterFileItem,
+  PrinterLimits,
 } from '@treed/printer-logic'
 
 export type {
@@ -10,9 +11,34 @@ export type {
   PrinterConnectionState,
   PrinterEddyStatus,
   PrinterFileItem,
+  PrinterLimits,
 } from '@treed/printer-logic'
 
 export type PrinterSource = 'mock' | 'live'
+export type PrinterTransportState = 'connecting' | 'online' | 'reconnecting' | 'offline'
+export type PrinterKlippyState = 'startup' | 'ready' | 'shutdown' | 'error' | 'disconnected'
+export type PrinterRevisionSource = 'mock' | 'http' | 'websocket'
+
+export interface PrinterDataRevision {
+  eventtime: number | null
+  receivedAt: number
+  source: PrinterRevisionSource
+}
+
+export interface PrinterRuntimeRevisions {
+  printerObjects: PrinterDataRevision
+  files: PrinterDataRevision | null
+}
+
+export interface PrinterTransportSnapshot {
+  state: PrinterTransportState
+  message: string | null
+}
+
+export interface PrinterKlippySnapshot {
+  state: PrinterKlippyState
+  message: string
+}
 
 export interface PrinterHardwareSnapshot {
   marker: 'treed-v2'
@@ -23,6 +49,16 @@ export interface PrinterHardwareSnapshot {
   probe: string
   model: string
   revision: string | null
+}
+
+export interface PrinterUiContractSnapshot {
+  status: 'legacy' | 'compatible' | 'incompatible'
+  expectedVersion: '1.0'
+  contractVersion: string | null
+  profile: string | null
+  requiredMacros: string[]
+  missingMacros: string[]
+  message: string | null
 }
 
 export interface PrinterPositionSnapshot {
@@ -65,6 +101,11 @@ export interface PrinterFilesSnapshot {
   isActive: boolean
   filePosition: number
   fileSize: number | null
+}
+
+export interface PrinterFileListStatusSnapshot {
+  state: 'unknown' | 'ready' | 'error'
+  message: string | null
 }
 
 export interface PrinterPrintJobSnapshot {
@@ -113,6 +154,9 @@ export interface PrinterV2Snapshot {
 
 export interface PrinterRuntimeSnapshot {
   source: PrinterSource
+  revisions: PrinterRuntimeRevisions
+  transport: PrinterTransportSnapshot
+  klippy: PrinterKlippySnapshot
   connection: PrinterConnectionState
   wifiSsid: string
   ipAddress: string
@@ -127,9 +171,12 @@ export interface PrinterRuntimeSnapshot {
   updatedAt: string
   message: string
   hardware: PrinterHardwareSnapshot
+  uiContract: PrinterUiContractSnapshot
   capabilities: PrinterCapabilitiesSnapshot
+  limits: PrinterLimits
   printJob: PrinterPrintJobSnapshot
   files: PrinterFilesSnapshot
+  fileList?: PrinterFileListStatusSnapshot
   toolhead: PrinterToolheadRuntimeSnapshot
   geometry: PrinterGeometrySnapshot
   thermalTargets: PrinterThermalTargetsSnapshot
@@ -145,6 +192,8 @@ export interface TransportSubscriptionHandlers {
   onSnapshot: (snapshot: PrinterSnapshot) => void
   onConnectionChange: (connection: PrinterConnectionState, message?: string) => void
   onError?: (message: string) => void
+  onFileListChanged?: () => void
+  onGcodeResponse?: (message: string) => void
 }
 
 export interface TransportSubscription {
@@ -153,5 +202,6 @@ export interface TransportSubscription {
 
 export interface TransportClient {
   fetchSnapshot: () => Promise<PrinterSnapshot>
+  deletePrintFile?: (path: string) => Promise<void>
   subscribe?: (handlers: TransportSubscriptionHandlers) => TransportSubscription
 }

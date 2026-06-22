@@ -4,6 +4,7 @@ import {
   type PrinterFileItem,
   type PrinterFileSortKey,
 } from '@treed/printer-logic'
+import type { PrinterFileListStatusSnapshot } from '../core/transport/types'
 import { PrintFileCard } from '../ui'
 
 const FILES_SORT_OPTIONS: Array<{ id: PrinterFileSortKey; label: string }> = [
@@ -13,10 +14,25 @@ const FILES_SORT_OPTIONS: Array<{ id: PrinterFileSortKey; label: string }> = [
 
 type FilesPageProps = {
   files: PrinterFileItem[]
+  fileListStatus?: PrinterFileListStatusSnapshot
   onFileSelect: (fileId: string) => void
 }
 
-export function FilesPage({ files, onFileSelect }: FilesPageProps) {
+function getFilesEmptyMessage(fileListStatus?: PrinterFileListStatusSnapshot): string {
+  if (fileListStatus?.state === 'error') {
+    return fileListStatus.message
+      ? `Файлы Moonraker недоступны: ${fileListStatus.message}`
+      : 'Файлы Moonraker недоступны.'
+  }
+
+  if (fileListStatus?.state === 'unknown') {
+    return 'Загрузка файлов Moonraker...'
+  }
+
+  return 'G-code файлы не найдены.'
+}
+
+export function FilesPage({ files, fileListStatus, onFileSelect }: FilesPageProps) {
   const [sortKey, setSortKey] = useState<PrinterFileSortKey>('name')
   const sortedFiles = useMemo(() => sortPrinterFileItems(files, sortKey), [files, sortKey])
 
@@ -65,7 +81,9 @@ export function FilesPage({ files, onFileSelect }: FilesPageProps) {
               />
             ))
           ) : (
-            <p className="files-empty">Список файлов пуст.</p>
+            <p className="files-empty" data-testid="files-empty">
+              {getFilesEmptyMessage(fileListStatus)}
+            </p>
           )}
         </div>
       </div>

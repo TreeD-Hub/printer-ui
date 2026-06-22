@@ -5,7 +5,7 @@ import {
   type MoonrakerPrinterObjectsStatus,
 } from './moonrakerNormalizer'
 import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
-import type { PrinterConnectionState, PrinterSnapshot } from './types'
+import type { PrinterSnapshot, TransportSubscriptionHandlers } from './types'
 
 type MoonrakerJsonRpcMessage = {
   id?: number
@@ -17,11 +17,7 @@ type MoonrakerJsonRpcMessage = {
   }
 }
 
-type MoonrakerWebSocketHandlers = {
-  onSnapshot: (snapshot: PrinterSnapshot) => void
-  onConnectionChange: (connection: PrinterConnectionState, message?: string) => void
-  onError?: (message: string) => void
-}
+type MoonrakerWebSocketHandlers = TransportSubscriptionHandlers
 
 type MoonrakerWebSocketClientOptions = {
   moonrakerUrl?: string
@@ -96,6 +92,8 @@ function normalizeCachedStatus(
     },
     {
       source: 'live',
+      revisionSource: 'websocket',
+      transportState: 'online',
       moonrakerUrl: runtimeUrl,
     },
   )
@@ -219,8 +217,19 @@ export function subscribeToMoonrakerStatus(
         emitStatusSnapshot(setWebhooksState(cachedStatus, 'shutdown', 'Klippy shutdown'))
         return
       case 'notify_klippy_disconnected':
-        emitStatusSnapshot(setWebhooksState(cachedStatus, 'error', 'Klippy disconnected'))
+        emitStatusSnapshot(setWebhooksState(cachedStatus, 'disconnected', 'Klippy disconnected'))
         return
+      case 'notify_filelist_changed':
+      case 'notify_metadata_update':
+        handlers.onFileListChanged?.()
+        return
+      case 'notify_gcode_response': {
+        const response = message.params?.[0]
+        if (typeof response === 'string') {
+          handlers.onGcodeResponse?.(response)
+        }
+        return
+      }
       default:
         return
     }

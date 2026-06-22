@@ -4,6 +4,7 @@ import {
   getTreeDCommandCatalogItem,
   isDangerousTreeDCommand,
   TREE_D_COMMAND_CATALOG,
+  TREED_V2_COREXY_V1_LIMITS,
   type PrinterCapabilitiesSnapshot,
   type PrinterCommandId,
   type TreeDCommandRuntimeContext,
@@ -81,6 +82,7 @@ const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   },
   eddyStatus: 'ready',
   extruderTemp: 210,
+  limits: TREED_V2_COREXY_V1_LIMITS,
 }
 
 const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {
@@ -199,6 +201,31 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       distanceMm: 1,
     })).toContain('во время печати')
     expect(getTreeDCommandBlockReason('disableMotors', PRINTING_CONTEXT)).toContain('во время печати')
+  })
+
+  it('validates movement and heating arguments against the active profile', () => {
+    expect(getTreeDCommandBlockReason('moveAxis', IDLE_CONTEXT, {
+      command: 'moveAxis',
+      axis: 'X',
+      distanceMm: 51,
+    })).toContain('DISTANCE')
+    expect(getTreeDCommandBlockReason('moveAxis', IDLE_CONTEXT, {
+      command: 'moveAxis',
+      axis: 'X',
+      distanceMm: -11,
+    })).toContain('0…245')
+    expect(getTreeDCommandBlockReason('setNozzleTarget', IDLE_CONTEXT, {
+      command: 'setNozzleTarget',
+      targetCelsius: 281,
+    })).toContain('0…280')
+    expect(getTreeDCommandBlockReason('setBedTarget', IDLE_CONTEXT, {
+      command: 'setBedTarget',
+      targetCelsius: 121,
+    })).toContain('0…120')
+    expect(getTreeDCommandBlockReason('setBedTarget', IDLE_CONTEXT, {
+      command: 'setBedTarget',
+      targetCelsius: Number.NaN,
+    })).toContain('конечным числом')
   })
 
   it('allows confirmed host power and service commands during active print', () => {

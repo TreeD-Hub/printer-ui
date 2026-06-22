@@ -30,7 +30,6 @@ export const CONTROL_PARKING_AXIS_OPTIONS: Array<ControlOption<AxisId>> = [
 
 export const CONTROL_MOVEMENT_MODE_OPTIONS: Array<ControlOption<MovementMode>> = [
   { id: 'buttons', label: 'Крестовина' },
-  { id: 'joystick', label: 'Джойстик' },
 ]
 
 export const CONTROL_MOVE_STEP_OPTIONS: MoveStepOption[] = [

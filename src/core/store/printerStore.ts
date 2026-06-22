@@ -1,11 +1,28 @@
 import { useMemo, useSyncExternalStore } from 'react'
 import { runtimeMode } from '#runtime'
+import { TREED_V2_COREXY_V1_LIMITS } from '@treed/printer-logic'
 import type { PrinterSnapshot } from '../transport/types'
 
 type PrinterStoreListener = () => void
 
 export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
   source: runtimeMode,
+  revisions: {
+    printerObjects: {
+      eventtime: null,
+      receivedAt: 0,
+      source: runtimeMode === 'mock' ? 'mock' : 'http',
+    },
+    files: null,
+  },
+  transport: {
+    state: 'connecting',
+    message: null,
+  },
+  klippy: {
+    state: 'disconnected',
+    message: 'Запуск системы...',
+  },
   connection: 'connecting',
   wifiSsid: 'Не подключено',
   ipAddress: '—',
@@ -29,6 +46,15 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     model: 'TreeD V2',
     revision: null,
   },
+  uiContract: {
+    status: 'legacy',
+    expectedVersion: '1.0',
+    contractVersion: null,
+    profile: null,
+    requiredMacros: [],
+    missingMacros: [],
+    message: 'Device contract еще не опубликован.',
+  },
   capabilities: {
     print: false,
     motion: false,
@@ -47,6 +73,7 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     camera: false,
     serviceCommands: false,
   },
+  limits: TREED_V2_COREXY_V1_LIMITS,
   printJob: {
     filename: '',
     filePath: null,
@@ -69,6 +96,10 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     isActive: false,
     filePosition: 0,
     fileSize: null,
+  },
+  fileList: {
+    state: 'unknown',
+    message: null,
   },
   toolhead: {
     rawX: 0,
@@ -133,12 +164,52 @@ export function getPrinterSnapshot(): PrinterSnapshot {
 }
 
 export function setPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
-  if (Object.is(currentPrinterSnapshot, nextSnapshot)) {
+  const reconciledSnapshot = reconcilePrinterSnapshot(currentPrinterSnapshot, nextSnapshot)
+  if (Object.is(currentPrinterSnapshot, reconciledSnapshot)) {
     return
   }
 
-  currentPrinterSnapshot = nextSnapshot
+  currentPrinterSnapshot = reconciledSnapshot
   emitPrinterStoreChange()
+}
+
+export function reconcilePrinterSnapshot(
+  previous: PrinterSnapshot,
+  next: PrinterSnapshot,
+): PrinterSnapshot {
+  const previousEventtime = previous.revisions.printerObjects.eventtime
+  const nextEventtime = next.revisions.printerObjects.eventtime
+  const hasStalePrinterObjects = (
+    previous.transport.state === 'online' &&
+    previousEventtime !== null &&
+    nextEventtime !== null &&
+    nextEventtime < previousEventtime
+  )
+
+  if (!hasStalePrinterObjects) {
+    return next
+  }
+
+  const previousFilesRevision = previous.revisions.files
+  const nextFilesRevision = next.revisions.files
+  const shouldApplyFiles = (
+    nextFilesRevision !== null &&
+    (previousFilesRevision === null || nextFilesRevision.receivedAt >= previousFilesRevision.receivedAt)
+  )
+
+  if (!shouldApplyFiles) {
+    return previous
+  }
+
+  return {
+    ...previous,
+    printFiles: next.printFiles,
+    fileList: next.fileList,
+    revisions: {
+      ...previous.revisions,
+      files: nextFilesRevision,
+    },
+  }
 }
 
 export function updatePrinterSnapshot(updater: (previous: PrinterSnapshot) => PrinterSnapshot): void {

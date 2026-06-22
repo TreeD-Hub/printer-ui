@@ -60,13 +60,14 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
 }
 
 function App() {
-  const { snapshot, refresh } = usePrinterSnapshot()
+  const { snapshot, refresh, deletePrintFile } = usePrinterSnapshot()
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(BABYSTEP_STEP_OPTIONS[1])
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
-  const printSessionController = usePrintSessionController({ snapshot })
+  const printSessionController = usePrintSessionController({ snapshot, deletePrintFile })
   const commandRuntimeContext = useMemo(
     () => ({
+      source: snapshot.source,
       capabilities: snapshot.capabilities,
       connection: snapshot.connection,
       printJob: printSessionController.commandRuntimePrintJob,
@@ -78,13 +79,20 @@ function App() {
       },
       eddyStatus: snapshot.v2.eddy.status,
       extruderTemp: snapshot.extruderTemp,
+      limits: snapshot.limits,
+      thermalTargets: snapshot.thermalTargets,
+      modelFanPercent: snapshot.modelFanPercent,
     }),
     [
       printSessionController.commandRuntimePrintJob,
+      snapshot.source,
       snapshot.capabilities,
       snapshot.connection,
       snapshot.extruderTemp,
       snapshot.homedAxes,
+      snapshot.limits,
+      snapshot.modelFanPercent,
+      snapshot.thermalTargets,
       snapshot.toolhead.rawX,
       snapshot.toolhead.rawY,
       snapshot.toolhead.rawZ,
@@ -275,12 +283,15 @@ function App() {
     onOpenDashboard: () => setActiveScreen('dashboard'),
   })
   const idleHeroStatusLabel = printerDisplayStatus.label
+  const isIdleNotesKeyboardTarget = activeKeyboardTarget === 'idleNotes'
   const settingsKeyboardMeta = settingsKeyboard.meta
-  const keyboardLabel = settingsKeyboardMeta?.valueLabel ?? ''
-  const keyboardPlaceholder = settingsKeyboardMeta?.placeholder ?? ''
-  const keyboardTestId = settingsKeyboardMeta?.testId ?? ''
-  const keyboardPreviewTestId = settingsKeyboardMeta?.previewTestId ?? ''
-  const keyboardDialogValue = settingsKeyboard.value
+  const keyboardLabel = isIdleNotesKeyboardTarget ? 'Ввод заметки' : (settingsKeyboardMeta?.valueLabel ?? '')
+  const keyboardPlaceholder = isIdleNotesKeyboardTarget ? 'Введите заметку...' : (settingsKeyboardMeta?.placeholder ?? '')
+  const keyboardTestId = isIdleNotesKeyboardTarget ? 'idle-notes-keyboard' : (settingsKeyboardMeta?.testId ?? '')
+  const keyboardPreviewTestId = isIdleNotesKeyboardTarget
+    ? 'idle-notes-keyboard-preview'
+    : (settingsKeyboardMeta?.previewTestId ?? '')
+  const keyboardDialogValue = isIdleNotesKeyboardTarget ? dashboardIdleController.idleNotesText : settingsKeyboard.value
   const keyboardDialogLabel = keyboardLabel
   const keyboardDialogPlaceholder = keyboardPlaceholder
   const keyboardDialogTestId = keyboardTestId
@@ -332,7 +343,6 @@ function App() {
     if (nextMode === 'axis') {
       setParkingAxis(resolvedAxis)
     }
-    flashControlAction(nextMode === 'all' ? 'parking-all' : `parking-${resolvedAxis}`)
 
     const command = nextMode === 'all' ? 'homeAll' : resolvedAxis === 'Z' ? 'homeZ' : 'homeXY'
     const ok = await executeCommand({ command })
@@ -341,6 +351,7 @@ function App() {
     }
 
     await refresh()
+    flashControlAction(nextMode === 'all' ? 'parking-all' : `parking-${resolvedAxis}`)
     return true
   }
 
@@ -381,13 +392,37 @@ function App() {
     setIsKeyboardCapsEnabled((prevValue) => !prevValue)
   }, [])
 
-  const handleVirtualKeyboardKey = useCallback((key: string) => {
+  const handleVirtualKeyboardPreviewChange = useCallback((
+    nextValue: string,
+    selection: { selectionStart: number; selectionEnd: number },
+  ) => {
+    if (activeKeyboardTarget === 'idleNotes') {
+      dashboardIdleController.handleIdleNotesKeyboardPreviewChange(nextValue)
+      return
+    }
+
     if (activeKeyboardTarget === null || !isSettingsKeyboardTarget(activeKeyboardTarget)) {
       return
     }
 
-    settingsKeyboard.onKeyPress(key)
-  }, [activeKeyboardTarget, settingsKeyboard])
+    settingsKeyboard.onPreviewChange(nextValue, selection)
+  }, [activeKeyboardTarget, dashboardIdleController, settingsKeyboard])
+
+  const handleVirtualKeyboardKey = useCallback((
+    key: string,
+    selection?: { selectionStart: number; selectionEnd: number },
+  ) => {
+    if (activeKeyboardTarget === 'idleNotes') {
+      dashboardIdleController.handleIdleNotesVirtualKey(key, selection)
+      return
+    }
+
+    if (activeKeyboardTarget === null || !isSettingsKeyboardTarget(activeKeyboardTarget)) {
+      return
+    }
+
+    settingsKeyboard.onKeyPress(key, selection)
+  }, [activeKeyboardTarget, dashboardIdleController, settingsKeyboard])
 
   useEffect(() => {
     if (selectedPrintFile === null || typeof window === 'undefined') {
@@ -542,8 +577,6 @@ function App() {
       maintenanceSummary: maintenanceController.status,
       idleNotesInputRef: dashboardIdleController.idleNotesInputRef,
       idleNotesText: dashboardIdleController.idleNotesText,
-      isIdleNotesKeyboardOpen: dashboardIdleController.isIdleNotesKeyboardOpen,
-      idleNotesKeyboardRows: dashboardIdleController.idleNotesKeyboardRows,
     },
     actions: {
       onPrintTuneGroupOpen: handlePrintTuneGroupOpen,
@@ -558,9 +591,6 @@ function App() {
       onIdleWidgetDragHandleClick: dashboardIdleController.handleIdleWidgetDragHandleClick,
       onIdleNotesKeyboardOpen: dashboardIdleController.handleIdleNotesKeyboardOpen,
       onIdleNotesChange: dashboardIdleController.handleIdleNotesChange,
-      onIdleNotesKeyMouseDown: dashboardIdleController.handleIdleNotesKeyMouseDown,
-      onIdleNotesVirtualKey: dashboardIdleController.handleIdleNotesVirtualKey,
-      onIdleNotesKeyboardClose: dashboardIdleController.handleIdleNotesKeyboardClose,
     },
     getCommandBlockReason,
   }
@@ -575,6 +605,7 @@ function App() {
           dashboard={dashboardProps}
           files={{
             files: effectiveFilesLibrary,
+            fileListStatus: snapshot.fileList,
             onFileSelect: handlePrintFileSelect,
           }}
           control={{
@@ -612,12 +643,12 @@ function App() {
           settings={settingsPageProps}
         />
 
-        {activeKeyboardTarget !== null && activeKeyboardTarget !== 'idleNotes' ? (
+        {activeKeyboardTarget !== null ? (
           <div
             className="app-virtual-keyboard-layer"
             role="presentation"
             onClick={handleKeyboardClose}
-            data-testid="settings-keyboard-layer"
+            data-testid={isIdleNotesKeyboardTarget ? 'idle-notes-keyboard-layer' : 'settings-keyboard-layer'}
           >
             <div
               className="app-virtual-keyboard-popup"
@@ -635,9 +666,10 @@ function App() {
                 onToggleLanguage={handleVirtualKeyboardLanguageToggle}
                 onToggleCaps={handleVirtualKeyboardCapsToggle}
                 onKeyPress={handleVirtualKeyboardKey}
+                onPreviewChange={handleVirtualKeyboardPreviewChange}
                 onClose={handleKeyboardClose}
                 onKeyMouseDown={handleVirtualKeyboardKeyMouseDown}
-                showEnterKey={settingsKeyboard.isConsoleOpen}
+                showEnterKey={isIdleNotesKeyboardTarget || settingsKeyboard.isConsoleOpen}
                 testId={keyboardDialogTestId}
                 previewTestId={keyboardDialogPreviewTestId}
               />

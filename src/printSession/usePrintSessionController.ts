@@ -9,6 +9,7 @@ import { PRINT_FILE_LIBRARY, type PrintFileItem } from '../printFiles'
 type ActivePrintUiState = 'printing' | 'paused'
 
 type CommandRuntimePrintJob = {
+  filename?: string
   state: string
   isActive: boolean
   isPaused: boolean
@@ -16,6 +17,7 @@ type CommandRuntimePrintJob = {
 
 type UsePrintSessionControllerArgs = {
   snapshot: PrinterSnapshot
+  deletePrintFile?: (path: string) => Promise<void>
 }
 
 type CreateCommandHandlersArgs = {
@@ -52,7 +54,7 @@ export type UsePrintSessionControllerResult = {
   isPrintCancelConfirmOpen: boolean
   selectFile: (fileId: string) => void
   closeFileModal: () => void
-  deleteSelectedFile: () => void
+  deleteSelectedFile: () => Promise<boolean>
   closePrintCancelConfirm: () => void
   getFileStartNotice: (printStartBlockReason: string | null) => string
   createCommandHandlers: (args: CreateCommandHandlersArgs) => PrintSessionCommandHandlers
@@ -60,6 +62,7 @@ export type UsePrintSessionControllerResult = {
 
 export function usePrintSessionController({
   snapshot,
+  deletePrintFile,
 }: UsePrintSessionControllerArgs): UsePrintSessionControllerResult {
   const [filesLibrary, setFilesLibrary] = useState<PrintFileItem[]>(() => [...PRINT_FILE_LIBRARY])
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
@@ -102,12 +105,14 @@ export function usePrintSessionController({
     snapshot.source === 'live'
       ? {
           state: snapshot.printJob.state,
+          filename: snapshot.printJob.filename,
           isActive: snapshot.printJob.isActive,
           isPaused: snapshot.printJob.isPaused,
         }
       : {
           state: activePrintUiState ??
             (activePrintFileName === null ? snapshot.printJob.state : 'printing'),
+          filename: activePrintFileName ?? snapshot.printJob.filename,
           isActive: activePrintFileName !== null,
           isPaused: activePrintUiState === 'paused',
         }
@@ -115,6 +120,7 @@ export function usePrintSessionController({
     activePrintFileName,
     activePrintUiState,
     snapshot.printJob.isActive,
+    snapshot.printJob.filename,
     snapshot.printJob.isPaused,
     snapshot.printJob.state,
     snapshot.source,
@@ -134,20 +140,33 @@ export function usePrintSessionController({
     setIsPrintCancelConfirmOpen(false)
   }, [])
 
-  const deleteSelectedFile = useCallback((): void => {
+  const deleteSelectedFile = useCallback(async (): Promise<boolean> => {
     if (selectedPrintFile === null) {
-      return
+      return false
     }
 
+    if (snapshot.source === 'live') {
+      if (deletePrintFile === undefined) {
+        setFileModalNotice('Удаление файлов недоступно в текущем runtime.')
+        return false
+      }
+
+      try {
+        await deletePrintFile(selectedPrintFile.path)
+      } catch (error) {
+        setFileModalNotice(error instanceof Error ? error.message : 'Не удалось удалить файл.')
+        return false
+      }
+    } else {
+      setFilesLibrary((currentItems) => currentItems.filter((item) => item.id !== selectedPrintFile.id))
+    }
     if (displayPrintFileName === selectedPrintFile.name || displayPrintFileName === selectedPrintFile.path) {
       setActivePrintFileName(null)
       setActivePrintUiState(null)
     }
-    if (snapshot.source !== 'live') {
-      setFilesLibrary((currentItems) => currentItems.filter((item) => item.id !== selectedPrintFile.id))
-    }
     closeFileModal()
-  }, [closeFileModal, displayPrintFileName, selectedPrintFile, snapshot.source])
+    return true
+  }, [closeFileModal, deletePrintFile, displayPrintFileName, selectedPrintFile, snapshot.source])
 
   const getFileStartNotice = useCallback((printStartBlockReason: string | null): string => (
     fileModalNotice || printStartBlockReason || ''

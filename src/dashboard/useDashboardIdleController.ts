@@ -19,6 +19,11 @@ type UseDashboardIdleControllerArgs = {
   onControlGroupOpen: (groupId: DashboardIdleControlGroupId) => void
 }
 
+type IdleNotesKeyboardSelection = {
+  selectionStart: number
+  selectionEnd: number
+}
+
 const IDLE_WIDGET_DRAG_HOLD_MS = 3000
 const IDLE_NOTES_DEFAULT_TEXT = [
   'Экосистема TreeD V2.',
@@ -26,12 +31,6 @@ const IDLE_NOTES_DEFAULT_TEXT = [
   'Если модель новая, сделайте короткий тест первого слоя.',
 ].join('\n')
 const IDLE_NOTES_STORAGE_KEY = 'treed-shell:dashboard-idle-notes'
-const IDLE_NOTES_KEYBOARD_ROWS: string[][] = [
-  ['Й', 'Ц', 'У', 'К', 'Е', 'Н', 'Г', 'Ш', 'Щ', 'З', 'Х'],
-  ['Ф', 'Ы', 'В', 'А', 'П', 'Р', 'О', 'Л', 'Д', 'Ж', 'Э'],
-  ['Я', 'Ч', 'С', 'М', 'И', 'Т', 'Ь', 'Б', 'Ю'],
-]
-
 function readIdleNotesText(): string {
   if (typeof window === 'undefined') {
     return IDLE_NOTES_DEFAULT_TEXT
@@ -199,7 +198,11 @@ export function useDashboardIdleController({
     event.preventDefault()
   }, [])
 
-  const handleIdleNotesVirtualKey = useCallback((key: string) => {
+  const handleIdleNotesKeyboardPreviewChange = useCallback((nextValue: string): void => {
+    updateIdleNotesText(nextValue)
+  }, [updateIdleNotesText])
+
+  const handleIdleNotesVirtualKey = useCallback((key: string, selection?: IdleNotesKeyboardSelection) => {
     if (!isKeyboardOpen) {
       return
     }
@@ -211,8 +214,14 @@ export function useDashboardIdleController({
 
     const input = idleNotesInputRef.current
     const currentValue = idleNotesText
-    const selectionStart = input?.selectionStart ?? currentValue.length
-    const selectionEnd = input?.selectionEnd ?? currentValue.length
+    const selectionStart = Math.min(
+      selection?.selectionStart ?? input?.selectionStart ?? currentValue.length,
+      currentValue.length,
+    )
+    const selectionEnd = Math.min(
+      selection?.selectionEnd ?? input?.selectionEnd ?? currentValue.length,
+      currentValue.length,
+    )
     let nextValue = currentValue
     let nextCaret = selectionStart
 
@@ -235,12 +244,16 @@ export function useDashboardIdleController({
     }
 
     if (nextValue === currentValue) {
-      setIdleNotesKeyboardCaret(nextCaret)
+      if (selection === undefined) {
+        setIdleNotesKeyboardCaret(nextCaret)
+      }
       return
     }
 
     updateIdleNotesText(nextValue)
-    setIdleNotesKeyboardCaret(nextCaret)
+    if (selection === undefined) {
+      setIdleNotesKeyboardCaret(nextCaret)
+    }
   }, [idleNotesText, isKeyboardOpen, onKeyboardClose, setIdleNotesKeyboardCaret, updateIdleNotesText])
 
   useEffect(() => {
@@ -257,7 +270,6 @@ export function useDashboardIdleController({
     idleNotesInputRef,
     idleNotesText,
     isIdleNotesKeyboardOpen: isKeyboardOpen,
-    idleNotesKeyboardRows: IDLE_NOTES_KEYBOARD_ROWS,
     openIdleWidgetTarget,
     handleIdleWidgetDragPointerDown,
     handleIdleWidgetDragPointerMove,
@@ -266,6 +278,7 @@ export function useDashboardIdleController({
     handleIdleNotesKeyboardOpen,
     handleIdleNotesChange,
     handleIdleNotesKeyMouseDown,
+    handleIdleNotesKeyboardPreviewChange,
     handleIdleNotesVirtualKey,
     handleIdleNotesKeyboardClose: onKeyboardClose,
   }

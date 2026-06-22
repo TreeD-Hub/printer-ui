@@ -76,8 +76,6 @@ export type DashboardPageProps = {
   maintenanceSummary: MaintenanceSummary
   idleNotesInputRef: RefObject<HTMLTextAreaElement | null>
   idleNotesText: string
-  isIdleNotesKeyboardOpen: boolean
-  idleNotesKeyboardRows: string[][]
   onPrintTuneGroupOpen: (groupId: DashboardTuneGroupId) => void
   onPause: () => void
   onStopRequest: () => void
@@ -90,9 +88,6 @@ export type DashboardPageProps = {
   onIdleWidgetDragHandleClick: (event: MouseEvent<HTMLButtonElement>) => void
   onIdleNotesKeyboardOpen: () => void
   onIdleNotesChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
-  onIdleNotesKeyMouseDown: (event: MouseEvent<HTMLButtonElement>) => void
-  onIdleNotesVirtualKey: (key: string) => void
-  onIdleNotesKeyboardClose: () => void
 }
 
 export type DashboardPrintViewProps = Pick<
@@ -128,18 +123,13 @@ export type DashboardIdleViewProps = Pick<
   | 'draggingIdleWidgetId'
   | 'idleHeroStatusLabel'
   | 'idleNotesInputRef'
-  | 'idleNotesKeyboardRows'
   | 'idleNotesText'
   | 'idleWidgetOrder'
   | 'idleWidgetRefs'
-  | 'isIdleNotesKeyboardOpen'
   | 'logoSrc'
   | 'maintenanceSummary'
   | 'onIdleNotesChange'
-  | 'onIdleNotesKeyboardClose'
   | 'onIdleNotesKeyboardOpen'
-  | 'onIdleNotesKeyMouseDown'
-  | 'onIdleNotesVirtualKey'
   | 'onIdleWidgetDragHandleClick'
   | 'onIdleWidgetDragPointerDown'
   | 'onIdleWidgetDragPointerEnd'

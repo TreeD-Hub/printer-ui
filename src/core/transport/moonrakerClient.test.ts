@@ -40,6 +40,8 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_SERVICE_COMMANDS')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('firmware_retraction')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_UI_TUNE_STATE')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_UI_CONTRACT')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20TREED_UI_MOVE_AXIS')
   })
 
   it('normalizes TreeD V2 Moonraker objects into a runtime snapshot', () => {
@@ -158,7 +160,7 @@ describe('normalizeMoonrakerSnapshot', () => {
         name: 'v2_part.gcode',
         directory: null,
         printTime: '1 ч 01 мин',
-        weight: '1 г',
+        weight: '—',
         material: 'PETG',
       }),
     ])
@@ -195,6 +197,24 @@ describe('normalizeMoonrakerSnapshot', () => {
 })
 
 describe('createMoonrakerClient', () => {
+  it('deletes nested G-code files through the Moonraker file endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(moonrakerResponse({ item: {} }))
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
+    })
+
+    await client.deletePrintFile?.('jobs/benchy v2.gcode')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://moonraker.local/server/files/gcodes/jobs/benchy%20v2.gcode',
+      expect.objectContaining({
+        method: 'DELETE',
+        signal: expect.any(AbortSignal),
+      }),
+    )
+  })
+
   it('aborts stuck Moonraker HTTP requests after timeout', async () => {
     vi.useFakeTimers()
     const fetchMock = vi.fn((url: string, init?: RequestInit) => {
@@ -346,5 +366,28 @@ describe('createMoonrakerClient', () => {
     expect(metadataUrls).toHaveLength(24)
     expect(metadataUrls[0]).toContain('queue%2Fpart-0.gcode')
     expect(metadataUrls.at(-1)).toContain('queue%2Fpart-23.gcode')
+  })
+
+  it('keeps runtime snapshot usable when Moonraker file list fails', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/query')) {
+        return Promise.resolve(moonrakerResponse(runtimeObjects()))
+      }
+
+      return Promise.resolve(moonrakerHttpError(503))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    const snapshot = await client.fetchSnapshot()
+
+    expect(snapshot.connection).toBe('online')
+    expect(snapshot.printFiles).toEqual([])
+    expect(snapshot.fileList).toEqual({
+      state: 'error',
+      message: 'Moonraker 503',
+    })
   })
 })

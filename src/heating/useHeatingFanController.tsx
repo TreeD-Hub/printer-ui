@@ -1,6 +1,8 @@
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
+import type { PrinterConnectionState } from '../core/transport/types'
+import type { PrinterLimits } from '@treed/printer-logic'
 import type {
   FanControlPanelProps,
   HeatingCommandBlockReasons,
@@ -12,6 +14,7 @@ import type {
 import type { PrintTuneModalProps, TemperatureChartMode } from '../printTune'
 
 type HeatingSnapshot = {
+  connection?: PrinterConnectionState
   extruderTemp: number
   bedTemp: number
   modelFanPercent: number
@@ -19,7 +22,16 @@ type HeatingSnapshot = {
     nozzle: number
     bed: number
   }
+  limits: PrinterLimits
 }
+
+type TemperatureHistoryPoint = {
+  nozzle: number
+  bed: number
+}
+
+const MAX_TEMPERATURE_HISTORY_POINTS = 48
+const COMMAND_BUSY_REASON = 'Команда уже выполняется.'
 
 type UseHeatingFanControllerArgs = {
   snapshot: HeatingSnapshot
@@ -32,8 +44,6 @@ type UseHeatingFanControllerArgs = {
 export type UseHeatingFanControllerResult = {
   printNozzleTargetTemp: number
   printBedTargetTemp: number
-  setPrintNozzleTargetTemp: (value: number) => void
-  setPrintBedTargetTemp: (value: number) => void
   printFanPercent: number
   dashboardTemperatureTargets: {
     nozzle: number
@@ -60,12 +70,15 @@ export function useHeatingFanController({
   getCommandBlockReason,
   closePrintTuneKeyboard,
 }: UseHeatingFanControllerArgs): UseHeatingFanControllerResult {
-  const [printNozzleTargetTemp, setPrintNozzleTargetTemp] = useState<number>(snapshot.thermalTargets.nozzle)
-  const [printBedTargetTemp, setPrintBedTargetTemp] = useState<number>(snapshot.thermalTargets.bed)
-  const [printFanPercent, setPrintFanPercent] = useState<number>(Math.round(snapshot.modelFanPercent))
   const [temperatureChartMode, setTemperatureChartMode] = useState<TemperatureChartMode>('both')
   const [temperatureKeyboardTarget, setTemperatureKeyboardTarget] = useState<TemperatureKeyboardTarget | null>(null)
   const [temperatureKeyboardValue, setTemperatureKeyboardValue] = useState<string>('')
+  const [temperatureHistory, setTemperatureHistory] = useState<TemperatureHistoryPoint[]>(() => (
+    isTemperatureSnapshotConnected(snapshot) ? [createTemperatureHistoryPoint(snapshot)] : []
+  ))
+  const printNozzleTargetTemp = snapshot.thermalTargets.nozzle
+  const printBedTargetTemp = snapshot.thermalTargets.bed
+  const printFanPercent = Math.round(snapshot.modelFanPercent)
 
   const dashboardTemperatureTargets = useMemo(
     () => ({
@@ -75,57 +88,51 @@ export function useHeatingFanController({
     [printBedTargetTemp, printNozzleTargetTemp],
   )
 
-  const heatingCommandBlockReasons = useMemo<HeatingCommandBlockReasons>(() => ({
-    nozzleTarget: getCommandBlockReason('setNozzleTarget'),
-    bedTarget: getCommandBlockReason('setBedTarget'),
-    turnOffHeaters: getCommandBlockReason('turnOffHeaters'),
-  }), [getCommandBlockReason])
-  const fanCommandBlockReason = getCommandBlockReason('setFanPercent')
+  const heatingCommandBlockReasons = useMemo<HeatingCommandBlockReasons>(() => {
+    const busyReason = isBusy ? COMMAND_BUSY_REASON : null
+
+    return {
+      nozzleTarget: busyReason ?? getCommandBlockReason('setNozzleTarget'),
+      bedTarget: busyReason ?? getCommandBlockReason('setBedTarget'),
+      turnOffHeaters: busyReason ?? getCommandBlockReason('turnOffHeaters'),
+    }
+  }, [getCommandBlockReason, isBusy])
+  const fanCommandBlockReason = isBusy ? COMMAND_BUSY_REASON : getCommandBlockReason('setFanPercent')
 
   useEffect(() => {
-    setPrintNozzleTargetTemp(snapshot.thermalTargets.nozzle)
-  }, [snapshot.thermalTargets.nozzle])
+    if (!isTemperatureSnapshotConnected(snapshot)) {
+      return
+    }
 
-  useEffect(() => {
-    setPrintBedTargetTemp(snapshot.thermalTargets.bed)
-  }, [snapshot.thermalTargets.bed])
+    const nextPoint = createTemperatureHistoryPoint(snapshot)
+    setTemperatureHistory((currentHistory) => {
+      const lastPoint = currentHistory.at(-1)
+      if (lastPoint?.nozzle === nextPoint.nozzle && lastPoint.bed === nextPoint.bed) {
+        return currentHistory
+      }
 
-  const nozzleTrendValues = useMemo(
-    () => Array.from({ length: 24 }, (_, index) => {
-      const ratio = (index + 1) / 24
-      const wave = Math.sin((index / 4.2) + 0.7) * 2.2
-      const projected = snapshot.extruderTemp + ((printNozzleTargetTemp - snapshot.extruderTemp) * ratio)
-      return clampHeatingValue(projected + wave, 0, Math.max(printNozzleTargetTemp + 8, 230))
-    }),
-    [printNozzleTargetTemp, snapshot.extruderTemp],
-  )
-  const bedTrendValues = useMemo(
-    () => Array.from({ length: 24 }, (_, index) => {
-      const ratio = (index + 1) / 24
-      const wave = Math.cos((index / 5.1) + 0.4) * 1.6
-      const projected = snapshot.bedTemp + ((printBedTargetTemp - snapshot.bedTemp) * ratio)
-      return clampHeatingValue(projected + wave, 0, Math.max(printBedTargetTemp + 6, 90))
-    }),
-    [printBedTargetTemp, snapshot.bedTemp],
-  )
+      return [...currentHistory, nextPoint].slice(-MAX_TEMPERATURE_HISTORY_POINTS)
+    })
+  }, [snapshot])
+
   const temperatureChartSeries = useMemo<TemperatureChartSeries[]>(
     () => [
       {
         id: 'nozzle',
         label: 'Сопло',
         tone: 'orange',
-        values: nozzleTrendValues,
+        values: temperatureHistory.map((point) => point.nozzle),
         target: printNozzleTargetTemp,
       },
       {
         id: 'bed',
         label: 'Стол',
         tone: 'green',
-        values: bedTrendValues,
+        values: temperatureHistory.map((point) => point.bed),
         target: printBedTargetTemp,
       },
     ],
-    [bedTrendValues, nozzleTrendValues, printBedTargetTemp, printNozzleTargetTemp],
+    [printBedTargetTemp, printNozzleTargetTemp, temperatureHistory],
   )
 
   const heatingControlRows: HeatingControlRow[] = [
@@ -153,24 +160,13 @@ export function useHeatingFanController({
     },
   ]
 
-  function setTemperatureTargetValue(target: TemperatureKeyboardTarget, value: number): void {
-    if (target === 'nozzle') {
-      setPrintNozzleTargetTemp(value)
-      return
-    }
-
-    setPrintBedTargetTemp(value)
-  }
-
   function handleNozzleTargetChange(value: number): void {
     const normalized = Math.round(clampHeatingValue(value, 0, 300))
-    setPrintNozzleTargetTemp(normalized)
     void executeCommand({ command: 'setNozzleTarget', targetCelsius: normalized })
   }
 
   function handleBedTargetChange(value: number): void {
     const normalized = Math.round(clampHeatingValue(value, 0, 300))
-    setPrintBedTargetTemp(normalized)
     void executeCommand({ command: 'setBedTarget', targetCelsius: normalized })
   }
 
@@ -196,7 +192,7 @@ export function useHeatingFanController({
     setTemperatureKeyboardValue((current) => current.slice(0, -1))
   }
 
-  function handleTemperatureKeyboardSubmit(): void {
+  async function handleTemperatureKeyboardSubmit(): Promise<void> {
     if (temperatureKeyboardTarget === null) {
       return
     }
@@ -210,32 +206,35 @@ export function useHeatingFanController({
       return
     }
 
-    const normalized = Math.round(clampHeatingValue(parsed, 0, 300))
-    setTemperatureTargetValue(temperatureKeyboardTarget, normalized)
-    void executeCommand({
+    const maxCelsius = temperatureKeyboardTarget === 'nozzle'
+      ? snapshot.limits.nozzleMaxC
+      : snapshot.limits.bedMaxC
+    const normalized = Math.round(clampHeatingValue(parsed, 0, maxCelsius))
+    const ok = await executeCommand({
       command: temperatureKeyboardTarget === 'nozzle' ? 'setNozzleTarget' : 'setBedTarget',
       targetCelsius: normalized,
     })
-    closeTemperatureKeyboard()
+    if (ok) {
+      closeTemperatureKeyboard()
+    }
   }
 
-  function handleHeatingPresetApply(nozzle: number, bed: number): void {
-    setPrintNozzleTargetTemp(nozzle)
-    setPrintBedTargetTemp(bed)
-    void executeCommand({ command: 'setHeatingTargets', nozzleCelsius: nozzle, bedCelsius: bed })
-    closeTemperatureKeyboard()
+  async function handleHeatingPresetApply(nozzle: number, bed: number): Promise<void> {
+    const ok = await executeCommand({ command: 'setHeatingTargets', nozzleCelsius: nozzle, bedCelsius: bed })
+    if (ok) {
+      closeTemperatureKeyboard()
+    }
   }
 
-  function handleHeatingDisable(): void {
-    setPrintNozzleTargetTemp(0)
-    setPrintBedTargetTemp(0)
-    void executeCommand({ command: 'turnOffHeaters' })
-    closeTemperatureKeyboard()
+  async function handleHeatingDisable(): Promise<void> {
+    const ok = await executeCommand({ command: 'turnOffHeaters' })
+    if (ok) {
+      closeTemperatureKeyboard()
+    }
   }
 
   function handleFanPercentChange(nextValue: number): void {
     const normalized = Math.round(clampHeatingValue(nextValue, 0, 100))
-    setPrintFanPercent(normalized)
     void executeCommand({ command: 'setFanPercent', percent: normalized })
   }
 
@@ -337,8 +336,6 @@ export function useHeatingFanController({
   return {
     printNozzleTargetTemp,
     printBedTargetTemp,
-    setPrintNozzleTargetTemp,
-    setPrintBedTargetTemp,
     printFanPercent,
     dashboardTemperatureTargets,
     temperatureChartSeries,
@@ -358,4 +355,15 @@ export function useHeatingFanController({
 
 function clampHeatingValue(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
+}
+
+function isTemperatureSnapshotConnected(snapshot: HeatingSnapshot): boolean {
+  return snapshot.connection === undefined || snapshot.connection === 'online' || snapshot.connection === 'degraded'
+}
+
+function createTemperatureHistoryPoint(snapshot: HeatingSnapshot): TemperatureHistoryPoint {
+  return {
+    nozzle: snapshot.extruderTemp,
+    bed: snapshot.bedTemp,
+  }
 }

@@ -127,6 +127,7 @@ export type ExecuteCommandArgs =
 export interface CommandSuccessResult {
   command: PrinterCommandId
   ok: true
+  status: 'accepted' | 'confirmed'
   message: string
   at: string
 }
@@ -139,7 +140,15 @@ export interface CommandUnsupportedResult {
   at: string
 }
 
-export type CommandResult = CommandSuccessResult | CommandUnsupportedResult
+export interface CommandFailedResult {
+  command: PrinterCommandId
+  ok: false
+  kind: 'failed' | 'confirmation_timeout'
+  message: string
+  at: string
+}
+
+export type CommandResult = CommandSuccessResult | CommandUnsupportedResult | CommandFailedResult
 
 export interface CommandClient {
   execute: (args: ExecuteCommandArgs) => Promise<CommandResult>
@@ -260,6 +269,27 @@ export interface PrinterSnapshot {
   modelFanPercent: number
   updatedAt: string
   message: string
+}
+
+export interface PrinterAxisLimit {
+  min: number
+  max: number
+}
+
+export interface PrinterLimits {
+  nozzleMaxC: number
+  bedMaxC: number
+  axis: Record<AxisId, PrinterAxisLimit>
+}
+
+export const TREED_V2_COREXY_V1_LIMITS: PrinterLimits = {
+  nozzleMaxC: 280,
+  bedMaxC: 120,
+  axis: {
+    X: { min: 0, max: 245 },
+    Y: { min: 0, max: 245 },
+    Z: { min: -5, max: 255 },
+  },
 }
 
 export function filterWifiNetworks(networks: readonly WifiNetworkItem[], query: string): WifiNetworkItem[] {
@@ -565,9 +595,11 @@ export interface TreeDCommandCatalogItem {
 }
 
 export interface TreeDCommandRuntimeContext {
+  source?: PrinterDataMode
   capabilities: PrinterCapabilitiesSnapshot
   connection: PrinterConnectionState
   printJob?: {
+    filename?: string
     state: string
     isActive: boolean
     isPaused: boolean
@@ -580,9 +612,16 @@ export interface TreeDCommandRuntimeContext {
   }
   eddyStatus?: PrinterEddyStatus
   extruderTemp?: number
+  limits?: PrinterLimits
+  thermalTargets?: {
+    nozzle: number
+    bed: number
+  }
+  modelFanPercent?: number
 }
 
 const MIN_FILAMENT_EXTRUDE_TEMP_C = 170
+const MAX_UI_MOVE_DISTANCE_MM = 50
 
 const COMMAND_CAPABILITY_LABELS: Record<TreeDCommandCapability, string> = {
   print: 'печать',
@@ -928,6 +967,10 @@ function getCommandSpecificBlockReason(
   args?: ExecuteCommandArgs,
 ): string | null {
   const item = getTreeDCommandCatalogItem(command)
+  const argumentError = args === undefined ? null : getTreeDCommandArgumentError(args, context.limits)
+  if (argumentError !== null) {
+    return `${item.label}: ${argumentError}`
+  }
   const activePrint = hasActivePrint(context)
   const pausedPrint = hasPausedPrint(context)
 
@@ -989,6 +1032,20 @@ function getCommandSpecificBlockReason(
     if (!areXyzCoordinatesKnown(context.toolhead)) {
       return `${item.label}: координаты XYZ неизвестны.`
     }
+
+    if (args?.command === 'moveAxis' && context.toolhead !== undefined) {
+      const limits = context.limits ?? TREED_V2_COREXY_V1_LIMITS
+      const current = args.axis === 'X'
+        ? context.toolhead.rawX
+        : args.axis === 'Y'
+          ? context.toolhead.rawY
+          : context.toolhead.rawZ
+      const target = (current ?? Number.NaN) + args.distanceMm
+      const axisLimit = limits.axis[args.axis]
+      if (!Number.isFinite(target) || target < axisLimit.min || target > axisLimit.max) {
+        return `${item.label}: целевая координата вне диапазона ${axisLimit.min}…${axisLimit.max} мм.`
+      }
+    }
   }
 
   if (
@@ -1000,6 +1057,45 @@ function getCommandSpecificBlockReason(
     )
   ) {
     return `${item.label}: сопло должно быть не ниже ${MIN_FILAMENT_EXTRUDE_TEMP_C}°C.`
+  }
+
+  return null
+}
+
+export function getTreeDCommandArgumentError(
+  args: ExecuteCommandArgs,
+  limits: PrinterLimits = TREED_V2_COREXY_V1_LIMITS,
+): string | null {
+  switch (args.command) {
+    case 'moveAxis': {
+      if (!Number.isFinite(args.distanceMm) || args.distanceMm === 0 || Math.abs(args.distanceMm) > MAX_UI_MOVE_DISTANCE_MM) {
+        return `DISTANCE должен быть в диапазоне -${MAX_UI_MOVE_DISTANCE_MM}…${MAX_UI_MOVE_DISTANCE_MM} мм и не равен 0.`
+      }
+
+      const feedRate = args.feedRateMmPerMin ?? (args.speedMmS === undefined ? undefined : args.speedMmS * 60)
+      const maxFeedRate = args.axis === 'Z' ? 1200 : 6000
+      if (feedRate !== undefined && (!Number.isFinite(feedRate) || feedRate < 60 || feedRate > maxFeedRate)) {
+        return `FEEDRATE должен быть в диапазоне 60…${maxFeedRate} мм/мин.`
+      }
+      return null
+    }
+    case 'setNozzleTarget':
+      return getRangeError(args.targetCelsius, 0, limits.nozzleMaxC, 'Температура сопла')
+    case 'setBedTarget':
+      return getRangeError(args.targetCelsius, 0, limits.bedMaxC, 'Температура стола')
+    case 'setHeatingTargets':
+      return getRangeError(args.nozzleCelsius, 0, limits.nozzleMaxC, 'Температура сопла')
+        ?? getRangeError(args.bedCelsius, 0, limits.bedMaxC, 'Температура стола')
+    case 'setFanPercent':
+      return getRangeError(args.percent, 0, 100, 'Скорость вентилятора')
+    default:
+      return null
+  }
+}
+
+function getRangeError(value: number, min: number, max: number, label: string): string | null {
+  if (!Number.isFinite(value) || value < min || value > max) {
+    return `${label} должна быть конечным числом в диапазоне ${min}…${max}.`
   }
 
   return null

@@ -4,12 +4,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { createMockSnapshot } from '../../mocks/runtime'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { PRINT_FILE_LIBRARY } from '../printFiles'
+import type { PrinterSnapshot } from '../core/transport/types'
 import { usePrintSessionController } from './usePrintSessionController'
 
 type ExecuteCommandMock = (args: ExecuteCommandArgs) => Promise<boolean>
 type RefreshMock = () => Promise<void>
 
 type TestHarnessProps = {
+  snapshot?: PrinterSnapshot
   executeCommand?: ExecuteCommandMock
   getLastCommandError?: () => string
   commandError?: string
@@ -18,9 +20,11 @@ type TestHarnessProps = {
   requiresCommandConfirmation?: (command: PrinterCommandId) => boolean
   refresh?: RefreshMock
   onOpenDashboard?: () => void
+  deletePrintFile?: (path: string) => Promise<void>
 }
 
 function TestHarness({
+  snapshot = createMockSnapshot(),
   executeCommand = vi.fn<ExecuteCommandMock>().mockResolvedValue(true),
   getLastCommandError = () => '',
   commandError = '',
@@ -29,8 +33,9 @@ function TestHarness({
   requiresCommandConfirmation = () => true,
   refresh = vi.fn<RefreshMock>().mockResolvedValue(undefined),
   onOpenDashboard = vi.fn(),
+  deletePrintFile,
 }: TestHarnessProps) {
-  const controller = usePrintSessionController({ snapshot: createMockSnapshot() })
+  const controller = usePrintSessionController({ snapshot, deletePrintFile })
   const actions = controller.createCommandHandlers({
     executeCommand,
     getLastCommandError,
@@ -170,5 +175,72 @@ describe('usePrintSessionController', () => {
     expect(screen.getByTestId('active-file')).toHaveTextContent('none')
     expect(screen.getByTestId('has-active-print')).toHaveTextContent('false')
     expect(screen.getByTestId('runtime-active')).toHaveTextContent('false')
+  })
+
+  it('does not fake live pause and cancel state before snapshot confirms it', async () => {
+    const liveSnapshot: PrinterSnapshot = {
+      ...createMockSnapshot(),
+      source: 'live',
+      state: 'printing',
+      printJob: {
+        ...createMockSnapshot().printJob,
+        filename: PRINT_FILE_LIBRARY[0].name,
+        filePath: PRINT_FILE_LIBRARY[0].path,
+        state: 'printing',
+        isActive: true,
+        isPaused: false,
+      },
+    }
+
+    render(<TestHarness snapshot={liveSnapshot} />)
+
+    expect(screen.getByTestId('active-file')).toHaveTextContent(PRINT_FILE_LIBRARY[0].name)
+    expect(screen.getByTestId('runtime-active')).toHaveTextContent('true')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle pause' }))
+    })
+
+    expect(screen.getByTestId('active-state')).toHaveTextContent('printing')
+    expect(screen.getByTestId('is-paused')).toHaveTextContent('false')
+    expect(screen.getByTestId('runtime-paused')).toHaveTextContent('false')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'confirm stop' }))
+    })
+
+    expect(screen.getByTestId('active-file')).toHaveTextContent(PRINT_FILE_LIBRARY[0].name)
+    expect(screen.getByTestId('has-active-print')).toHaveTextContent('true')
+    expect(screen.getByTestId('runtime-active')).toHaveTextContent('true')
+  })
+
+  it('deletes a live file through runtime and keeps the modal open on failure', async () => {
+    const liveSnapshot: PrinterSnapshot = {
+      ...createMockSnapshot(),
+      source: 'live',
+      printFiles: [PRINT_FILE_LIBRARY[0]],
+    }
+    const deletePrintFile = vi.fn<(path: string) => Promise<void>>()
+      .mockRejectedValueOnce(new Error('Moonraker delete failed'))
+      .mockResolvedValueOnce(undefined)
+
+    render(<TestHarness snapshot={liveSnapshot} deletePrintFile={deletePrintFile} />)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'select first' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'delete selected' }))
+    })
+
+    expect(deletePrintFile).toHaveBeenCalledWith(PRINT_FILE_LIBRARY[0].path)
+    expect(screen.getByTestId('selected-file')).toHaveTextContent(PRINT_FILE_LIBRARY[0].name)
+    expect(screen.getByTestId('notice')).toHaveTextContent('Moonraker delete failed')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'delete selected' }))
+    })
+
+    expect(screen.getByTestId('selected-file')).toHaveTextContent('none')
   })
 })
