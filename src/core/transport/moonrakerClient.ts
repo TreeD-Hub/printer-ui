@@ -292,7 +292,7 @@ export function normalizeMoonrakerSnapshot(input: NormalizeMoonrakerSnapshotInpu
 export function createMoonrakerClient(options: MoonrakerClientOptions = {}): TransportClient {
   const context: MoonrakerFetchContext = {
     moonrakerUrl: options.moonrakerUrl ?? moonrakerUrl,
-    fetchImpl: options.fetchImpl ?? fetch,
+    fetchImpl: options.fetchImpl ?? fetch.bind(globalThis),
     fetchTimeoutMs: options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
     metadataConcurrency: options.metadataConcurrency ?? DEFAULT_METADATA_CONCURRENCY,
     metadataFileLimit: options.metadataFileLimit ?? DEFAULT_METADATA_FILE_LIMIT,

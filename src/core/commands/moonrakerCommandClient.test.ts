@@ -13,6 +13,29 @@ describe('createMoonrakerCommandClient', () => {
   afterEach(() => {
     consoleDebug.mockRestore()
     consoleError.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it('binds the default fetch implementation to the browser global', async () => {
+    const fetchMock = vi.fn(function (this: typeof globalThis) {
+      if (this !== globalThis) {
+        throw new TypeError('Illegal invocation')
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ result: 'ok' }),
+      } as Response)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+    })
+
+    await client.execute({ command: 'setNozzleTarget', targetCelsius: 230 })
+
+    expect(fetchMock).toHaveBeenCalledOnce()
   })
 
   it('aborts stuck Moonraker command requests after timeout', async () => {

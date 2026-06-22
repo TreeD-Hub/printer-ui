@@ -365,7 +365,7 @@ function executeMoonrakerCommand(
 export function createMoonrakerCommandClient(options: MoonrakerCommandClientOptions = {}): CommandClient {
   const clientOptions = {
     moonrakerUrl: options.moonrakerUrl ?? moonrakerUrl,
-    fetchImpl: options.fetchImpl ?? fetch,
+    fetchImpl: options.fetchImpl ?? fetch.bind(globalThis),
     fetchTimeoutMs: options.fetchTimeoutMs ?? DEFAULT_COMMAND_FETCH_TIMEOUT_MS,
     capabilities: options.capabilities ?? {},
     limits: options.limits ?? TREED_V2_COREXY_V1_LIMITS,

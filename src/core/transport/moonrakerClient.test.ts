@@ -197,6 +197,29 @@ describe('normalizeMoonrakerSnapshot', () => {
 })
 
 describe('createMoonrakerClient', () => {
+  it('binds the default fetch implementation to the browser global', async () => {
+    const fetchMock = vi.fn(function (this: typeof globalThis) {
+      if (this !== globalThis) {
+        throw new TypeError('Illegal invocation')
+      }
+
+      return Promise.resolve(moonrakerResponse({ item: {} }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const client = createMoonrakerClient({
+        moonrakerUrl: 'http://moonraker.local',
+      })
+
+      await client.deletePrintFile?.('jobs/benchy.gcode')
+
+      expect(fetchMock).toHaveBeenCalledOnce()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('deletes nested G-code files through the Moonraker file endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue(moonrakerResponse({ item: {} }))
     const client = createMoonrakerClient({
