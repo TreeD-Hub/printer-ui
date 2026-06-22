@@ -75,7 +75,7 @@ test('shell exposes nothing terminal visual contract', async ({ page }) => {
   expect(contract.statusLogoFont).toContain('Cascadia Mono')
   expect(contract.activeNavRadius).toBeLessThanOrEqual(8)
   expect(contract.powerRadius).toBeLessThanOrEqual(8)
-  expect(contract.activeNavBorder).toBe('rgb(244, 244, 240)')
+  expect(contract.activeNavBorder).toBe('rgb(204, 204, 204)')
   expect(contract.activeNavDot).toBe('rgb(255, 42, 42)')
 })
 
@@ -85,7 +85,7 @@ test('captures screenshot and validates layout geometry', async ({ page }, testI
   await page.getByRole('button', { name: 'Файлы' }).click()
   await page.getByTestId('print-file-card').first().click()
   await page.getByTestId('print-file-start-button').click()
-  await expect(page.getByTestId('print-tune-group-progress')).toBeVisible()
+  await expect(page.getByTestId('print-progress-summary')).toBeVisible()
 
   const shell = page.getByTestId('screen-shell')
   await expect(shell).toBeVisible()

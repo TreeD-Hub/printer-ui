@@ -6094,7 +6094,7 @@ select {
 }
 
 .stats-actions-row {
-  --action-square-size: 104px;
+  --action-square-size: 114px;
   grid-template-columns: minmax(0, 1fr) var(--action-square-size);
 }
 
