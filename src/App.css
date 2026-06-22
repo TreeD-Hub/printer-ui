@@ -682,7 +682,7 @@ body {
   height: 100%;
   display: grid;
   grid-template-columns: 212px minmax(0, 1fr);
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 .settings-menu-shell,
@@ -1546,6 +1546,7 @@ body {
 }
 
 .virtual-keyboard-preview {
+  min-width: 0;
   border-radius: 10px;
   border: 1px solid var(--color-border-default);
   background: var(--color-block-surface);
@@ -1568,6 +1569,35 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.virtual-keyboard-preview-input {
+  width: 100%;
+  height: 24px;
+  resize: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  outline: none;
+  font: inherit;
+  line-height: 1.25;
+  cursor: text;
+  overflow: auto hidden;
+  text-overflow: clip;
+  caret-color: var(--color-primary);
+  scrollbar-width: none;
+  touch-action: pan-x pan-y;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+
+.virtual-keyboard-preview-input::-webkit-scrollbar {
+  display: none;
+}
+
+.virtual-keyboard-preview-input::placeholder {
+  color: var(--color-text-soft);
 }
 
 .virtual-keyboard-row {
@@ -1708,68 +1738,6 @@ body {
 
 .settings-console-key-space {
   width: 100%;
-}
-
-.idle-notes-keyboard {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  border-radius: 0;
-  border: 1px solid var(--color-border-default);
-  border-left: none;
-  border-right: none;
-  background: linear-gradient(180deg, var(--color-surface-elevated), var(--color-block-surface));
-  box-shadow: 0 12px 28px var(--color-shadow-strong);
-  padding: var(--space-xs);
-  display: grid;
-  gap: var(--space-xxs);
-}
-
-.idle-notes-keyboard-row {
-  display: flex;
-  justify-content: center;
-  gap: var(--space-xxs);
-}
-
-.idle-notes-keyboard-key {
-  min-width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition:
-    border-color 0.18s ease,
-    background-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-
-.idle-notes-keyboard-key:hover {
-  border-color: var(--color-primary-ring);
-}
-
-.idle-notes-keyboard-key:active {
-  background: var(--color-primary-surface-soft);
-  box-shadow: 0 0 10px var(--color-primary-glow);
-}
-
-.idle-notes-keyboard-row-actions {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) 48px 94px;
-}
-
-.idle-notes-keyboard-key-space {
-  width: 100%;
-}
-
-.idle-notes-keyboard-key-action,
-.idle-notes-keyboard-key-close {
-  background: var(--color-block-surface);
 }
 
 .control-screen {
@@ -5647,7 +5615,6 @@ select {
 .settings-keyboard-popup,
 .app-virtual-keyboard-popup,
 .virtual-keyboard-panel,
-.idle-notes-keyboard,
 .print-temp-keyboard-side,
 .print-temp-table,
 .print-temp-chart,
@@ -5807,7 +5774,6 @@ select {
 .file-modal-action,
 .top-popup-action,
 .virtual-keyboard-key,
-.idle-notes-keyboard-key,
 .print-temp-keyboard-key,
 .print-temp-keyboard-submit,
 .nav-item {
@@ -5836,7 +5802,6 @@ select {
 .file-modal-action:not(:disabled):hover,
 .top-popup-action:hover,
 .virtual-keyboard-key.is-active,
-.idle-notes-keyboard-key:active,
 .nav-item.is-active {
   border-color: var(--color-primary);
   background: var(--color-primary-surface-soft);
@@ -7162,17 +7127,16 @@ select {
 
 
 .dashboard-idle-notes-input {
-  background: var(--color-surface-track);
-  padding: var(--space-sm);
+  min-height: 0;
+  height: 100%;
+  max-height: none;
   font-size: var(--layout-block-label-size);
   line-height: 1.38;
-  color: var(--color-text-secondary);
-  scrollbar-color: var(--color-border-default) transparent;
+  scrollbar-width: none;
 }
 
-.dashboard-idle-notes-input::-webkit-scrollbar-thumb {
-  border-radius: 4px;
-  background: var(--color-border-default);
+.dashboard-idle-notes-input::-webkit-scrollbar {
+  display: none;
 }
 
 .bottom-nav {
@@ -7251,6 +7215,98 @@ select {
   border-color: var(--color-text-primary);
   background: transparent;
   color: var(--color-text-primary);
+}
+
+.settings-screen .settings-menu-shell {
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.settings-screen .settings-menu-shell,
+.settings-screen .settings-content-shell {
+  scrollbar-width: none;
+}
+
+.settings-screen .settings-menu-shell::-webkit-scrollbar,
+.settings-screen .settings-content-shell::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-screen .settings-sidebar-menu {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding: 6px 4px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+
+.settings-screen .settings-sidebar-menu::-webkit-scrollbar {
+  display: none;
+}
+
+.settings-screen .settings-sidebar-item {
+  position: relative;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  overflow: visible;
+  border-radius: 6px;
+  border-color: transparent;
+  background: transparent;
+  isolation: isolate;
+}
+
+.settings-screen .settings-sidebar-item .ui-icon-mask {
+  justify-self: center;
+  position: relative;
+  z-index: 1;
+}
+
+.settings-screen .settings-sidebar-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  opacity: 0;
+  box-shadow: 0 0 12px var(--color-primary-glow);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.settings-screen .settings-sidebar-item.is-active::before {
+  opacity: 1;
+}
+
+.settings-screen .settings-sidebar-item:not(:first-of-type)::after {
+  content: '';
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: -3px;
+  height: 1px;
+  background: rgba(244, 244, 240, 0.18);
+  pointer-events: none;
+}
+
+.settings-screen .settings-sidebar-label {
+  min-width: 0;
+  max-width: 148px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
 }
 
 .settings-network-btn-primary {
@@ -7359,7 +7415,6 @@ select {
   .step-btn,
   .step-selector-indicator,
   .bottom-nav-indicator,
-  .idle-notes-keyboard-key,
   .settings-sidebar-item,
   .settings-toggle-switch,
   .settings-toggle-switch::after,

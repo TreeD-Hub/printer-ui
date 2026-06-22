@@ -54,7 +54,13 @@ type SettingsKeyboardController = {
   value: string
   meta: SettingsKeyboardMeta | null
   isConsoleOpen: boolean
-  onKeyPress: (key: string) => void
+  onKeyPress: (key: string, selection?: KeyboardSelectionRange) => void
+  onPreviewChange: (value: string, selection: KeyboardSelectionRange) => void
+}
+
+type KeyboardSelectionRange = {
+  selectionStart: number
+  selectionEnd: number
 }
 
 type UseSettingsControllerResult = {
@@ -467,7 +473,15 @@ export function useSettingsController({
     })
   }
 
-  const handleKeyboardKey = useCallback((key: string): void => {
+  const handleKeyboardPreviewChange = useCallback((nextValue: string): void => {
+    if (activeKeyboardTarget === null) {
+      return
+    }
+
+    setKeyboardValue(activeKeyboardTarget, nextValue)
+  }, [activeKeyboardTarget, setKeyboardValue])
+
+  const handleKeyboardKey = useCallback((key: string, selection?: KeyboardSelectionRange): void => {
     if (activeKeyboardTarget === null) {
       return
     }
@@ -488,8 +502,14 @@ export function useSettingsController({
         ? wifiPasswordValue
         : consoleCommandValue
     const meta = getSettingsKeyboardMeta(activeKeyboardTarget)
-    const selectionStart = input?.selectionStart ?? currentValue.length
-    const selectionEnd = input?.selectionEnd ?? currentValue.length
+    const selectionStart = Math.min(
+      selection?.selectionStart ?? input?.selectionStart ?? currentValue.length,
+      currentValue.length,
+    )
+    const selectionEnd = Math.min(
+      selection?.selectionEnd ?? input?.selectionEnd ?? currentValue.length,
+      currentValue.length,
+    )
     let nextValue = currentValue
     let nextCaret = selectionStart
 
@@ -519,7 +539,9 @@ export function useSettingsController({
     if (nextValue !== currentValue) {
       setKeyboardValue(activeKeyboardTarget, nextValue)
     }
-    setKeyboardCaret(activeKeyboardTarget, nextCaret)
+    if (selection === undefined) {
+      setKeyboardCaret(activeKeyboardTarget, nextCaret)
+    }
   }, [
     activeKeyboardTarget,
     closeKeyboard,
@@ -635,6 +657,7 @@ export function useSettingsController({
       meta: keyboardMeta,
       isConsoleOpen: activeKeyboardTarget === 'consoleCommand',
       onKeyPress: handleKeyboardKey,
+      onPreviewChange: handleKeyboardPreviewChange,
     },
     isKeyboardTargetAllowed,
   }

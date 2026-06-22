@@ -1,4 +1,10 @@
-import { type CSSProperties, type MouseEvent, type SelectHTMLAttributes } from 'react'
+import {
+  type CSSProperties,
+  type ChangeEvent,
+  type MouseEvent,
+  type SelectHTMLAttributes,
+  useRef,
+} from 'react'
 import { IconMask } from './IconMask'
 import { joinClassNames } from './classNames'
 import type { UiIconName } from './iconAssets'
@@ -174,7 +180,8 @@ type SettingsVirtualKeyboardProps = {
   language?: VirtualKeyboardLanguage
   isCapsEnabled?: boolean
   rows?: ReadonlyArray<ReadonlyArray<string>>
-  onKeyPress: (key: string) => void
+  onKeyPress: (key: string, selection?: VirtualKeyboardSelection) => void
+  onPreviewChange?: (value: string, selection: VirtualKeyboardSelection) => void
   onToggleLanguage?: () => void
   onToggleCaps?: () => void
   onClose: () => void
@@ -182,6 +189,11 @@ type SettingsVirtualKeyboardProps = {
   showEnterKey?: boolean
   testId?: string
   previewTestId?: string
+}
+
+export type VirtualKeyboardSelection = {
+  selectionStart: number
+  selectionEnd: number
 }
 
 export function SettingsVirtualKeyboard({
@@ -192,6 +204,7 @@ export function SettingsVirtualKeyboard({
   isCapsEnabled = false,
   rows,
   onKeyPress,
+  onPreviewChange,
   onToggleLanguage = () => {},
   onToggleCaps = () => {},
   onClose,
@@ -200,10 +213,64 @@ export function SettingsVirtualKeyboard({
   testId,
   previewTestId,
 }: SettingsVirtualKeyboardProps) {
+  const previewInputRef = useRef<HTMLTextAreaElement | null>(null)
   const keyboardRows = rows ?? VIRTUAL_KEYBOARD_LAYOUT[language]
-  const previewValue = value.length > 0 ? value : placeholder
   const nextLanguage = language === 'ru' ? 'EN' : 'RU'
   const enterLabel = showEnterKey ? 'Enter' : 'Готово'
+
+  function getPreviewSelection(): VirtualKeyboardSelection | undefined {
+    const input = previewInputRef.current
+    if (input === null || document.activeElement !== input) {
+      return undefined
+    }
+
+    return {
+      selectionStart: input.selectionStart,
+      selectionEnd: input.selectionEnd,
+    }
+  }
+
+  function getNextPreviewCaret(key: string, selection: VirtualKeyboardSelection): number {
+    const { selectionStart, selectionEnd } = selection
+    if (key === 'backspace') {
+      if (selectionStart !== selectionEnd) {
+        return selectionStart
+      }
+      return Math.max(0, selectionStart - 1)
+    }
+
+    const insertValue = key === 'space'
+      ? ' '
+      : key === 'enter'
+        ? '\n'
+        : key
+    return selectionStart + insertValue.length
+  }
+
+  function restorePreviewCaret(nextCaret: number): void {
+    window.requestAnimationFrame(() => {
+      const input = previewInputRef.current
+      if (input === null || document.activeElement !== input) {
+        return
+      }
+      input.setSelectionRange(nextCaret, nextCaret)
+    })
+  }
+
+  function handlePreviewChange(event: ChangeEvent<HTMLTextAreaElement>): void {
+    onPreviewChange?.(event.currentTarget.value, {
+      selectionStart: event.currentTarget.selectionStart,
+      selectionEnd: event.currentTarget.selectionEnd,
+    })
+  }
+
+  function handlePreviewKeyPress(key: string): void {
+    const selection = getPreviewSelection()
+    onKeyPress(key, selection)
+    if (selection !== undefined && key !== 'close') {
+      restorePreviewCaret(getNextPreviewCaret(key, selection))
+    }
+  }
 
   function normalizeKeyLabel(key: string): string {
     const isLetter = /[a-zа-яё]/i.test(key)
@@ -217,9 +284,18 @@ export function SettingsVirtualKeyboard({
     <div className="virtual-keyboard-panel" data-testid={testId}>
       <div className="virtual-keyboard-preview">
         <p className="virtual-keyboard-preview-label">{valueLabel}</p>
-        <p className="virtual-keyboard-preview-value" data-testid={previewTestId}>
-          {previewValue}
-        </p>
+        <textarea
+          ref={previewInputRef}
+          className="virtual-keyboard-preview-value virtual-keyboard-preview-input"
+          value={value}
+          onChange={handlePreviewChange}
+          placeholder={placeholder}
+          aria-label={valueLabel}
+          data-testid={previewTestId}
+          rows={1}
+          wrap="off"
+          spellCheck={false}
+        />
       </div>
 
       {keyboardRows.map((row, rowIndex) => (
@@ -230,7 +306,7 @@ export function SettingsVirtualKeyboard({
               type="button"
               className="virtual-keyboard-key"
               onMouseDown={onKeyMouseDown}
-              onClick={() => onKeyPress(normalizeKeyLabel(key))}
+              onClick={() => handlePreviewKeyPress(normalizeKeyLabel(key))}
               aria-label={`Символ ${normalizeKeyLabel(key)}`}
             >
               {normalizeKeyLabel(key)}
@@ -266,7 +342,7 @@ export function SettingsVirtualKeyboard({
           type="button"
           className="virtual-keyboard-key virtual-keyboard-key-space"
           onMouseDown={onKeyMouseDown}
-          onClick={() => onKeyPress('space')}
+          onClick={() => handlePreviewKeyPress('space')}
           aria-label="Пробел"
         >
           Пробел
@@ -275,7 +351,7 @@ export function SettingsVirtualKeyboard({
           type="button"
           className="virtual-keyboard-key virtual-keyboard-key-action"
           onMouseDown={onKeyMouseDown}
-          onClick={() => onKeyPress('backspace')}
+          onClick={() => handlePreviewKeyPress('backspace')}
           aria-label="Удалить символ"
         >
           ⌫
@@ -284,7 +360,7 @@ export function SettingsVirtualKeyboard({
           type="button"
           className="virtual-keyboard-key virtual-keyboard-key-action"
           onMouseDown={onKeyMouseDown}
-          onClick={() => onKeyPress(showEnterKey ? 'enter' : 'close')}
+          onClick={() => handlePreviewKeyPress(showEnterKey ? 'enter' : 'close')}
           aria-label={showEnterKey ? 'Перенос строки' : 'Готово'}
         >
           {enterLabel}
