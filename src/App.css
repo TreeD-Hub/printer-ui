@@ -1918,12 +1918,12 @@ body {
   gap: 0;
 }
 
-.control-grid {
+.control-movement-grid {
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(248px, 0.68fr) minmax(0, 1.32fr);
-  gap: var(--space-xs);
+  grid-template-columns: minmax(0, 1fr) minmax(214px, 230px);
+  gap: 10px;
   align-items: stretch;
 }
 
@@ -1981,19 +1981,24 @@ body {
   content: none;
 }
 
-.control-card-motion {
+.control-movement-main {
   position: relative;
   min-height: 0;
-  padding: 10px;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 10px;
   overflow: hidden;
-  height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .control-card-parking {
+  min-height: 0;
+  height: 100%;
   padding: 10px;
   gap: 10px;
+  grid-template-rows: auto minmax(0, 1fr) 54px 54px;
+  align-content: stretch;
+  overflow: hidden;
 }
 
 .control-card-fan {
@@ -2826,25 +2831,45 @@ body {
 }
 
 .control-parking-targets {
+  min-height: 0;
   display: grid;
-  grid-template-columns: 1.35fr repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(64px, 1fr));
   gap: 8px;
 }
 
 .control-target-btn {
-  min-height: 42px;
+  min-height: 64px;
   border-radius: 12px;
   border: 1px solid var(--color-border-default);
   background: var(--color-surface-elevated);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-body);
+  padding: 8px;
+  display: grid;
+  place-content: center;
+  gap: 4px;
   font-weight: var(--font-weight-medium);
+  text-align: center;
   cursor: pointer;
   transition:
     border-color 0.2s ease,
     background-color 0.2s ease,
     color 0.2s ease,
     transform 0.2s ease;
+}
+
+.control-target-axis {
+  color: var(--color-text-primary);
+  font-family: var(--font-family-accent);
+  font-size: 24px;
+  font-weight: var(--font-weight-accent);
+  line-height: 1;
+}
+
+.control-target-label {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1;
 }
 
 .control-target-btn.is-active {
@@ -2859,7 +2884,7 @@ body {
 
 .control-card-parking .control-action-btn,
 .control-card-parking .control-service-btn {
-  min-height: 46px;
+  min-height: 54px;
   font-size: var(--font-size-body);
 }
 
@@ -3216,20 +3241,38 @@ body {
   display: none;
 }
 
-.control-motion-buttons {
+.control-axis-controls {
   min-height: 0;
+  padding: 10px;
   display: grid;
   height: 100%;
   grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   align-content: stretch;
+  overflow: hidden;
 }
 
-.control-motion-buttons .segmented-toggle-btn {
+.control-step-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.control-step-label {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.15;
+}
+
+.control-step-row .segmented-toggle-btn {
   min-height: 42px;
+  padding-inline: 8px;
 }
 
-.control-motion-buttons .segmented-toggle-indicator {
+.control-step-row .segmented-toggle-indicator {
   border-radius: 11px;
 }
 
@@ -3331,20 +3374,27 @@ body {
   transition: transform 0.08s linear;
 }
 
-.control-coordinates-panel {
+.control-coordinate-summary {
   min-width: 0;
+  min-height: 66px;
+  padding: 8px 10px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 38px;
-  padding: 0 10px 0 14px;
-  border-radius: 12px;
+  grid-template-rows: auto auto;
+  gap: 6px;
 }
 
-.control-coordinates-panel .joystick-readout {
+.control-coordinate-summary-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.control-coordinate-summary .joystick-readout {
   min-width: 0;
   min-height: 0;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -3355,19 +3405,30 @@ body {
 }
 
 .axis-coordinate-readout {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  gap: 12px;
+  gap: 0;
   font-variant-numeric: tabular-nums;
-  padding-left: 2px;
 }
 
 .axis-coordinate-item {
   display: inline-grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: baseline;
-  gap: 5px;
+  gap: 7px;
   min-width: 0;
+  padding: 0 10px;
+  border-right: 1px solid color-mix(in srgb, var(--color-border-default) 42%, transparent);
+}
+
+.axis-coordinate-item:first-child {
+  padding-left: 0;
+}
+
+.axis-coordinate-item:last-child {
+  padding-right: 0;
+  border-right: 0;
 }
 
 .axis-coordinate-axis {
@@ -3382,17 +3443,17 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 14px;
+  gap: 10px;
   white-space: nowrap;
 }
 
 .axis-home-indicator {
   display: inline-grid;
-  grid-template-columns: auto 16px;
+  grid-template-columns: auto 14px;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   color: var(--color-text-soft);
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-small);
   line-height: 1;
 }
 
@@ -3407,8 +3468,8 @@ body {
 
 .axis-home-mark {
   position: relative;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   display: inline-block;
 }
 
@@ -3417,8 +3478,8 @@ body {
   position: absolute;
   left: 2px;
   top: 1px;
-  width: 12px;
-  height: 7px;
+  width: 10px;
+  height: 6px;
   border-left: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(-45deg);
@@ -3431,7 +3492,7 @@ body {
   position: absolute;
   left: 2px;
   right: 2px;
-  top: 8px;
+  top: 7px;
   height: 2px;
   background: currentColor;
   opacity: 0.7;
@@ -3448,7 +3509,7 @@ body {
 .control-cross-wrap {
   min-height: 0;
   display: grid;
-  align-items: end;
+  align-items: center;
   justify-items: stretch;
   width: 100%;
   padding-top: 0;

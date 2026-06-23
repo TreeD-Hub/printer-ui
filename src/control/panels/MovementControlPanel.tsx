@@ -184,8 +184,20 @@ export const MovementControlPanel = memo(function MovementControlPanel({
   }
 
   return (
-    <div className="control-grid">
-      <article className="control-card control-card-parking">
+    <div className="control-movement-grid">
+      <AxisMotionPanel
+        isBusy={isBusy}
+        movementMode={movementMode}
+        moveStepKey={moveStepKey}
+        commandBlockReasons={commandBlockReasons}
+        zBounds={zBounds}
+        onMovementModeChange={onMovementModeChange}
+        onMoveStepChange={onMoveStepChange}
+        onAxisMove={onAxisMove}
+        onFilamentMove={onFilamentMove}
+      />
+
+      <article className="control-card control-card-parking control-subpanel">
         <div className="control-card-head">
           <h3 className="control-card-title">Парковка</h3>
           {pendingCommand === 'home' || pendingCommand === 'homeAll' || pendingCommand === 'homeXY' || pendingCommand === 'homeZ' ? (
@@ -222,7 +234,8 @@ export const MovementControlPanel = memo(function MovementControlPanel({
             onClick={() => void handleParkingSelect('all')}
             disabled={isBusy}
           >
-            XYZ
+            <span className="control-target-axis">XYZ</span>
+            <span className="control-target-label">Все оси</span>
           </button>
           {CONTROL_PARKING_AXIS_OPTIONS.map((option) => (
             <button
@@ -235,7 +248,8 @@ export const MovementControlPanel = memo(function MovementControlPanel({
               onClick={() => void handleParkingSelect('axis', option.id)}
               disabled={isBusy}
             >
-              {option.label}
+              <span className="control-target-axis">{option.label}</span>
+              <span className="control-target-label">Ось {option.label}</span>
             </button>
           ))}
         </div>
@@ -259,18 +273,6 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           Отключить моторы
         </button>
       </article>
-
-      <AxisMotionPanel
-        isBusy={isBusy}
-        movementMode={movementMode}
-        moveStepKey={moveStepKey}
-        commandBlockReasons={commandBlockReasons}
-        zBounds={zBounds}
-        onMovementModeChange={onMovementModeChange}
-        onMoveStepChange={onMoveStepChange}
-        onAxisMove={onAxisMove}
-        onFilamentMove={onFilamentMove}
-      />
     </div>
   )
 })
@@ -432,10 +434,7 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
   }
 
   return (
-    <article className="control-card control-card-motion">
-      <div className="control-card-head">
-        <h3 className="control-card-title">Оси</h3>
-      </div>
+    <article className="control-movement-main">
       {lockPopup !== null ? (
         <div
           key={lockPopup.id}
@@ -456,43 +455,57 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
           </button>
         </div>
       ) : null}
-      <SegmentedToggle
-        options={CONTROL_MOVEMENT_MODE_OPTIONS}
-        value={movementMode}
-        onChange={onMovementModeChange}
-        ariaLabel="Режим перемещения"
-        testIdPrefix="move-mode"
-      />
+
+      <section className="control-coordinate-summary control-subpanel" aria-label="Координаты и статус осей">
+        <div className="control-coordinate-summary-head">
+          <h3 className="control-card-title">Координаты</h3>
+          <div className="axis-home-status" aria-label="Статус хоуминга осей">
+            {axisHomeStatuses.map((item) => (
+              <span
+                key={item.axis}
+                className={`axis-home-indicator${item.homed ? ' is-homed' : ''}`}
+                aria-label={`Ось ${item.axis} ${item.homed ? 'захоумлена' : 'не захоумлена'}`}
+              >
+                <span className="axis-home-label">{item.axis}</span>
+                <span className="axis-home-mark" aria-hidden="true" />
+              </span>
+            ))}
+          </div>
+        </div>
+        <p className="joystick-readout axis-coordinate-readout" data-testid="axis-coordinates" aria-label={axisCoordinatesLabel}>
+          {axisCoordinateItems.map((item) => (
+            <span key={item.axis} className="axis-coordinate-item">
+              <span className="axis-coordinate-axis">{item.axis}</span>
+              <span className="axis-coordinate-value">{item.value}</span>
+            </span>
+          ))}
+        </p>
+      </section>
+
+      {CONTROL_MOVEMENT_MODE_OPTIONS.length > 1 ? (
+        <SegmentedToggle
+          options={CONTROL_MOVEMENT_MODE_OPTIONS}
+          value={movementMode}
+          onChange={onMovementModeChange}
+          ariaLabel="Режим перемещения"
+          testIdPrefix="move-mode"
+        />
+      ) : null}
+
       {movementMode === 'buttons' ? (
-        <div className="control-motion-buttons">
-          <SegmentedToggle
-            options={CONTROL_MOVE_STEP_OPTIONS}
-            value={moveStepKey}
-            onChange={onMoveStepChange}
-            ariaLabel="Шаг перемещения"
-            testIdPrefix="move-step"
-          />
-          <div className="control-coordinates-panel control-subpanel">
-            <p className="joystick-readout axis-coordinate-readout" data-testid="axis-coordinates" aria-label={axisCoordinatesLabel}>
-              {axisCoordinateItems.map((item) => (
-                <span key={item.axis} className="axis-coordinate-item">
-                  <span className="axis-coordinate-axis">{item.axis}</span>
-                  <span className="axis-coordinate-value">{item.value}</span>
-                </span>
-              ))}
-            </p>
-            <div className="axis-home-status" aria-label="Статус хоуминга осей">
-              {axisHomeStatuses.map((item) => (
-                <span
-                  key={item.axis}
-                  className={`axis-home-indicator${item.homed ? ' is-homed' : ''}`}
-                  aria-label={`Ось ${item.axis} ${item.homed ? 'захоумлена' : 'не захоумлена'}`}
-                >
-                  <span className="axis-home-label">{item.axis}</span>
-                  <span className="axis-home-mark" aria-hidden="true" />
-                </span>
-              ))}
-            </div>
+        <section className="control-axis-controls control-subpanel">
+          <div className="control-card-head">
+            <h3 className="control-card-title">Оси</h3>
+          </div>
+          <div className="control-step-row">
+            <p className="control-step-label">Шаг перемещения</p>
+            <SegmentedToggle
+              options={CONTROL_MOVE_STEP_OPTIONS}
+              value={moveStepKey}
+              onChange={onMoveStepChange}
+              ariaLabel="Шаг перемещения"
+              testIdPrefix="move-step"
+            />
           </div>
           <div className="control-cross-wrap">
             <AxisCrossControls
@@ -513,7 +526,7 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
               )}
             />
           </div>
-        </div>
+        </section>
       ) : (
         <div className="joystick-panel">
           <div className="joystick-xy-control">
