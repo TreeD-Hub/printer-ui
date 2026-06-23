@@ -122,28 +122,28 @@ describe('createMoonrakerCommandClient', () => {
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ script: 'G28 X Y' }),
+        body: JSON.stringify({ script: 'G28 X Y\nM400' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: '_TREED_EDDY_HOME_Z' }),
+        body: JSON.stringify({ script: '_TREED_EDDY_HOME_Z\nM400' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'TREED_UI_MOVE_AXIS AXIS=X DISTANCE=10 FEEDRATE=3000' }),
+        body: JSON.stringify({ script: 'TREED_UI_MOVE_AXIS AXIS=X DISTANCE=10 FEEDRATE=3000\nM400' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       4,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: 'LOAD_FILAMENT LENGTH=80 SPEED=6' }),
+        body: JSON.stringify({ script: 'LOAD_FILAMENT LENGTH=80 SPEED=6\nM400' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -232,12 +232,38 @@ describe('createMoonrakerCommandClient', () => {
     )
   })
 
+  it('homes X and Y independently', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: 'ok' }),
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
+    })
+
+    await client.execute({ command: 'homeX' })
+    await client.execute({ command: 'homeY' })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({ body: JSON.stringify({ script: 'G28 X\nM400' }) }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({ body: JSON.stringify({ script: 'G28 Y\nM400' }) }),
+    )
+  })
+
   it('rejects invalid heating and movement arguments before transport', async () => {
     const fetchImpl = vi.fn<typeof fetch>()
     const client = createMoonrakerCommandClient({ fetchImpl })
 
     await expect(client.execute({ command: 'setBedTarget', targetCelsius: 121 })).rejects.toThrow('0…120')
     await expect(client.execute({ command: 'moveAxis', axis: 'X', distanceMm: Number.NaN })).rejects.toThrow('DISTANCE')
+    await expect(client.execute({ command: 'loadFilament', lengthMm: 0 })).rejects.toThrow('LENGTH')
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 

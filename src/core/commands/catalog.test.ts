@@ -17,6 +17,8 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'emergencyStop',
   'home',
   'homeAll',
+  'homeX',
+  'homeY',
   'homeXY',
   'homeZ',
   'moveAxis',
@@ -194,7 +196,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       command: 'moveAxis',
       axis: 'Z',
       distanceMm: 1,
-    })).toContain('Home XYZ')
+    })).toContain('Home Z')
     expect(getTreeDCommandBlockReason('moveAxis', {
       ...IDLE_CONTEXT,
       toolhead: {
@@ -206,17 +208,39 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       command: 'moveAxis',
       axis: 'Y',
       distanceMm: 1,
-    })).toContain('координаты XYZ')
+    })).toContain('координата Y')
+    expect(getTreeDCommandBlockReason('moveAxis', {
+      ...IDLE_CONTEXT,
+      homedAxes: 'x',
+      toolhead: {
+        rawX: 10,
+        rawY: Number.NaN,
+        rawZ: Number.NaN,
+      },
+    }, {
+      command: 'moveAxis',
+      axis: 'X',
+      distanceMm: 1,
+    })).toBeNull()
     expect(getTreeDCommandBlockReason('loadFilament', {
       ...IDLE_CONTEXT,
       extruderTemp: 169,
     })).toContain('170')
+    expect(getTreeDCommandBlockReason('loadFilament', PRINTING_CONTEXT)).toContain('во время печати')
+    expect(getTreeDCommandBlockReason('loadFilament', PAUSED_CONTEXT)).toBeNull()
     expect(getTreeDCommandBlockReason('moveAxis', PRINTING_CONTEXT, {
       command: 'moveAxis',
       axis: 'X',
       distanceMm: 1,
     })).toContain('во время печати')
     expect(getTreeDCommandBlockReason('disableMotors', PRINTING_CONTEXT)).toContain('во время печати')
+  })
+
+  it('validates filament arguments', () => {
+    expect(getTreeDCommandBlockReason('loadFilament', IDLE_CONTEXT, {
+      command: 'loadFilament',
+      lengthMm: 0,
+    })).toContain('LENGTH')
   })
 
   it('allows confirmed host power and service commands during active print', () => {

@@ -16,6 +16,8 @@ export type PrinterCommandId =
   | 'emergencyStop'
   | 'home'
   | 'homeAll'
+  | 'homeX'
+  | 'homeY'
   | 'homeXY'
   | 'homeZ'
   | 'moveAxis'
@@ -58,6 +60,8 @@ export type ExecuteCommandArgs =
       command:
         | 'home'
         | 'homeAll'
+        | 'homeX'
+        | 'homeY'
         | 'homeXY'
         | 'homeZ'
         | 'turnOffHeaters'
@@ -694,6 +698,20 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'motion',
     requiresConfirmation: false,
   },
+  homeX: {
+    id: 'homeX',
+    risk: 'caution',
+    label: 'Home X',
+    capability: 'motion',
+    requiresConfirmation: false,
+  },
+  homeY: {
+    id: 'homeY',
+    risk: 'caution',
+    label: 'Home Y',
+    capability: 'motion',
+    requiresConfirmation: false,
+  },
   homeXY: {
     id: 'homeXY',
     risk: 'caution',
@@ -903,9 +921,15 @@ const RUNTIME_TUNE_COMMANDS = new Set<PrinterCommandId>([
   'setRetractionLength',
   'adjustZOffset',
 ])
+const FILAMENT_COMMANDS = new Set<PrinterCommandId>([
+  'loadFilament',
+  'unloadFilament',
+])
 const MOTION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'home',
   'homeAll',
+  'homeX',
+  'homeY',
   'homeXY',
   'homeZ',
   'moveAxis',
@@ -942,23 +966,6 @@ function isAxisHomed(homedAxes: string | undefined, axis: AxisId): boolean {
   }
 
   return homedAxes.toLowerCase().includes(axis.toLowerCase())
-}
-
-function areXyzAxesHomed(homedAxes: string | undefined): boolean {
-  if (homedAxes === undefined) {
-    return false
-  }
-
-  return isAxisHomed(homedAxes, 'X') && isAxisHomed(homedAxes, 'Y') && isAxisHomed(homedAxes, 'Z')
-}
-
-function areXyzCoordinatesKnown(toolhead: TreeDCommandRuntimeContext['toolhead']): boolean {
-  return (
-    toolhead !== undefined &&
-    Number.isFinite(toolhead.rawX) &&
-    Number.isFinite(toolhead.rawY) &&
-    Number.isFinite(toolhead.rawZ)
-  )
 }
 
 function getCommandSpecificBlockReason(
@@ -1010,6 +1017,10 @@ function getCommandSpecificBlockReason(
     return `${item.label}: движение недоступно во время печати.`
   }
 
+  if (activePrint && !pausedPrint && FILAMENT_COMMANDS.has(command)) {
+    return `${item.label}: перемещение филамента недоступно во время печати.`
+  }
+
   if (command === 'homeZ') {
     if (context.eddyStatus === 'uncalibrated') {
       return `${item.label}: Eddy не калиброван.`
@@ -1025,26 +1036,32 @@ function getCommandSpecificBlockReason(
   }
 
   if (command === 'moveAxis' || args?.command === 'moveAxis') {
-    if (!areXyzAxesHomed(context.homedAxes)) {
-      return `${item.label}: сначала выполните Home XYZ.`
+    if (args?.command !== 'moveAxis') {
+      return `${item.label}: не указана ось перемещения.`
     }
 
-    if (!areXyzCoordinatesKnown(context.toolhead)) {
-      return `${item.label}: координаты XYZ неизвестны.`
+    if (!isAxisHomed(context.homedAxes, args.axis)) {
+      return `${item.label}: сначала выполните Home ${args.axis}.`
     }
 
-    if (args?.command === 'moveAxis' && context.toolhead !== undefined) {
-      const limits = context.limits ?? TREED_V2_COREXY_V1_LIMITS
-      const current = args.axis === 'X'
-        ? context.toolhead.rawX
-        : args.axis === 'Y'
-          ? context.toolhead.rawY
-          : context.toolhead.rawZ
-      const target = (current ?? Number.NaN) + args.distanceMm
-      const axisLimit = limits.axis[args.axis]
-      if (!Number.isFinite(target) || target < axisLimit.min || target > axisLimit.max) {
-        return `${item.label}: целевая координата вне диапазона ${axisLimit.min}…${axisLimit.max} мм.`
-      }
+    if (context.toolhead === undefined) {
+      return `${item.label}: координата ${args.axis} неизвестна.`
+    }
+
+    const current = args.axis === 'X'
+      ? context.toolhead.rawX
+      : args.axis === 'Y'
+        ? context.toolhead.rawY
+        : context.toolhead.rawZ
+    if (typeof current !== 'number' || !Number.isFinite(current)) {
+      return `${item.label}: координата ${args.axis} неизвестна.`
+    }
+
+    const limits = context.limits ?? TREED_V2_COREXY_V1_LIMITS
+    const target = current + args.distanceMm
+    const axisLimit = limits.axis[args.axis]
+    if (!Number.isFinite(target) || target < axisLimit.min || target > axisLimit.max) {
+      return `${item.label}: целевая координата вне диапазона ${axisLimit.min}…${axisLimit.max} мм.`
     }
   }
 
@@ -1079,6 +1096,15 @@ export function getTreeDCommandArgumentError(
       }
       return null
     }
+    case 'loadFilament':
+    case 'unloadFilament':
+      if (args.lengthMm !== undefined && (!Number.isFinite(args.lengthMm) || args.lengthMm <= 0)) {
+        return 'LENGTH должна быть конечным положительным числом.'
+      }
+      if (args.speedMmS !== undefined && (!Number.isFinite(args.speedMmS) || args.speedMmS <= 0)) {
+        return 'SPEED должна быть конечным положительным числом.'
+      }
+      return null
     case 'setNozzleTarget':
       return getRangeError(args.targetCelsius, 0, limits.nozzleMaxC, 'Температура сопла')
     case 'setBedTarget':

@@ -3,6 +3,7 @@ import { ControlPage } from './ControlPage'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { clampPercent } from '../dashboard/helpers'
 import type { AxisId } from '../ui'
+import { CONTROL_MOVE_STEP_OPTIONS } from './config'
 import type {
   ControlGroupId,
   FanControlPanelProps,
@@ -44,11 +45,12 @@ export type ControlContainerProps = {
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   onParkingTargetSelect: (nextMode: ParkingMode, nextAxis?: AxisId) => Promise<boolean>
   onServiceModeToggle: () => void
-  onMotorsDisable: () => void
+  onMotorsDisable: () => Promise<boolean>
   onMovementModeChange: (nextMode: MovementMode) => void
   onMoveStepChange: (nextStep: MoveStepKey) => void
   onAxisMove: (axis: AxisId, distanceMm: number) => Promise<boolean>
-  onFilamentMove: (direction: -1 | 1) => Promise<boolean>
+  onFilamentMove: (direction: -1 | 1, distanceMm: number) => Promise<boolean>
+  getLastCommandError: () => string
 }
 
 export function ControlContainer({
@@ -82,25 +84,36 @@ export function ControlContainer({
   onMoveStepChange,
   onAxisMove,
   onFilamentMove,
+  getLastCommandError,
 }: ControlContainerProps) {
+  const moveStepMm = CONTROL_MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)?.valueMm ?? 1
   const movementCommandBlockReasons = useMemo<MovementCommandBlockReasons>(() => ({
     parking: {
       all: getCommandBlockReason('homeAll'),
       axis: {
-        X: getCommandBlockReason('homeXY'),
-        Y: getCommandBlockReason('homeXY'),
+        X: getCommandBlockReason('homeX'),
+        Y: getCommandBlockReason('homeY'),
         Z: getCommandBlockReason('homeZ'),
       },
     },
     moveAxis: {
-      X: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: 1 }),
-      Y: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Y', distanceMm: 1 }),
-      Z: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Z', distanceMm: 1 }),
+      X: {
+        negative: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: -moveStepMm }),
+        positive: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: moveStepMm }),
+      },
+      Y: {
+        negative: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Y', distanceMm: -moveStepMm }),
+        positive: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Y', distanceMm: moveStepMm }),
+      },
+      Z: {
+        negative: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Z', distanceMm: -moveStepMm }),
+        positive: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Z', distanceMm: moveStepMm }),
+      },
     },
     disableMotors: getCommandBlockReason('disableMotors'),
     loadFilament: getCommandBlockReason('loadFilament'),
     unloadFilament: getCommandBlockReason('unloadFilament'),
-  }), [getCommandBlockReason])
+  }), [getCommandBlockReason, moveStepMm])
   const maintenanceProgressPercent = maintenanceStatus.isRuntimeBacked
     ? clampPercent(
         maintenanceStatus.runtimeHours,
@@ -130,6 +143,7 @@ export function ControlContainer({
         onMoveStepChange,
         onAxisMove,
         onFilamentMove,
+        getLastCommandError,
       }}
       heating={heating}
       fan={fan}

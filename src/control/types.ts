@@ -25,22 +25,15 @@ export type MoveStepOption = ControlOption<MoveStepKey> & {
   valueMm: number
 }
 
-export type AxisCoordinateItem = {
-  axis: AxisId | 'E'
-  value: string
-}
-
-export type AxisHomeStatus = {
-  axis: AxisId
-  homed: boolean
-}
-
 export type MovementCommandBlockReasons = {
   parking: {
     all: string | null
     axis: Record<AxisId, string | null>
   }
-  moveAxis: Record<AxisId, string | null>
+  moveAxis: Record<AxisId, {
+    negative: string | null
+    positive: string | null
+  }>
   disableMotors: string | null
   loadFilament: string | null
   unloadFilament: string | null
@@ -105,11 +98,12 @@ export type MovementControlPanelProps = {
   }
   onParkingTargetSelect: (nextMode: ParkingMode, nextAxis?: AxisId) => Promise<boolean>
   onServiceModeToggle: () => void
-  onMotorsDisable: () => void
+  onMotorsDisable: () => Promise<boolean>
   onMovementModeChange: (nextMode: MovementMode) => void
   onMoveStepChange: (nextStep: MoveStepKey) => void
   onAxisMove: (axis: AxisId, distanceMm: number) => Promise<boolean>
-  onFilamentMove: (direction: -1 | 1) => Promise<boolean>
+  onFilamentMove: (direction: -1 | 1, distanceMm: number) => Promise<boolean>
+  getLastCommandError: () => string
 }
 
 export type HeatingControlPanelProps = {

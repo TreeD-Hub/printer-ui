@@ -344,7 +344,13 @@ function App() {
       setParkingAxis(resolvedAxis)
     }
 
-    const command = nextMode === 'all' ? 'homeAll' : resolvedAxis === 'Z' ? 'homeZ' : 'homeXY'
+    const command = nextMode === 'all'
+      ? 'homeAll'
+      : resolvedAxis === 'X'
+        ? 'homeX'
+        : resolvedAxis === 'Y'
+          ? 'homeY'
+          : 'homeZ'
     const ok = await executeCommand({ command })
     if (!ok) {
       return false
@@ -363,8 +369,11 @@ function App() {
     return executeCommand({ command: 'moveAxis', axis, distanceMm })
   }
 
-  function handleFilamentMove(direction: -1 | 1): Promise<boolean> {
-    return executeCommand({ command: direction > 0 ? 'unloadFilament' : 'loadFilament' })
+  function handleFilamentMove(direction: -1 | 1, distanceMm: number): Promise<boolean> {
+    return executeCommand({
+      command: direction > 0 ? 'unloadFilament' : 'loadFilament',
+      lengthMm: distanceMm,
+    })
   }
 
   function flashControlAction(nextKey: string): void {
@@ -380,8 +389,8 @@ function App() {
     }, 1000)
   }
 
-  function handleMotorsDisable(): void {
-    void executeCommand({ command: 'disableMotors' })
+  function handleMotorsDisable(): Promise<boolean> {
+    return executeCommand({ command: 'disableMotors' })
   }
 
   const handleVirtualKeyboardLanguageToggle = useCallback(() => {
@@ -626,6 +635,7 @@ function App() {
             onMoveStepChange: setMoveStepKey,
             onAxisMove: handleAxisMove,
             onFilamentMove: handleFilamentMove,
+            getLastCommandError,
             heating: heatingProps,
             fan: fanProps,
             isMainLightEnabled,

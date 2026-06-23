@@ -15,7 +15,7 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 ## Поддерживаемые группы команд
 
 - Печать: `start`, `pause`, `resume`, `cancel`, `emergencyStop`.
-- Парковка и движение: `home`, `homeAll`, `homeXY`, `homeZ`, `moveAxis`, `disableMotors`.
+- Парковка и движение: `home`, `homeAll`, `homeX`, `homeY`, `homeXY`, `homeZ`, `moveAxis`, `disableMotors`.
 - Нагрев и обдув: `setNozzleTarget`, `setBedTarget`, `setHeatingTargets`, `turnOffHeaters`, `setFanPercent`.
 - Runtime tune: speed factor, flow factor, accel, pressure advance, retraction length, Z-offset.
 - Филамент: `loadFilament`, `unloadFilament`.

@@ -32,6 +32,18 @@ type MoonrakerEnvelope = {
 }
 
 const DEFAULT_COMMAND_FETCH_TIMEOUT_MS = 8_000
+const MOTION_COMMAND_FETCH_TIMEOUT_MS = 120_000
+const MOTION_COMMANDS = new Set<ExecuteCommandArgs['command']>([
+  'home',
+  'homeAll',
+  'homeX',
+  'homeY',
+  'homeXY',
+  'homeZ',
+  'moveAxis',
+  'loadFilament',
+  'unloadFilament',
+])
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
@@ -144,7 +156,11 @@ function sendScript(
   options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'fetchTimeoutMs' | 'moonrakerUrl'>>,
   command?: ExecuteCommandArgs['command'],
 ): Promise<void> {
-  return callMoonraker('/printer/gcode/script', { script }, options, command)
+  const requestOptions = command !== undefined && MOTION_COMMANDS.has(command)
+    ? { ...options, fetchTimeoutMs: Math.max(options.fetchTimeoutMs, MOTION_COMMAND_FETCH_TIMEOUT_MS) }
+    : options
+
+  return callMoonraker('/printer/gcode/script', { script }, requestOptions, command)
 }
 
 function mapFanPercentToM106(percent: number): number {
@@ -177,6 +193,10 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
     case 'home':
     case 'homeAll':
       return 'G28 sent'
+    case 'homeX':
+      return 'G28 X sent'
+    case 'homeY':
+      return 'G28 Y sent'
     case 'homeXY':
       return 'G28 X Y sent'
     case 'homeZ':
@@ -288,16 +308,20 @@ function executeMoonrakerCommand(
       return callMoonraker('/printer/emergency_stop', undefined, options, args.command)
     case 'home':
     case 'homeAll':
-      return sendScript('G28', options, args.command)
+      return sendScript('G28\nM400', options, args.command)
+    case 'homeX':
+      return sendScript('G28 X\nM400', options, args.command)
+    case 'homeY':
+      return sendScript('G28 Y\nM400', options, args.command)
     case 'homeXY':
-      return sendScript('G28 X Y', options, args.command)
+      return sendScript('G28 X Y\nM400', options, args.command)
     case 'homeZ':
-      return sendScript('_TREED_EDDY_HOME_Z', options, args.command)
+      return sendScript('_TREED_EDDY_HOME_Z\nM400', options, args.command)
     case 'moveAxis': {
       const feedRateMmPerMin = args.feedRateMmPerMin ?? (args.speedMmS === undefined ? undefined : args.speedMmS * 60)
       const feedRate = feedRateMmPerMin !== undefined ? ` FEEDRATE=${feedRateMmPerMin}` : ''
       return sendScript(
-        `TREED_UI_MOVE_AXIS AXIS=${args.axis} DISTANCE=${args.distanceMm}${feedRate}`,
+        `TREED_UI_MOVE_AXIS AXIS=${args.axis} DISTANCE=${args.distanceMm}${feedRate}\nM400`,
         options,
         args.command,
       )
@@ -325,9 +349,9 @@ function executeMoonrakerCommand(
     case 'adjustZOffset':
       return sendScript(`TREED_UI_ADJUST_Z_OFFSET DELTA=${args.deltaMm}`, options, args.command)
     case 'loadFilament':
-      return sendScript(formatFilamentScript('LOAD_FILAMENT', args), options, args.command)
+      return sendScript(`${formatFilamentScript('LOAD_FILAMENT', args)}\nM400`, options, args.command)
     case 'unloadFilament':
-      return sendScript(formatFilamentScript('UNLOAD_FILAMENT', args), options, args.command)
+      return sendScript(`${formatFilamentScript('UNLOAD_FILAMENT', args)}\nM400`, options, args.command)
     case 'zParkZeroEddy':
       return sendScript('TREED_Z_PARK_ZERO_EDDY', options, args.command)
     case 'shaperCalibrateLight':

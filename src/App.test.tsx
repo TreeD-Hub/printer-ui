@@ -273,7 +273,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(getMockCommandOperations()).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ command: 'homeXY' }),
+          expect.objectContaining({ command: 'homeX' }),
         ]),
       )
       expect(parkingAxisXButton).toHaveAttribute('aria-pressed', 'true')
@@ -338,6 +338,19 @@ describe('App', () => {
       )
     })
     expect(screen.getByTestId('axis-coordinates').textContent).toBe(coordinatesBeforeMove)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Загрузить филамент' })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByTestId('move-step-10'))
+    fireEvent.click(screen.getByRole('button', { name: 'Загрузить филамент' }))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'loadFilament', lengthMm: 10 }),
+        ]),
+      )
+    })
 
     fireEvent.click(screen.getByRole('button', { name: 'Отключить моторы' }))
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()

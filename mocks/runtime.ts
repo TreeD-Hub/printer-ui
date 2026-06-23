@@ -40,6 +40,10 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
     case 'home':
     case 'homeAll':
       return 'Mock: G28 sent'
+    case 'homeX':
+      return 'Mock: G28 X sent'
+    case 'homeY':
+      return 'Mock: G28 Y sent'
     case 'homeXY':
       return 'Mock: G28 X Y sent'
     case 'homeZ':
@@ -67,9 +71,9 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
     case 'adjustZOffset':
       return `Mock: Z-offset adjusted by ${args.deltaMm}`
     case 'loadFilament':
-      return 'Mock: load filament sent'
+      return `Mock: load filament ${args.lengthMm ?? 100}mm sent`
     case 'unloadFilament':
-      return 'Mock: unload filament sent'
+      return `Mock: unload filament ${args.lengthMm ?? 100}mm sent`
     case 'zParkZeroEddy':
       return 'Mock: TREED_Z_PARK_ZERO_EDDY sent'
     case 'shaperCalibrateLight':
