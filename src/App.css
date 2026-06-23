@@ -11,12 +11,6 @@ html {
   touch-action: manipulation;
 }
 
-*,
-*::before,
-*::after {
-  cursor: none !important;
-}
-
 body {
   margin: 0;
   min-width: 320px;
@@ -7113,7 +7107,7 @@ select {
 }
 
 .bottom-nav {
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--grid-base) var(--space-md);
   gap: var(--space-xs);
 }
 
