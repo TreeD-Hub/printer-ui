@@ -336,6 +336,8 @@ export function useHeatingFanController({
     currentBedTemp: snapshot.bedTemp,
     nozzleTargetTemp: printNozzleTargetTemp,
     bedTargetTemp: printBedTargetTemp,
+    nozzleMaxC: snapshot.limits.nozzleMaxC,
+    bedMaxC: snapshot.limits.bedMaxC,
     chartMode: temperatureChartMode,
     chartSeries: temperatureChartSeries,
     keyboardTarget: temperatureKeyboardTarget,

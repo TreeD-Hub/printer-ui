@@ -112,7 +112,7 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
                 <TuneCompactStepperInput
                   value={row.target}
                   min={0}
-                  max={300}
+                  max={row.maxTarget}
                   step={5}
                   unit="°C"
                   readOnly={true}
