@@ -23,8 +23,11 @@ type TemperatureChartSeries = {
   id: 'nozzle' | 'bed'
   label: string
   tone: 'orange' | 'green'
-  values: number[]
-  target: number
+  points: Array<{
+    timestamp: number
+    current: number
+    target: number
+  }>
 }
 
 type PrintTuneTemperatureProps = {
@@ -32,6 +35,8 @@ type PrintTuneTemperatureProps = {
   currentBedTemp: number
   nozzleTargetTemp: number
   bedTargetTemp: number
+  nozzleMaxC: number
+  bedMaxC: number
   chartMode: TemperatureChartMode
   chartSeries: TemperatureChartSeries[]
   keyboardTarget: TemperatureKeyboardTarget | null
@@ -109,6 +114,7 @@ export function PrintTuneModal({
         tone: 'orange' as const,
         current: temperature.currentNozzleTemp,
         target: temperature.nozzleTargetTemp,
+        maxTarget: temperature.nozzleMaxC,
         onTargetChange: temperature.onNozzleTargetChange,
         testIdPrefix: 'print-tune-temp-nozzle',
       },
@@ -120,6 +126,7 @@ export function PrintTuneModal({
         tone: 'green' as const,
         current: temperature.currentBedTemp,
         target: temperature.bedTargetTemp,
+        maxTarget: temperature.bedMaxC,
         onTargetChange: temperature.onBedTargetChange,
         testIdPrefix: 'print-tune-temp-bed',
       },
@@ -172,7 +179,7 @@ export function PrintTuneModal({
                     <TuneCompactStepperInput
                       value={row.target}
                       min={0}
-                      max={300}
+                      max={row.maxTarget}
                       step={5}
                       unit="°C"
                       onChange={row.onTargetChange}

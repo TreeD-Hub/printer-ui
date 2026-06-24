@@ -26,11 +26,15 @@ type HeatingSnapshot = {
 }
 
 type TemperatureHistoryPoint = {
+  timestamp: number
   nozzle: number
+  nozzleTarget: number
   bed: number
+  bedTarget: number
 }
 
-const MAX_TEMPERATURE_HISTORY_POINTS = 48
+const TEMPERATURE_HISTORY_WINDOW_MS = 5 * 60 * 1000
+const MAX_TEMPERATURE_HISTORY_POINTS = 300
 const COMMAND_BUSY_REASON = 'Команда уже выполняется.'
 
 type UseHeatingFanControllerArgs = {
@@ -56,6 +60,7 @@ export type UseHeatingFanControllerResult = {
   temperatureChartMode: TemperatureChartMode
   setTemperatureChartMode: (mode: TemperatureChartMode) => void
   handleTemperatureKeyboardDigit: (digit: string) => void
+  handleTemperatureKeyboardClear: () => void
   handleTemperatureKeyboardBackspace: () => void
   handleTemperatureKeyboardSubmit: () => void
   openTemperatureKeyboard: (target: TemperatureKeyboardTarget) => void
@@ -106,12 +111,14 @@ export function useHeatingFanController({
 
     const nextPoint = createTemperatureHistoryPoint(snapshot)
     setTemperatureHistory((currentHistory) => {
-      const lastPoint = currentHistory.at(-1)
-      if (lastPoint?.nozzle === nextPoint.nozzle && lastPoint.bed === nextPoint.bed) {
-        return currentHistory
+      const cutoffTimestamp = nextPoint.timestamp - TEMPERATURE_HISTORY_WINDOW_MS
+      const visibleHistory = currentHistory.filter((point) => point.timestamp >= cutoffTimestamp)
+      const lastPoint = visibleHistory.at(-1)
+      if (lastPoint !== undefined && hasSameThermalValues(lastPoint, nextPoint)) {
+        return visibleHistory
       }
 
-      return [...currentHistory, nextPoint].slice(-MAX_TEMPERATURE_HISTORY_POINTS)
+      return [...visibleHistory, nextPoint].slice(-MAX_TEMPERATURE_HISTORY_POINTS)
     })
   }, [snapshot])
 
@@ -121,18 +128,24 @@ export function useHeatingFanController({
         id: 'nozzle',
         label: 'Сопло',
         tone: 'orange',
-        values: temperatureHistory.map((point) => point.nozzle),
-        target: printNozzleTargetTemp,
+        points: temperatureHistory.map((point) => ({
+          timestamp: point.timestamp,
+          current: point.nozzle,
+          target: point.nozzleTarget,
+        })),
       },
       {
         id: 'bed',
         label: 'Стол',
         tone: 'green',
-        values: temperatureHistory.map((point) => point.bed),
-        target: printBedTargetTemp,
+        points: temperatureHistory.map((point) => ({
+          timestamp: point.timestamp,
+          current: point.bed,
+          target: point.bedTarget,
+        })),
       },
     ],
-    [printBedTargetTemp, printNozzleTargetTemp, temperatureHistory],
+    [temperatureHistory],
   )
 
   const heatingControlRows: HeatingControlRow[] = [
@@ -144,6 +157,7 @@ export function useHeatingFanController({
       tone: 'orange',
       current: snapshot.extruderTemp,
       target: printNozzleTargetTemp,
+      maxTarget: snapshot.limits.nozzleMaxC,
       onTargetChange: handleNozzleTargetChange,
       testIdPrefix: 'control-heating-nozzle',
     },
@@ -155,6 +169,7 @@ export function useHeatingFanController({
       tone: 'green',
       current: snapshot.bedTemp,
       target: printBedTargetTemp,
+      maxTarget: snapshot.limits.bedMaxC,
       onTargetChange: handleBedTargetChange,
       testIdPrefix: 'control-heating-bed',
     },
@@ -190,6 +205,10 @@ export function useHeatingFanController({
 
   function handleTemperatureKeyboardBackspace(): void {
     setTemperatureKeyboardValue((current) => current.slice(0, -1))
+  }
+
+  function handleTemperatureKeyboardClear(): void {
+    setTemperatureKeyboardValue('')
   }
 
   async function handleTemperatureKeyboardSubmit(): Promise<void> {
@@ -271,9 +290,10 @@ export function useHeatingFanController({
           <button
             type="button"
             className="settings-network-btn print-temp-keyboard-key"
-            onClick={handleTemperatureKeyboardBackspace}
+            onClick={handleTemperatureKeyboardClear}
+            aria-label="Очистить температуру"
           >
-            Стереть
+            C
           </button>
           <button
             type="button"
@@ -283,7 +303,14 @@ export function useHeatingFanController({
           >
             0
           </button>
-          <span className="print-temp-keyboard-spacer" aria-hidden="true" />
+          <button
+            type="button"
+            className="settings-network-btn print-temp-keyboard-key"
+            onClick={handleTemperatureKeyboardBackspace}
+            aria-label="Удалить последний символ"
+          >
+            ⌫
+          </button>
         </div>
         <button
           type="button"
@@ -322,6 +349,8 @@ export function useHeatingFanController({
     currentBedTemp: snapshot.bedTemp,
     nozzleTargetTemp: printNozzleTargetTemp,
     bedTargetTemp: printBedTargetTemp,
+    nozzleMaxC: snapshot.limits.nozzleMaxC,
+    bedMaxC: snapshot.limits.bedMaxC,
     chartMode: temperatureChartMode,
     chartSeries: temperatureChartSeries,
     keyboardTarget: temperatureKeyboardTarget,
@@ -345,6 +374,7 @@ export function useHeatingFanController({
     temperatureChartMode,
     setTemperatureChartMode,
     handleTemperatureKeyboardDigit,
+    handleTemperatureKeyboardClear,
     handleTemperatureKeyboardBackspace,
     handleTemperatureKeyboardSubmit,
     openTemperatureKeyboard,
@@ -363,7 +393,17 @@ function isTemperatureSnapshotConnected(snapshot: HeatingSnapshot): boolean {
 
 function createTemperatureHistoryPoint(snapshot: HeatingSnapshot): TemperatureHistoryPoint {
   return {
+    timestamp: Date.now(),
     nozzle: snapshot.extruderTemp,
+    nozzleTarget: snapshot.thermalTargets.nozzle,
     bed: snapshot.bedTemp,
+    bedTarget: snapshot.thermalTargets.bed,
   }
+}
+
+function hasSameThermalValues(left: TemperatureHistoryPoint, right: TemperatureHistoryPoint): boolean {
+  return left.nozzle === right.nozzle &&
+    left.nozzleTarget === right.nozzleTarget &&
+    left.bed === right.bed &&
+    left.bedTarget === right.bedTarget
 }

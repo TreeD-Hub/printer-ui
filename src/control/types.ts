@@ -53,16 +53,22 @@ export type HeatingControlRow = {
   tone: 'orange' | 'green'
   current: number
   target: number
+  maxTarget: number
   onTargetChange: (nextValue: number) => void
   testIdPrefix: string
+}
+
+export type TemperatureChartPoint = {
+  timestamp: number
+  current: number
+  target: number
 }
 
 export type TemperatureChartSeries = {
   id: 'nozzle' | 'bed'
   label: string
   tone: 'orange' | 'green'
-  values: number[]
-  target: number
+  points: TemperatureChartPoint[]
 }
 
 export type MaintenanceStatus = {

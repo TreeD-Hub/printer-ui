@@ -2596,7 +2596,7 @@ body {
 }
 
 .control-heating-row {
-  min-height: 62px;
+  min-height: 70px;
   display: grid;
   grid-template-columns: minmax(92px, 1fr) 76px 226px;
   align-items: center;
@@ -2658,15 +2658,39 @@ body {
 
 .control-heating-row .print-tune-compact-stepper-input-wrap,
 .control-heating-row .print-tune-compact-stepper-btn {
-  height: 42px;
+  height: 54px;
+}
+
+.control-heating-row .print-tune-compact-stepper {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.control-heating-row .print-tune-compact-stepper-btn {
+  width: 54px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-surface-elevated) 82%, var(--color-block-surface));
+  color: var(--color-text-primary);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.control-heating-row .print-tune-compact-stepper-btn:active {
+  border-color: var(--color-primary-ring);
+  background: var(--color-primary-surface-soft);
+  transform: translateY(1px);
 }
 
 .control-heating-row .print-tune-compact-stepper-controls {
-  grid-template-columns: repeat(2, 42px);
+  grid-template-columns: repeat(2, 54px);
+  gap: 6px;
 }
 
 .control-heating-row .print-tune-compact-stepper-input {
   font-size: var(--font-size-body-large);
+  background: transparent;
 }
 
 .control-heating-row .print-tune-compact-stepper-unit {
@@ -2685,16 +2709,20 @@ body {
   min-height: 0;
   height: 100%;
   border-color: color-mix(in srgb, var(--color-border-default) 42%, transparent);
-  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
+  background: color-mix(in srgb, var(--color-surface-elevated) 76%, var(--color-block-surface));
   box-shadow: none;
 }
 
 .control-heating-chart-block .print-temp-chart-svg {
   height: 100%;
   min-height: 0;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-text-soft) 18%, transparent) 0 1px, transparent 1.1px) 0 0 / 16px 16px,
+    color-mix(in srgb, var(--color-surface-elevated) 78%, var(--color-block-surface));
 }
 
 .control-heating-chart-block .print-temp-chart-frame {
+  fill: color-mix(in srgb, var(--color-surface-elevated) 84%, var(--color-block-surface));
   stroke: color-mix(in srgb, var(--color-border-default) 42%, transparent);
 }
 
@@ -2704,13 +2732,84 @@ body {
 }
 
 .control-heating-chart-head {
-  justify-content: flex-start;
+  min-height: 48px;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 10px;
   padding: 0 2px;
 }
 
 .control-heating-chart-head .print-temp-chart-title {
+  align-self: center;
   font-size: var(--font-size-small);
   color: var(--color-text-soft);
+}
+
+.control-heating-chart-legend {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(132px, 1fr));
+  gap: 7px;
+}
+
+.control-heating-chart-legend-btn {
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--color-surface-elevated) 72%, var(--color-block-surface));
+  color: var(--color-text-soft);
+  padding: 5px 9px;
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 7px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.control-heating-chart-legend-btn.is-active {
+  border-color: color-mix(in srgb, var(--color-border-default) 92%, transparent);
+  color: var(--color-text-primary);
+}
+
+.control-heating-chart-legend-btn:not(.is-active) {
+  opacity: 0.58;
+}
+
+.control-heating-chart-legend-marker {
+  width: 8px;
+  height: 8px;
+  grid-row: 1 / span 2;
+  border-radius: 999px;
+}
+
+.control-heating-chart-legend-marker.is-orange {
+  background: var(--color-warning);
+}
+
+.control-heating-chart-legend-marker.is-green {
+  background: var(--color-success);
+}
+
+.control-heating-chart-legend-label {
+  overflow: hidden;
+  font-size: var(--font-size-tiny);
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.control-heating-chart-legend-value {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .control-heating-presets-list {
@@ -2812,22 +2911,48 @@ body {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  grid-template-rows: auto 42px minmax(0, 1fr) 44px;
+  gap: 4px;
+  grid-template-rows: 40px 40px minmax(0, 1fr) 48px;
   align-content: stretch;
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-key {
   height: 100%;
-  min-height: 38px;
+  min-height: 54px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface-elevated) 80%, var(--color-block-surface));
+  color: var(--color-text-primary);
   font-family: var(--font-family-ui);
+  font-size: 22px;
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-grid {
   min-height: 0;
+  gap: 4px;
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-submit {
+  height: 48px;
+  border-radius: 10px;
   font-family: var(--font-family-ui);
+}
+
+.print-temp-keyboard-side.is-control .print-temp-keyboard-close {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.print-temp-keyboard-side.is-control .print-temp-keyboard-display {
+  min-height: 40px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface-elevated) 84%, var(--color-block-surface));
+  font-size: 24px;
+}
+
+.print-temp-keyboard-side.is-control .print-temp-keyboard-key:nth-child(10),
+.print-temp-keyboard-side.is-control .print-temp-keyboard-key:nth-child(12) {
+  color: var(--color-primary-light);
 }
 
 .control-parking-targets {
@@ -4377,6 +4502,29 @@ body {
 
 .print-temp-chart-line.is-green {
   stroke: var(--color-success);
+}
+
+.print-temp-chart-target {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-dasharray: 7 5;
+  stroke-linecap: round;
+  opacity: 0.88;
+}
+
+.print-temp-chart-target.is-orange,
+.print-temp-chart-marker.is-orange {
+  stroke: var(--color-warning);
+}
+
+.print-temp-chart-target.is-green,
+.print-temp-chart-marker.is-green {
+  stroke: var(--color-success);
+}
+
+.print-temp-chart-marker {
+  stroke-width: 2;
+  fill: var(--color-block-surface);
 }
 
 .print-temp-chart-axis-label,

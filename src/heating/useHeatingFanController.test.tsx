@@ -44,6 +44,8 @@ function TestHarness({
       <span data-testid="chart-series">{JSON.stringify(controller.temperatureChartSeries)}</span>
       <span data-testid="keyboard-target">{controller.heatingProps.temperatureKeyboardTarget ?? 'closed'}</span>
       <span data-testid="keyboard-value">{controller.heatingProps.temperatureKeyboardValue}</span>
+      <span data-testid="nozzle-max">{controller.heatingProps.rows.find((row) => row.id === 'nozzle')?.maxTarget}</span>
+      <span data-testid="bed-max">{controller.heatingProps.rows.find((row) => row.id === 'bed')?.maxTarget}</span>
 
       <button type="button" onClick={() => controller.heatingProps.onTemperatureKeyboardOpen('nozzle')}>
         open nozzle
@@ -60,6 +62,12 @@ function TestHarness({
       <button type="button" onClick={() => controller.heatingProps.onHeatingDisable()}>
         cooldown
       </button>
+      <button type="button" onClick={() => controller.heatingProps.rows.find((row) => row.id === 'nozzle')?.onTargetChange(220)}>
+        nozzle step
+      </button>
+      <button type="button" onClick={() => controller.heatingProps.onHeatingPresetApply(210, 60)}>
+        heating preset
+      </button>
       <button type="button" onClick={() => controller.fanProps.onFanPercentChange(147)}>
         fan high
       </button>
@@ -70,55 +78,62 @@ function TestHarness({
 }
 
 describe('useHeatingFanController', () => {
-  it('uses only real snapshot temperatures for chart history', async () => {
+  it('keeps timestamped current and target values from real snapshots for five minutes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-24T12:00:00Z'))
     const executeCommand = vi.fn<TestHarnessProps['executeCommand']>()
       .mockResolvedValue(true)
     const { rerender } = render(<TestHarness executeCommand={executeCommand} />)
 
-    expect(JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')).toEqual([
-      {
-        id: 'nozzle',
-        label: 'Сопло',
-        tone: 'orange',
-        values: [201],
-        target: 215,
-      },
-      {
-        id: 'bed',
-        label: 'Стол',
-        tone: 'green',
-        values: [58],
-        target: 60,
-      },
-    ])
+    try {
+      expect(JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')).toEqual([
+        {
+          id: 'nozzle',
+          label: 'Сопло',
+          tone: 'orange',
+          points: [{ timestamp: Date.parse('2026-06-24T12:00:00Z'), current: 201, target: 215 }],
+        },
+        {
+          id: 'bed',
+          label: 'Стол',
+          tone: 'green',
+          points: [{ timestamp: Date.parse('2026-06-24T12:00:00Z'), current: 58, target: 60 }],
+        },
+      ])
 
-    rerender(
-      <TestHarness
-        executeCommand={executeCommand}
-        snapshot={{
-          ...DEFAULT_SNAPSHOT,
-          extruderTemp: 205,
-          bedTemp: 59,
-        }}
-      />,
-    )
+      vi.setSystemTime(new Date('2026-06-24T12:01:00Z'))
+      rerender(
+        <TestHarness
+          executeCommand={executeCommand}
+          snapshot={{
+            ...DEFAULT_SNAPSHOT,
+            thermalTargets: { nozzle: 230, bed: 60 },
+          }}
+        />,
+      )
 
-    expect(JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')).toEqual([
-      {
-        id: 'nozzle',
-        label: 'Сопло',
-        tone: 'orange',
-        values: [201, 205],
-        target: 215,
-      },
-      {
-        id: 'bed',
-        label: 'Стол',
-        tone: 'green',
-        values: [58, 59],
-        target: 60,
-      },
-    ])
+      expect(JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')[0].points).toEqual([
+        { timestamp: Date.parse('2026-06-24T12:00:00Z'), current: 201, target: 215 },
+        { timestamp: Date.parse('2026-06-24T12:01:00Z'), current: 201, target: 230 },
+      ])
+
+      vi.setSystemTime(new Date('2026-06-24T12:06:01Z'))
+      rerender(
+        <TestHarness
+          executeCommand={executeCommand}
+          snapshot={{
+            ...DEFAULT_SNAPSHOT,
+            extruderTemp: 202,
+          }}
+        />,
+      )
+
+      expect(JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')[0].points).toEqual([
+        { timestamp: Date.parse('2026-06-24T12:06:01Z'), current: 202, target: 215 },
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('submits normalized temperature target without showing it before snapshot updates', async () => {
@@ -145,7 +160,27 @@ describe('useHeatingFanController', () => {
     expect(executeCommand).toHaveBeenCalledWith({ command: 'setNozzleTarget', targetCelsius: 35 })
   })
 
-  it('turns heaters off and clamps fan command percent without optimistic UI state', async () => {
+  it('keeps clear-all and backspace as separate keyboard actions', async () => {
+    const executeCommand = vi.fn<TestHarnessProps['executeCommand']>()
+      .mockResolvedValue(true)
+
+    render(<TestHarness executeCommand={executeCommand} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'open nozzle' }))
+    fireEvent.click(screen.getByRole('button', { name: 'digit 3' }))
+    fireEvent.click(screen.getByRole('button', { name: 'digit 5' }))
+    expect(screen.getByTestId('keyboard-value')).toHaveTextContent('35')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить последний символ' }))
+    expect(screen.getByTestId('keyboard-value')).toHaveTextContent('3')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить температуру' }))
+    expect(screen.getByTestId('keyboard-value')).toBeEmptyDOMElement()
+    expect(screen.getByTestId('nozzle-max')).toHaveTextContent(String(TREED_V2_COREXY_V1_LIMITS.nozzleMaxC))
+    expect(screen.getByTestId('bed-max')).toHaveTextContent(String(TREED_V2_COREXY_V1_LIMITS.bedMaxC))
+  })
+
+  it('routes stepper, preset, cooldown and fan actions without optimistic UI state', async () => {
     const executeCommand = vi.fn<TestHarnessProps['executeCommand']>()
       .mockResolvedValue(true)
 
@@ -153,6 +188,8 @@ describe('useHeatingFanController', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'cooldown' }))
+      fireEvent.click(screen.getByRole('button', { name: 'nozzle step' }))
+      fireEvent.click(screen.getByRole('button', { name: 'heating preset' }))
       fireEvent.click(screen.getByRole('button', { name: 'fan high' }))
     })
 
@@ -160,6 +197,8 @@ describe('useHeatingFanController', () => {
     expect(screen.getByTestId('bed-target')).toHaveTextContent('60')
     expect(screen.getByTestId('fan-percent')).toHaveTextContent('43')
     expect(executeCommand).toHaveBeenCalledWith({ command: 'turnOffHeaters' })
+    expect(executeCommand).toHaveBeenCalledWith({ command: 'setNozzleTarget', targetCelsius: 220 })
+    expect(executeCommand).toHaveBeenCalledWith({ command: 'setHeatingTargets', nozzleCelsius: 210, bedCelsius: 60 })
     expect(executeCommand).toHaveBeenCalledWith({ command: 'setFanPercent', percent: 100 })
   })
 })

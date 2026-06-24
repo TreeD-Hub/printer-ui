@@ -106,8 +106,11 @@ type TemperatureTrendSeries = {
   id: 'nozzle' | 'bed'
   label: string
   tone: 'orange' | 'green'
-  values: number[]
-  target: number
+  points: Array<{
+    timestamp: number
+    current: number
+    target: number
+  }>
   unit?: string
 }
 
@@ -146,48 +149,67 @@ function formatNumericValue(value: number, fractionDigits: number): string {
   return value.toFixed(Math.max(0, fractionDigits))
 }
 
-function buildPolylinePoints(values: number[], min: number, max: number): string {
+function resolveChartX(timestamp: number, minTime: number, maxTime: number): number {
   const plotWidth = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right
+  const ratio = (timestamp - minTime) / Math.max(1, maxTime - minTime)
+  return CHART_PADDING.left + (ratio * plotWidth)
+}
+
+function buildPolylinePoints(
+  points: TemperatureTrendSeries['points'],
+  min: number,
+  max: number,
+  minTime: number,
+  maxTime: number,
+): string {
   const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom
   const safeRange = Math.max(1, max - min)
-  const safeCount = Math.max(2, values.length)
 
-  return values
-    .map((value, index) => {
-      const x = CHART_PADDING.left + ((index / (safeCount - 1)) * plotWidth)
-      const y = CHART_PADDING.top + plotHeight - (((value - min) / safeRange) * plotHeight)
+  return points
+    .map((point) => {
+      const x = resolveChartX(point.timestamp, minTime, maxTime)
+      const y = CHART_PADDING.top + plotHeight - (((point.current - min) / safeRange) * plotHeight)
       return `${x.toFixed(2)},${y.toFixed(2)}`
     })
     .join(' ')
 }
 
-function buildAreaPoints(values: number[], min: number, max: number): string {
+function buildAreaPoints(
+  points: TemperatureTrendSeries['points'],
+  min: number,
+  max: number,
+  minTime: number,
+  maxTime: number,
+): string {
   const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom
-  const polylinePoints = buildPolylinePoints(values, min, max)
-  const lastX = CHART_WIDTH - CHART_PADDING.right
+  const polylinePoints = buildPolylinePoints(points, min, max, minTime, maxTime)
+  const firstX = resolveChartX(points[0]?.timestamp ?? minTime, minTime, maxTime)
+  const lastX = resolveChartX(points.at(-1)?.timestamp ?? maxTime, minTime, maxTime)
   const bottomY = CHART_PADDING.top + plotHeight
-  return `${CHART_PADDING.left.toFixed(2)},${bottomY.toFixed(2)} ${polylinePoints} ${lastX.toFixed(2)},${bottomY.toFixed(2)}`
+  return `${firstX.toFixed(2)},${bottomY.toFixed(2)} ${polylinePoints} ${lastX.toFixed(2)},${bottomY.toFixed(2)}`
 }
 
-function buildTimeTickLabels(pointCount: number): Array<{ index: number; label: string }> {
-  if (pointCount <= 1) {
-    return [{ index: 0, label: '00:00' }]
+function formatChartTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+function buildTimeTickLabels(minTime: number, maxTime: number): Array<{ timestamp: number; label: string }> {
+  if (minTime === maxTime) {
+    return [{ timestamp: minTime, label: formatChartTime(minTime) }]
   }
 
-  const startDate = new Date()
-  startDate.setSeconds(0, 0)
-  startDate.setMinutes(startDate.getMinutes() - (pointCount - 1))
-  const visibleTickCount = Math.min(7, pointCount)
-  const step = (pointCount - 1) / Math.max(1, visibleTickCount - 1)
+  const durationMinutes = Math.max(1, Math.ceil((maxTime - minTime) / 60_000))
+  const visibleTickCount = Math.min(6, durationMinutes + 1)
 
   return Array.from({ length: visibleTickCount }, (_, tickIndex) => {
-    const index = Math.round(tickIndex * step)
-    const pointDate = new Date(startDate.getTime() + (index * 60_000))
-    const hours = String(pointDate.getHours()).padStart(2, '0')
-    const minutes = String(pointDate.getMinutes()).padStart(2, '0')
+    const ratio = tickIndex / Math.max(1, visibleTickCount - 1)
+    const timestamp = minTime + ((maxTime - minTime) * ratio)
     return {
-      index,
-      label: `${hours}:${minutes}`,
+      timestamp,
+      label: formatChartTime(timestamp),
     }
   })
 }
@@ -305,8 +327,11 @@ export function TuneCompactStepperInput({
 }
 
 export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartProps) {
-  const normalizedSeries = series.filter((item) => item.values.length > 1)
-  const allValues = normalizedSeries.flatMap((item) => item.values)
+  const normalizedSeries = series.filter((item) => item.points.length > 0)
+  const allPoints = normalizedSeries.flatMap((item) => item.points)
+  const allValues = allPoints.flatMap((point) => point.target > 0
+    ? [point.current, point.target]
+    : [point.current])
   const rawMaxValue = allValues.length > 0 ? Math.max(...allValues) : 100
   const rawMinValue = allValues.length > 0 ? Math.min(...allValues) : 0
   const yTicks = buildYAxisTicks(rawMinValue - 4, rawMaxValue + 4)
@@ -314,9 +339,9 @@ export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartP
   const maxValue = yTicks[yTicks.length - 1] ?? 100
   const plotWidth = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right
   const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom
-  const pointCount = normalizedSeries[0]?.values.length ?? 0
-  const timeTicks = buildTimeTickLabels(pointCount)
-  const lastPointIndex = Math.max(1, pointCount - 1)
+  const minTime = allPoints.length > 0 ? Math.min(...allPoints.map((point) => point.timestamp)) : 0
+  const maxTime = allPoints.length > 0 ? Math.max(...allPoints.map((point) => point.timestamp)) : minTime
+  const timeTicks = buildTimeTickLabels(minTime, maxTime)
 
   function resolveY(value: number): number {
     return CHART_PADDING.top + plotHeight - (((value - minValue) / Math.max(1, maxValue - minValue)) * plotHeight)
@@ -354,15 +379,15 @@ export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartP
         ))}
 
         {timeTicks.map((tick) => {
-          const x = CHART_PADDING.left + ((tick.index / lastPointIndex) * plotWidth)
+          const x = resolveChartX(tick.timestamp, minTime, maxTime)
           const textAnchor =
-            tick.index === 0
+            tick.timestamp === minTime
               ? 'start'
-              : tick.index === lastPointIndex
+              : tick.timestamp === maxTime
                 ? 'end'
                 : 'middle'
           return (
-            <g key={`time-tick-${tick.index}`}>
+            <g key={`time-tick-${tick.timestamp}`}>
               <line
                 x1={x}
                 y1={CHART_PADDING.top}
@@ -383,16 +408,35 @@ export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartP
         })}
 
         {normalizedSeries.map((item) => {
+          const lastPoint = item.points.at(-1)
+          const toneClassName = item.tone === 'orange' ? 'is-orange' : 'is-green'
+
           return (
             <g key={item.id}>
               <polygon
-                points={buildAreaPoints(item.values, minValue, maxValue)}
-                className={joinClassNames('print-temp-chart-area', item.tone === 'orange' ? 'is-orange' : 'is-green')}
+                points={buildAreaPoints(item.points, minValue, maxValue, minTime, maxTime)}
+                className={joinClassNames('print-temp-chart-area', toneClassName)}
               />
               <polyline
-                points={buildPolylinePoints(item.values, minValue, maxValue)}
-                className={joinClassNames('print-temp-chart-line', item.tone === 'orange' ? 'is-orange' : 'is-green')}
+                points={buildPolylinePoints(item.points, minValue, maxValue, minTime, maxTime)}
+                className={joinClassNames('print-temp-chart-line', toneClassName)}
+                data-testid={`chart-current-${item.id}`}
               />
+              {lastPoint !== undefined && lastPoint.target > 0 ? (
+                <polyline
+                  points={`${CHART_PADDING.left},${resolveY(lastPoint.target).toFixed(2)} ${CHART_WIDTH - CHART_PADDING.right},${resolveY(lastPoint.target).toFixed(2)}`}
+                  className={joinClassNames('print-temp-chart-target', toneClassName)}
+                  data-testid={`chart-target-${item.id}`}
+                />
+              ) : null}
+              {lastPoint !== undefined ? (
+                <circle
+                  cx={resolveChartX(lastPoint.timestamp, minTime, maxTime)}
+                  cy={resolveY(lastPoint.current)}
+                  r="3.5"
+                  className={joinClassNames('print-temp-chart-marker', toneClassName)}
+                />
+              ) : null}
             </g>
           )
         })}
