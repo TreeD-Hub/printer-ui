@@ -2911,7 +2911,8 @@ body {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  grid-template-rows: 48px 48px minmax(0, 1fr) 54px;
+  gap: 4px;
+  grid-template-rows: 40px 40px minmax(0, 1fr) 48px;
   align-content: stretch;
 }
 
@@ -2927,23 +2928,23 @@ body {
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-grid {
   min-height: 0;
-  gap: 8px;
+  gap: 4px;
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-submit {
-  height: 54px;
+  height: 48px;
   border-radius: 10px;
   font-family: var(--font-family-ui);
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-close {
-  width: 48px;
-  height: 48px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-display {
-  min-height: 48px;
+  min-height: 40px;
   border-radius: 10px;
   background: color-mix(in srgb, var(--color-surface-elevated) 84%, var(--color-block-surface));
   font-size: 24px;
