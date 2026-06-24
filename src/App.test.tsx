@@ -315,9 +315,8 @@ describe('App', () => {
     expect(toolheadLightButton).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(screen.getByTestId('control-group-movement'))
-    const moveButtonsMode = screen.getByTestId('move-mode-buttons')
 
-    expect(moveButtonsMode).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByTestId('move-mode-buttons')).not.toBeInTheDocument()
     expect(screen.queryByTestId('move-mode-joystick')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг Y в плюс' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг X в минус' })).toBeInTheDocument()

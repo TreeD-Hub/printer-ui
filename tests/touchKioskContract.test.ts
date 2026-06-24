@@ -15,10 +15,14 @@ describe('touch kiosk contract', () => {
     expect(appCss).toContain('overscroll-behavior: none;');
   });
 
-  test('hides mouse cursor and disables mouse-only hover styling in kiosk mode', () => {
+  test('hides mouse cursor only outside mock mode and disables mouse-only hover styling', () => {
+    const indexHtml = readFileSync('index.html', 'utf8');
+    const indexCss = readFileSync('src/index.css', 'utf8');
     const appCss = readFileSync('src/App.css', 'utf8');
 
-    expect(appCss).toContain('cursor: none !important;');
+    expect(indexHtml).toContain('data-runtime-mode="%MODE%"');
+    expect(indexCss).toContain("html:not([data-runtime-mode='mock'])");
+    expect(indexCss).toContain('cursor: none !important;');
     expect(appCss).not.toContain(':hover');
   });
 });
