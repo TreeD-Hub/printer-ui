@@ -60,6 +60,7 @@ export type UseHeatingFanControllerResult = {
   temperatureChartMode: TemperatureChartMode
   setTemperatureChartMode: (mode: TemperatureChartMode) => void
   handleTemperatureKeyboardDigit: (digit: string) => void
+  handleTemperatureKeyboardClear: () => void
   handleTemperatureKeyboardBackspace: () => void
   handleTemperatureKeyboardSubmit: () => void
   openTemperatureKeyboard: (target: TemperatureKeyboardTarget) => void
@@ -206,6 +207,10 @@ export function useHeatingFanController({
     setTemperatureKeyboardValue((current) => current.slice(0, -1))
   }
 
+  function handleTemperatureKeyboardClear(): void {
+    setTemperatureKeyboardValue('')
+  }
+
   async function handleTemperatureKeyboardSubmit(): Promise<void> {
     if (temperatureKeyboardTarget === null) {
       return
@@ -285,9 +290,10 @@ export function useHeatingFanController({
           <button
             type="button"
             className="settings-network-btn print-temp-keyboard-key"
-            onClick={handleTemperatureKeyboardBackspace}
+            onClick={handleTemperatureKeyboardClear}
+            aria-label="Очистить температуру"
           >
-            Стереть
+            C
           </button>
           <button
             type="button"
@@ -297,7 +303,14 @@ export function useHeatingFanController({
           >
             0
           </button>
-          <span className="print-temp-keyboard-spacer" aria-hidden="true" />
+          <button
+            type="button"
+            className="settings-network-btn print-temp-keyboard-key"
+            onClick={handleTemperatureKeyboardBackspace}
+            aria-label="Удалить последний символ"
+          >
+            ⌫
+          </button>
         </div>
         <button
           type="button"
@@ -361,6 +374,7 @@ export function useHeatingFanController({
     temperatureChartMode,
     setTemperatureChartMode,
     handleTemperatureKeyboardDigit,
+    handleTemperatureKeyboardClear,
     handleTemperatureKeyboardBackspace,
     handleTemperatureKeyboardSubmit,
     openTemperatureKeyboard,

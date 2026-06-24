@@ -18,6 +18,10 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
 }: HeatingControlPanelProps) {
   const lockPopupIdRef = useRef(0)
   const [lockPopup, setLockPopup] = useState<{ id: number; message: string } | null>(null)
+  const [visibleSeries, setVisibleSeries] = useState<Set<'nozzle' | 'bed'>>(
+    () => new Set(['nozzle', 'bed']),
+  )
+  const displayedSeries = chartSeries.filter((series) => visibleSeries.has(series.id))
 
   useEffect(() => {
     if (lockPopup === null) {
@@ -67,6 +71,18 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
     }
 
     onHeatingDisable()
+  }
+
+  function handleChartSeriesToggle(seriesId: 'nozzle' | 'bed'): void {
+    setVisibleSeries((current) => {
+      const next = new Set(current)
+      if (next.has(seriesId)) {
+        next.delete(seriesId)
+      } else {
+        next.add(seriesId)
+      }
+      return next
+    })
   }
 
   return (
@@ -136,9 +152,32 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
         <div className="control-heating-chart-block">
           <div className="print-temp-chart-head control-heating-chart-head">
             <p className="print-temp-chart-title">График нагрева</p>
+            <div className="control-heating-chart-legend" role="group" aria-label="Серии графика температур">
+              {chartSeries.map((series) => {
+                const latestPoint = series.points.at(-1)
+                const isVisible = visibleSeries.has(series.id)
+
+                return (
+                  <button
+                    key={series.id}
+                    type="button"
+                    className={`control-heating-chart-legend-btn${isVisible ? ' is-active' : ''}`}
+                    aria-pressed={isVisible}
+                    aria-label={`${isVisible ? 'Скрыть' : 'Показать'} ${series.label.toLowerCase()} на графике`}
+                    onClick={() => handleChartSeriesToggle(series.id)}
+                  >
+                    <span className={`control-heating-chart-legend-marker is-${series.tone}`} aria-hidden="true" />
+                    <span className="control-heating-chart-legend-label">{series.label}</span>
+                    <span className="control-heating-chart-legend-value">
+                      {Math.round(latestPoint?.current ?? 0)}° / {latestPoint !== undefined && latestPoint.target > 0 ? `${Math.round(latestPoint.target)}°` : '—'}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
           <TemperatureTrendChart
-            series={chartSeries}
+            series={displayedSeries}
             testId="control-heating-chart"
           />
         </div>
