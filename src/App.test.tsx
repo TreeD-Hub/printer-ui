@@ -206,6 +206,56 @@ describe('App', () => {
     }
   })
 
+  it('renders active print thermal and quick metrics from live snapshot', async () => {
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        connection: 'online',
+        state: 'printing',
+        extruderTemp: 193.4,
+        bedTemp: 52.7,
+        modelFanPercent: 37,
+        thermalTargets: {
+          nozzle: 245,
+          bed: 80,
+        },
+        runtimeTune: {
+          ...previousSnapshot.runtimeTune,
+          flowFactorPercent: 92,
+        },
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'queue/thermal_snapshot_check.gcode',
+          filePath: 'queue/thermal_snapshot_check.gcode',
+          state: 'printing',
+          progress: 0.42,
+          progressPercent: 42,
+          isActive: true,
+          isPaused: false,
+        },
+      })
+
+      render(<App />)
+
+      const nozzleGroup = await screen.findByTestId('print-tune-group-nozzle')
+      const bedGroup = screen.getByTestId('print-tune-group-bed')
+      const fanGroup = screen.getByTestId('print-tune-group-fan')
+      const flowGroup = screen.getByTestId('print-tune-group-flow')
+
+      expect(nozzleGroup).toHaveTextContent('193/245°C')
+      expect(bedGroup).toHaveTextContent('53/80°C')
+      expect(fanGroup).toHaveTextContent('37%')
+      expect(flowGroup).toHaveTextContent('92%')
+      expect(screen.getByTestId('print-heat-meter-nozzle-fill')).toHaveStyle({ width: '79%' })
+      expect(screen.getByTestId('print-heat-meter-bed-fill')).toHaveStyle({ width: '66%' })
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  })
+
   it('opens numeric keyboard for temperature input and applies value', async () => {
     render(<App />)
 

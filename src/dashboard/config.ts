@@ -4,12 +4,12 @@ export type TemperatureMetricDefinition = {
   key: 'nozzle' | 'bed'
   label: string
   target: number
-  meterTone: 'orange' | 'green'
+  meterTone: 'heat'
 }
 
 export const TEMPERATURE_METRIC_DEFINITIONS: readonly TemperatureMetricDefinition[] = [
-  { key: 'nozzle', label: 'Сопло', target: 220, meterTone: 'orange' },
-  { key: 'bed', label: 'Стол', target: 60, meterTone: 'green' },
+  { key: 'nozzle', label: 'Сопло', target: 220, meterTone: 'heat' },
+  { key: 'bed', label: 'Стол', target: 60, meterTone: 'heat' },
 ]
 
 export const DASHBOARD_VALUES = {

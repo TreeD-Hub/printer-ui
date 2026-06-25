@@ -41,8 +41,7 @@
   --color-preview-frame-stroke: rgba(244, 244, 240, 0.52); /* Внешняя линия превью модели. */
   --color-preview-cube-stroke: rgba(244, 244, 240, 0.72); /* Основная линия куба в превью модели. */
   --gradient-progress-print: linear-gradient(90deg, #ff2a2a 0%, #f4f4f0 56%, #8b8f8a 100%); /* Терминальная шкала прогресса. */
-  --gradient-meter-nozzle: linear-gradient(90deg, #ff2a2a 0%, #fff0b8 62%, #f4f4f0 100%); /* Шкала нагрева сопла. */
-  --gradient-meter-bed: linear-gradient(90deg, #8b8f8a 0%, #d9f7e5 58%, #f4f4f0 100%); /* Шкала нагрева стола. */
+  --gradient-meter-heat: linear-gradient(90deg, #f4f4f0 0%, color-mix(in srgb, var(--color-primary) 58%, #f4f4f0) 55%, var(--color-primary) 100%); /* Единая шкала нагрева от белого к заданному красному. */
   --terminal-red: #ff2a2a;
   --terminal-grid-dot: rgba(244, 244, 240, 0.11);
   --terminal-grid-line: rgba(244, 244, 240, 0.055);

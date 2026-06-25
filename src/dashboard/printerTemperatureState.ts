@@ -52,7 +52,7 @@ export function createTemperatureRuntimeState(
       rawCurrent,
       target,
       meterTone: definition.meterTone,
-      fillPercent: clampPercent(rawCurrent, target),
+      fillPercent: Math.round(clampPercent(rawCurrent, target)),
     }
   })
 

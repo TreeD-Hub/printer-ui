@@ -25,8 +25,9 @@ type TemperatureMetricProps = {
   label: string
   current: string
   target: number
-  meterTone: 'orange' | 'green'
+  meterTone: 'heat'
   fillPercent: number
+  meterFillTestId?: string
 }
 
 export function TemperatureMetric({
@@ -35,6 +36,7 @@ export function TemperatureMetric({
   target,
   meterTone,
   fillPercent,
+  meterFillTestId,
 }: TemperatureMetricProps) {
   return (
     <div className="metric">
@@ -46,7 +48,7 @@ export function TemperatureMetric({
         <span className="temp-unit">°C</span>
       </p>
       <div className={joinClassNames('meter', meterTone)}>
-        <div className="fill" style={{ width: `${fillPercent}%` }} />
+        <div className="fill" data-testid={meterFillTestId} style={{ width: `${fillPercent}%` }} />
       </div>
     </div>
   )

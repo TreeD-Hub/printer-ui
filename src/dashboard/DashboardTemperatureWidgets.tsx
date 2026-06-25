@@ -79,6 +79,7 @@ export const DashboardTemperatureMetricGrid = memo(function DashboardTemperature
             target={metric.target}
             meterTone={metric.meterTone}
             fillPercent={metric.fillPercent}
+            meterFillTestId={`print-heat-meter-${metric.key}-fill`}
           />
         </button>
       ))}

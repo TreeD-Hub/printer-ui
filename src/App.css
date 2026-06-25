@@ -5612,12 +5612,9 @@ body {
   border-radius: 999px;
 }
 
-.meter.orange .fill {
-  background: var(--gradient-meter-nozzle);
-}
-
-.meter.green .fill {
-  background: var(--gradient-meter-bed);
+.meter.heat .fill {
+  background: var(--gradient-meter-heat);
+  box-shadow: 0 0 12px var(--color-primary-glow);
 }
 
 .action-stack {
