@@ -54,6 +54,8 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
       return `Mock: nozzle target set to ${args.targetCelsius}C`
     case 'setBedTarget':
       return `Mock: bed target set to ${args.targetCelsius}C`
+    case 'setHeatingTargets':
+      return `Mock: heating targets set to nozzle ${args.nozzleCelsius}C, bed ${args.bedCelsius}C`
     case 'turnOffHeaters':
       return 'Mock: heaters off'
     case 'setFanPercent':
@@ -96,6 +98,46 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
       return 'Mock: host shutdown requested'
     default:
       return 'Mock: command executed'
+  }
+}
+
+function updateMockSnapshot(mutator: (snapshot: PrinterSnapshot) => void): void {
+  const snapshot = mockTransportSnapshot === null
+    ? createMockSnapshot()
+    : structuredClone(mockTransportSnapshot)
+
+  mutator(snapshot)
+  snapshot.updatedAt = nowIso()
+  snapshot.revisions.printerObjects.receivedAt = Date.now()
+  mockTransportSnapshot = snapshot
+}
+
+function applyMockCommandEffect(args: ExecuteCommandArgs): void {
+  switch (args.command) {
+    case 'setNozzleTarget':
+      updateMockSnapshot((snapshot) => {
+        snapshot.thermalTargets.nozzle = args.targetCelsius
+      })
+      return
+    case 'setBedTarget':
+      updateMockSnapshot((snapshot) => {
+        snapshot.thermalTargets.bed = args.targetCelsius
+      })
+      return
+    case 'setHeatingTargets':
+      updateMockSnapshot((snapshot) => {
+        snapshot.thermalTargets.nozzle = args.nozzleCelsius
+        snapshot.thermalTargets.bed = args.bedCelsius
+      })
+      return
+    case 'turnOffHeaters':
+      updateMockSnapshot((snapshot) => {
+        snapshot.thermalTargets.nozzle = 0
+        snapshot.thermalTargets.bed = 0
+      })
+      return
+    default:
+      return
   }
 }
 
@@ -315,6 +357,8 @@ export function createCommandClient(): CommandClient {
           at: nowIso(),
         }
       }
+
+      applyMockCommandEffect(args)
 
       return {
         command: args.command,

@@ -142,7 +142,6 @@ describe('App', () => {
     fireEvent.click(screen.getByTestId('control-group-heating'))
 
     const nozzleInput = screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement
-    const confirmedTargetBeforeCommand = nozzleInput.value
     fireEvent.focus(nozzleInput)
     expect(screen.getByRole('button', { name: 'Ввод' })).toBeInTheDocument()
 
@@ -169,7 +168,27 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.queryByRole('button', { name: 'Ввод' })).not.toBeInTheDocument()
     })
-    expect((screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement).value).toBe(confirmedTargetBeforeCommand)
+    await waitFor(() => {
+      expect((screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement).value).toBe('240')
+    }, { timeout: 3500 })
+
+    fireEvent.click(screen.getByTestId('control-heating-preset-abs'))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'setHeatingTargets',
+            nozzleCelsius: 245,
+            bedCelsius: 100,
+          }),
+        ]),
+      )
+    })
+    await waitFor(() => {
+      expect((screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement).value).toBe('245')
+      expect((screen.getByTestId('control-heating-bed-input') as HTMLInputElement).value).toBe('100')
+    }, { timeout: 3500 })
   }, 20000)
 
   it('routes print tune speed and Z-offset controls through printer commands', async () => {

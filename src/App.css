@@ -2004,8 +2004,8 @@ body {
 .control-card-fan {
   min-height: 0;
   height: 100%;
-  padding: 0;
-  gap: 0;
+  padding: 10px;
+  gap: 10px;
   align-content: stretch;
   grid-template-rows: minmax(0, 1fr);
   overflow: hidden;
@@ -2017,19 +2017,23 @@ body {
 
 .control-fan-body {
   min-height: 0;
-  padding: 22px;
+  padding: 0;
   display: grid;
-  grid-template-rows: auto minmax(116px, 1fr) auto 64px;
-  gap: 12px;
+  grid-template-rows: auto minmax(122px, 1fr) auto minmax(56px, auto);
+  gap: 10px;
   overflow: hidden;
 }
 
 .control-fan-summary {
-  min-height: 60px;
+  min-height: 74px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
-  gap: var(--space-md);
+  gap: 12px;
 }
 
 .control-fan-summary-copy {
@@ -2052,7 +2056,7 @@ body {
   overflow: hidden;
   color: var(--color-text-primary);
   font-family: var(--font-family-accent);
-  font-size: 24px;
+  font-size: 22px;
   font-weight: var(--font-weight-accent);
   line-height: 1.05;
   text-overflow: ellipsis;
@@ -2077,7 +2081,7 @@ body {
 }
 
 .control-fan-summary-value strong {
-  font-size: 48px;
+  font-size: 44px;
   font-weight: var(--font-weight-accent);
   line-height: 0.94;
 }
@@ -2090,13 +2094,14 @@ body {
 
 .control-fan-slider-panel {
   position: relative;
-  min-height: 116px;
-  padding: 18px;
+  min-height: 122px;
+  padding: 16px;
   display: grid;
-  grid-template-columns: 54px minmax(0, 1fr) 54px;
+  grid-template-columns: 58px minmax(0, 1fr) 58px;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   overflow: hidden;
+  background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
 }
 
 .control-fan-slider-panel::before {
@@ -2117,13 +2122,13 @@ body {
 }
 
 .control-fan-step-btn {
-  width: 54px;
-  height: 54px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--color-border-default) 86%, transparent);
-  background: color-mix(in srgb, var(--color-block-surface) 22%, transparent);
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 72%, transparent);
+  background: color-mix(in srgb, var(--color-surface-elevated) 72%, var(--color-block-surface));
   color: var(--color-text-primary);
-  font-size: 34px;
+  font-size: 32px;
   font-weight: var(--font-weight-regular);
   line-height: 1;
   cursor: pointer;
@@ -2134,6 +2139,8 @@ body {
 }
 
 .control-fan-step-btn:active {
+  border-color: var(--color-primary-ring);
+  background: var(--color-primary-surface-soft);
   transform: translateY(1px);
 }
 
@@ -2146,7 +2153,7 @@ body {
   --fan-slider-edge-inset: 20px;
   min-width: 0;
   display: grid;
-  gap: 2px;
+  gap: 4px;
 }
 
 .control-fan-design-slider {
@@ -2249,7 +2256,7 @@ body {
 }
 
 .control-fan-presets {
-  min-height: 58px;
+  min-height: 64px;
   display: grid;
   gap: 8px;
 }
@@ -2263,7 +2270,7 @@ body {
 }
 
 .control-fan-preset-row {
-  min-height: 42px;
+  min-height: 54px;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
@@ -2273,7 +2280,7 @@ body {
 .control-fan-preset-btn {
   position: relative;
   min-width: 0;
-  min-height: 42px;
+  min-height: 54px;
   border: 0;
   background: transparent;
   color: var(--color-text-secondary);
@@ -2281,6 +2288,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
+  padding: 0 8px;
   font-family: var(--font-family-accent);
   font-size: var(--font-size-body);
   line-height: 1;
@@ -2291,15 +2299,15 @@ body {
 .control-fan-preset-btn:not(:last-child)::after {
   content: '';
   position: absolute;
-  top: 8px;
+  top: 10px;
   right: 0;
-  bottom: 8px;
+  bottom: 10px;
   border-right: 1px dashed color-mix(in srgb, var(--color-border-default) 72%, transparent);
 }
 
 .control-fan-preset-dot {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   flex: 0 0 auto;
   border-radius: 999px;
   border: 1px solid currentColor;
@@ -2321,12 +2329,13 @@ body {
 }
 
 .control-fan-note {
-  min-height: 64px;
-  padding: 10px 18px;
+  min-height: 56px;
+  padding: 10px 14px;
   display: grid;
-  grid-template-columns: 30px minmax(0, 1fr) 54px;
+  grid-template-columns: 30px minmax(0, 1fr) 44px;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 12px;
+  background: color-mix(in srgb, var(--color-block-surface) 38%, transparent);
 }
 
 .control-fan-info-icon {
@@ -2358,7 +2367,7 @@ body {
 .control-fan-note-icon {
   justify-self: end;
   color: var(--color-text-soft);
-  opacity: 0.9;
+  opacity: 0.72;
 }
 
 .control-card-lighting {
@@ -2394,12 +2403,7 @@ body {
   cursor: pointer;
   transition:
     border-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.control-lighting-row:active {
-  transform: translateY(1px);
+    color 0.2s ease;
 }
 
 .control-lighting-icon {
@@ -2937,7 +2941,8 @@ body {
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-submit {
-  height: 48px;
+  height: 44px;
+  margin-top: 4px;
   border-radius: 10px;
   font-family: var(--font-family-ui);
 }
