@@ -179,6 +179,7 @@ export function DashboardPrintView({
                     value={metric.value}
                     unit={metric.unit}
                     valueClassName="process-value"
+                    valueTestId={`print-process-metric-${metric.key}-value`}
                   />
                 </button>
               ))}

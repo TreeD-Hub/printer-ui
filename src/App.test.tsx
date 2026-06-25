@@ -256,6 +256,45 @@ describe('App', () => {
     }
   })
 
+  it('renders active print process metrics from separate live tune fields', async () => {
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        connection: 'online',
+        state: 'printing',
+        runtimeTune: {
+          ...previousSnapshot.runtimeTune,
+          speedFactorPercent: 123,
+          accelMmS2: 7400,
+          pressureAdvance: 0.055,
+          retractLengthMm: 1.2,
+        },
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'queue/process_metrics_check.gcode',
+          filePath: 'queue/process_metrics_check.gcode',
+          state: 'printing',
+          progress: 0.42,
+          progressPercent: 42,
+          isActive: true,
+          isPaused: false,
+        },
+      })
+
+      render(<App />)
+
+      expect(await screen.findByTestId('print-process-metric-speed-value')).toHaveTextContent('123%')
+      expect(screen.getByTestId('print-process-metric-accel-value')).toHaveTextContent('7400мм/с²')
+      expect(screen.getByTestId('print-process-metric-kFactor-value')).toHaveTextContent('0.055')
+      expect(screen.getByTestId('print-process-metric-retract-value')).toHaveTextContent('1.2мм')
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  })
+
   it('opens numeric keyboard for temperature input and applies value', async () => {
     render(<App />)
 

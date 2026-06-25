@@ -7,13 +7,14 @@ type PlainMetricProps = {
   unit?: string
   className?: string
   valueClassName?: string
+  valueTestId?: string
 }
 
-export function PlainMetric({ label, value, unit, className, valueClassName }: PlainMetricProps) {
+export function PlainMetric({ label, value, unit, className, valueClassName, valueTestId }: PlainMetricProps) {
   return (
     <div className={joinClassNames('metric compact', className)}>
       <p className="label">{label}</p>
-      <p className={joinClassNames('value', valueClassName)}>
+      <p className={joinClassNames('value', valueClassName)} data-testid={valueTestId}>
         {value}
         {unit ? <span>{unit}</span> : null}
       </p>
