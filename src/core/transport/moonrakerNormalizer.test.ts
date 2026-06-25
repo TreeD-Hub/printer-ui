@@ -102,6 +102,23 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
           filament_total: 8150,
           filament_weight_total: 23.4,
           filament_name: 'PETG-CF',
+          thumbnails: [
+            {
+              width: 48,
+              height: 48,
+              relative_path: 'jobs/.thumbs/benchy-48x48.png',
+            },
+            {
+              width: 300,
+              height: 300,
+              relative_path: 'jobs/.thumbs/benchy-300x300.png',
+            },
+            {
+              width: 512,
+              height: 512,
+              relative_path: 'jobs/.thumbs/benchy-512x512.png',
+            },
+          ],
         },
       },
       {
@@ -121,6 +138,20 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         weight: '23 г',
         material: 'PETG-CF',
         addedAt: '2024-03-09T16:00:00.000Z',
+        preview: {
+          small: {
+            src: '/server/files/gcodes/jobs/.thumbs/benchy-48x48.png',
+            width: 48,
+            height: 48,
+            format: 'png',
+          },
+          large: {
+            src: '/server/files/gcodes/jobs/.thumbs/benchy-300x300.png',
+            width: 300,
+            height: 300,
+            format: 'png',
+          },
+        },
       },
     ])
   })

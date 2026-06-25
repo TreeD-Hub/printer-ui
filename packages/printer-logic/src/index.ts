@@ -330,6 +330,19 @@ export interface PrinterFileItem {
   weight: string
   material: string
   addedAt: string
+  preview?: PrinterFilePreview
+}
+
+export interface PrinterFilePreviewImage {
+  src: string
+  width: 48 | 300
+  height: 48 | 300
+  format: 'png'
+}
+
+export interface PrinterFilePreview {
+  small?: PrinterFilePreviewImage
+  large?: PrinterFilePreviewImage
 }
 
 export type PrinterFileSortKey = 'name' | 'addedAt'

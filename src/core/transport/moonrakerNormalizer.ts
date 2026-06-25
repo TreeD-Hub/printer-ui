@@ -24,6 +24,8 @@ import {
   normalizePrinterFileId,
   normalizePrinterFilePath,
   TREED_V2_COREXY_V1_LIMITS,
+  type PrinterFilePreview,
+  type PrinterFilePreviewImage,
 } from '@treed/printer-logic'
 
 const EXPECTED_UI_CONTRACT_VERSION = '1.0' as const
@@ -134,6 +136,22 @@ export interface MoonrakerPrintFileMetadata {
   filament_name?: string
   filament_type?: string
   slicer?: string
+  thumbnail?: MoonrakerPrintFileThumbnail | string
+  thumbnail_path?: string
+  thumbnails?: MoonrakerPrintFileThumbnail[]
+}
+
+export interface MoonrakerPrintFileThumbnail {
+  width?: number | string
+  height?: number | string
+  format?: string
+  type?: string
+  mime_type?: string
+  url?: string
+  path?: string
+  filename?: string
+  relative_path?: string
+  thumbnail_path?: string
 }
 
 export interface MoonrakerPrintFileInput {
@@ -394,6 +412,138 @@ function normalizeMaterial(metadata: MoonrakerPrintFileMetadata | undefined): st
   return firstNonEmpty(metadata?.filament_name, metadata?.filament_type, '—')
 }
 
+function encodeMoonrakerFilePath(path: string): string {
+  return normalizePrinterFilePath(path)
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/')
+}
+
+function normalizePreviewSrc(value: string): string | null {
+  const src = value.trim()
+  if (src.length === 0) {
+    return null
+  }
+
+  if (/^https?:\/\//i.test(src)) {
+    return src
+  }
+
+  if (src.startsWith('/server/files/')) {
+    return src
+  }
+
+  return `/server/files/gcodes/${encodeMoonrakerFilePath(src)}`
+}
+
+function getThumbnailSource(thumbnail: MoonrakerPrintFileThumbnail | string): string {
+  return typeof thumbnail === 'string'
+    ? thumbnail
+    : firstNonEmpty(
+        thumbnail.url,
+        thumbnail.relative_path,
+        thumbnail.thumbnail_path,
+        thumbnail.path,
+        thumbnail.filename,
+      )
+}
+
+function inferPreviewSizeFromSource(src: string): 48 | 300 | null {
+  const match = src.match(/(?:^|[^0-9])(48|300)x\1(?:[^0-9]|$)/i)
+  if (match?.[1] === '48') {
+    return 48
+  }
+  if (match?.[1] === '300') {
+    return 300
+  }
+
+  return null
+}
+
+function getPreviewSize(thumbnail: MoonrakerPrintFileThumbnail | string, src: string): 48 | 300 | null {
+  if (typeof thumbnail === 'string') {
+    return inferPreviewSizeFromSource(src)
+  }
+
+  const width = Math.round(toFiniteNumber(thumbnail.width, 0))
+  const height = Math.round(toFiniteNumber(thumbnail.height, 0))
+  if ((width === 48 || width === 300) && width === height) {
+    return width
+  }
+
+  return inferPreviewSizeFromSource(src)
+}
+
+function isPngThumbnail(thumbnail: MoonrakerPrintFileThumbnail | string, src: string): boolean {
+  if (typeof thumbnail !== 'string') {
+    const type = firstNonEmpty(thumbnail.format, thumbnail.type, thumbnail.mime_type).toLowerCase()
+    if (type === 'png' || type === 'image/png') {
+      return true
+    }
+  }
+
+  return src.split('?')[0]?.toLowerCase().endsWith('.png') === true
+}
+
+function normalizePreviewImage(thumbnail: MoonrakerPrintFileThumbnail | string): PrinterFilePreviewImage | null {
+  const rawSrc = getThumbnailSource(thumbnail)
+  const src = normalizePreviewSrc(rawSrc)
+  if (src === null || !isPngThumbnail(thumbnail, src)) {
+    return null
+  }
+
+  const size = getPreviewSize(thumbnail, src)
+  if (size === null) {
+    return null
+  }
+
+  return {
+    src,
+    width: size,
+    height: size,
+    format: 'png',
+  }
+}
+
+function normalizeFilePreview(metadata: MoonrakerPrintFileMetadata | undefined): PrinterFilePreview | undefined {
+  if (metadata === undefined) {
+    return undefined
+  }
+
+  const candidates: Array<MoonrakerPrintFileThumbnail | string> = [
+    ...(metadata.thumbnails ?? []),
+  ]
+  if (metadata.thumbnail !== undefined) {
+    candidates.push(metadata.thumbnail)
+  }
+  if (metadata.thumbnail_path !== undefined) {
+    candidates.push(metadata.thumbnail_path)
+  }
+
+  let small: PrinterFilePreviewImage | undefined
+  let large: PrinterFilePreviewImage | undefined
+  for (const candidate of candidates) {
+    const preview = normalizePreviewImage(candidate)
+    if (preview === null) {
+      continue
+    }
+
+    if (preview.width === 48 && small === undefined) {
+      small = preview
+    }
+    if (preview.width === 300 && large === undefined) {
+      large = preview
+    }
+  }
+
+  return small === undefined && large === undefined
+    ? undefined
+    : {
+        ...(small !== undefined ? { small } : {}),
+        ...(large !== undefined ? { large } : {}),
+      }
+}
+
 export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): PrinterFileItemSnapshot[] {
   return items
     .map((item): PrinterFileItemSnapshot | null => {
@@ -402,6 +552,8 @@ export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): 
       if (!path.toLowerCase().endsWith('.gcode')) {
         return null
       }
+
+      const preview = normalizeFilePreview(item.metadata)
 
       return {
         id: normalizePrinterFileId(path),
@@ -412,6 +564,7 @@ export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): 
         weight: formatFilamentWeight(item.metadata?.filament_weight_total),
         material: normalizeMaterial(item.metadata),
         addedAt: normalizeModifiedDate(item.modified),
+        ...(preview !== undefined ? { preview } : {}),
       }
     })
     .filter((item): item is PrinterFileItemSnapshot => item !== null)
