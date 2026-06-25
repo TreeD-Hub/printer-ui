@@ -1,4 +1,5 @@
 import type { ChangeEvent, MouseEvent, PointerEvent, ReactNode, RefObject } from 'react'
+import type { PrinterFilePreview } from '@treed/printer-logic'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { BABYSTEP_STEP_OPTIONS } from './config'
 import { DashboardPage } from './DashboardPage'
@@ -20,11 +21,14 @@ type DashboardPrintProps = {
   displayLayerCurrent: number
   displayLayerTotal: number
   displayPrintFileName: string | null
+  displayPrintFileNameScrollDistanceCh: number
   hasActivePrint: boolean
+  isDisplayPrintFileNameScrollable: boolean
   isBusy: boolean
   isPrintPaused: boolean
   pendingCommand: PrinterCommandId | null
   printCancelBlockReason: string | null
+  printFilePreview?: PrinterFilePreview
   printFill: number
   printPauseCommand: Extract<PrinterCommandId, 'pause' | 'resume'>
 }

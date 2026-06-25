@@ -149,8 +149,12 @@ function App() {
 
   const {
     files: effectiveFilesLibrary,
+    activePrintFile,
     selectedPrintFile,
     displayPrintFileName,
+    displayPrintFileNameScrollDistanceCh,
+    isDisplayPrintFileNameScrollable,
+    adjustedEtaTime,
     hasActivePrint,
     isPrintPaused,
     printPauseCommand,
@@ -174,7 +178,6 @@ function App() {
     keyboard: printTuneKeyboard,
     createQuickMetrics,
     processMetrics,
-    adjustedEtaTime,
     createModalValues,
     createModalHandlers,
   } = usePrintTuneController({
@@ -559,6 +562,9 @@ function App() {
     print: {
       hasActivePrint,
       displayPrintFileName,
+      displayPrintFileNameScrollDistanceCh,
+      isDisplayPrintFileNameScrollable,
+      printFilePreview: activePrintFile?.preview,
       printFill,
       adjustedEtaTime,
       displayLayerCurrent,

@@ -1,7 +1,8 @@
 import { type CSSProperties, useState } from 'react'
-import type { PrinterFilePreview, PrinterFilePreviewImage } from '@treed/printer-logic'
+import type { PrinterFilePreview } from '@treed/printer-logic'
 import { PrintPreviewIcon } from './PrintPreviewIcon'
 import { joinClassNames } from './classNames'
+import { getPreferredPreviewImage, getPreviewSrcSet } from './printFilePreview'
 
 type PrintFileCardProps = {
   name: string
@@ -12,18 +13,6 @@ type PrintFileCardProps = {
   isNameScrollable?: boolean
   onClick?: () => void
   className?: string
-}
-
-function getPreferredPreviewImage(preview: PrinterFilePreview | undefined): PrinterFilePreviewImage | null {
-  return preview?.large ?? preview?.small ?? null
-}
-
-function getPreviewSrcSet(preview: PrinterFilePreview | undefined): string | undefined {
-  const sources = [preview?.small, preview?.large]
-    .filter((item): item is PrinterFilePreviewImage => item !== undefined)
-    .map((item) => `${item.src} ${item.width}w`)
-
-  return sources.length > 1 ? sources.join(', ') : undefined
 }
 
 export function PrintFileCard({

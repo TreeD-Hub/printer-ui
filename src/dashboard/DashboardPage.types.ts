@@ -5,6 +5,7 @@ import type {
   ReactNode,
   RefObject,
 } from 'react'
+import type { PrinterFilePreview } from '@treed/printer-logic'
 import type { PrinterCommandId } from '../core/commands'
 
 export type DashboardTuneGroupId =
@@ -49,6 +50,9 @@ export type DashboardPageProps = {
   logoSrc: string
   hasActivePrint: boolean
   displayPrintFileName: string | null
+  displayPrintFileNameScrollDistanceCh: number
+  isDisplayPrintFileNameScrollable: boolean
+  printFilePreview?: PrinterFilePreview
   printFill: number
   adjustedEtaTime: string
   displayLayerCurrent: number
@@ -99,7 +103,9 @@ export type DashboardPrintViewProps = Pick<
   | 'displayLayerCurrent'
   | 'displayLayerTotal'
   | 'displayPrintFileName'
+  | 'displayPrintFileNameScrollDistanceCh'
   | 'isBusy'
+  | 'isDisplayPrintFileNameScrollable'
   | 'isPrintPaused'
   | 'onBabystepAdjust'
   | 'onBabystepStepChange'
@@ -108,6 +114,7 @@ export type DashboardPrintViewProps = Pick<
   | 'onStopRequest'
   | 'pendingCommand'
   | 'printCancelBlockReason'
+  | 'printFilePreview'
   | 'printFill'
   | 'printPauseBlockReason'
   | 'processMetrics'

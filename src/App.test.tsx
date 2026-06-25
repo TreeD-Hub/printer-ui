@@ -148,7 +148,7 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        updatedAt: '2026-06-25T09:15:00.000Z',
+        updatedAt: '2026-06-25T09:15:00',
         state: 'printing',
         printJob: {
           ...previousSnapshot.printJob,

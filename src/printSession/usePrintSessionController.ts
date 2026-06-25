@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  getPrinterFileNameFromPath,
+  normalizePrinterFilePath,
+} from '@treed/printer-logic'
 
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import type { PrinterSnapshot } from '../core/transport/types'
@@ -7,6 +11,7 @@ import { statusLabel } from '../dashboard/helpers'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from '../printFiles'
 
 type ActivePrintUiState = 'printing' | 'paused'
+const DASHBOARD_FILE_NAME_VISIBLE_CHARS = 20
 
 type CommandRuntimePrintJob = {
   filename?: string
@@ -40,8 +45,12 @@ type PrintSessionCommandHandlers = {
 
 export type UsePrintSessionControllerResult = {
   files: PrintFileItem[]
+  activePrintFile: PrintFileItem | null
   selectedPrintFile: PrintFileItem | null
   displayPrintFileName: string | null
+  displayPrintFileNameScrollDistanceCh: number
+  isDisplayPrintFileNameScrollable: boolean
+  adjustedEtaTime: string
   activePrintUiState: ActivePrintUiState | null
   effectiveActivePrintState: string
   hasActivePrint: boolean
@@ -68,6 +77,7 @@ export function usePrintSessionController({
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
   const [fileModalNotice, setFileModalNotice] = useState<string>('')
   const [activePrintFileName, setActivePrintFileName] = useState<string | null>(null)
+  const [mockActivePrintFile, setMockActivePrintFile] = useState<PrintFileItem | null>(null)
   const [activePrintUiState, setActivePrintUiState] = useState<ActivePrintUiState | null>(null)
   const [isPrintCancelConfirmOpen, setIsPrintCancelConfirmOpen] = useState<boolean>(false)
 
@@ -80,13 +90,27 @@ export function usePrintSessionController({
     return files.find((item) => item.id === selectedFileId) ?? null
   }, [files, selectedFileId])
 
+  const liveActivePrintFile = useMemo(() => {
+    if (snapshot.source !== 'live' || !snapshot.printJob.isActive) {
+      return null
+    }
+
+    return findActivePrintFile(files, snapshot.printJob.filePath, snapshot.printJob.filename)
+  }, [files, snapshot.printJob.filePath, snapshot.printJob.filename, snapshot.printJob.isActive, snapshot.source])
+  const activePrintFile = snapshot.source === 'live' ? liveActivePrintFile : mockActivePrintFile
   const displayPrintFileName = snapshot.source === 'live' && snapshot.printJob.isActive
-    ? snapshot.printJob.filename
+    ? (activePrintFile?.name ?? getPrinterFileNameFromPath(snapshot.printJob.filePath ?? snapshot.printJob.filename))
     : activePrintFileName
   const hasActivePrint = displayPrintFileName !== null
+  const displayPrintFileNameScrollDistanceCh = Math.max(
+    0,
+    (displayPrintFileName?.length ?? 0) - DASHBOARD_FILE_NAME_VISIBLE_CHARS,
+  )
+  const isDisplayPrintFileNameScrollable = displayPrintFileNameScrollDistanceCh > 0
   const printFill = snapshot.source === 'live'
     ? Math.round(clampValue(snapshot.printJob.progress * 100, 0, 100))
     : Math.max(0, Math.min(100, DASHBOARD_VALUES.progressPercent))
+  const adjustedEtaTime = getPrintEndTime(snapshot.updatedAt, activePrintFile, printFill)
   const displayLayerCurrent = snapshot.source === 'live'
     ? (snapshot.printJob.currentLayer ?? DASHBOARD_VALUES.layerCurrent)
     : DASHBOARD_VALUES.layerCurrent
@@ -162,6 +186,7 @@ export function usePrintSessionController({
     }
     if (displayPrintFileName === selectedPrintFile.name || displayPrintFileName === selectedPrintFile.path) {
       setActivePrintFileName(null)
+      setMockActivePrintFile(null)
       setActivePrintUiState(null)
     }
     closeFileModal()
@@ -203,6 +228,7 @@ export function usePrintSessionController({
 
       if (snapshot.source === 'mock') {
         setActivePrintFileName(selectedPrintFile.name)
+        setMockActivePrintFile(selectedPrintFile)
         setActivePrintUiState('printing')
       }
 
@@ -226,6 +252,7 @@ export function usePrintSessionController({
       const ok = await executeCommand({ command: 'cancel' })
       if (ok) {
         setActivePrintFileName(null)
+        setMockActivePrintFile(null)
         setActivePrintUiState(null)
         await refresh()
         onOpenDashboard()
@@ -275,8 +302,12 @@ export function usePrintSessionController({
 
   return {
     files,
+    activePrintFile,
     selectedPrintFile,
     displayPrintFileName,
+    displayPrintFileNameScrollDistanceCh,
+    isDisplayPrintFileNameScrollable,
+    adjustedEtaTime,
     activePrintUiState,
     effectiveActivePrintState,
     hasActivePrint,
@@ -298,4 +329,62 @@ export function usePrintSessionController({
 
 function clampValue(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
+}
+
+function findActivePrintFile(
+  files: readonly PrintFileItem[],
+  filePath: string | null,
+  filename: string,
+): PrintFileItem | null {
+  const normalizedCandidates = [filePath, filename]
+    .filter((value): value is string => value !== null && value.trim().length > 0)
+    .map((value) => normalizePrinterFilePath(value))
+
+  if (normalizedCandidates.length === 0) {
+    return null
+  }
+
+  return files.find((item) => {
+    const itemPath = normalizePrinterFilePath(item.path)
+    const itemName = normalizePrinterFilePath(item.name)
+
+    return normalizedCandidates.some((candidate) => (
+      candidate === itemPath ||
+      candidate === itemName ||
+      getPrinterFileNameFromPath(candidate) === item.name
+    ))
+  }) ?? null
+}
+
+function parsePrintTimeSeconds(printTime: string | undefined): number | null {
+  if (printTime === undefined) {
+    return null
+  }
+
+  const hoursMatch = /(\d+)\s*ч/i.exec(printTime)
+  const minutesMatch = /(\d+)\s*мин/i.exec(printTime)
+  const hours = hoursMatch === null ? 0 : Number(hoursMatch[1])
+  const minutes = minutesMatch === null ? 0 : Number(minutesMatch[1])
+  const seconds = ((hours * 60) + minutes) * 60
+
+  return seconds > 0 ? seconds : null
+}
+
+function getPrintEndTime(updatedAt: string, activePrintFile: PrintFileItem | null, printFill: number): string {
+  const totalSeconds = parsePrintTimeSeconds(activePrintFile?.printTime)
+  if (totalSeconds === null) {
+    return '—'
+  }
+
+  const baseTimeMs = Date.parse(updatedAt)
+  if (Number.isNaN(baseTimeMs)) {
+    return '—'
+  }
+
+  const remainingRatio = 1 - (clampValue(printFill, 0, 100) / 100)
+  const endTime = new Date(baseTimeMs + Math.round(totalSeconds * remainingRatio * 1000))
+  const hours = String(endTime.getHours()).padStart(2, '0')
+  const minutes = String(endTime.getMinutes()).padStart(2, '0')
+
+  return `${hours}:${minutes}`
 }

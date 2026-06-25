@@ -5329,6 +5329,20 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow: hidden;
+}
+
+.preview-inner.has-image {
+  background:
+    radial-gradient(circle at 1px 1px, var(--terminal-grid-dot) 0 1px, transparent 1.1px) 0 0 / 14px 14px,
+    var(--color-surface-track);
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
 }
 
 .preview-inner svg {
@@ -5391,6 +5405,48 @@ body {
   font-size: var(--font-size-heading-medium);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.job-name-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: top;
+}
+
+.job-name-text.is-scrollable {
+  max-width: none;
+  overflow: visible;
+  animation: job-name-scroll 12s linear infinite;
+  will-change: transform;
+}
+
+@keyframes job-name-scroll {
+  0%,
+  16% {
+    transform: translateX(0);
+  }
+
+  72%,
+  88% {
+    transform: translateX(calc(-1 * var(--job-name-scroll-distance, 0ch)));
+  }
+
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .job-name-text.is-scrollable {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    animation: none;
+  }
 }
 
 .job-metrics {

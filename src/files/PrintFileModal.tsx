@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import type { PrinterFilePreview, PrinterFilePreviewImage } from '@treed/printer-logic'
 import type { PrinterCommandId } from '../core/commands'
 import type { PrintFileItem } from '../printFiles'
 import { IconMask, PrintPreviewIcon, joinClassNames } from '../ui'
+import { getPreferredPreviewImage, getPreviewSrcSet } from '../ui/printFilePreview'
 
 const FILE_MODAL_TITLE_ID = 'print-file-modal-title'
 
@@ -15,18 +15,6 @@ type PrintFileModalProps = {
   onClose: () => void
   onStart: () => void
   onDelete: () => void
-}
-
-function getPreferredPreviewImage(preview: PrinterFilePreview | undefined): PrinterFilePreviewImage | null {
-  return preview?.large ?? preview?.small ?? null
-}
-
-function getPreviewSrcSet(preview: PrinterFilePreview | undefined): string | undefined {
-  const sources = [preview?.small, preview?.large]
-    .filter((item): item is PrinterFilePreviewImage => item !== undefined)
-    .map((item) => `${item.src} ${item.width}w`)
-
-  return sources.length > 1 ? sources.join(', ') : undefined
 }
 
 export function PrintFileModal({

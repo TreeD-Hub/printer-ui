@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import {
-  DASHBOARD_VALUES,
   PROCESS_METRIC_DEFINITIONS,
   QUICK_METRIC_DEFINITIONS,
 } from '../dashboard/config'
@@ -58,7 +57,6 @@ export type UsePrintTuneControllerResult = {
   keyboard: PrintTuneModalProps['keyboard']
   createQuickMetrics: (fanPercent: number) => QuickMetric[]
   processMetrics: ProcessMetric[]
-  adjustedEtaTime: string
   createModalValues: (args: CreateModalValuesArgs) => PrintTuneModalProps['values']
   createModalHandlers: (args: CreateModalHandlersArgs) => PrintTuneModalProps['handlers']
 }
@@ -313,7 +311,6 @@ export function usePrintTuneController({
     keyboard,
     createQuickMetrics,
     processMetrics,
-    adjustedEtaTime: DASHBOARD_VALUES.etaTime,
     createModalValues,
     createModalHandlers,
   }
