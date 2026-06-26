@@ -7,6 +7,7 @@ import {
 } from '@treed/printer-logic'
 import { createMockSnapshot } from '../../mocks/runtime'
 import type { HostNetworkClient } from '../core/hostNetwork'
+import type { HostUpdateClient } from '../core/hostUpdate'
 import {
   getSettingsKeyboardMeta,
   isSettingsKeyboardTarget,
@@ -53,6 +54,12 @@ const unavailableNetworkClient: HostNetworkClient = {
   forget: () => Promise.reject(new Error('offline')),
 }
 
+const unavailableUpdateClient: HostUpdateClient = {
+  getStatus: () => Promise.reject(new Error('offline')),
+  check: () => Promise.reject(new Error('offline')),
+  apply: () => Promise.reject(new Error('offline')),
+}
+
 function changeEvent(value: string): ChangeEvent<HTMLTextAreaElement> {
   return {
     target: {
@@ -94,6 +101,7 @@ describe('settings controller helpers', () => {
       snapshot: createMockSnapshot(),
       connectionLabel: 'Подключено',
       networkClient: unavailableNetworkClient,
+      updateClient: unavailableUpdateClient,
       executeCommand,
       getCommandBlockReason: () => null,
       activeKeyboardTarget: null,

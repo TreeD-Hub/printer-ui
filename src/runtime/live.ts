@@ -8,6 +8,10 @@ import {
   type HostNetworkClient,
   type HostNetworkStatus,
 } from '../core/hostNetwork'
+import {
+  createMoonrakerHostUpdateClient,
+  type HostUpdateClient,
+} from '../core/hostUpdate'
 import { createMoonrakerClient } from '../core/transport/moonrakerClient'
 import type { PrinterSource, TransportClient } from '../core/transport/types'
 
@@ -84,4 +88,8 @@ export function createHostNetworkClient(): HostNetworkClient {
       )
     },
   }
+}
+
+export function createHostUpdateClient(): HostUpdateClient {
+  return createMoonrakerHostUpdateClient()
 }

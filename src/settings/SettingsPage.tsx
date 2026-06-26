@@ -88,9 +88,12 @@ export type SettingsPageProps = {
   updates: {
     releaseResults: UpdateReleaseResult[]
     isCheckingUpdates: boolean
+    isApplyingUpdate: boolean
+    canApplySystemUpdate: boolean
     isCapabilityAvailable: boolean
     notice: string
     onCheckUpdates: () => void
+    onApplySystemUpdate: () => void
   }
   language: {
     languageValue: string
@@ -495,6 +498,19 @@ export function SettingsPage({
                   disabled={updates.isCheckingUpdates || !updates.isCapabilityAvailable}
                 >
                   {updates.isCheckingUpdates ? 'Проверка...' : 'Проверить обновления'}
+                </button>
+                <button
+                  type="button"
+                  className="settings-network-btn"
+                  onClick={updates.onApplySystemUpdate}
+                  data-testid="settings-apply-system-update-button"
+                  disabled={
+                    updates.isCheckingUpdates ||
+                    updates.isApplyingUpdate ||
+                    !updates.canApplySystemUpdate
+                  }
+                >
+                  {updates.isApplyingUpdate ? 'Запуск...' : 'Обновить систему'}
                 </button>
               </div>
               <p className="settings-cloud-notice">{updates.notice}</p>

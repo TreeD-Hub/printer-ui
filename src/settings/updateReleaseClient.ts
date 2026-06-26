@@ -17,6 +17,7 @@ export type UpdateReleaseResult = {
   latestVersion: string | null
   status: UpdateReleaseStatus
   message: string
+  canApply?: boolean
 }
 
 type GitHubRelease = {

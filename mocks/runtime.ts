@@ -4,6 +4,7 @@ import {
   type HostNetworkClient,
   type HostNetworkStatus,
 } from '../src/core/hostNetwork'
+import type { HostUpdateClient, HostUpdateStatus } from '../src/core/hostUpdate'
 import { TREED_V2_COREXY_V1_LIMITS, type PrinterCommandId } from '@treed/printer-logic'
 import type { PrinterSnapshot, PrinterSource, TransportClient } from '../src/core/transport/types'
 
@@ -14,6 +15,37 @@ let mockCommandOperations: ExecuteCommandArgs[] = []
 let mockTransportSnapshot: PrinterSnapshot | null = null
 let mockNetworkStatus = createUnavailableHostNetworkStatus('Host network bridge недоступен.')
 let mockNetworkOperations: string[] = []
+
+const mockUpdateStatus: HostUpdateStatus = {
+  available: true,
+  busy: false,
+  canApply: false,
+  message: 'Mock: GitHub Releases не проверяются.',
+  targetTag: null,
+  logPath: null,
+  releaseResults: [
+    {
+      id: 'treed-shell',
+      label: 'TreeD Shell UI',
+      currentVersion: '0.1.0',
+      latestTag: null,
+      latestVersion: '0.1.0',
+      status: 'mock',
+      message: 'Mock: GitHub Releases не проверяются.',
+      canApply: false,
+    },
+    {
+      id: 'treed-mainshellos',
+      label: 'TreeD MainShell OS',
+      currentVersion: '0.1.0',
+      latestTag: null,
+      latestVersion: '0.1.0',
+      status: 'mock',
+      message: 'Mock: GitHub Releases не проверяются.',
+      canApply: false,
+    },
+  ],
+}
 
 function nowIso(): string {
   return new Date().toISOString()
@@ -408,5 +440,23 @@ export function createHostNetworkClient(): HostNetworkClient {
       }
       return cloneHostNetworkStatus(mockNetworkStatus)
     },
+  }
+}
+
+function cloneMockUpdateStatus(status: HostUpdateStatus): HostUpdateStatus {
+  return {
+    ...status,
+    releaseResults: status.releaseResults.map((release) => ({ ...release })),
+  }
+}
+
+export function createHostUpdateClient(): HostUpdateClient {
+  return {
+    getStatus: () => Promise.resolve(cloneMockUpdateStatus(mockUpdateStatus)),
+    check: () => Promise.resolve(cloneMockUpdateStatus(mockUpdateStatus)),
+    apply: () => Promise.resolve({
+      ...cloneMockUpdateStatus(mockUpdateStatus),
+      message: 'Mock: системное обновление не запускается.',
+    }),
   }
 }

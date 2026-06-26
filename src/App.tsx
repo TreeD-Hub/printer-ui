@@ -1,5 +1,5 @@
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createHostNetworkClient } from '#runtime'
+import { createHostNetworkClient, createHostUpdateClient } from '#runtime'
 import { AppScreenContent } from './app/AppScreenContent'
 import {
   getTreeDCommandBlockReason,
@@ -232,10 +232,12 @@ function App() {
   const snapshotWifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const hostNetworkClient = useMemo(() => createHostNetworkClient(), [])
+  const hostUpdateClient = useMemo(() => createHostUpdateClient(), [])
   const settingsController = useSettingsController({
     snapshot,
     connectionLabel,
     networkClient: hostNetworkClient,
+    updateClient: hostUpdateClient,
     executeCommand,
     getCommandBlockReason,
     activeKeyboardTarget: isSettingsKeyboardTarget(activeKeyboardTarget) ? activeKeyboardTarget : null,
