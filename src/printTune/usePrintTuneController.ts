@@ -18,6 +18,7 @@ import {
 type UsePrintTuneControllerArgs = {
   hasActivePrint: boolean
   runtimeTune: PrinterRuntimeTuneSnapshot
+  onFanPercentChange: (value: number) => void
   onPrintSpeedFactorPercentChange: (value: number) => void
   onPrintFlowFactorPercentChange: (value: number) => void
   onPrintAccelChange: (value: number) => void
@@ -64,6 +65,7 @@ export type UsePrintTuneControllerResult = {
 export function usePrintTuneController({
   hasActivePrint,
   runtimeTune,
+  onFanPercentChange,
   onPrintSpeedFactorPercentChange,
   onPrintFlowFactorPercentChange,
   onPrintAccelChange,
@@ -123,6 +125,10 @@ export function usePrintTuneController({
   }, [accelMmS2, kFactor, retractMm, speedFactorPercent])
 
   const setKeyboardTargetValue = useCallback((target: PrintTuneNumericKeyboardTarget, value: number): void => {
+    if (target === 'fan') {
+      onFanPercentChange(Math.round(value))
+      return
+    }
     if (target === 'flow') {
       const nextValue = Math.round(value)
       setFlowPercent(nextValue)
@@ -150,6 +156,7 @@ export function usePrintTuneController({
     setRetractMm(value)
     onRetractionLengthChange(value)
   }, [
+    onFanPercentChange,
     onPressureAdvanceChange,
     onPrintAccelChange,
     onPrintFlowFactorPercentChange,

@@ -98,4 +98,41 @@ describe('PrintTuneModal', () => {
     expect(renderKeyboardPanel).toHaveBeenCalledWith('is-print-tune')
     expect(screen.getByTestId('print-temp-keyboard')).toHaveClass('is-print-tune')
   })
+
+  it('renders numeric print tune popups with the same single-row template as temperature', () => {
+    const props = createProps({
+      activeGroup: 'flow',
+      keyboard: {
+        ...createProps().keyboard,
+        target: 'flow',
+        value: '105',
+      },
+    })
+
+    render(<PrintTuneModal {...props} />)
+
+    const flowInput = screen.getByTestId('print-tune-flow-input')
+    const keyboardPanel = screen
+      .getByTestId('print-tune-keyboard-digit-1')
+      .closest('.print-temp-keyboard-side')
+
+    expect(flowInput.closest('.print-temp-workspace')).not.toBeNull()
+    expect(flowInput.closest('.print-temp-control-row')).not.toBeNull()
+    expect(flowInput.closest('.print-tune-compact-main-panel')).toBeNull()
+    expect(keyboardPanel).toHaveClass('is-print-tune')
+    expect(screen.getByTestId('print-tune-modal-apply-button')).toBeInTheDocument()
+    expect(screen.queryByTestId('print-tune-modal-close-button')).not.toBeInTheDocument()
+  })
+
+  it('renders fan through the same single-row tune input template', () => {
+    const props = createProps({ activeGroup: 'fan' })
+
+    render(<PrintTuneModal {...props} />)
+
+    const fanInput = screen.getByTestId('print-tune-fan-input')
+
+    expect(fanInput.closest('.print-temp-workspace')).not.toBeNull()
+    expect(fanInput.closest('.print-temp-control-row')).not.toBeNull()
+    expect(screen.queryByTestId('print-tune-fan-slider')).not.toBeInTheDocument()
+  })
 })

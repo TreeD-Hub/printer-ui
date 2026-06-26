@@ -38,6 +38,7 @@ function TestHarness({
   const controller = usePrintTuneController({
     hasActivePrint,
     runtimeTune,
+    onFanPercentChange,
     onPrintSpeedFactorPercentChange,
     onPrintFlowFactorPercentChange,
     onPrintAccelChange,
@@ -77,6 +78,9 @@ function TestHarness({
       </button>
       <button type="button" onClick={() => controller.keyboard.onOpen('speed')}>
         open speed keyboard
+      </button>
+      <button type="button" onClick={() => controller.keyboard.onOpen('fan')}>
+        open fan keyboard
       </button>
       <button type="button" onClick={() => controller.keyboard.onDigit('1')}>
         digit 1
@@ -154,6 +158,20 @@ describe('usePrintTuneController', () => {
     expect(screen.getByTestId('speed-value')).toHaveTextContent('125')
     expect(screen.getByTestId('speed-metric')).toHaveTextContent('125')
     expect(onPrintSpeedFactorPercentChange).toHaveBeenCalledWith(125)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'open fan keyboard' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'digit 1' }))
+      fireEvent.click(screen.getByRole('button', { name: 'digit 2' }))
+      fireEvent.click(screen.getByRole('button', { name: 'digit 5' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'submit' }))
+    })
+
+    expect(onFanPercentChange).toHaveBeenCalledWith(100)
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'set flow' }))

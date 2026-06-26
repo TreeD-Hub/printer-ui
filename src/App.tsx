@@ -147,6 +147,10 @@ function App() {
   const [isToolheadLightEnabled, setIsToolheadLightEnabled] = useState<boolean>(false)
   const maintenanceController = useMaintenanceController()
   const controlFlashTimeoutRef = useRef<number | null>(null)
+  const printTuneFanChangeRef = useRef<(value: number) => void>(() => undefined)
+  const handlePrintTuneFanPercentChange = useCallback((value: number): void => {
+    printTuneFanChangeRef.current(value)
+  }, [])
 
   const {
     files: effectiveFilesLibrary,
@@ -184,6 +188,7 @@ function App() {
   } = usePrintTuneController({
     hasActivePrint,
     runtimeTune: snapshot.runtimeTune,
+    onFanPercentChange: handlePrintTuneFanPercentChange,
     onPrintSpeedFactorPercentChange: handlePrintSpeedFactorChange,
     onPrintFlowFactorPercentChange: handlePrintFlowFactorChange,
     onPrintAccelChange: handlePrintAccelChange,
@@ -207,6 +212,7 @@ function App() {
     closeTemperatureKeyboard,
     handleFanPercentChange,
   } = heatingController
+  printTuneFanChangeRef.current = handleFanPercentChange
   const isFilesScreenActive = activeScreen === 'files'
   const formattedSnapshotTime = useMemo(() => {
     const parsed = new Date(snapshot.updatedAt)

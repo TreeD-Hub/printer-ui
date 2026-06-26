@@ -1,6 +1,7 @@
 import type { DashboardTuneGroupId } from '../dashboard/DashboardPage'
 
 export type PrintTuneNumericKeyboardTarget =
+  | 'fan'
   | 'flow'
   | 'speed'
   | 'accel'
@@ -69,6 +70,9 @@ export function formatTuneKeyboardValue(value: number, fractionDigits: number): 
 }
 
 export function resolvePrintTuneKeyboardMeta(target: PrintTuneNumericKeyboardTarget): PrintTuneKeyboardMeta {
+  if (target === 'fan') {
+    return { label: 'Обдув', unit: '%', min: 0, max: 100, fractionDigits: 0, allowDecimal: false }
+  }
   if (target === 'flow') {
     return { label: 'Поток', unit: '%', min: 50, max: 150, fractionDigits: 0, allowDecimal: false }
   }
