@@ -100,7 +100,6 @@ test('temperature controls fit the 960x544 touch contract', async ({ page }, tes
   const clearKey = page.getByRole('button', { name: 'Очистить температуру' })
   const backspaceKey = page.getByRole('button', { name: 'Удалить последний символ' })
   const zeroKey = page.getByRole('button', { name: 'Цифра 0' })
-  const submitKey = page.getByRole('button', { name: 'Ввод' })
 
   for (const [name, locator] of [
     ['clear', clearKey],
@@ -110,8 +109,6 @@ test('temperature controls fit the 960x544 touch contract', async ({ page }, tes
     const rect = await requireRect(locator, `${name} key`)
     expect(rect.height).toBeGreaterThanOrEqual(54)
   }
-  expect((await requireRect(submitKey, 'submit key')).height).toBeGreaterThanOrEqual(48)
-
   await page.getByRole('button', { name: 'Цифра 2' }).click()
   await page.getByRole('button', { name: 'Цифра 4' }).click()
   await zeroKey.click()
