@@ -100,6 +100,7 @@ test('temperature controls fit the 960x544 touch contract', async ({ page }, tes
   const clearKey = page.getByRole('button', { name: 'Очистить температуру' })
   const backspaceKey = page.getByRole('button', { name: 'Удалить последний символ' })
   const zeroKey = page.getByRole('button', { name: 'Цифра 0' })
+  const submitKey = page.getByRole('button', { name: 'Ввод' })
 
   for (const [name, locator] of [
     ['clear', clearKey],
