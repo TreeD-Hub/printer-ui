@@ -29,8 +29,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:7125 ws://127.0.0.1:7125 http://localhost:7125 ws://localhost:7125 https://api.github.com; img-src 'self' asset: http://asset.localhost data: https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
-      "devCsp": "default-src 'self' http://localhost:5173; connect-src ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 http://127.0.0.1:7125 ws://127.0.0.1:7125 http://localhost:7125 ws://localhost:7125 https://api.github.com; img-src 'self' asset: http://asset.localhost data: https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:7125 ws://127.0.0.1:7125 http://localhost:7125 ws://localhost:7125 https://api.github.com; img-src 'self' asset: http://asset.localhost data: http://127.0.0.1:7125 http://localhost:7125 https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "devCsp": "default-src 'self' http://localhost:5173; connect-src ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 http://127.0.0.1:7125 ws://127.0.0.1:7125 http://localhost:7125 ws://localhost:7125 https://api.github.com; img-src 'self' asset: http://asset.localhost data: http://127.0.0.1:7125 http://localhost:7125 https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
     }
   }
 }

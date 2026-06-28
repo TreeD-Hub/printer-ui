@@ -9,6 +9,34 @@ function jsonResponse(body: unknown): Response {
 }
 
 describe('Moonraker host update client', () => {
+  it('binds the default fetch implementation to the browser global', async () => {
+    const fetchMock = vi.fn(function (this: typeof globalThis) {
+      if (this !== globalThis) {
+        throw new TypeError('Illegal invocation')
+      }
+
+      return Promise.resolve(jsonResponse({
+        available: true,
+        busy: false,
+        canApply: false,
+        message: 'ready',
+        releaseResults: [],
+      }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    try {
+      const client = createMoonrakerHostUpdateClient({
+        moonrakerUrl: 'http://moonraker.local',
+      })
+
+      await expect(client.getStatus()).resolves.toMatchObject({ available: true })
+      expect(fetchMock).toHaveBeenCalledOnce()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
   it('normalizes status and sends the explicit apply target', async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(jsonResponse({

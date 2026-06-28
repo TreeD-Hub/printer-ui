@@ -31,13 +31,13 @@ describe('FilesPage', () => {
             addedAt: '2026-01-02T00:00:00.000Z',
             preview: {
               small: {
-                src: '/server/files/gcodes/.thumbs/short-48x48.png',
+                src: 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/short-48x48.png',
                 width: 48,
                 height: 48,
                 format: 'png',
               },
               large: {
-                src: '/server/files/gcodes/.thumbs/short-300x300.png',
+                src: 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/short-300x300.png',
                 width: 300,
                 height: 300,
                 format: 'png',
@@ -60,7 +60,7 @@ describe('FilesPage', () => {
     )
 
     const previewImage = screen.getByAltText('Предпросмотр short.gcode')
-    expect(previewImage).toHaveAttribute('src', '/server/files/gcodes/.thumbs/short-300x300.png')
+    expect(previewImage).toHaveAttribute('src', 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/short-300x300.png')
     expect(previewImage).toHaveAttribute('loading', 'lazy')
     expect(previewImage).toHaveAttribute('decoding', 'async')
     expect(screen.getByTestId('file-card-grid').getAttribute('style')).toContain('--file-name-scroll-duration')

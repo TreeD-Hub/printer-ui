@@ -47,7 +47,7 @@
   --terminal-grid-line: rgba(244, 244, 240, 0.055);
   --terminal-scanline: rgba(244, 244, 240, 0.035);
   --terminal-panel-sheen: rgba(244, 244, 240, 0.05);
-  --terminal-border-active: rgba(244, 244, 240, 0.86);
+  --terminal-border-active: rgba(244, 244, 240, 0.36);
 
   /* 00_Foundation: typography */
   --font-size-heading-large: 24px;

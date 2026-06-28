@@ -97,7 +97,7 @@ export function createMoonrakerHostNetworkClient(
 ): HostNetworkClient {
   const clientOptions = {
     moonrakerUrl: options.moonrakerUrl ?? moonrakerUrl,
-    fetchImpl: options.fetchImpl ?? fetch,
+    fetchImpl: options.fetchImpl ?? fetch.bind(globalThis),
   }
 
   return {

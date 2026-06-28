@@ -419,7 +419,17 @@ function encodeMoonrakerFilePath(path: string): string {
     .join('/')
 }
 
-function normalizePreviewSrc(value: string): string | null {
+type NormalizeMoonrakerPrintFilesOptions = {
+  moonrakerUrl?: string
+}
+
+function toMoonrakerUrl(path: string, moonrakerUrl: string | undefined): string {
+  return moonrakerUrl === undefined
+    ? path
+    : new URL(path, moonrakerUrl).toString()
+}
+
+function normalizePreviewSrc(value: string, moonrakerUrl: string | undefined): string | null {
   const src = value.trim()
   if (src.length === 0) {
     return null
@@ -430,10 +440,10 @@ function normalizePreviewSrc(value: string): string | null {
   }
 
   if (src.startsWith('/server/files/')) {
-    return src
+    return toMoonrakerUrl(src, moonrakerUrl)
   }
 
-  return `/server/files/gcodes/${encodeMoonrakerFilePath(src)}`
+  return toMoonrakerUrl(`/server/files/gcodes/${encodeMoonrakerFilePath(src)}`, moonrakerUrl)
 }
 
 function getThumbnailSource(thumbnail: MoonrakerPrintFileThumbnail | string): string {
@@ -485,9 +495,12 @@ function isPngThumbnail(thumbnail: MoonrakerPrintFileThumbnail | string, src: st
   return src.split('?')[0]?.toLowerCase().endsWith('.png') === true
 }
 
-function normalizePreviewImage(thumbnail: MoonrakerPrintFileThumbnail | string): PrinterFilePreviewImage | null {
+function normalizePreviewImage(
+  thumbnail: MoonrakerPrintFileThumbnail | string,
+  moonrakerUrl: string | undefined,
+): PrinterFilePreviewImage | null {
   const rawSrc = getThumbnailSource(thumbnail)
-  const src = normalizePreviewSrc(rawSrc)
+  const src = normalizePreviewSrc(rawSrc, moonrakerUrl)
   if (src === null || !isPngThumbnail(thumbnail, src)) {
     return null
   }
@@ -505,7 +518,10 @@ function normalizePreviewImage(thumbnail: MoonrakerPrintFileThumbnail | string):
   }
 }
 
-function normalizeFilePreview(metadata: MoonrakerPrintFileMetadata | undefined): PrinterFilePreview | undefined {
+function normalizeFilePreview(
+  metadata: MoonrakerPrintFileMetadata | undefined,
+  moonrakerUrl: string | undefined,
+): PrinterFilePreview | undefined {
   if (metadata === undefined) {
     return undefined
   }
@@ -523,7 +539,7 @@ function normalizeFilePreview(metadata: MoonrakerPrintFileMetadata | undefined):
   let small: PrinterFilePreviewImage | undefined
   let large: PrinterFilePreviewImage | undefined
   for (const candidate of candidates) {
-    const preview = normalizePreviewImage(candidate)
+    const preview = normalizePreviewImage(candidate, moonrakerUrl)
     if (preview === null) {
       continue
     }
@@ -544,7 +560,10 @@ function normalizeFilePreview(metadata: MoonrakerPrintFileMetadata | undefined):
       }
 }
 
-export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): PrinterFileItemSnapshot[] {
+export function normalizeMoonrakerPrintFiles(
+  items: MoonrakerPrintFileInput[],
+  options: NormalizeMoonrakerPrintFilesOptions = {},
+): PrinterFileItemSnapshot[] {
   return items
     .map((item): PrinterFileItemSnapshot | null => {
       const path = normalizePrinterFilePath(firstNonEmpty(item.path, item.filename))
@@ -553,7 +572,7 @@ export function normalizeMoonrakerPrintFiles(items: MoonrakerPrintFileInput[]): 
         return null
       }
 
-      const preview = normalizeFilePreview(item.metadata)
+      const preview = normalizeFilePreview(item.metadata, options.moonrakerUrl)
 
       return {
         id: normalizePrinterFileId(path),
@@ -1017,7 +1036,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     thermalTargets: normalizeThermalTargets(status.extruder, status.heater_bed),
     runtimeTune: normalizeRuntimeTune(status.toolhead, gcodeMove, status.extruder, status.firmware_retraction, macros),
     macros,
-    printFiles: normalizeMoonrakerPrintFiles(options.printFiles ?? []),
+    printFiles: normalizeMoonrakerPrintFiles(options.printFiles ?? [], { moonrakerUrl: options.moonrakerUrl }),
     v2: normalizeV2Snapshot(macros, webhooks, homedAxes),
   }
 }

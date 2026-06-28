@@ -92,41 +92,44 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
   })
 
   it('normalizes Moonraker file list and metadata into V2 print cards', () => {
-    const files = normalizeMoonrakerPrintFiles([
-      {
-        path: 'jobs/benchy.gcode',
-        modified: 1710000000,
-        size: 24_576,
-        metadata: {
-          estimated_time: 3720,
-          filament_total: 8150,
-          filament_weight_total: 23.4,
-          filament_name: 'PETG-CF',
-          thumbnails: [
-            {
-              width: 48,
-              height: 48,
-              relative_path: 'jobs/.thumbs/benchy-48x48.png',
-            },
-            {
-              width: 300,
-              height: 300,
-              relative_path: 'jobs/.thumbs/benchy-300x300.png',
-            },
-            {
-              width: 512,
-              height: 512,
-              relative_path: 'jobs/.thumbs/benchy-512x512.png',
-            },
-          ],
+    const files = normalizeMoonrakerPrintFiles(
+      [
+        {
+          path: 'jobs/benchy.gcode',
+          modified: 1710000000,
+          size: 24_576,
+          metadata: {
+            estimated_time: 3720,
+            filament_total: 8150,
+            filament_weight_total: 23.4,
+            filament_name: 'PETG-CF',
+            thumbnails: [
+              {
+                width: 48,
+                height: 48,
+                relative_path: 'jobs/.thumbs/benchy-48x48.png',
+              },
+              {
+                width: 300,
+                height: 300,
+                relative_path: 'jobs/.thumbs/benchy-300x300.png',
+              },
+              {
+                width: 512,
+                height: 512,
+                relative_path: 'jobs/.thumbs/benchy-512x512.png',
+              },
+            ],
+          },
         },
-      },
-      {
-        path: 'calibration/readme.txt',
-        modified: 1710000500,
-        size: 1024,
-      },
-    ])
+        {
+          path: 'calibration/readme.txt',
+          modified: 1710000500,
+          size: 1024,
+        },
+      ],
+      { moonrakerUrl: 'http://127.0.0.1:7125' },
+    )
 
     expect(files).toEqual([
       {
@@ -140,13 +143,13 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         addedAt: '2024-03-09T16:00:00.000Z',
         preview: {
           small: {
-            src: '/server/files/gcodes/jobs/.thumbs/benchy-48x48.png',
+            src: 'http://127.0.0.1:7125/server/files/gcodes/jobs/.thumbs/benchy-48x48.png',
             width: 48,
             height: 48,
             format: 'png',
           },
           large: {
-            src: '/server/files/gcodes/jobs/.thumbs/benchy-300x300.png',
+            src: 'http://127.0.0.1:7125/server/files/gcodes/jobs/.thumbs/benchy-300x300.png',
             width: 300,
             height: 300,
             format: 'png',

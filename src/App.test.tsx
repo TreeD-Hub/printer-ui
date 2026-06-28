@@ -174,13 +174,13 @@ describe('App', () => {
             addedAt: '2026-06-25T08:00:00.000Z',
             preview: {
               small: {
-                src: '/server/files/gcodes/.thumbs/tower-48x48.png',
+                src: 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/tower-48x48.png',
                 width: 48,
                 height: 48,
                 format: 'png',
               },
               large: {
-                src: '/server/files/gcodes/.thumbs/tower-300x300.png',
+                src: 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/tower-300x300.png',
                 width: 300,
                 height: 300,
                 format: 'png',
@@ -195,7 +195,7 @@ describe('App', () => {
       })
 
       const previewImage = screen.getByAltText('Предпросмотр very_long_calibration_tower_for_scroll.gcode')
-      expect(previewImage).toHaveAttribute('src', '/server/files/gcodes/.thumbs/tower-300x300.png')
+      expect(previewImage).toHaveAttribute('src', 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/tower-300x300.png')
       expect(screen.getByText('very_long_calibration_tower_for_scroll.gcode')).toHaveClass('is-scrollable')
       expect(screen.getByText('25%')).toBeInTheDocument()
       expect(screen.getByText('09:45')).toBeInTheDocument()
