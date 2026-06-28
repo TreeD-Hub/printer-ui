@@ -19,7 +19,7 @@
     "test": "npm run test:logic && npm run test:ui",
     "test:logic": "npm run test --workspace @treed/printer-logic",
     "test:ui": "vitest run --pool=forks",
-    "test:e2e": "playwright test",
+    "test:e2e": "npm run build:logic && playwright test",
     "quality": "npm run lint && npm run typecheck && npm run test && npm run build:all",
     "build": "npm run build:ui:printer",
     "build:all": "npm run build:ui:printer && npm run build:web-ui",

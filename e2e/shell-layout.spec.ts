@@ -64,6 +64,7 @@ test('shell exposes nothing terminal visual contract', async ({ page }) => {
       statusLogoFont: statusLogo ? getComputedStyle(statusLogo).fontFamily : '',
       activeNavRadius: navItem ? Number.parseFloat(getComputedStyle(navItem).borderRadius) : -1,
       powerRadius: powerButton ? Number.parseFloat(getComputedStyle(powerButton).borderRadius) : -1,
+      activeBorderToken: getComputedStyle(root).getPropertyValue('--terminal-border-active').trim(),
       activeNavBorder: navItem ? getComputedStyle(navItem).borderColor : '',
       activeNavDot: navItem ? getComputedStyle(navItem, '::after').backgroundColor : '',
     }
@@ -75,7 +76,8 @@ test('shell exposes nothing terminal visual contract', async ({ page }) => {
   expect(contract.statusLogoFont).toContain('Cascadia Mono')
   expect(contract.activeNavRadius).toBeLessThanOrEqual(8)
   expect(contract.powerRadius).toBeLessThanOrEqual(8)
-  expect(contract.activeNavBorder).toBe('rgb(204, 204, 204)')
+  expect(contract.activeBorderToken).toBe('rgba(244, 244, 240, 0.36)')
+  expect(contract.activeNavBorder).toBe('rgba(244, 244, 240, 0.36)')
   expect(contract.activeNavDot).toBe('rgb(255, 42, 42)')
 })
 
