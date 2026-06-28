@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import type { PrinterConnectionState } from '../core/transport/types'
@@ -33,8 +33,8 @@ type TemperatureHistoryPoint = {
   bedTarget: number
 }
 
-const TEMPERATURE_HISTORY_WINDOW_MS = 5 * 60 * 1000
-const MAX_TEMPERATURE_HISTORY_POINTS = 300
+const TEMPERATURE_HISTORY_WINDOW_MS = 3 * 60 * 1000
+const TEMPERATURE_HISTORY_SAMPLE_INTERVAL_MS = 1_000
 const COMMAND_BUSY_REASON = 'Команда уже выполняется.'
 
 type UseHeatingFanControllerArgs = {
@@ -81,6 +81,7 @@ export function useHeatingFanController({
   const [temperatureHistory, setTemperatureHistory] = useState<TemperatureHistoryPoint[]>(() => (
     isTemperatureSnapshotConnected(snapshot) ? [createTemperatureHistoryPoint(snapshot)] : []
   ))
+  const latestTemperatureSnapshotRef = useRef(snapshot)
   const printNozzleTargetTemp = snapshot.thermalTargets.nozzle
   const printBedTargetTemp = snapshot.thermalTargets.bed
   const printFanPercent = Math.round(snapshot.modelFanPercent)
@@ -105,22 +106,28 @@ export function useHeatingFanController({
   const fanCommandBlockReason = isBusy ? COMMAND_BUSY_REASON : getCommandBlockReason('setFanPercent')
 
   useEffect(() => {
-    if (!isTemperatureSnapshotConnected(snapshot)) {
-      return
-    }
+    latestTemperatureSnapshotRef.current = snapshot
+  }, [snapshot])
 
-    const nextPoint = createTemperatureHistoryPoint(snapshot)
-    setTemperatureHistory((currentHistory) => {
-      const cutoffTimestamp = nextPoint.timestamp - TEMPERATURE_HISTORY_WINDOW_MS
-      const visibleHistory = currentHistory.filter((point) => point.timestamp >= cutoffTimestamp)
-      const lastPoint = visibleHistory.at(-1)
-      if (lastPoint !== undefined && hasSameThermalValues(lastPoint, nextPoint)) {
-        return visibleHistory
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const latestSnapshot = latestTemperatureSnapshotRef.current
+      if (!isTemperatureSnapshotConnected(latestSnapshot)) {
+        return
       }
 
-      return [...visibleHistory, nextPoint].slice(-MAX_TEMPERATURE_HISTORY_POINTS)
-    })
-  }, [snapshot])
+      const nextPoint = createTemperatureHistoryPoint(latestSnapshot)
+      setTemperatureHistory((currentHistory) => {
+        const cutoffTimestamp = nextPoint.timestamp - TEMPERATURE_HISTORY_WINDOW_MS
+        return [
+          ...currentHistory.filter((point) => point.timestamp >= cutoffTimestamp),
+          nextPoint,
+        ]
+      })
+    }, TEMPERATURE_HISTORY_SAMPLE_INTERVAL_MS)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   const temperatureChartSeries = useMemo<TemperatureChartSeries[]>(
     () => [
@@ -396,11 +403,4 @@ function createTemperatureHistoryPoint(snapshot: HeatingSnapshot): TemperatureHi
     bed: snapshot.bedTemp,
     bedTarget: snapshot.thermalTargets.bed,
   }
-}
-
-function hasSameThermalValues(left: TemperatureHistoryPoint, right: TemperatureHistoryPoint): boolean {
-  return left.nozzle === right.nozzle &&
-    left.nozzleTarget === right.nozzleTarget &&
-    left.bed === right.bed &&
-    left.bedTarget === right.bedTarget
 }

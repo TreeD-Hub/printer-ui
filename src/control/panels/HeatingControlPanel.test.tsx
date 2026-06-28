@@ -44,6 +44,26 @@ function createProps(): HeatingControlPanelProps {
 }
 
 describe('HeatingControlPanel', () => {
+  it('shows subscription temperatures independently from one-second chart samples', () => {
+    const props = createProps()
+    props.rows = [{
+      id: 'nozzle',
+      keyboardTarget: 'nozzle',
+      icon: 'metricNozzle',
+      uiLabel: 'Сопло',
+      tone: 'orange',
+      current: 31.2,
+      target: 225,
+      maxTarget: 300,
+      onTargetChange: vi.fn(),
+      testIdPrefix: 'nozzle',
+    }]
+
+    render(<HeatingControlPanel {...props} />)
+
+    expect(screen.getByRole('button', { name: 'Скрыть сопло на графике' })).toHaveTextContent('31° / 225°')
+  })
+
   it('toggles chart series without calling a printer action', () => {
     const props = createProps()
     render(<HeatingControlPanel {...props} />)

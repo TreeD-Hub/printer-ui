@@ -21,6 +21,7 @@ const mockUpdateStatus: HostUpdateStatus = {
   busy: false,
   canApply: false,
   message: 'Mock: GitHub Releases не проверяются.',
+  targetId: null,
   targetTag: null,
   logPath: null,
   releaseResults: [

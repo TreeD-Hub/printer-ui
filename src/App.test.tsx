@@ -955,7 +955,8 @@ describe('App', () => {
     expect(screen.getByText('TreeD Shell UI')).toBeInTheDocument()
     expect(screen.getByText('TreeD MainShell OS')).toBeInTheDocument()
     expect(screen.getAllByText('Mock')).toHaveLength(2)
-    expect(screen.getByTestId('settings-apply-system-update-button')).toBeDisabled()
+    expect(screen.getByTestId('settings-apply-treed-shell-button')).toBeDisabled()
+    expect(screen.getByTestId('settings-apply-treed-mainshellos-button')).toBeDisabled()
 
     fireEvent.click(screen.getByTestId('settings-group-console'))
     const consoleInput = screen.getByTestId('settings-console-input') as HTMLTextAreaElement

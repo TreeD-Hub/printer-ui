@@ -18,6 +18,7 @@ import {
   isMoonrakerHostUpdateEndpointUnavailable,
   type HostUpdateClient,
   type HostUpdateStatus,
+  type HostUpdateTargetId,
 } from '../core/hostUpdate'
 import type { PrinterSnapshot } from '../core/transport/types'
 import {
@@ -143,8 +144,7 @@ export function useSettingsController({
   const [isCloudAiMonitoringEnabled, setIsCloudAiMonitoringEnabled] = useState<boolean>(false)
   const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Сервис облака не подключен.')
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
-  const [isApplyingUpdate, setIsApplyingUpdate] = useState<boolean>(false)
-  const [canApplySystemUpdate, setCanApplySystemUpdate] = useState<boolean>(false)
+  const [applyingUpdateTarget, setApplyingUpdateTarget] = useState<HostUpdateTargetId | null>(null)
   const [updateReleaseResults, setUpdateReleaseResults] = useState(() =>
     runtimeMode === 'mock'
       ? createMockUpdateReleaseResults(UPDATE_RELEASE_TARGETS)
@@ -185,10 +185,6 @@ export function useSettingsController({
   const updateCapabilityNotice = isUpdatesCapabilityAvailable
     ? updateNotice
     : 'Недоступно: runtime не поддерживает fetch для проверки GitHub Releases.'
-  const mainShellUpdateResult = useMemo(
-    () => updateReleaseResults.find((release) => release.id === 'treed-mainshellos') ?? null,
-    [updateReleaseResults],
-  )
   const selectedWifiNetwork = useMemo(() => {
     if (selectedWifiNetworkId === null) {
       return null
@@ -287,6 +283,26 @@ export function useSettingsController({
       isDisposed = true
     }
   }, [applyHostNetworkError, applyHostNetworkStatus, networkClient])
+
+  useEffect(() => {
+    let isDisposed = false
+
+    void updateClient.getStatus()
+      .then((status) => {
+        if (!isDisposed) {
+          applyHostUpdateStatus(status)
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isDisposed && !isMoonrakerHostUpdateEndpointUnavailable(error)) {
+          setUpdateNotice(error instanceof Error ? error.message : 'Не удалось получить статус обновлений.')
+        }
+      })
+
+    return () => {
+      isDisposed = true
+    }
+  }, [updateClient])
 
   function handleWifiSearchQueryChange(event: ChangeEvent<HTMLInputElement>): void {
     setWifiSearchQuery(event.target.value)
@@ -441,7 +457,6 @@ export function useSettingsController({
     if (runtimeMode === 'mock') {
       setUpdateReleaseResults(createMockUpdateReleaseResults(UPDATE_RELEASE_TARGETS))
       setUpdateNotice('Mock: GitHub Releases не проверяются.')
-      setCanApplySystemUpdate(false)
       return
     }
 
@@ -453,7 +468,6 @@ export function useSettingsController({
     } catch (error) {
       if (!isMoonrakerHostUpdateEndpointUnavailable(error)) {
         setUpdateNotice(error instanceof Error ? error.message : 'Не удалось проверить host update endpoint.')
-        setCanApplySystemUpdate(false)
         return
       }
     } finally {
@@ -466,7 +480,6 @@ export function useSettingsController({
     const errorCount = results.filter((result) => result.status === 'error').length
 
     setUpdateReleaseResults(results)
-    setCanApplySystemUpdate(false)
     setUpdateNotice(
       errorCount > 0
         ? `Проверка завершена с ошибками: ${errorCount}.`
@@ -477,25 +490,24 @@ export function useSettingsController({
 
   function applyHostUpdateStatus(status: HostUpdateStatus): void {
     setUpdateReleaseResults(status.releaseResults)
-    setCanApplySystemUpdate(status.canApply)
     setUpdateNotice(status.message)
   }
 
-  async function handleApplySystemUpdate(): Promise<void> {
-    if (!canApplySystemUpdate || mainShellUpdateResult === null) {
-      setUpdateNotice('Системное обновление недоступно.')
+  async function handleApplyUpdate(targetId: HostUpdateTargetId): Promise<void> {
+    const release = updateReleaseResults.find((item) => item.id === targetId)
+    if (release?.canApply !== true || release.latestTag === null) {
+      setUpdateNotice(`Обновление ${release?.label ?? targetId} недоступно.`)
       return
     }
 
-    setIsApplyingUpdate(true)
+    setApplyingUpdateTarget(targetId)
     try {
-      const status = await updateClient.apply({ targetTag: mainShellUpdateResult.latestTag })
+      const status = await updateClient.apply({ targetId, targetTag: release.latestTag })
       applyHostUpdateStatus(status)
     } catch (error) {
-      setCanApplySystemUpdate(false)
-      setUpdateNotice(error instanceof Error ? error.message : 'Не удалось запустить системное обновление.')
+      setUpdateNotice(error instanceof Error ? error.message : `Не удалось запустить обновление ${release.label}.`)
     } finally {
-      setIsApplyingUpdate(false)
+      setApplyingUpdateTarget(null)
     }
   }
 
@@ -709,12 +721,11 @@ export function useSettingsController({
     updates: {
       releaseResults: updateReleaseResults,
       isCheckingUpdates,
-      isApplyingUpdate,
-      canApplySystemUpdate,
+      applyingUpdateTarget,
       isCapabilityAvailable: isUpdatesCapabilityAvailable,
       notice: updateCapabilityNotice,
       onCheckUpdates: handleCheckUpdates,
-      onApplySystemUpdate: handleApplySystemUpdate,
+      onApplyUpdate: handleApplyUpdate,
     },
     language: {
       languageValue,

@@ -9,7 +9,7 @@ function jsonResponse(body: unknown): Response {
 }
 
 describe('Moonraker host update client', () => {
-  it('normalizes status and sends apply target tag', async () => {
+  it('normalizes status and sends the explicit apply target', async () => {
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(jsonResponse({
         available: true,
@@ -58,14 +58,14 @@ describe('Moonraker host update client', () => {
       ],
     })
 
-    await expect(client.apply({ targetTag: 'v0.2.0' })).resolves.toMatchObject({
+    await expect(client.apply({ targetId: 'treed-mainshellos', targetTag: 'v0.2.0' })).resolves.toMatchObject({
       busy: true,
       targetTag: 'v0.2.0',
     })
     expect(fetchImpl).toHaveBeenLastCalledWith(
       'http://moonraker.local/server/treed/update/apply',
       expect.objectContaining({
-        body: JSON.stringify({ targetTag: 'v0.2.0' }),
+        body: JSON.stringify({ targetId: 'treed-mainshellos', targetTag: 'v0.2.0' }),
         method: 'POST',
       }),
     )

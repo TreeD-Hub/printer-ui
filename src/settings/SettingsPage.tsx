@@ -18,6 +18,7 @@ import {
   type WifiNetworkSecurity,
 } from './config'
 import type { UpdateReleaseResult, UpdateReleaseStatus } from './updateReleaseClient'
+import type { HostUpdateTargetId } from '../core/hostUpdate'
 
 export type ConsoleHistoryItem = {
   id: string
@@ -88,12 +89,11 @@ export type SettingsPageProps = {
   updates: {
     releaseResults: UpdateReleaseResult[]
     isCheckingUpdates: boolean
-    isApplyingUpdate: boolean
-    canApplySystemUpdate: boolean
+    applyingUpdateTarget: HostUpdateTargetId | null
     isCapabilityAvailable: boolean
     notice: string
     onCheckUpdates: () => void
-    onApplySystemUpdate: () => void
+    onApplyUpdate: (targetId: HostUpdateTargetId) => void
   }
   language: {
     languageValue: string
@@ -499,19 +499,30 @@ export function SettingsPage({
                 >
                   {updates.isCheckingUpdates ? 'Проверка...' : 'Проверить обновления'}
                 </button>
-                <button
-                  type="button"
-                  className="settings-network-btn"
-                  onClick={updates.onApplySystemUpdate}
-                  data-testid="settings-apply-system-update-button"
-                  disabled={
-                    updates.isCheckingUpdates ||
-                    updates.isApplyingUpdate ||
-                    !updates.canApplySystemUpdate
-                  }
-                >
-                  {updates.isApplyingUpdate ? 'Запуск...' : 'Обновить систему'}
-                </button>
+                {updates.releaseResults
+                  .filter((release): release is UpdateReleaseResult & { id: HostUpdateTargetId } => (
+                    release.id === 'treed-shell' || release.id === 'treed-mainshellos'
+                  ))
+                  .map((release) => (
+                    <button
+                      key={`${release.id}-apply`}
+                      type="button"
+                      className="settings-network-btn"
+                      onClick={() => updates.onApplyUpdate(release.id)}
+                      data-testid={`settings-apply-${release.id}-button`}
+                      disabled={
+                        updates.isCheckingUpdates ||
+                        updates.applyingUpdateTarget !== null ||
+                        release.canApply !== true
+                      }
+                    >
+                      {updates.applyingUpdateTarget === release.id
+                        ? 'Запуск...'
+                        : release.id === 'treed-shell'
+                          ? 'Обновить интерфейс'
+                          : 'Обновить систему'}
+                    </button>
+                  ))}
               </div>
               <p className="settings-cloud-notice">{updates.notice}</p>
             </div>

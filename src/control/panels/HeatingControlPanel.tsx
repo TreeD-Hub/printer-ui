@@ -155,6 +155,9 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
             <div className="control-heating-chart-legend" role="group" aria-label="Серии графика температур">
               {chartSeries.map((series) => {
                 const latestPoint = series.points.at(-1)
+                const liveRow = rows.find((row) => row.id === series.id)
+                const currentTemperature = liveRow?.current ?? latestPoint?.current ?? 0
+                const targetTemperature = liveRow?.target ?? latestPoint?.target ?? 0
                 const isVisible = visibleSeries.has(series.id)
 
                 return (
@@ -169,7 +172,7 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
                     <span className={`control-heating-chart-legend-marker is-${series.tone}`} aria-hidden="true" />
                     <span className="control-heating-chart-legend-label">{series.label}</span>
                     <span className="control-heating-chart-legend-value">
-                      {Math.round(latestPoint?.current ?? 0)}° / {latestPoint !== undefined && latestPoint.target > 0 ? `${Math.round(latestPoint.target)}°` : '—'}
+                      {Math.round(currentTemperature)}° / {targetTemperature > 0 ? `${Math.round(targetTemperature)}°` : '—'}
                     </span>
                   </button>
                 )

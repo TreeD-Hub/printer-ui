@@ -1,6 +1,7 @@
 import { moonrakerUrl } from '../config'
 
 type HostUpdateReleaseStatus = 'unknown' | 'latest' | 'available' | 'error' | 'mock'
+export type HostUpdateTargetId = 'treed-shell' | 'treed-mainshellos'
 
 export type HostUpdateReleaseResult = {
   id: string
@@ -18,19 +19,21 @@ export type HostUpdateStatus = {
   busy: boolean
   canApply: boolean
   message: string
+  targetId: HostUpdateTargetId | null
   targetTag: string | null
   logPath: string | null
   releaseResults: HostUpdateReleaseResult[]
 }
 
 export type HostUpdateApplyArgs = {
+  targetId: HostUpdateTargetId
   targetTag?: string | null
 }
 
 export type HostUpdateClient = {
   getStatus: () => Promise<HostUpdateStatus>
   check: () => Promise<HostUpdateStatus>
-  apply: (args?: HostUpdateApplyArgs) => Promise<HostUpdateStatus>
+  apply: (args: HostUpdateApplyArgs) => Promise<HostUpdateStatus>
 }
 
 export class MoonrakerHostUpdateError extends Error {
@@ -54,6 +57,10 @@ function readString(value: unknown, fallback: string): string {
 
 function readNullableString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
+function readTargetId(value: unknown): HostUpdateTargetId | null {
+  return value === 'treed-shell' || value === 'treed-mainshellos' ? value : null
 }
 
 function normalizeReleaseResult(value: unknown): HostUpdateReleaseResult | null {
@@ -104,6 +111,7 @@ function normalizeHostUpdateStatus(value: unknown): HostUpdateStatus {
     busy: record.busy === true,
     canApply: record.canApply === true,
     message: readString(record.message, 'Update status ready.'),
+    targetId: readTargetId(record.targetId),
     targetTag: readNullableString(record.targetTag),
     logPath: readNullableString(record.logPath),
     releaseResults,
@@ -170,9 +178,9 @@ export function createMoonrakerHostUpdateClient(
     check() {
       return requestHostUpdateStatus('/server/treed/update/check', { method: 'POST' }, clientOptions)
     },
-    apply(args = {}) {
+    apply(args) {
       return requestHostUpdateStatus('/server/treed/update/apply', {
-        body: JSON.stringify({ targetTag: args.targetTag ?? null }),
+        body: JSON.stringify({ targetId: args.targetId, targetTag: args.targetTag ?? null }),
         headers: { 'content-type': 'application/json' },
         method: 'POST',
       }, clientOptions)

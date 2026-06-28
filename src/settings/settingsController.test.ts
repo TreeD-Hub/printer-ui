@@ -7,7 +7,7 @@ import {
 } from '@treed/printer-logic'
 import { createMockSnapshot } from '../../mocks/runtime'
 import type { HostNetworkClient } from '../core/hostNetwork'
-import type { HostUpdateClient } from '../core/hostUpdate'
+import type { HostUpdateClient, HostUpdateStatus } from '../core/hostUpdate'
 import {
   getSettingsKeyboardMeta,
   isSettingsKeyboardTarget,
@@ -60,6 +60,38 @@ const unavailableUpdateClient: HostUpdateClient = {
   apply: () => Promise.reject(new Error('offline')),
 }
 
+const availableUpdateStatus: HostUpdateStatus = {
+  available: true,
+  busy: false,
+  canApply: true,
+  message: 'Проверка обновлений завершена.',
+  targetId: null,
+  targetTag: null,
+  logPath: '/tmp/treed-update-apply.log',
+  releaseResults: [
+    {
+      id: 'treed-shell',
+      label: 'TreeD Shell UI',
+      currentVersion: 'ui-main-15-1',
+      latestTag: 'ui-main-16-1',
+      latestVersion: 'ui-main-16-1',
+      status: 'available',
+      message: 'Доступен новый UI bundle.',
+      canApply: true,
+    },
+    {
+      id: 'treed-mainshellos',
+      label: 'TreeD MainShell OS',
+      currentVersion: '0.1.0',
+      latestTag: null,
+      latestVersion: null,
+      status: 'unknown',
+      message: 'Релиз системы не опубликован.',
+      canApply: false,
+    },
+  ],
+}
+
 function changeEvent(value: string): ChangeEvent<HTMLTextAreaElement> {
   return {
     target: {
@@ -69,6 +101,45 @@ function changeEvent(value: string): ChangeEvent<HTMLTextAreaElement> {
 }
 
 describe('settings controller helpers', () => {
+  it('loads host update status and applies the selected release target', async () => {
+    const apply = vi.fn().mockResolvedValue({
+      ...availableUpdateStatus,
+      busy: true,
+      canApply: false,
+      targetId: 'treed-shell',
+      targetTag: 'ui-main-16-1',
+    })
+    const updateClient: HostUpdateClient = {
+      getStatus: vi.fn().mockResolvedValue(availableUpdateStatus),
+      check: vi.fn().mockResolvedValue(availableUpdateStatus),
+      apply,
+    }
+    const { result } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(),
+      connectionLabel: 'Подключено',
+      networkClient: unavailableNetworkClient,
+      updateClient,
+      executeCommand: vi.fn().mockResolvedValue(true),
+      getCommandBlockReason: () => null,
+      activeKeyboardTarget: null,
+      openKeyboard: () => undefined,
+      closeKeyboard: () => undefined,
+    }))
+
+    await waitFor(() => {
+      expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true)
+    })
+
+    await act(async () => {
+      await result.current.pageProps.updates.onApplyUpdate('treed-shell')
+    })
+
+    expect(apply).toHaveBeenCalledWith({
+      targetId: 'treed-shell',
+      targetTag: 'ui-main-16-1',
+    })
+  })
+
   it('keeps connected Wi-Fi first and sorts the rest by signal after filtering', () => {
     expect(filterWifiNetworks(wifiNetworks, '5g').map((item) => item.id)).toEqual([
       'connected-home',

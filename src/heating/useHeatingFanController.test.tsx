@@ -78,7 +78,7 @@ function TestHarness({
 }
 
 describe('useHeatingFanController', () => {
-  it('keeps timestamped current and target values from real snapshots for five minutes', async () => {
+  it('samples the latest subscription temperature once per second', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-24T12:00:00Z'))
     const executeCommand = vi.fn<TestHarnessProps['executeCommand']>()
@@ -101,36 +101,55 @@ describe('useHeatingFanController', () => {
         },
       ])
 
-      vi.setSystemTime(new Date('2026-06-24T12:01:00Z'))
-      rerender(
-        <TestHarness
-          executeCommand={executeCommand}
-          snapshot={{
-            ...DEFAULT_SNAPSHOT,
-            thermalTargets: { nozzle: 230, bed: 60 },
-          }}
-        />,
-      )
-
-      expect(JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')[0].points).toEqual([
-        { timestamp: Date.parse('2026-06-24T12:00:00Z'), current: 201, target: 215 },
-        { timestamp: Date.parse('2026-06-24T12:01:00Z'), current: 201, target: 230 },
-      ])
-
-      vi.setSystemTime(new Date('2026-06-24T12:06:01Z'))
+      await act(async () => {
+        vi.advanceTimersByTime(250)
+      })
       rerender(
         <TestHarness
           executeCommand={executeCommand}
           snapshot={{
             ...DEFAULT_SNAPSHOT,
             extruderTemp: 202,
+            bedTemp: 59,
           }}
         />,
       )
 
+      await act(async () => {
+        vi.advanceTimersByTime(749)
+      })
       expect(JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')[0].points).toEqual([
-        { timestamp: Date.parse('2026-06-24T12:06:01Z'), current: 202, target: 215 },
+        { timestamp: Date.parse('2026-06-24T12:00:00Z'), current: 201, target: 215 },
       ])
+
+      await act(async () => {
+        vi.advanceTimersByTime(1)
+      })
+      expect(JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')[0].points).toEqual([
+        { timestamp: Date.parse('2026-06-24T12:00:00Z'), current: 201, target: 215 },
+        { timestamp: Date.parse('2026-06-24T12:00:01Z'), current: 202, target: 215 },
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps exactly the latest three minutes of one-second chart samples', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-24T12:00:00Z'))
+    const executeCommand = vi.fn<TestHarnessProps['executeCommand']>()
+      .mockResolvedValue(true)
+    render(<TestHarness executeCommand={executeCommand} />)
+
+    try {
+      await act(async () => {
+        vi.advanceTimersByTime(181_000)
+      })
+
+      const points = JSON.parse(screen.getByTestId('chart-series').textContent ?? '[]')[0].points
+      expect(points).toHaveLength(181)
+      expect(points[0]?.timestamp).toBe(Date.parse('2026-06-24T12:00:01Z'))
+      expect(points.at(-1)?.timestamp).toBe(Date.parse('2026-06-24T12:03:01Z'))
     } finally {
       vi.useRealTimers()
     }
