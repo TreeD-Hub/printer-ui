@@ -74,7 +74,6 @@ function isCommandConfirmed(
 }
 
 export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
-  const powerCapability = runtimeContext.capabilities.power
   const [pendingCommand, setPendingCommand] = useState<PrinterCommandId | null>(
     null,
   )
@@ -90,8 +89,8 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
   const runtimeContextRef = useRef(runtimeContext)
 
   const client = useMemo(() => {
-    return createCommandClient({ capabilities: { power: powerCapability } })
-  }, [powerCapability])
+    return createCommandClient()
+  }, [])
 
   runtimeContextRef.current = runtimeContext
 

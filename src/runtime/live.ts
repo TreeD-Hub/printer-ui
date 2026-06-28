@@ -15,20 +15,14 @@ import {
 import { createMoonrakerClient } from '../core/transport/moonrakerClient'
 import type { PrinterSource, TransportClient } from '../core/transport/types'
 
-type RuntimeCommandClientOptions = {
-  capabilities?: {
-    power?: boolean
-  }
-}
-
 export const runtimeMode: PrinterSource = 'live'
 
 export function createTransportClient(): TransportClient {
   return createMoonrakerClient()
 }
 
-export function createCommandClient(options: RuntimeCommandClientOptions = {}): CommandClient {
-  return createMoonrakerCommandClient(options)
+export function createCommandClient(): CommandClient {
+  return createMoonrakerCommandClient()
 }
 
 function isTauriRuntimeAvailable(): boolean {

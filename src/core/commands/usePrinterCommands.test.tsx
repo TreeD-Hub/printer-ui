@@ -40,6 +40,7 @@ const RUNTIME_CONTEXT: TreeDCommandRuntimeContext = {
   source: 'live',
   capabilities: ALL_CAPABILITIES,
   connection: 'online',
+  transportState: 'online',
   printJob: {
     filename: 'jobs/benchy.gcode',
     state: 'printing',

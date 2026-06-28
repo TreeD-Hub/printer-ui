@@ -298,27 +298,7 @@ describe('createMoonrakerCommandClient', () => {
     expect(fetchImpl).not.toHaveBeenCalled()
   })
 
-  it('rejects unsupported capability commands before hitting Moonraker', async () => {
-    const fetchMock = vi.fn()
-    const client = createMoonrakerCommandClient({
-      moonrakerUrl: 'http://moonraker.local',
-      fetchImpl: fetchMock,
-      capabilities: {
-        power: false,
-      },
-    })
-
-    await expect(client.execute({ command: 'shutdownHost' })).resolves.toEqual(
-      expect.objectContaining({
-        ok: false,
-        kind: 'unsupported',
-        message: expect.stringContaining('не поддерживается'),
-      }),
-    )
-    expect(fetchMock).not.toHaveBeenCalled()
-  })
-
-  it('routes enabled host power and service commands to Moonraker system endpoints', async () => {
+  it('routes host power commands without capability flags', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ result: 'ok' }),
@@ -326,9 +306,31 @@ describe('createMoonrakerCommandClient', () => {
     const client = createMoonrakerCommandClient({
       moonrakerUrl: 'http://moonraker.local',
       fetchImpl: fetchMock,
-      capabilities: {
-        power: true,
-      },
+    })
+
+    await client.execute({ command: 'rebootHost' })
+    await client.execute({ command: 'shutdownHost' })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://moonraker.local/machine/reboot',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://moonraker.local/machine/shutdown',
+      expect.objectContaining({ method: 'POST' }),
+    )
+  })
+
+  it('routes host power and service commands to Moonraker system endpoints', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: 'ok' }),
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
     })
 
     await client.execute({ command: 'rebootHost' })

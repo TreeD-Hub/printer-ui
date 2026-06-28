@@ -25,7 +25,6 @@ type UseTopStatusControllerResult = {
   activeTopPopup: TopStatusButtonId | null
   topPopupPosition: TopPopupPosition | null
   powerMenuActions: PowerMenuActionState[]
-  powerPopupNotice: string
   armedPowerCommand: PrinterCommandId | null
   hasUnreadPrinterNotification: boolean
   openTopPopup: (id: TopStatusButtonId) => void
@@ -52,7 +51,6 @@ export function useTopStatusController({
   })
   const [activeTopPopup, setActiveTopPopup] = useState<TopStatusButtonId | null>(null)
   const [lastReadPrinterNotificationId, setLastReadPrinterNotificationId] = useState<string | null>(null)
-  const [powerPopupNotice, setPowerPopupNotice] = useState<string>('')
   const [armedPowerCommand, setArmedPowerCommand] = useState<PrinterCommandId | null>(null)
   const [topPopupPosition, setTopPopupPosition] = useState<TopPopupPosition | null>(null)
   const hasUnreadPrinterNotification =
@@ -97,7 +95,6 @@ export function useTopStatusController({
         closeTopPopup()
         return
       }
-      setPowerPopupNotice('')
       setArmedPowerCommand(null)
       setTopPopupPosition(readTopPopupPosition(id))
       setActiveTopPopup(id)
@@ -110,25 +107,21 @@ export function useTopStatusController({
   }, [])
 
   const onPowerMenuAction = useCallback((command: PowerMenuCommand): void => {
-    const action = POWER_MENU_ACTIONS.find((item) => item.command === command)
     const blockReason = getCommandBlockReason(command)
 
     if (blockReason !== null) {
-      setPowerPopupNotice(blockReason)
       setArmedPowerCommand(null)
       return
     }
 
     if (requiresCommandConfirmation(command) && armedPowerCommand !== command) {
       setArmedPowerCommand(command)
-      setPowerPopupNotice(`Подтвердите действие повторным нажатием: ${action?.label ?? command}.`)
       return
     }
 
     void executeCommand({ command }).then((ok) => {
       setArmedPowerCommand(null)
       if (ok) {
-        setPowerPopupNotice(`Команда отправлена: ${action?.label ?? command}.`)
         void refresh()
       }
     })
@@ -179,7 +172,6 @@ export function useTopStatusController({
     activeTopPopup,
     topPopupPosition,
     powerMenuActions,
-    powerPopupNotice,
     armedPowerCommand,
     hasUnreadPrinterNotification,
     openTopPopup,

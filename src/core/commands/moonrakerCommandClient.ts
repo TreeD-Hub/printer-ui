@@ -8,19 +8,13 @@ import { MoonrakerTransportError } from '../transport/moonrakerClient'
 import type {
   CommandClient,
   CommandResult,
-  CommandUnsupportedResult,
   ExecuteCommandArgs,
 } from './types'
-
-type CommandCapabilityOptions = {
-  power?: boolean
-}
 
 type MoonrakerCommandClientOptions = {
   moonrakerUrl?: string
   fetchImpl?: typeof fetch
   fetchTimeoutMs?: number
-  capabilities?: CommandCapabilityOptions
   limits?: PrinterLimits
 }
 
@@ -168,16 +162,6 @@ function mapFanPercentToM106(percent: number): number {
   return Math.round((clamped / 100) * 255)
 }
 
-function buildUnsupportedResult(command: ExecuteCommandArgs['command'], message: string): CommandUnsupportedResult {
-  return {
-    command,
-    ok: false,
-    kind: 'unsupported',
-    message,
-    at: new Date().toISOString(),
-  }
-}
-
 function commandSuccessMessage(args: ExecuteCommandArgs): string {
   switch (args.command) {
     case 'start':
@@ -276,10 +260,9 @@ function executeMoonrakerCommand(
   args: ExecuteCommandArgs,
   options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'moonrakerUrl'>> & {
     fetchTimeoutMs: number
-    capabilities: CommandCapabilityOptions
     limits: PrinterLimits
   },
-): Promise<void> | CommandUnsupportedResult {
+): Promise<void> {
   const argumentError = getTreeDCommandArgumentError(args, options.limits)
   if (argumentError !== null) {
     throw new Error(argumentError)
@@ -369,9 +352,6 @@ function executeMoonrakerCommand(
     case 'consoleGcode':
       return sendScript((args.script ?? args.gcode ?? '').trim(), options, args.command)
     case 'rebootHost':
-      if (options.capabilities.power !== true) {
-        return buildUnsupportedResult(args.command, 'Перезагрузка хоста не поддерживается этим Moonraker-клиентом')
-      }
       return callMoonraker('/machine/reboot', undefined, options, args.command)
     case 'restartKlipper':
       return callMoonraker('/printer/restart', undefined, options, args.command)
@@ -380,13 +360,7 @@ function executeMoonrakerCommand(
     case 'restartMoonraker':
       return callMoonraker('/server/restart', undefined, options, args.command)
     case 'shutdownHost':
-      if (options.capabilities.power === true) {
-        return callMoonraker('/machine/shutdown', undefined, options, args.command)
-      }
-      return buildUnsupportedResult(
-        args.command,
-        'Выключение хоста не поддерживается этим Moonraker-клиентом',
-      )
+      return callMoonraker('/machine/shutdown', undefined, options, args.command)
   }
 }
 
@@ -395,19 +369,12 @@ export function createMoonrakerCommandClient(options: MoonrakerCommandClientOpti
     moonrakerUrl: options.moonrakerUrl ?? moonrakerUrl,
     fetchImpl: options.fetchImpl ?? fetch.bind(globalThis),
     fetchTimeoutMs: options.fetchTimeoutMs ?? DEFAULT_COMMAND_FETCH_TIMEOUT_MS,
-    capabilities: options.capabilities ?? {},
     limits: options.limits ?? TREED_V2_COREXY_V1_LIMITS,
   }
 
   return {
     async execute(args: ExecuteCommandArgs): Promise<CommandResult> {
-      const outcome = executeMoonrakerCommand(args, clientOptions)
-
-      if ('ok' in outcome) {
-        return outcome
-      }
-
-      await outcome
+      await executeMoonrakerCommand(args, clientOptions)
 
       return {
         command: args.command,

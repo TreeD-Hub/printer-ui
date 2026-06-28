@@ -72,6 +72,7 @@ function App() {
       source: snapshot.source,
       capabilities: snapshot.capabilities,
       connection: snapshot.connection,
+      transportState: snapshot.transport.state,
       printJob: printSessionController.commandRuntimePrintJob,
       homedAxes: snapshot.homedAxes,
       toolhead: {
@@ -97,6 +98,7 @@ function App() {
       snapshot.mainLightEnabled,
       snapshot.modelFanPercent,
       snapshot.thermalTargets,
+      snapshot.transport.state,
       snapshot.toolhead.rawX,
       snapshot.toolhead.rawY,
       snapshot.toolhead.rawZ,
@@ -816,7 +818,6 @@ function App() {
           commandError={commandError}
           currentPrinterNotification={currentPrinterNotification}
           powerMenuActions={topStatusController.powerMenuActions}
-          powerPopupNotice={topStatusController.powerPopupNotice}
           armedPowerCommand={topStatusController.armedPowerCommand}
           isBusy={isBusy}
           onClose={closeTopPopup}

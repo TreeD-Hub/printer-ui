@@ -4,6 +4,7 @@ import type {
   PrinterEddyStatus,
   PrinterFileItem,
   PrinterLimits,
+  PrinterTransportState,
 } from '@treed/printer-logic'
 
 export type {
@@ -12,10 +13,10 @@ export type {
   PrinterEddyStatus,
   PrinterFileItem,
   PrinterLimits,
+  PrinterTransportState,
 } from '@treed/printer-logic'
 
 export type PrinterSource = 'mock' | 'live'
-export type PrinterTransportState = 'connecting' | 'online' | 'reconnecting' | 'offline'
 export type PrinterKlippyState = 'startup' | 'ready' | 'shutdown' | 'error' | 'disconnected'
 export type PrinterRevisionSource = 'mock' | 'http' | 'websocket'
 

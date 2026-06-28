@@ -24,7 +24,6 @@ export type PowerMenuCommand = Extract<
 export type PowerMenuAction = {
   command: PowerMenuCommand
   label: string
-  details: string
   tone?: 'default' | 'danger'
 }
 
@@ -36,28 +35,23 @@ export const POWER_MENU_ACTIONS: PowerMenuAction[] = [
   {
     command: 'restartKlipper',
     label: 'Перезапустить Klipper',
-    details: 'Перезапускает сервис Klipper без перезагрузки хоста.',
   },
   {
     command: 'firmwareRestart',
-    label: 'Перезапустить прошивку',
-    details: 'Отправляет перезапуск прошивки MCU через Klipper.',
+    label: 'Перезапустить прошивку MCU',
   },
   {
     command: 'restartMoonraker',
     label: 'Перезапустить Moonraker',
-    details: 'Перезапускает Moonraker API.',
   },
   {
     command: 'rebootHost',
-    label: 'Перезагрузить хост',
-    details: 'Полная перезагрузка Linux-хоста принтера.',
+    label: 'Перезагрузить принтер',
     tone: 'danger',
   },
   {
     command: 'shutdownHost',
-    label: 'Выключить хост',
-    details: 'Останавливает хост. Для включения может потребоваться физический доступ.',
+    label: 'Выключить принтер',
     tone: 'danger',
   },
 ]

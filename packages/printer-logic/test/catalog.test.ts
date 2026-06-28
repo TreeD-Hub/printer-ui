@@ -73,6 +73,7 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
 const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   capabilities: ALL_CAPABILITIES,
   connection: 'online',
+  transportState: 'online',
   printJob: {
     state: 'standby',
     isActive: false,
@@ -259,7 +260,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     })).toContain('конечным числом')
   })
 
-  it('allows confirmed host power and service commands during active print', () => {
+  it('allows confirmed host power and service commands without capability flags', () => {
     expect(getTreeDCommandBlockReason('rebootHost', PRINTING_CONTEXT)).toBeNull()
     expect(getTreeDCommandBlockReason('shutdownHost', PRINTING_CONTEXT)).toBeNull()
     expect(getTreeDCommandBlockReason('restartKlipper', PRINTING_CONTEXT)).toBeNull()
@@ -272,14 +273,36 @@ describe('TREE_D_COMMAND_CATALOG', () => {
         ...ALL_CAPABILITIES,
         power: false,
       },
-    })).toContain('capability')
+    })).toBeNull()
     expect(getTreeDCommandBlockReason('restartKlipper', {
       ...PRINTING_CONTEXT,
       capabilities: {
         ...ALL_CAPABILITIES,
         serviceCommands: false,
       },
-    })).toContain('capability')
+    })).toBeNull()
+
+    for (const command of [
+      'rebootHost',
+      'shutdownHost',
+      'restartKlipper',
+      'firmwareRestart',
+      'restartMoonraker',
+    ] as const) {
+      expect(getTreeDCommandBlockReason(command, {
+        ...PRINTING_CONTEXT,
+        connection: 'shutdown',
+      })).toBeNull()
+      expect(getTreeDCommandBlockReason(command, {
+        ...PRINTING_CONTEXT,
+        connection: 'degraded',
+      })).toBeNull()
+      expect(getTreeDCommandBlockReason(command, {
+        ...PRINTING_CONTEXT,
+        connection: 'offline',
+        transportState: 'offline',
+      })).toContain('Moonraker')
+    }
   })
 
   it('allows runtime tune commands only during active print and requires homed Z for Z-offset', () => {

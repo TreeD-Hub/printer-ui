@@ -24,7 +24,6 @@ type TopStatusPopupsProps = {
   commandError: string
   currentPrinterNotification: PrinterDisplayNotification | null
   powerMenuActions: PowerMenuActionState[]
-  powerPopupNotice: string
   armedPowerCommand: PrinterCommandId | null
   isBusy: boolean
   onClose: () => void
@@ -45,7 +44,6 @@ export function TopStatusPopups({
   commandError,
   currentPrinterNotification,
   powerMenuActions,
-  powerPopupNotice,
   armedPowerCommand,
   isBusy,
   onClose,
@@ -158,31 +156,27 @@ export function TopStatusPopups({
 
         {activeTopPopup === 'power' ? (
           <div className="top-popup-content">
-            <p className="top-popup-warning">
-              Перезапуск сервисов может прервать печать. Действия с хостом используйте только для полной перезагрузки или выключения устройства.
-            </p>
             <div className="top-popup-actions top-popup-power-actions">
               {powerMenuActions.map((action) => {
                 const isActionUnavailable = action.blockReason !== null || isBusy
                 const isArmed = !isActionUnavailable && armedPowerCommand === action.command
-                const buttonLabel = isArmed ? `Подтвердить: ${action.label}` : action.label
-                const actionDetails = isBusy
-                  ? 'Дождитесь завершения текущей команды.'
-                  : (action.blockReason ?? action.details)
+                const buttonLabel = isArmed ? 'Подтвердить' : action.label
 
                 return (
                   <button
                     key={action.command}
                     type="button"
-                    className={`top-popup-action ${action.tone === 'danger' ? 'top-popup-action-danger' : ''}`}
+                    className={[
+                      'top-popup-action',
+                      action.tone === 'danger' ? 'top-popup-action-danger' : '',
+                      isArmed ? 'is-armed' : '',
+                    ].filter(Boolean).join(' ')}
                     onClick={() => onPowerMenuAction(action.command)}
                     disabled={isActionUnavailable}
                     aria-disabled={isActionUnavailable}
                     aria-label={buttonLabel}
-                    title={actionDetails}
                   >
-                    <span className="top-popup-action-label">{buttonLabel}</span>
-                    <span className="top-popup-action-details">{actionDetails}</span>
+                    {buttonLabel}
                   </button>
                 )
               })}
@@ -190,7 +184,6 @@ export function TopStatusPopups({
                 Отмена
               </button>
             </div>
-            {powerPopupNotice ? <p className="top-popup-secondary">{powerPopupNotice}</p> : null}
           </div>
         ) : null}
       </section>

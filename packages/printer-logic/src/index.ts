@@ -7,6 +7,7 @@ export type PrinterConnectionState =
   | 'offline'
   | 'shutdown'
 export type PrinterConnection = PrinterConnectionState
+export type PrinterTransportState = 'connecting' | 'online' | 'reconnecting' | 'offline'
 
 export type PrinterCommandId =
   | 'start'
@@ -694,6 +695,7 @@ export interface TreeDCommandRuntimeContext {
   source?: PrinterDataMode
   capabilities: PrinterCapabilitiesSnapshot
   connection: PrinterConnectionState
+  transportState: PrinterTransportState
   printJob?: {
     filename?: string
     state: string
@@ -1017,6 +1019,13 @@ export function isDangerousTreeDCommand(command: PrinterCommandId): boolean {
 
 const ACTIVE_PRINT_STATES = new Set(['printing', 'paused'])
 const PAUSED_PRINT_STATES = new Set(['paused'])
+const DIRECT_MOONRAKER_SYSTEM_COMMANDS = new Set<PrinterCommandId>([
+  'rebootHost',
+  'shutdownHost',
+  'restartKlipper',
+  'firmwareRestart',
+  'restartMoonraker',
+])
 const RUNTIME_TUNE_COMMANDS = new Set<PrinterCommandId>([
   'setPrintSpeedFactorPercent',
   'setPrintFlowFactorPercent',
@@ -1249,6 +1258,14 @@ export function getTreeDCommandBlockReason(
 ): string | null {
   const item = getTreeDCommandCatalogItem(command)
   const capabilityEnabled = context.capabilities[item.capability]
+
+  if (DIRECT_MOONRAKER_SYSTEM_COMMANDS.has(command)) {
+    if (context.transportState !== 'online') {
+      return `${item.label}: Moonraker недоступен.`
+    }
+
+    return getCommandSpecificBlockReason(command, context, args)
+  }
 
   if (capabilityEnabled !== true) {
     return `${item.label}: capability «${COMMAND_CAPABILITY_LABELS[item.capability]}» не подтвержден.`
