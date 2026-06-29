@@ -34,6 +34,7 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
   extruderTemp: 0,
   bedTemp: 0,
   modelFanPercent: 0,
+  mainLightEnabled: false,
   updatedAt: new Date(0).toISOString(),
   message: 'Запуск системы...',
   hardware: {
@@ -60,6 +61,7 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     motion: false,
     thermal: false,
     fan: false,
+    lighting: false,
     filament: false,
     console: false,
     eddy: false,

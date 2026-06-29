@@ -66,13 +66,14 @@ function isCommandConfirmed(
       return isNear(context.thermalTargets?.bed, args.targetCelsius)
     case 'setHeatingTargets':
       return isNear(context.thermalTargets?.nozzle, args.nozzleCelsius) && isNear(context.thermalTargets?.bed, args.bedCelsius)
+    case 'setMainLightEnabled':
+      return context.mainLightEnabled === args.enabled
     default:
       return null
   }
 }
 
 export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
-  const powerCapability = runtimeContext.capabilities.power
   const [pendingCommand, setPendingCommand] = useState<PrinterCommandId | null>(
     null,
   )
@@ -88,8 +89,8 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
   const runtimeContextRef = useRef(runtimeContext)
 
   const client = useMemo(() => {
-    return createCommandClient({ capabilities: { power: powerCapability } })
-  }, [powerCapability])
+    return createCommandClient()
+  }, [])
 
   runtimeContextRef.current = runtimeContext
 

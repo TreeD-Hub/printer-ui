@@ -99,6 +99,10 @@ export interface MoonrakerFanStatus {
   speed?: number
 }
 
+export interface MoonrakerOutputPinStatus {
+  value?: number
+}
+
 export interface MoonrakerFirmwareRetractionStatus {
   retract_length?: number
 }
@@ -325,6 +329,12 @@ function normalizeHeater(value: MoonrakerHeaterStatus | undefined): number {
 
 function normalizeFan(value: MoonrakerFanStatus | undefined): number {
   return clamp(toFiniteNumber(value?.speed, 0) * 100, 0, 100)
+}
+
+function normalizeMainLight(status: MoonrakerPrinterObjectsStatus): boolean {
+  const outputPin = status['output_pin chamber_light'] as MoonrakerOutputPinStatus | undefined
+
+  return toFiniteNumber(outputPin?.value, 0) > 0
 }
 
 function normalizeThermalTargets(
@@ -805,6 +815,7 @@ function normalizeCapabilities(
   uiContract: PrinterUiContractSnapshot,
 ): PrinterCapabilitiesSnapshot {
   const systemPower = readBooleanMacroFlag(macros.values, '_TREED_SYSTEM_POWER')
+  const hasMainLightMacros = macros.available.includes('LIGHT_ON') && macros.available.includes('LIGHT_OFF')
 
   if (uiContract.status === 'incompatible') {
     return {
@@ -812,6 +823,7 @@ function normalizeCapabilities(
       motion: false,
       thermal: false,
       fan: false,
+      lighting: false,
       filament: false,
       console: false,
       eddy: false,
@@ -830,12 +842,14 @@ function normalizeCapabilities(
   if (uiContract.status === 'compatible') {
     const contract = readMacro(macros.values, '_TREED_UI_CONTRACT') ?? {}
     const capability = (name: string): boolean => parseMacroBoolean(contract[`capability_${name}`]) === true
+    const lightingCapability = parseMacroBoolean(contract.capability_lighting)
 
     return {
       print: capability('print'),
       motion: capability('motion'),
       thermal: capability('thermal'),
       fan: capability('fan'),
+      lighting: hasMainLightMacros && lightingCapability !== false,
       filament: capability('filament'),
       console: capability('console'),
       eddy: capability('eddy'),
@@ -856,6 +870,7 @@ function normalizeCapabilities(
     motion: true,
     thermal: true,
     fan: true,
+    lighting: hasMainLightMacros,
     filament: true,
     console: true,
     eddy: true,
@@ -996,6 +1011,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     extruderTemp: normalizeHeater(status.extruder),
     bedTemp: normalizeHeater(status.heater_bed),
     modelFanPercent: normalizeFan(status.fan),
+    mainLightEnabled: normalizeMainLight(status),
     updatedAt: options.nowIso ?? new Date().toISOString(),
     message: firstNonEmpty(
       uiContract.status === 'incompatible' ? uiContract.message : null,

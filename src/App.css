@@ -318,7 +318,9 @@ body {
 
 .top-popup-power-actions {
   align-items: stretch;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs);
 }
 
 .top-popup-action {
@@ -333,8 +335,30 @@ body {
   cursor: pointer;
 }
 
+.top-popup-action:disabled,
 .top-popup-action[aria-disabled='true'] {
   opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.top-popup-power-actions .top-popup-action {
+  height: 62px;
+  min-width: 0;
+  border-radius: 8px;
+  padding: var(--space-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-body);
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+}
+
+.top-popup-power-actions .top-popup-action.is-armed {
+  border-color: var(--color-primary);
+  background: var(--color-primary-surface-soft);
+  box-shadow: 0 0 0 2px var(--color-primary-ring);
 }
 
 .top-popup-action-danger {
@@ -2409,6 +2433,21 @@ body {
   transition:
     border-color 0.2s ease,
     color 0.2s ease;
+}
+
+.control-lighting-row:disabled {
+  cursor: not-allowed;
+  color: var(--color-text-soft);
+  opacity: 0.58;
+}
+
+.control-lighting-row:disabled .control-lighting-switch {
+  border-color: color-mix(in srgb, var(--color-border-default) 56%, transparent);
+}
+
+.control-lighting-row:disabled .control-lighting-switch-knob {
+  background: var(--color-text-soft);
+  box-shadow: none;
 }
 
 .control-lighting-icon {

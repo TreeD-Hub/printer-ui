@@ -1,4 +1,4 @@
-import { type Dispatch, type SetStateAction, useMemo } from 'react'
+import { useMemo } from 'react'
 import { ControlPage } from './ControlPage'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { clampPercent } from '../dashboard/helpers'
@@ -32,8 +32,10 @@ export type ControlContainerProps = {
   fan: FanControlPanelProps
   isMainLightEnabled: boolean
   isToolheadLightEnabled: boolean
-  onMainLightEnabledChange: Dispatch<SetStateAction<boolean>>
-  onToolheadLightEnabledChange: Dispatch<SetStateAction<boolean>>
+  mainLightCommandBlockReason: string | null
+  toolheadLightCommandBlockReason: string | null
+  onMainLightToggle: () => void
+  onToolheadLightToggle: () => void
   maintenanceStatus: MaintenanceStatus
   maintenanceHistoryItems: readonly MaintenanceHistoryItem[]
   maintenanceChecklistItems: readonly MaintenanceChecklistItem[]
@@ -67,8 +69,10 @@ export function ControlContainer({
   fan,
   isMainLightEnabled,
   isToolheadLightEnabled,
-  onMainLightEnabledChange,
-  onToolheadLightEnabledChange,
+  mainLightCommandBlockReason,
+  toolheadLightCommandBlockReason,
+  onMainLightToggle,
+  onToolheadLightToggle,
   maintenanceStatus,
   maintenanceHistoryItems,
   maintenanceChecklistItems,
@@ -153,8 +157,11 @@ export function ControlContainer({
       lighting={{
         isMainLightEnabled,
         isToolheadLightEnabled,
-        onMainLightToggle: () => onMainLightEnabledChange((current) => !current),
-        onToolheadLightToggle: () => onToolheadLightEnabledChange((current) => !current),
+        isBusy,
+        mainLightCommandBlockReason,
+        toolheadLightCommandBlockReason,
+        onMainLightToggle,
+        onToolheadLightToggle,
       }}
       maintenance={{
         status: maintenanceStatus,

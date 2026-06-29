@@ -93,6 +93,8 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
       return 'Mock: heaters off'
     case 'setFanPercent':
       return `Mock: fan set to ${args.percent}%`
+    case 'setMainLightEnabled':
+      return args.enabled ? 'Mock: main light on' : 'Mock: main light off'
     case 'setPrintSpeedFactorPercent':
       return `Mock: print speed factor set to ${args.percent}%`
     case 'setPrintFlowFactorPercent':
@@ -167,6 +169,11 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
       updateMockSnapshot((snapshot) => {
         snapshot.thermalTargets.nozzle = 0
         snapshot.thermalTargets.bed = 0
+      })
+      return
+    case 'setMainLightEnabled':
+      updateMockSnapshot((snapshot) => {
+        snapshot.mainLightEnabled = args.enabled
       })
       return
     default:
@@ -249,6 +256,7 @@ export function createMockSnapshot(): PrinterSnapshot {
     extruderTemp: 215,
     bedTemp: 58,
     modelFanPercent: 78,
+    mainLightEnabled: false,
     updatedAt: nowIso(),
     message: 'TreeD V2 runtime mock',
     hardware: {
@@ -275,6 +283,7 @@ export function createMockSnapshot(): PrinterSnapshot {
       motion: true,
       thermal: true,
       fan: true,
+      lighting: true,
       filament: true,
       console: true,
       eddy: true,

@@ -545,11 +545,13 @@ describe('App', () => {
     expect(screen.getByTestId('control-light-toolhead')).toHaveAttribute('aria-pressed', 'false')
     const mainLightButton = screen.getByTestId('control-light-main')
     fireEvent.click(mainLightButton)
-    expect(mainLightButton).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({ command: 'setMainLightEnabled', enabled: true })
+    })
 
     const toolheadLightButton = screen.getByTestId('control-light-toolhead')
     fireEvent.click(toolheadLightButton)
-    expect(toolheadLightButton).toHaveAttribute('aria-pressed', 'true')
+    expect(toolheadLightButton).toBeDisabled()
 
     fireEvent.click(screen.getByTestId('control-group-movement'))
 
@@ -996,20 +998,33 @@ describe('App', () => {
     expect(screen.queryByRole('link', { name: 'Открыть treed.pro для добавления устройства' })).not.toBeInTheDocument()
   })
 
-  it('shows disabled power capability state in power popup', () => {
+  it('keeps all system actions available while Moonraker is online and Klipper is shutdown', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      connection: 'shutdown',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+    })
+
     render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterSnapshot().connection).toBe('shutdown')
+    })
 
     fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
 
     expect(screen.getByRole('dialog', { name: 'Питание и перезапуск' })).toBeInTheDocument()
-
-    const rebootHostButton = screen.getByRole('button', { name: 'Перезагрузить host' })
-    const shutdownHostButton = screen.getByRole('button', { name: 'Выключить host' })
-
-    expect(rebootHostButton).toHaveAttribute('aria-disabled', 'true')
-    expect(rebootHostButton).toHaveAttribute('title', 'Перезагрузка host: capability «питание host» не подтвержден.')
-    expect(shutdownHostButton).toHaveAttribute('aria-disabled', 'true')
-    expect(shutdownHostButton).toHaveAttribute('title', 'Выключение host: capability «питание host» не подтвержден.')
+    expect(screen.getByRole('button', { name: 'Перезапустить Klipper' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапустить прошивку MCU' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапустить Moonraker' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезагрузить принтер' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Выключить принтер' })).not.toBeDisabled()
+    expect(screen.queryByText(/Перезапуск сервисов может прервать печать/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Перезапускает сервис Klipper/)).not.toBeInTheDocument()
   })
 
   it('requires repeated confirm before enabled power and service commands execute', async () => {
@@ -1019,36 +1034,21 @@ describe('App', () => {
       expect(getPrinterSnapshot().connection).toBe('online')
     })
 
-    const enableSystemCapabilities = () => {
-      const snapshot = getPrinterSnapshot()
-      applyPrinterSnapshot({
-        ...snapshot,
-        capabilities: {
-          ...snapshot.capabilities,
-          power: true,
-          systemPower: true,
-          serviceCommands: true,
-        },
-      })
-    }
-
-    enableSystemCapabilities()
-
     fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
 
-    const restartKlipperButton = screen.getByRole('button', { name: 'Restart Klipper' })
+    const restartKlipperButton = screen.getByRole('button', { name: 'Перезапустить Klipper' })
 
     expect(restartKlipperButton).not.toBeDisabled()
     expect(restartKlipperButton).toHaveAttribute('aria-disabled', 'false')
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Выключить host' })).toHaveAttribute('aria-disabled', 'false')
+      expect(screen.getByRole('button', { name: 'Выключить принтер' })).toHaveAttribute('aria-disabled', 'false')
     })
 
-    const shutdownHostButton = screen.getByRole('button', { name: 'Выключить host' })
+    const shutdownHostButton = screen.getByRole('button', { name: 'Выключить принтер' })
     const commandCountBeforeConfirm = getMockCommandOperations().length
     fireEvent.click(shutdownHostButton)
     expect(getMockCommandOperations()).toHaveLength(commandCountBeforeConfirm)
-    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить: Выключить host' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить' }))
 
     await waitFor(() => {
       expect(getMockCommandOperations()).toEqual(
@@ -1059,6 +1059,5 @@ describe('App', () => {
         ]),
       )
     })
-    expect(screen.getByText('Команда отправлена: Выключить host.')).toBeInTheDocument()
   })
 })

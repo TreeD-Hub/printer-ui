@@ -208,6 +208,9 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         fan: {
           speed: 0.76,
         },
+        'output_pin chamber_light': {
+          value: 1,
+        },
         firmware_retraction: {
           retract_length: 0.9,
         },
@@ -234,6 +237,8 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         'gcode_macro _TREED_CLOUD': {
           enabled: false,
         },
+        'gcode_macro LIGHT_ON': {},
+        'gcode_macro LIGHT_OFF': {},
         'gcode_macro _TREED_UI_TUNE_STATE': {
           contract_version: '1.0',
           applied_babystep: -0.025,
@@ -259,6 +264,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       motion: true,
       thermal: true,
       fan: true,
+      lighting: true,
       filament: true,
       console: true,
       eddy: true,
@@ -281,6 +287,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     expect(snapshot.extruderTemp).toBe(214.7)
     expect(snapshot.bedTemp).toBe(59.9)
     expect(snapshot.modelFanPercent).toBe(76)
+    expect(snapshot.mainLightEnabled).toBe(true)
     expect(snapshot.ipAddress).toBe('192.168.0.42')
     expect(snapshot.printJob).toEqual({
       filename: 'jobs/benchy.gcode',

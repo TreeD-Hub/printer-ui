@@ -7,6 +7,7 @@ export type PrinterConnectionState =
   | 'offline'
   | 'shutdown'
 export type PrinterConnection = PrinterConnectionState
+export type PrinterTransportState = 'connecting' | 'online' | 'reconnecting' | 'offline'
 
 export type PrinterCommandId =
   | 'start'
@@ -26,6 +27,7 @@ export type PrinterCommandId =
   | 'setHeatingTargets'
   | 'turnOffHeaters'
   | 'setFanPercent'
+  | 'setMainLightEnabled'
   | 'setPrintSpeedFactorPercent'
   | 'setPrintFlowFactorPercent'
   | 'setPrintAccel'
@@ -96,6 +98,10 @@ export type ExecuteCommandArgs =
   | {
       command: 'setFanPercent'
       percent: number
+    }
+  | {
+      command: 'setMainLightEnabled'
+      enabled: boolean
     }
   | {
       command: 'setPrintSpeedFactorPercent' | 'setPrintFlowFactorPercent'
@@ -314,6 +320,7 @@ export interface PrinterCapabilitiesSnapshot {
   motion: boolean
   thermal: boolean
   fan: boolean
+  lighting: boolean
   filament: boolean
   console: boolean
   eddy: boolean
@@ -667,6 +674,7 @@ export type TreeDCommandCapability =
   | 'motion'
   | 'thermal'
   | 'fan'
+  | 'lighting'
   | 'filament'
   | 'console'
   | 'eddy'
@@ -687,6 +695,7 @@ export interface TreeDCommandRuntimeContext {
   source?: PrinterDataMode
   capabilities: PrinterCapabilitiesSnapshot
   connection: PrinterConnectionState
+  transportState: PrinterTransportState
   printJob?: {
     filename?: string
     state: string
@@ -707,6 +716,7 @@ export interface TreeDCommandRuntimeContext {
     bed: number
   }
   modelFanPercent?: number
+  mainLightEnabled?: boolean
 }
 
 const MIN_FILAMENT_EXTRUDE_TEMP_C = 170
@@ -720,12 +730,13 @@ const COMMAND_CAPABILITY_LABELS: Record<TreeDCommandCapability, string> = {
   motion: 'перемещение',
   thermal: 'нагрев',
   fan: 'обдув',
+  lighting: 'подсветка',
   filament: 'филамент',
   console: 'консоль G-code',
   eddy: 'Eddy/Z-контур',
   shaper: 'input shaper',
   motionTest: 'тест движения',
-  power: 'питание host',
+  power: 'питание хоста',
   serviceCommands: 'сервисные команды',
 }
 
@@ -856,6 +867,13 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'fan',
     requiresConfirmation: false,
   },
+  setMainLightEnabled: {
+    id: 'setMainLightEnabled',
+    risk: 'safe',
+    label: 'Основной свет',
+    capability: 'lighting',
+    requiresConfirmation: false,
+  },
   setPrintSpeedFactorPercent: {
     id: 'setPrintSpeedFactorPercent',
     risk: 'safe',
@@ -957,35 +975,35 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
   rebootHost: {
     id: 'rebootHost',
     risk: 'danger',
-    label: 'Перезагрузка host',
+    label: 'Перезагрузка хоста',
     capability: 'power',
     requiresConfirmation: true,
   },
   restartKlipper: {
     id: 'restartKlipper',
     risk: 'danger',
-    label: 'Restart Klipper',
+    label: 'Перезапуск Klipper',
     capability: 'serviceCommands',
     requiresConfirmation: true,
   },
   firmwareRestart: {
     id: 'firmwareRestart',
     risk: 'danger',
-    label: 'Firmware restart',
+    label: 'Перезапуск прошивки',
     capability: 'serviceCommands',
     requiresConfirmation: true,
   },
   restartMoonraker: {
     id: 'restartMoonraker',
     risk: 'danger',
-    label: 'Restart Moonraker',
+    label: 'Перезапуск Moonraker',
     capability: 'serviceCommands',
     requiresConfirmation: true,
   },
   shutdownHost: {
     id: 'shutdownHost',
     risk: 'danger',
-    label: 'Выключение host',
+    label: 'Выключение хоста',
     capability: 'power',
     requiresConfirmation: true,
   },
@@ -1001,6 +1019,13 @@ export function isDangerousTreeDCommand(command: PrinterCommandId): boolean {
 
 const ACTIVE_PRINT_STATES = new Set(['printing', 'paused'])
 const PAUSED_PRINT_STATES = new Set(['paused'])
+const DIRECT_MOONRAKER_SYSTEM_COMMANDS = new Set<PrinterCommandId>([
+  'rebootHost',
+  'shutdownHost',
+  'restartKlipper',
+  'firmwareRestart',
+  'restartMoonraker',
+])
 const RUNTIME_TUNE_COMMANDS = new Set<PrinterCommandId>([
   'setPrintSpeedFactorPercent',
   'setPrintFlowFactorPercent',
@@ -1233,6 +1258,14 @@ export function getTreeDCommandBlockReason(
 ): string | null {
   const item = getTreeDCommandCatalogItem(command)
   const capabilityEnabled = context.capabilities[item.capability]
+
+  if (DIRECT_MOONRAKER_SYSTEM_COMMANDS.has(command)) {
+    if (context.transportState !== 'online') {
+      return `${item.label}: Moonraker недоступен.`
+    }
+
+    return getCommandSpecificBlockReason(command, context, args)
+  }
 
   if (capabilityEnabled !== true) {
     return `${item.label}: capability «${COMMAND_CAPABILITY_LABELS[item.capability]}» не подтвержден.`

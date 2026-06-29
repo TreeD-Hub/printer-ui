@@ -24,7 +24,6 @@ type TopStatusPopupsProps = {
   commandError: string
   currentPrinterNotification: PrinterDisplayNotification | null
   powerMenuActions: PowerMenuActionState[]
-  powerPopupNotice: string
   armedPowerCommand: PrinterCommandId | null
   isBusy: boolean
   onClose: () => void
@@ -45,7 +44,6 @@ export function TopStatusPopups({
   commandError,
   currentPrinterNotification,
   powerMenuActions,
-  powerPopupNotice,
   armedPowerCommand,
   isBusy,
   onClose,
@@ -158,28 +156,34 @@ export function TopStatusPopups({
 
         {activeTopPopup === 'power' ? (
           <div className="top-popup-content">
-            <p className="top-popup-warning">
-              Перезапуск сервисов может прервать печать. Host-действия используйте только когда нужен полный restart устройства.
-            </p>
             <div className="top-popup-actions top-popup-power-actions">
-              {powerMenuActions.map((action) => (
-                <button
-                  key={action.command}
-                  type="button"
-                  className={`top-popup-action ${action.tone === 'danger' ? 'top-popup-action-danger' : ''}`}
-                  onClick={() => onPowerMenuAction(action.command)}
-                  disabled={isBusy}
-                  aria-disabled={action.blockReason !== null || isBusy}
-                  title={action.blockReason ?? action.details}
-                >
-                  {armedPowerCommand === action.command ? `Подтвердить: ${action.label}` : action.label}
-                </button>
-              ))}
-              <button type="button" className="top-popup-action" onClick={onClose}>
+              {powerMenuActions.map((action) => {
+                const isActionUnavailable = action.blockReason !== null || isBusy
+                const isArmed = !isActionUnavailable && armedPowerCommand === action.command
+                const buttonLabel = isArmed ? 'Подтвердить' : action.label
+
+                return (
+                  <button
+                    key={action.command}
+                    type="button"
+                    className={[
+                      'top-popup-action',
+                      action.tone === 'danger' ? 'top-popup-action-danger' : '',
+                      isArmed ? 'is-armed' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => onPowerMenuAction(action.command)}
+                    disabled={isActionUnavailable}
+                    aria-disabled={isActionUnavailable}
+                    aria-label={buttonLabel}
+                  >
+                    {buttonLabel}
+                  </button>
+                )
+              })}
+              <button type="button" className="top-popup-action top-popup-action-cancel" onClick={onClose}>
                 Отмена
               </button>
             </div>
-            {powerPopupNotice ? <p className="top-popup-secondary">{powerPopupNotice}</p> : null}
           </div>
         ) : null}
       </section>

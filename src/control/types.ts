@@ -136,6 +136,9 @@ export type FanControlPanelProps = {
 export type LightingControlPanelProps = {
   isMainLightEnabled: boolean
   isToolheadLightEnabled: boolean
+  isBusy: boolean
+  mainLightCommandBlockReason: string | null
+  toolheadLightCommandBlockReason: string | null
   onMainLightToggle: () => void
   onToolheadLightToggle: () => void
 }
