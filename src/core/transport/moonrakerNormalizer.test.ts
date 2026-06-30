@@ -315,6 +315,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     expect(snapshot.toolheadY).toBe(95.25)
     expect(snapshot.toolheadZ).toBe(12.4)
     expect(snapshot.homedAxes).toBe('xyz')
+    expect(snapshot.toolhead.printOffsetY).toBe(0)
     expect(snapshot.extruderTemp).toBe(214.7)
     expect(snapshot.bedTemp).toBe(59.9)
     expect(snapshot.modelFanPercent).toBe(76)

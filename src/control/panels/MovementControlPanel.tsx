@@ -80,6 +80,10 @@ function formatAxisCoordinate(value: number): string {
   return Number.isFinite(value) ? value.toFixed(1) : '—'
 }
 
+function formatNozzleTemperature(value: number): string {
+  return Number.isFinite(value) ? `${Math.round(value)}°C` : '—'
+}
+
 function getMoveStepMm(moveStepKey: MovementControlPanelProps['moveStepKey']): number {
   return CONTROL_MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)?.valueMm ?? 1
 }
@@ -112,6 +116,10 @@ const AXIS_HOMED_SELECTORS: Record<AxisId, (snapshot: PrinterSnapshot) => boolea
   Z: (snapshot) => isAxisHomed(snapshot.homedAxes, 'Z'),
 }
 
+function selectNozzleTemperature(snapshot: PrinterSnapshot): number {
+  return snapshot.extruderTemp
+}
+
 const AxisCoordinateValue = memo(function AxisCoordinateValue({ axis }: { axis: CoordinateAxisId }) {
   const value = usePrinterStoreSelector(AXIS_VALUE_SELECTORS[axis])
   const isKnown = usePrinterStoreSelector(AXIS_KNOWN_SELECTORS[axis])
@@ -119,6 +127,21 @@ const AxisCoordinateValue = memo(function AxisCoordinateValue({ axis }: { axis: 
 
   return (
     <span className="axis-coordinate-value" aria-label={`Координата ${axis}: ${displayValue}`}>
+      {displayValue}
+    </span>
+  )
+})
+
+const AxisNozzleTemperatureValue = memo(function AxisNozzleTemperatureValue() {
+  const temperature = usePrinterStoreSelector(selectNozzleTemperature)
+  const displayValue = formatNozzleTemperature(temperature)
+
+  return (
+    <span
+      className="axis-coordinate-value"
+      aria-label={`Температура сопла: ${displayValue}`}
+      data-testid="axis-nozzle-temp"
+    >
       {displayValue}
     </span>
   )
@@ -154,6 +177,10 @@ const MovementCoordinateSummary = memo(function MovementCoordinateSummary() {
             <AxisCoordinateValue axis={axis} />
           </span>
         ))}
+        <span className="axis-coordinate-item">
+          <span className="axis-coordinate-axis">Сопло</span>
+          <AxisNozzleTemperatureValue />
+        </span>
       </p>
     </section>
   )

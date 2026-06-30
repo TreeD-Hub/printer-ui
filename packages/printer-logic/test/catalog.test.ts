@@ -272,7 +272,12 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(getTreeDCommandBlockReason('moveAxis', IDLE_CONTEXT, {
       command: 'moveAxis',
       axis: 'X',
-      distanceMm: 51,
+      distanceMm: 100,
+    })).toBeNull()
+    expect(getTreeDCommandBlockReason('moveAxis', IDLE_CONTEXT, {
+      command: 'moveAxis',
+      axis: 'X',
+      distanceMm: 101,
     })).toContain('DISTANCE')
     expect(getTreeDCommandBlockReason('moveAxis', IDLE_CONTEXT, {
       command: 'moveAxis',

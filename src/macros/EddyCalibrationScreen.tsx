@@ -1,6 +1,11 @@
+import { useEffect, useState } from 'react'
 import { EDDY_TEST_Z_STEP_OPTIONS } from '@treed/printer-logic'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
-import type { PrinterEddyCalibrationSnapshot, PrinterSnapshot } from '../core/transport/types'
+import type {
+  PrinterEddyCalibrationSnapshot,
+  PrinterEddyCalibrationStep,
+  PrinterSnapshot,
+} from '../core/transport/types'
 import { joinClassNames } from '../ui'
 
 type EddyCalibrationScreenProps = {
@@ -10,54 +15,56 @@ type EddyCalibrationScreenProps = {
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
 }
 
-type EddyStep = {
-  id: keyof Pick<
-    PrinterEddyCalibrationSnapshot,
-    'primaryDone' | 'temperatureDone' | 'z0Done' | 'screwsDone' | 'meshDone'
-  >
+type WizardStepId = 'primary' | 'temperature' | 'z0' | 'screws' | 'mesh' | 'autosave'
+
+type WizardStep = {
+  id: WizardStepId
   title: string
-  command: Extract<PrinterCommandId,
-    | 'eddyDriveCurrentCalibrate'
-    | 'eddyTemperatureStart'
-    | 'eddyCheckZ0'
-    | 'eddyScrewsTiltStart'
-    | 'eddyBedMeshCalibrate'
-  >
-  required: boolean
+  done: (calibration: PrinterEddyCalibrationSnapshot, snapshot: PrinterSnapshot) => boolean
 }
 
-const EDDY_STEPS: readonly EddyStep[] = [
+const WIZARD_STEPS: readonly WizardStep[] = [
   {
-    id: 'primaryDone',
+    id: 'primary',
     title: 'Первичная калибровка Eddy',
-    command: 'eddyDriveCurrentCalibrate',
-    required: true,
+    done: (calibration) => calibration.primaryDone,
   },
   {
-    id: 'temperatureDone',
+    id: 'temperature',
     title: 'Температурная калибровка',
-    command: 'eddyTemperatureStart',
-    required: true,
+    done: (calibration) => calibration.temperatureDone,
   },
   {
-    id: 'z0Done',
+    id: 'z0',
     title: 'Поиск Z0',
-    command: 'eddyCheckZ0',
-    required: true,
+    done: (calibration) => calibration.z0Done,
   },
   {
-    id: 'screwsDone',
+    id: 'screws',
     title: 'Выравнивание винтов стола',
-    command: 'eddyScrewsTiltStart',
-    required: true,
+    done: (calibration) => calibration.screwsDone,
   },
   {
-    id: 'meshDone',
+    id: 'mesh',
     title: 'Построение карты стола',
-    command: 'eddyBedMeshCalibrate',
-    required: true,
+    done: (calibration) => calibration.meshDone,
+  },
+  {
+    id: 'autosave',
+    title: 'Автосохранение Z-offset',
+    done: (_calibration, snapshot) => snapshot.v2.eddy.autosaveEnabled,
   },
 ]
+
+const ACTIVE_STEP_INDEX: Record<PrinterEddyCalibrationStep, number> = {
+  not_started: 0,
+  primary: 0,
+  temperature: 1,
+  z0: 2,
+  screws: 3,
+  mesh: 4,
+  complete: 5,
+}
 
 const PROMPT_LABELS: Record<PrinterEddyCalibrationSnapshot['operatorPrompt'], string> = {
   none: 'Готов к следующему действию',
@@ -70,14 +77,6 @@ const PROMPT_LABELS: Record<PrinterEddyCalibrationSnapshot['operatorPrompt'], st
   restart: 'Ожидается перезапуск Klipper',
 }
 
-function formatStepState(isDone: boolean, isActive: boolean): string {
-  if (isDone) {
-    return 'готово'
-  }
-
-  return isActive ? 'в процессе' : 'ожидает'
-}
-
 export function EddyCalibrationScreen({
   snapshot,
   pendingCommand,
@@ -85,14 +84,18 @@ export function EddyCalibrationScreen({
   getCommandBlockReason,
 }: EddyCalibrationScreenProps) {
   const calibration = snapshot.v2.eddy.calibration
-  const completedRequiredCount = EDDY_STEPS.filter((step) => calibration[step.id]).length
-  const autosaveCommand: ExecuteCommandArgs = {
-    command: snapshot.v2.eddy.autosaveEnabled ? 'eddyAutosaveDisable' : 'eddyAutosaveEnable',
-  }
-  const autosaveBlockReason = getCommandBlockReason(autosaveCommand.command, autosaveCommand)
-  const isAutosaveBusy = pendingCommand === 'eddyAutosaveEnable' || pendingCommand === 'eddyAutosaveDisable'
+  const [currentStepIndex, setCurrentStepIndex] = useState(() => ACTIVE_STEP_INDEX[calibration.activeStep])
+  const currentStep = WIZARD_STEPS[currentStepIndex] ?? WIZARD_STEPS[0]
+  const completedRequiredCount = WIZARD_STEPS.slice(0, 5).filter((step) => step.done(calibration, snapshot)).length
 
-  function runCommand(args: ExecuteCommandArgs, blockReason: string | null): void {
+  useEffect(() => {
+    if (calibration.activeStep !== 'not_started') {
+      setCurrentStepIndex(ACTIVE_STEP_INDEX[calibration.activeStep])
+    }
+  }, [calibration.activeStep])
+
+  function runCommand(args: ExecuteCommandArgs): void {
+    const blockReason = getCommandBlockReason(args.command, args)
     if (blockReason !== null) {
       return
     }
@@ -100,130 +103,142 @@ export function EddyCalibrationScreen({
     void executeCommand(args)
   }
 
-  return (
-    <section className="macros-screen" data-testid="screen-macros">
-      <div className="macros-eddy-shell">
-        <header className="macros-eddy-header">
-          <div className="macros-eddy-title-group">
-            <p className="macros-eddy-kicker">Макросы</p>
-            <h1>Калибровка Eddy</h1>
-          </div>
-          <div className="macros-eddy-summary" aria-label="Прогресс обязательной калибровки">
-            <strong>{completedRequiredCount}/5</strong>
-            <span>{calibration.requiredDone ? 'обязательные шаги готовы' : PROMPT_LABELS[calibration.operatorPrompt]}</span>
-          </div>
-        </header>
+  function isCommandBlocked(args: ExecuteCommandArgs): boolean {
+    return pendingCommand === args.command || getCommandBlockReason(args.command, args) !== null
+  }
 
-        <div className="macros-eddy-grid">
-          <div className="macros-eddy-steps">
-            {EDDY_STEPS.map((step) => {
-              const args: ExecuteCommandArgs = { command: step.command }
-              const blockReason = getCommandBlockReason(step.command, args)
-              const isActive = calibration.activeStep === step.id.replace('Done', '')
-              const isDone = calibration[step.id]
-              const isBusy = pendingCommand === step.command
+  function renderCommandButton(label: string, args: ExecuteCommandArgs, tone: 'primary' | 'secondary' = 'primary') {
+    return (
+      <button
+        type="button"
+        className={joinClassNames('macros-eddy-command-btn', tone === 'secondary' && 'is-secondary')}
+        disabled={isCommandBlocked(args)}
+        onClick={() => runCommand(args)}
+      >
+        {label}
+      </button>
+    )
+  }
 
-              return (
-                <button
-                  key={step.id}
-                  type="button"
-                  className={joinClassNames('macros-eddy-step-btn', isDone && 'is-done', isActive && 'is-active')}
-                  aria-label={step.title}
-                  aria-disabled={blockReason !== null || isBusy}
-                  disabled={blockReason !== null || isBusy}
-                  onClick={() => runCommand(args, blockReason)}
-                >
-                  <span className="macros-eddy-step-title">{step.title}</span>
-                  <span className="macros-eddy-step-meta">
-                    {step.required ? 'обязательный' : 'опциональный'} / {formatStepState(isDone, isActive)}
-                  </span>
-                </button>
-              )
-            })}
-
-            <button
-              type="button"
-              className={joinClassNames(
-                'macros-eddy-step-btn',
-                'is-optional',
-                snapshot.v2.eddy.autosaveEnabled && 'is-done',
-              )}
-              aria-label="Автосохранение Z-offset"
-              aria-disabled={autosaveBlockReason !== null || isAutosaveBusy}
-              disabled={autosaveBlockReason !== null || isAutosaveBusy}
-              onClick={() => runCommand(autosaveCommand, autosaveBlockReason)}
-            >
-              <span className="macros-eddy-step-title">Автосохранение Z-offset</span>
-              <span className="macros-eddy-step-meta">
-                опциональный / {snapshot.v2.eddy.autosaveEnabled ? 'включено' : 'выключено'}
-              </span>
-            </button>
-          </div>
-
-          <aside className="macros-eddy-operator">
-            <div className="macros-eddy-status-card">
-              <p>Активный шаг</p>
-              <strong>{calibration.activeStep === 'not_started' ? 'не начато' : calibration.activeStep}</strong>
-              <span>{PROMPT_LABELS[calibration.operatorPrompt]}</span>
+  function renderCurrentStep() {
+    switch (currentStep.id) {
+      case 'primary':
+        return (
+          <>
+            <div className="macros-eddy-action-row">
+              {renderCommandButton('Калибровать ток', { command: 'eddyDriveCurrentCalibrate' })}
+              {renderCommandButton('Начать paper test', { command: 'eddyPrimaryHeightStart' })}
+              {renderCommandButton('ACCEPT и сохранить', { command: 'eddyPrimaryAcceptSave' }, 'secondary')}
             </div>
-
-            <div className="macros-eddy-paper-card">
-              <p>Paper test</p>
+            <div className="macros-eddy-testz-panel">
+              <p>TESTZ</p>
               <div className="macros-eddy-testz-grid">
                 {EDDY_TEST_Z_STEP_OPTIONS.map((deltaMm) => {
-                  const args: ExecuteCommandArgs = { command: 'eddyTestZ', deltaMm }
-                  const blockReason = getCommandBlockReason('eddyTestZ', args)
                   const label = `${deltaMm > 0 ? '+' : ''}${deltaMm}`
+                  const args: ExecuteCommandArgs = { command: 'eddyTestZ', deltaMm }
 
                   return (
                     <button
                       key={deltaMm}
                       type="button"
                       aria-label={`TESTZ ${label} мм`}
-                      aria-disabled={blockReason !== null || pendingCommand === 'eddyTestZ'}
-                      disabled={blockReason !== null || pendingCommand === 'eddyTestZ'}
-                      onClick={() => runCommand(args, blockReason)}
+                      disabled={isCommandBlocked(args)}
+                      onClick={() => runCommand(args)}
                     >
                       {label}
                     </button>
                   )
                 })}
               </div>
-              <div className="macros-eddy-accept-row">
-                <button
-                  type="button"
-                  onClick={() => runCommand(
-                    { command: 'eddyPrimaryAcceptSave' },
-                    getCommandBlockReason('eddyPrimaryAcceptSave', { command: 'eddyPrimaryAcceptSave' }),
-                  )}
-                >
-                  ACCEPT первичная
-                </button>
-                <button
-                  type="button"
-                  onClick={() => runCommand(
-                    { command: 'eddyTemperatureAcceptSave' },
-                    getCommandBlockReason('eddyTemperatureAcceptSave', { command: 'eddyTemperatureAcceptSave' }),
-                  )}
-                >
-                  ACCEPT температура
-                </button>
-              </div>
             </div>
+          </>
+        )
+      case 'temperature':
+        return (
+          <div className="macros-eddy-action-row">
+            {renderCommandButton('Запустить температурную калибровку', { command: 'eddyTemperatureStart' })}
+            {renderCommandButton('ACCEPT и сохранить', { command: 'eddyTemperatureAcceptSave' }, 'secondary')}
+          </div>
+        )
+      case 'z0':
+        return (
+          <div className="macros-eddy-action-row">
+            {renderCommandButton('Запустить поиск Z0', { command: 'eddyCheckZ0' })}
+          </div>
+        )
+      case 'screws':
+        return (
+          <div className="macros-eddy-action-row">
+            {renderCommandButton('Запустить измерение винтов', { command: 'eddyScrewsTiltStart' })}
+            {renderCommandButton('Винты выровнены', { command: 'eddyScrewsTiltDone' }, 'secondary')}
+          </div>
+        )
+      case 'mesh':
+        return (
+          <div className="macros-eddy-action-row">
+            {renderCommandButton('Построить карту стола', { command: 'eddyBedMeshCalibrate' })}
+          </div>
+        )
+      case 'autosave': {
+        const toggleArgs: ExecuteCommandArgs = {
+          command: snapshot.v2.eddy.autosaveEnabled ? 'eddyAutosaveDisable' : 'eddyAutosaveEnable',
+        }
 
-            <button
-              type="button"
-              className="macros-eddy-screws-done"
-              onClick={() => runCommand(
-                { command: 'eddyScrewsTiltDone' },
-                getCommandBlockReason('eddyScrewsTiltDone', { command: 'eddyScrewsTiltDone' }),
-              )}
-            >
-              Винты выровнены
-            </button>
-          </aside>
+        return (
+          <div className="macros-eddy-action-row">
+            {renderCommandButton(
+              snapshot.v2.eddy.autosaveEnabled ? 'Отключить автосохранение' : 'Включить автосохранение',
+              toggleArgs,
+            )}
+            {renderCommandButton('Проверить статус', { command: 'eddyAutosaveStatus' }, 'secondary')}
+          </div>
+        )
+      }
+    }
+  }
+
+  return (
+    <article className="macros-eddy-workflow">
+      <header className="macros-eddy-workflow-header">
+        <div className="macros-eddy-title-group">
+          <p className="macros-eddy-kicker">Workflow</p>
+          <h2>Калибровка Eddy</h2>
         </div>
+        <div className="macros-eddy-summary" aria-label="Прогресс обязательной калибровки">
+          <strong>{completedRequiredCount}/5</strong>
+          <span>{calibration.requiredDone ? 'обязательные шаги готовы' : PROMPT_LABELS[calibration.operatorPrompt]}</span>
+        </div>
+      </header>
+
+      <div className="macros-eddy-workflow-body">
+        <main className="macros-eddy-step-screen">
+          <div className="macros-eddy-step-copy">
+            <p className="macros-eddy-step-count">Шаг {currentStepIndex + 1} из {WIZARD_STEPS.length}</p>
+            <h2>{currentStep.title}</h2>
+            <p>{PROMPT_LABELS[calibration.operatorPrompt]}</p>
+          </div>
+          <div className="macros-eddy-step-actions">
+            {renderCurrentStep()}
+          </div>
+        </main>
       </div>
-    </section>
+
+      <footer className="macros-eddy-footer">
+        <button
+          type="button"
+          disabled={currentStepIndex === 0}
+          onClick={() => setCurrentStepIndex((index) => Math.max(0, index - 1))}
+        >
+          Назад
+        </button>
+        <button
+          type="button"
+          disabled={currentStepIndex === WIZARD_STEPS.length - 1}
+          onClick={() => setCurrentStepIndex((index) => Math.min(WIZARD_STEPS.length - 1, index + 1))}
+        >
+          Далее
+        </button>
+      </footer>
+    </article>
   )
 }

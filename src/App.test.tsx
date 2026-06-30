@@ -561,8 +561,8 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Сдвиг X в минус' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг Y в минус' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Сдвиг Z в плюс' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Сдвиг Z в минус' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг Z вверх' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг Z вниз' })).toBeInTheDocument()
     expect(screen.getByTestId('move-step-1')).toBeInTheDocument()
     expect(screen.getByTestId('axis-coordinates')).toBeInTheDocument()
 
@@ -742,22 +742,36 @@ describe('App', () => {
     }
   })
 
-  it('renders Eddy calibration workflow in macros tab and dispatches Eddy commands', async () => {
+  it('renders Eddy calibration workflow as step screens and dispatches step commands', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Макросы' }))
 
     expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
+    expect(screen.getByTestId('macros-manager')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('heading', { name: 'Менеджер макросов' })).toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('macros-manager-workflows')).getByRole('button', {
+        name: 'Eddy Калибровка датчика 0/5',
+      }),
+    ).toHaveAttribute('aria-current', 'true')
     expect(screen.getByRole('heading', { name: 'Калибровка Eddy' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Первичная калибровка Eddy' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Температурная калибровка' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Поиск Z0' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Выравнивание винтов стола' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Построение карты стола' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Автосохранение Z-offset' })).toBeInTheDocument()
+    expect(screen.getByText('Шаг 1 из 6')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Первичная калибровка Eddy' })).toBeInTheDocument()
+    expect(screen.queryByTestId('eddy-step-list')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Калибровать ток' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Начать paper test' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'TESTZ -0.05 мм' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ACCEPT и сохранить' })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Поиск Z0' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+
+    expect(screen.getByText('Шаг 2 из 6')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Температурная калибровка' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Запустить поиск Z0' }))
 
     await waitFor(() => {
       expect(getMockCommandOperations()).toContainEqual({ command: 'eddyCheckZ0' })

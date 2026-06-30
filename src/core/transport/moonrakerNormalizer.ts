@@ -907,7 +907,7 @@ function normalizeToolheadRuntime(
     rawZ: toolhead.z,
     rawE: toolhead.e,
     printOffsetX: toFiniteNumber(geometryMacro?.print_offset_x, 0),
-    printOffsetY: toFiniteNumber(geometryMacro?.print_offset_y, 65),
+    printOffsetY: toFiniteNumber(geometryMacro?.print_offset_y, 0),
     homedAxes,
     coordinateMode: 'raw',
   }

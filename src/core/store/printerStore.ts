@@ -109,7 +109,7 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     rawZ: 0,
     rawE: 0,
     printOffsetX: 0,
-    printOffsetY: 65,
+    printOffsetY: 0,
     homedAxes: '',
     coordinateMode: 'raw',
   },

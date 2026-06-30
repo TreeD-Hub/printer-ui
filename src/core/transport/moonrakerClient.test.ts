@@ -100,9 +100,9 @@ describe('normalizeMoonrakerSnapshot', () => {
           },
           'gcode_macro _TREED_GEOMETRY_CFG': {
             print_offset_x: 0,
-            print_offset_y: 65,
+            print_offset_y: 0,
             print_size_x: 245,
-            print_size_y: 180,
+            print_size_y: 245,
           },
           'gcode_macro _TREED_PAUSE_STATE': {
             is_active: 0,
@@ -142,7 +142,7 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(snapshot.hardware.mainMcu).toBe('Octopus Pro CAN')
     expect(snapshot.v2.eddy.status).toBe('ready')
     expect(snapshot.toolhead.rawY).toBe(65)
-    expect(snapshot.toolhead.printOffsetY).toBe(65)
+    expect(snapshot.toolhead.printOffsetY).toBe(0)
     expect(snapshot.printJob.filename).toBe('v2_part.gcode')
     expect(snapshot.printJob.progressPercent).toBe(37)
     expect(snapshot.thermalTargets).toEqual({
