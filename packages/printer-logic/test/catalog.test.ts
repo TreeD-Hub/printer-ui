@@ -351,6 +351,21 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     }
   })
 
+  it('keeps fail-safe commands available without published UI capabilities', () => {
+    const degradedContext: TreeDCommandRuntimeContext = {
+      ...PRINTING_CONTEXT,
+      connection: 'degraded',
+      capabilities: {
+        ...ALL_CAPABILITIES,
+        motion: false,
+        thermal: false,
+      },
+    }
+
+    expect(getTreeDCommandBlockReason('emergencyStop', degradedContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('turnOffHeaters', degradedContext)).toBeNull()
+  })
+
   it('allows runtime tune commands only during active print and requires homed Z for Z-offset', () => {
     expect(getTreeDCommandBlockReason('setPrintSpeedFactorPercent', PRINTING_CONTEXT)).toBeNull()
     expect(getTreeDCommandBlockReason('setPrintFlowFactorPercent', PAUSED_CONTEXT)).toBeNull()

@@ -192,6 +192,56 @@ describe('moonrakerWebSocketClient', () => {
     subscription.close()
   })
 
+  it('replaces cached status on reconnect when the initial subscription omits fields', () => {
+    vi.useFakeTimers()
+    const { snapshots, subscription } = subscribeForTest()
+    const firstSocket = TestWebSocket.instances[0]
+
+    firstSocket?.open()
+    firstSocket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+            state_message: 'Printer is ready',
+          },
+          toolhead: {
+            position: [10, 20, 30, 0],
+            homed_axes: 'xy',
+          },
+        },
+      },
+    })
+
+    expect(snapshots).toHaveLength(1)
+    expect(snapshots[0]?.toolhead.rawX).toBe(10)
+
+    firstSocket?.failClose()
+    vi.advanceTimersByTime(50)
+
+    const secondSocket = TestWebSocket.instances[1]
+    secondSocket?.open()
+    secondSocket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+            state_message: 'Printer is ready',
+          },
+        },
+      },
+    })
+
+    expect(snapshots).toHaveLength(2)
+    expect(snapshots[1]?.toolhead.rawX).toBe(0)
+    expect(snapshots[1]?.toolhead.rawY).toBe(0)
+    expect(snapshots[1]?.homedAxes).toBe('')
+
+    subscription.close()
+  })
+
   it('maps Klippy lifecycle notifications to connection snapshots', () => {
     const { snapshots, subscription } = subscribeForTest()
     const socket = TestWebSocket.instances[0]

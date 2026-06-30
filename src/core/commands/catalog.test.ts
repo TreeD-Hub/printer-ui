@@ -318,4 +318,19 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       })).toContain('Moonraker')
     }
   })
+
+  it('keeps fail-safe commands available without published UI capabilities', () => {
+    const degradedContext: TreeDCommandRuntimeContext = {
+      ...PRINTING_CONTEXT,
+      connection: 'degraded',
+      capabilities: {
+        ...ALL_CAPABILITIES,
+        motion: false,
+        thermal: false,
+      },
+    }
+
+    expect(getTreeDCommandBlockReason('emergencyStop', degradedContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('turnOffHeaters', degradedContext)).toBeNull()
+  })
 })

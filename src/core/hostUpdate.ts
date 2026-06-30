@@ -51,6 +51,10 @@ type MoonrakerHostUpdateClientOptions = {
   fetchImpl?: typeof fetch
 }
 
+const HOST_UPDATE_STATUS_TIMEOUT_MS = 30_000
+const HOST_UPDATE_CHECK_TIMEOUT_MS = 30_000
+const HOST_UPDATE_APPLY_TIMEOUT_MS = 10_000
+
 function readString(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim().length > 0 ? value : fallback
 }
@@ -142,18 +146,42 @@ async function requestHostUpdateStatus(
   path: string,
   init: RequestInit,
   options: Required<MoonrakerHostUpdateClientOptions>,
+  timeoutMs: number,
 ): Promise<HostUpdateStatus> {
-  const response = await options.fetchImpl(`${options.moonrakerUrl}${path}`, init)
-  const body = await readJsonResponse(response)
+  const controller = new AbortController()
+  let didTimeout = false
+  const timeoutId = setTimeout(() => {
+    didTimeout = true
+    controller.abort()
+  }, timeoutMs)
 
-  if (!response.ok) {
-    throw new MoonrakerHostUpdateError(
-      readMoonrakerErrorMessage(body, `Moonraker update endpoint failed with HTTP ${response.status}`),
-      response.status,
-    )
+  try {
+    const response = await options.fetchImpl(`${options.moonrakerUrl}${path}`, {
+      ...init,
+      signal: controller.signal,
+    })
+    const body = await readJsonResponse(response)
+
+    if (!response.ok) {
+      throw new MoonrakerHostUpdateError(
+        readMoonrakerErrorMessage(body, `Moonraker update endpoint failed with HTTP ${response.status}`),
+        response.status,
+      )
+    }
+
+    return normalizeHostUpdateStatus(body)
+  } catch (error) {
+    if (didTimeout || (error instanceof DOMException && error.name === 'AbortError')) {
+      throw new MoonrakerHostUpdateError(
+        `Moonraker update endpoint timed out after ${timeoutMs}ms`,
+        408,
+      )
+    }
+
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
   }
-
-  return normalizeHostUpdateStatus(body)
 }
 
 export function isMoonrakerHostUpdateEndpointUnavailable(error: unknown): boolean {
@@ -173,17 +201,32 @@ export function createMoonrakerHostUpdateClient(
 
   return {
     getStatus() {
-      return requestHostUpdateStatus('/server/treed/update/status', { method: 'GET' }, clientOptions)
+      return requestHostUpdateStatus(
+        '/server/treed/update/status',
+        { method: 'GET' },
+        clientOptions,
+        HOST_UPDATE_STATUS_TIMEOUT_MS,
+      )
     },
     check() {
-      return requestHostUpdateStatus('/server/treed/update/check', { method: 'POST' }, clientOptions)
+      return requestHostUpdateStatus(
+        '/server/treed/update/check',
+        { method: 'POST' },
+        clientOptions,
+        HOST_UPDATE_CHECK_TIMEOUT_MS,
+      )
     },
     apply(args) {
-      return requestHostUpdateStatus('/server/treed/update/apply', {
-        body: JSON.stringify({ targetId: args.targetId, targetTag: args.targetTag ?? null }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      }, clientOptions)
+      return requestHostUpdateStatus(
+        '/server/treed/update/apply',
+        {
+          body: JSON.stringify({ targetId: args.targetId, targetTag: args.targetTag ?? null }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        },
+        clientOptions,
+        HOST_UPDATE_APPLY_TIMEOUT_MS,
+      )
     },
   }
 }

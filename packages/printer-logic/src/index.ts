@@ -1147,6 +1147,10 @@ const DIRECT_MOONRAKER_SYSTEM_COMMANDS = new Set<PrinterCommandId>([
   'firmwareRestart',
   'restartMoonraker',
 ])
+const FAILSAFE_COMMANDS = new Set<PrinterCommandId>([
+  'emergencyStop',
+  'turnOffHeaters',
+])
 const RUNTIME_TUNE_COMMANDS = new Set<PrinterCommandId>([
   'setPrintSpeedFactorPercent',
   'setPrintFlowFactorPercent',
@@ -1400,6 +1404,14 @@ export function getTreeDCommandBlockReason(
 ): string | null {
   const item = getTreeDCommandCatalogItem(command)
   const capabilityEnabled = context.capabilities[item.capability]
+
+  if (FAILSAFE_COMMANDS.has(command)) {
+    if (context.transportState !== 'online') {
+      return `${item.label}: Moonraker недоступен.`
+    }
+
+    return getCommandSpecificBlockReason(command, context, args)
+  }
 
   if (DIRECT_MOONRAKER_SYSTEM_COMMANDS.has(command)) {
     if (context.transportState !== 'online') {

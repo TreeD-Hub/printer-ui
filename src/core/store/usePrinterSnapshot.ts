@@ -44,6 +44,8 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const snapshot = usePrinterStoreSelector(selectPrinterSnapshot)
   const [error, setError] = useState<string>('')
   const lastTransitionRef = useRef<string>('')
+  const snapshotRevisionRef = useRef(0)
+  const refreshSequenceRef = useRef(0)
 
   const client = useMemo(() => {
     return createTransportClient()
@@ -64,14 +66,27 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   }, [])
 
   const refresh = useCallback(async () => {
+    const refreshSequence = ++refreshSequenceRef.current
+    const snapshotRevision = snapshotRevisionRef.current
+
     try {
       const nextSnapshot = await client.fetchSnapshot()
+      if (refreshSequence !== refreshSequenceRef.current || snapshotRevision !== snapshotRevisionRef.current) {
+        return
+      }
+
       recordSnapshotTransition(nextSnapshot)
+      snapshotRevisionRef.current += 1
       setPrinterSnapshot(nextSnapshot)
       setError('')
     } catch (err) {
+      if (refreshSequence !== refreshSequenceRef.current || snapshotRevision !== snapshotRevisionRef.current) {
+        return
+      }
+
       const message = err instanceof Error ? err.message : 'Unknown error'
       recordOperationalDiagnostic('transport-error', message)
+      snapshotRevisionRef.current += 1
       updatePrinterSnapshot((prev) => ({
         ...prev,
         connection: getFailureConnection(prev),
@@ -97,6 +112,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
+        snapshotRevisionRef.current += 1
         recordSnapshotTransition(nextSnapshot)
         updatePrinterSnapshot((prev) => mergeWebSocketSnapshot(prev, nextSnapshot))
         setError('')
@@ -106,6 +122,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
+        snapshotRevisionRef.current += 1
         recordOperationalDiagnostic('state-transition', `transport -> ${connection}`, message ?? null)
         updatePrinterSnapshot((prev) => ({
           ...prev,
