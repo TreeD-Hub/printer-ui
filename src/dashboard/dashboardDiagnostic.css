@@ -1,0 +1,181 @@
+.dashboard-diagnostic-screen {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 292px;
+  gap: var(--space-sm);
+  padding: 0;
+  overflow: hidden;
+}
+
+.dashboard-diagnostic-main {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto auto auto auto minmax(0, auto) 1fr auto;
+  justify-items: center;
+  align-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-lg);
+  text-align: center;
+}
+
+.dashboard-diagnostic-symbol {
+  width: 82px;
+  height: 82px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--color-error);
+  font-family: var(--font-family-accent);
+  font-size: 64px;
+  line-height: 1;
+  box-shadow: 0 0 24px color-mix(in srgb, currentColor 26%, transparent);
+}
+
+.dashboard-diagnostic-screen.is-warning .dashboard-diagnostic-symbol {
+  color: var(--color-warning);
+}
+
+.dashboard-diagnostic-kicker,
+.dashboard-diagnostic-main h2,
+.dashboard-diagnostic-message,
+.dashboard-diagnostic-confirm-note,
+.dashboard-diagnostic-action-error,
+.dashboard-diagnostic-details p {
+  margin: 0;
+}
+
+.dashboard-diagnostic-kicker {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dashboard-diagnostic-main h2 {
+  max-width: 100%;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-heading-medium);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-diagnostic-message {
+  width: min(100%, 620px);
+  max-height: 86px;
+  overflow: auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+.dashboard-diagnostic-action {
+  min-width: 276px;
+  min-height: 54px;
+  border: 1px solid var(--color-error);
+  border-radius: 10px;
+  background: var(--color-primary-surface);
+  color: var(--color-text-primary);
+  padding: var(--space-xs) var(--space-md);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.dashboard-diagnostic-screen.is-warning .dashboard-diagnostic-action {
+  border-color: color-mix(in srgb, var(--color-warning) 65%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-warning) 9%, transparent);
+}
+
+.dashboard-diagnostic-action.is-armed {
+  border-color: var(--color-error);
+  background: var(--color-error);
+  color: var(--color-background);
+}
+
+.dashboard-diagnostic-action:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.dashboard-diagnostic-confirm-note {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-tiny);
+}
+
+.dashboard-diagnostic-action-error {
+  max-width: 100%;
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+  overflow-wrap: anywhere;
+}
+
+.dashboard-diagnostic-status-dock {
+  width: 100%;
+  align-self: end;
+}
+
+.dashboard-diagnostic-details {
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  background: var(--color-surface-elevated);
+  padding: var(--space-sm);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-sm);
+  overflow: hidden;
+}
+
+.dashboard-diagnostic-details header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.dashboard-diagnostic-details header span {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-small);
+}
+
+.dashboard-diagnostic-details header strong {
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-medium);
+}
+
+.dashboard-diagnostic-screen.is-warning .dashboard-diagnostic-details header strong {
+  color: var(--color-warning);
+}
+
+.dashboard-diagnostic-details ul {
+  min-height: 0;
+  margin: 0;
+  padding: 0 0 0 18px;
+  display: grid;
+  align-content: start;
+  gap: var(--space-xs);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+.dashboard-diagnostic-details li,
+.dashboard-diagnostic-details p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
