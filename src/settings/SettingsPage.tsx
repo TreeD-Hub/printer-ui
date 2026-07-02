@@ -163,6 +163,7 @@ export function SettingsPage({
             onChange={onSettingsGroupChange}
             ariaLabel="Группы настроек"
             testIdPrefix="settings-group"
+            iconSize={28}
           />
         </aside>
 

@@ -521,12 +521,6 @@ body {
     transform 0.2s ease;
 }
 
-.macros-manager-workflow:focus-visible,
-.macros-manager-workflow:hover {
-  border-color: var(--color-primary-ring);
-  background: var(--color-primary-surface-soft);
-}
-
 .macros-manager-workflow:active {
   transform: translateY(1px);
 }
@@ -584,12 +578,6 @@ body {
   font-family: var(--font-family-accent);
   font-size: var(--font-size-small);
   cursor: pointer;
-}
-
-.macros-eddy-back-btn:focus-visible,
-.macros-eddy-back-btn:hover {
-  border-color: var(--color-primary-ring);
-  color: var(--color-text-primary);
 }
 
 .macros-eddy-summary {
@@ -1037,7 +1025,7 @@ body {
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-columns: 212px minmax(0, 1fr);
+  grid-template-columns: 190px minmax(0, 1fr);
   gap: var(--space-xs);
 }
 
@@ -2122,11 +2110,6 @@ body {
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
-}
-
-.control-menu-collapse-btn:focus-visible {
-  background: rgba(244, 244, 240, 0.06);
-  color: var(--color-primary-light);
 }
 
 .control-menu-shell .settings-sidebar-menu {
@@ -3564,10 +3547,6 @@ body {
   text-shadow: none;
 }
 
-.segmented-toggle-btn:focus-visible {
-  color: var(--color-text-primary);
-}
-
 .segmented-toggle-btn:active {
   transform: translateY(1px);
 }
@@ -4313,10 +4292,6 @@ body {
   text-shadow: none;
 }
 
-.files-sort-btn:focus-visible {
-  color: var(--color-text-primary);
-}
-
 .files-sort-btn:active {
   transform: translateY(1px);
 }
@@ -4399,15 +4374,6 @@ body {
   transition:
     border-color 0.2s ease,
     transform 0.2s ease;
-}
-
-.print-file-card:focus-visible {
-  border-color: var(--color-primary-ring);
-}
-
-.print-file-card:focus-visible {
-  outline: 2px solid var(--color-primary-ring);
-  outline-offset: 2px;
 }
 
 .print-file-card:active {
@@ -5832,10 +5798,6 @@ body {
     color 0.18s ease;
 }
 
-.print-tune-hitbox:focus-visible {
-  background: color-mix(in srgb, var(--color-primary-surface-soft) 20%, transparent);
-}
-
 .print-tune-hitbox:active {
   background: rgba(244, 244, 240, 0.035);
 }
@@ -6236,10 +6198,6 @@ body {
   text-shadow: none;
 }
 
-.step-btn:focus-visible {
-  color: var(--color-text-primary);
-}
-
 .babystep-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6324,14 +6282,6 @@ body {
   display: grid;
   place-items: center;
   transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.nav-item:focus-visible {
-  color: var(--color-text-primary);
-}
-
-.nav-item:active {
-  background: rgba(244, 244, 240, 0.035);
 }
 
 .nav-item.is-active .nav-icon {
@@ -6420,7 +6370,6 @@ select {
   color: var(--color-text-primary);
 }
 
-.top-icon-btn:focus-visible,
 .top-icon-btn.is-active {
   border-color: var(--color-border-default);
   background: var(--color-primary-surface-soft);
@@ -6433,8 +6382,7 @@ select {
   color: var(--color-primary);
 }
 
-.power-btn.is-active,
-.power-btn:focus-visible {
+.power-btn.is-active {
   border-color: var(--color-primary);
   background: var(--color-primary-surface);
   box-shadow:
@@ -6659,12 +6607,8 @@ select {
 .settings-toggle-switch.is-active,
 .settings-network-btn-primary,
 .settings-network-item.is-active,
-.settings-console-chip:focus-visible,
-.settings-console-key:focus-visible,
 .control-service-btn.is-active,
 .control-target-btn.is-active,
-.axis-cross-btn:not(.is-disabled):active,
-.babystep-btn:active,
 .virtual-keyboard-key.is-active,
 .nav-item.is-active {
   border-color: var(--color-primary);
@@ -6857,9 +6801,7 @@ select {
   box-shadow: none;
 }
 
-.top-icon-btn:focus-visible,
 .top-icon-btn.is-active,
-.power-btn:focus-visible,
 .power-btn.is-active {
   border-color: rgba(244, 244, 240, 0.26);
   background: rgba(244, 244, 240, 0.035);
@@ -6867,7 +6809,6 @@ select {
 }
 
 .power-btn,
-.power-btn:focus-visible,
 .power-btn.is-active {
   color: var(--color-primary);
 }
@@ -7371,18 +7312,6 @@ select {
   align-content: start;
 }
 
-.idle-mini-widget-nav:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -3px;
-}
-
-.idle-mini-widget:focus-within {
-  border-color: var(--color-primary);
-  box-shadow:
-    inset 0 0 0 1px var(--color-primary-ring),
-    0 10px 24px var(--color-shadow-strong);
-}
-
 .idle-widget-drag-handle {
   position: absolute;
   top: 0;
@@ -7402,11 +7331,6 @@ select {
 
 .idle-widget-drag-handle:active {
   cursor: grabbing;
-}
-
-.idle-widget-drag-handle:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -4px;
 }
 
 .idle-widget-drag-handle-mark {
@@ -8185,6 +8109,12 @@ select {
   opacity: 1;
 }
 
+.settings-screen .settings-sidebar-item.is-active {
+  border-color: var(--terminal-border-active);
+  background: transparent;
+  color: var(--color-text-primary);
+}
+
 .settings-screen .settings-sidebar-item:not(:first-of-type)::after {
   content: '';
   position: absolute;
@@ -8198,7 +8128,7 @@ select {
 
 .settings-screen .settings-sidebar-label {
   min-width: 0;
-  max-width: 148px;
+  max-width: 120px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
