@@ -264,25 +264,36 @@ export function useSettingsController({
     applyHostNetworkStatus(createUnavailableHostNetworkStatus(message), message)
   }, [applyHostNetworkStatus])
 
-  useEffect(() => {
-    let isDisposed = false
-
+  const refreshHostNetworkStatus = useCallback((isDisposed: () => boolean = () => false): void => {
     void networkClient.getStatus()
       .then((nextStatus) => {
-        if (!isDisposed) {
+        if (!isDisposed()) {
           applyHostNetworkStatus(nextStatus)
         }
       })
       .catch((error: unknown) => {
-        if (!isDisposed) {
+        if (!isDisposed()) {
           applyHostNetworkError(error, 'Не удалось получить статус Wi-Fi.')
         }
       })
+  }, [applyHostNetworkError, applyHostNetworkStatus, networkClient])
+
+  useEffect(() => {
+    let isDisposed = false
+
+    refreshHostNetworkStatus(() => isDisposed)
 
     return () => {
       isDisposed = true
     }
-  }, [applyHostNetworkError, applyHostNetworkStatus, networkClient])
+  }, [refreshHostNetworkStatus])
+
+  const handleSettingsGroupChange = useCallback((nextGroup: SettingsGroupId): void => {
+    setActiveSettingsGroup(nextGroup)
+    if (nextGroup === 'network') {
+      refreshHostNetworkStatus()
+    }
+  }, [refreshHostNetworkStatus])
 
   useEffect(() => {
     let isDisposed = false
@@ -656,7 +667,7 @@ export function useSettingsController({
 
   const pageProps: SettingsPageProps = {
     activeSettingsGroup,
-    onSettingsGroupChange: setActiveSettingsGroup,
+    onSettingsGroupChange: handleSettingsGroupChange,
     system: {
       contractStatus: snapshot.uiContract.status === 'compatible'
         ? `UI contract ${snapshot.uiContract.contractVersion}: совместим`

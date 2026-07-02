@@ -42,8 +42,10 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20LIGHT_ON')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20LIGHT_OFF')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('firmware_retraction')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('save_variables')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_UI_TUNE_STATE')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_UI_CONTRACT')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_EDDY_CALIBRATION_STATE')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20TREED_UI_MOVE_AXIS')
   })
 
@@ -98,9 +100,9 @@ describe('normalizeMoonrakerSnapshot', () => {
           },
           'gcode_macro _TREED_GEOMETRY_CFG': {
             print_offset_x: 0,
-            print_offset_y: 65,
+            print_offset_y: 0,
             print_size_x: 245,
-            print_size_y: 180,
+            print_size_y: 245,
           },
           'gcode_macro _TREED_PAUSE_STATE': {
             is_active: 0,
@@ -140,7 +142,7 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(snapshot.hardware.mainMcu).toBe('Octopus Pro CAN')
     expect(snapshot.v2.eddy.status).toBe('ready')
     expect(snapshot.toolhead.rawY).toBe(65)
-    expect(snapshot.toolhead.printOffsetY).toBe(65)
+    expect(snapshot.toolhead.printOffsetY).toBe(0)
     expect(snapshot.printJob.filename).toBe('v2_part.gcode')
     expect(snapshot.printJob.progressPercent).toBe(37)
     expect(snapshot.thermalTargets).toEqual({
@@ -317,6 +319,16 @@ describe('createMoonrakerClient', () => {
         return Promise.resolve(moonrakerResponse(files))
       }
 
+      if (url.includes('/server/history/totals')) {
+        return Promise.resolve(moonrakerResponse({
+          job_totals: {
+            total_print_time: 437 * 60 * 60,
+            total_time: 462 * 60 * 60,
+            total_jobs: 126,
+          },
+        }))
+      }
+
       metadataRequestCount += 1
       activeMetadataRequests += 1
       maxActiveMetadataRequests = Math.max(maxActiveMetadataRequests, activeMetadataRequests)
@@ -359,6 +371,49 @@ describe('createMoonrakerClient', () => {
     expect(metadataRequestCount).toBe(5)
   })
 
+  it('loads Moonraker history totals into usage snapshot', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/query')) {
+        return Promise.resolve(moonrakerResponse(runtimeObjects()))
+      }
+
+      if (url.includes('/server/files/list')) {
+        return Promise.resolve(moonrakerResponse([]))
+      }
+
+      if (url.includes('/server/history/totals')) {
+        return Promise.resolve(moonrakerResponse({
+          job_totals: {
+            total_jobs: 126,
+            total_time: 462 * 60 * 60,
+            total_print_time: 437 * 60 * 60,
+            total_filament_used: 824_500,
+            longest_print: 18 * 60 * 60,
+          },
+        }))
+      }
+
+      return Promise.resolve(moonrakerResponse({}))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    const snapshot = await client.fetchSnapshot()
+
+    expect(snapshot.usage).toEqual({
+      totalPrintTimeSec: 437 * 60 * 60,
+      totalJobTimeSec: 462 * 60 * 60,
+      totalJobs: 126,
+      totalFilamentUsedMm: 824_500,
+      longestPrintSec: 18 * 60 * 60,
+      updatedAt: expect.any(String),
+      state: 'ready',
+      message: null,
+    })
+  })
+
   it('keeps the full file list but limits metadata lookups per snapshot', async () => {
     const files = Array.from({ length: 30 }, (_item, index) => ({
       path: `queue/part-${index}.gcode`,
@@ -373,6 +428,14 @@ describe('createMoonrakerClient', () => {
 
       if (url.includes('/server/files/list')) {
         return Promise.resolve(moonrakerResponse(files))
+      }
+
+      if (url.includes('/server/history/totals')) {
+        return Promise.resolve(moonrakerResponse({
+          job_totals: {
+            total_print_time: 437 * 60 * 60,
+          },
+        }))
       }
 
       metadataUrls.push(url)
@@ -413,6 +476,16 @@ describe('createMoonrakerClient', () => {
     expect(snapshot.printFiles).toEqual([])
     expect(snapshot.fileList).toEqual({
       state: 'error',
+      message: 'Moonraker 503',
+    })
+    expect(snapshot.usage).toEqual({
+      totalPrintTimeSec: null,
+      totalJobTimeSec: null,
+      totalJobs: null,
+      totalFilamentUsedMm: null,
+      longestPrintSec: null,
+      updatedAt: null,
+      state: 'unavailable',
       message: 'Moonraker 503',
     })
   })

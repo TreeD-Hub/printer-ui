@@ -6,9 +6,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage', 'playwright-report', 'test-results']),
+  globalIgnores(['dist', 'coverage', 'playwright-report', 'test-results', 'apps/web-ui/dist', 'packages/printer-logic/dist']),
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'apps/web-ui/src/**/*.{ts,tsx}'],
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,
@@ -26,6 +26,16 @@ export default defineConfig([
     },
   },
   {
+    files: ['packages/printer-logic/{src,test}/**/*.ts'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+    ],
+    languageOptions: {
+      ecmaVersion: 2022,
+    },
+  },
+  {
     files: ['e2e/**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
     languageOptions: {
@@ -37,7 +47,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.test.{ts,tsx}', 'e2e/**/*.ts'],
+    files: ['src/**/*.test.{ts,tsx}', 'packages/printer-logic/test/**/*.ts', 'apps/web-ui/src/**/*.test.{ts,tsx}', 'e2e/**/*.ts'],
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -54,7 +64,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['vite.config.ts', 'vitest.config.ts', 'playwright.config.ts'],
+    files: ['vite.config.ts', 'vitest.config.ts', 'playwright.config.ts', 'apps/web-ui/vite.config.ts'],
     languageOptions: {
       globals: globals.node,
     },

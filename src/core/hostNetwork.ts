@@ -36,6 +36,11 @@ type MoonrakerHostNetworkClientOptions = {
   fetchImpl?: typeof fetch
 }
 
+const HOST_NETWORK_STATUS_TIMEOUT_MS = 8_000
+const HOST_NETWORK_SCAN_TIMEOUT_MS = 30_000
+const HOST_NETWORK_CONNECT_TIMEOUT_MS = 60_000
+const HOST_NETWORK_FORGET_TIMEOUT_MS = 30_000
+
 function readMoonrakerErrorMessage(body: unknown, fallback: string): string {
   if (typeof body === 'object' && body !== null) {
     const message = 'message' in body ? body.message : undefined
@@ -68,21 +73,45 @@ async function requestHostNetworkStatus(
   path: string,
   init: RequestInit,
   options: Required<MoonrakerHostNetworkClientOptions>,
+  timeoutMs: number,
 ): Promise<HostNetworkStatus> {
-  const response = await options.fetchImpl(`${options.moonrakerUrl}${path}`, init)
-  const body = await readJsonResponse(response)
+  const controller = new AbortController()
+  let didTimeout = false
+  const timeoutId = setTimeout(() => {
+    didTimeout = true
+    controller.abort()
+  }, timeoutMs)
 
-  if (!response.ok) {
-    throw new MoonrakerHostNetworkError(
-      readMoonrakerErrorMessage(body, `Moonraker network endpoint failed with HTTP ${response.status}`),
-      response.status,
+  try {
+    const response = await options.fetchImpl(`${options.moonrakerUrl}${path}`, {
+      ...init,
+      signal: controller.signal,
+    })
+    const body = await readJsonResponse(response)
+
+    if (!response.ok) {
+      throw new MoonrakerHostNetworkError(
+        readMoonrakerErrorMessage(body, `Moonraker network endpoint failed with HTTP ${response.status}`),
+        response.status,
+      )
+    }
+
+    return normalizeHostNetworkStatus(
+      body,
+      'Moonraker network endpoint returned invalid HostNetworkStatus.',
     )
-  }
+  } catch (error) {
+    if (didTimeout || (error instanceof DOMException && error.name === 'AbortError')) {
+      throw new MoonrakerHostNetworkError(
+        `Moonraker network endpoint timed out after ${timeoutMs}ms`,
+        408,
+      )
+    }
 
-  return normalizeHostNetworkStatus(
-    body,
-    'Moonraker network endpoint returned invalid HostNetworkStatus.',
-  )
+    throw error
+  } finally {
+    clearTimeout(timeoutId)
+  }
 }
 
 export function isMoonrakerHostNetworkEndpointUnavailable(error: unknown): boolean {
@@ -102,24 +131,44 @@ export function createMoonrakerHostNetworkClient(
 
   return {
     getStatus() {
-      return requestHostNetworkStatus('/server/treed/network/status', { method: 'GET' }, clientOptions)
+      return requestHostNetworkStatus(
+        '/server/treed/network/status',
+        { method: 'GET' },
+        clientOptions,
+        HOST_NETWORK_STATUS_TIMEOUT_MS,
+      )
     },
     scan() {
-      return requestHostNetworkStatus('/server/treed/network/scan', { method: 'POST' }, clientOptions)
+      return requestHostNetworkStatus(
+        '/server/treed/network/scan',
+        { method: 'POST' },
+        clientOptions,
+        HOST_NETWORK_SCAN_TIMEOUT_MS,
+      )
     },
     connect({ ssid, password }) {
-      return requestHostNetworkStatus('/server/treed/network/connect', {
-        body: JSON.stringify({ ssid, password: password ?? null }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      }, clientOptions)
+      return requestHostNetworkStatus(
+        '/server/treed/network/connect',
+        {
+          body: JSON.stringify({ ssid, password: password ?? null }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        },
+        clientOptions,
+        HOST_NETWORK_CONNECT_TIMEOUT_MS,
+      )
     },
     forget({ ssid }) {
-      return requestHostNetworkStatus('/server/treed/network/forget', {
-        body: JSON.stringify({ ssid }),
-        headers: { 'content-type': 'application/json' },
-        method: 'POST',
-      }, clientOptions)
+      return requestHostNetworkStatus(
+        '/server/treed/network/forget',
+        {
+          body: JSON.stringify({ ssid }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+        },
+        clientOptions,
+        HOST_NETWORK_FORGET_TIMEOUT_MS,
+      )
     },
   }
 }

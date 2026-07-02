@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { vi } from 'vitest'
 import App from './App'
 import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
 import {
@@ -13,6 +14,24 @@ import {
   setMockTransportSnapshot,
 } from '../mocks/runtime'
 import type { PrinterSnapshot } from './core/transport/types'
+import { createLoadingMoonrakerSystemStatus, type MoonrakerSystemStatus } from './settings/systemStatus'
+
+const systemStatusMock = vi.hoisted(() => ({
+  status: undefined as MoonrakerSystemStatus | undefined,
+  refresh: vi.fn(),
+}))
+
+vi.mock('./settings/useMoonrakerSystemStatus', async () => {
+  const { createLoadingMoonrakerSystemStatus } = await import('./settings/systemStatus')
+
+  return {
+    useMoonrakerSystemStatus: () => ({
+      status: systemStatusMock.status ?? createLoadingMoonrakerSystemStatus(),
+      isRefreshing: false,
+      refresh: systemStatusMock.refresh,
+    }),
+  }
+})
 
 function applyPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
   setMockTransportSnapshot(nextSnapshot)
@@ -21,7 +40,19 @@ function applyPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
   })
 }
 
+function createSystemStatus(overrides: Partial<MoonrakerSystemStatus> = {}): MoonrakerSystemStatus {
+  return {
+    ...createLoadingMoonrakerSystemStatus(),
+    loadState: 'ready',
+    health: 'ok',
+    updatedAt: '2026-07-02T12:00:00.000Z',
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
+  systemStatusMock.status = undefined
+  systemStatusMock.refresh.mockClear()
   act(() => {
     setPrinterSnapshot(createMockSnapshot())
   })
@@ -43,6 +74,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Статус Wi-Fi' })).toBeInTheDocument()
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
     expect(screen.getByText(/Экосистема/i)).toBeInTheDocument()
+    const maintenanceWidget = within(screen.getByTestId('idle-widget-maintenance'))
+    expect(maintenanceWidget.getByText('Загрузка')).toBeInTheDocument()
+    expect(maintenanceWidget.getByText('Диагностика системы загружается.')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Ожидание печати' })).not.toBeInTheDocument()
     const idleNotesInput = screen.getByTestId('idle-notes-input') as HTMLTextAreaElement
     expect(idleNotesInput.value.length).toBeGreaterThan(0)
@@ -58,6 +92,167 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: 'Пауза' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
   }, 10000)
+
+  it('keeps idle dashboard chrome and sidebar visible during a Klipper diagnostic', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      connection: 'shutdown',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+    })
+
+    render(<App />)
+
+    const idleDashboard = await screen.findByTestId('screen-dashboard-idle')
+    const diagnostic = within(idleDashboard).getByTestId('dashboard-diagnostic')
+    expect(diagnostic).toBeInTheDocument()
+    expect(diagnostic).toHaveClass('is-fatal')
+    expect(diagnostic).toHaveAttribute('aria-live', 'assertive')
+    expect(within(idleDashboard).getByText('Klipper остановлен')).toBeInTheDocument()
+    expect(within(idleDashboard).getByText("Lost communication with MCU 'eddy'")).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-widget-temperature')).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-widget-maintenance')).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-notes-input')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /Основная навигация/i })).toBeInTheDocument()
+  })
+
+  it('keeps active print view visible when a diagnostic condition is present', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      connection: 'shutdown',
+      state: 'printing',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+      printJob: {
+        ...snapshot.printJob,
+        filename: 'diagnostic-active-print.gcode',
+        filePath: 'diagnostic-active-print.gcode',
+        state: 'printing',
+        progress: 0.4,
+        progressPercent: 40,
+        isActive: true,
+        isPaused: false,
+      },
+    })
+
+    render(<App />)
+
+    expect(await screen.findByTestId('print-progress-summary')).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard-diagnostic')).not.toBeInTheDocument()
+  })
+
+  it('requires confirmation before recovery and keeps command errors inside the idle hero', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      connection: 'shutdown',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+    })
+    setMockCommandFailure('firmwareRestart', 'Mock: firmware restart failed')
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    const commandCountBeforeConfirm = getMockCommandOperations().length
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Перезапустить прошивку' }))
+    expect(getMockCommandOperations()).toHaveLength(commandCountBeforeConfirm)
+
+    fireEvent.click(within(diagnostic).getByRole('button', { name: /Подтвердить/i }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'firmwareRestart' }),
+        ]),
+      )
+      expect(within(diagnostic).getByText('Mock: firmware restart failed')).toBeInTheDocument()
+    })
+    expect(screen.getByTestId('screen-dashboard-idle')).toContainElement(diagnostic)
+  })
+
+  it('opens System settings from a system health warning', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+    })
+    systemStatusMock.status = createSystemStatus({
+      health: 'warning',
+      services: [{
+        name: 'crowsnest',
+        activeState: 'failed',
+        subState: 'failed',
+        healthy: false,
+      }],
+    })
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    expect(within(diagnostic).getByText('Камера недоступна')).toBeInTheDocument()
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Открыть «Систему»' }))
+
+    expect(await screen.findByRole('heading', { name: 'Система' })).toBeInTheDocument()
+  })
+
+  it('refreshes printer and system snapshots from an unavailable system diagnostic', async () => {
+    const snapshot = createMockSnapshot()
+    const liveSnapshot: PrinterSnapshot = {
+      ...snapshot,
+      source: 'live',
+    }
+    applyPrinterSnapshot(liveSnapshot)
+    systemStatusMock.status = createSystemStatus({
+      loadState: 'unavailable',
+      health: 'error',
+      updatedAt: null,
+      errors: ['Moonraker: HTTP 503'],
+    })
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    const shutdownSnapshot: PrinterSnapshot = {
+      ...liveSnapshot,
+      connection: 'shutdown',
+      klippy: {
+        state: 'shutdown',
+        message: 'MCU shutdown',
+      },
+    }
+    setMockTransportSnapshot(shutdownSnapshot)
+
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Повторить подключение' }))
+
+    await waitFor(() => {
+      expect(systemStatusMock.refresh).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Klipper остановлен')).toBeInTheDocument()
+    })
+  })
 
   it('returns to waiting state after print cancel', async () => {
     render(<App />)
@@ -78,6 +273,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Стоп' })).toBeInTheDocument()
     })
+    expect(getPrinterSnapshot().printJob.isActive).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Стоп' }))
     expect(screen.getByTestId('print-cancel-modal')).toBeInTheDocument()
@@ -87,6 +283,7 @@ describe('App', () => {
       expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
     })
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
+    expect(getPrinterSnapshot().printJob.isActive).toBe(false)
   })
 
   it('switches print state between pause and print from the pause button', async () => {
@@ -204,6 +401,121 @@ describe('App', () => {
     } finally {
       applyPrinterSnapshot(previousSnapshot)
     }
+  })
+
+  it('opens exclude-object modal and sends one confirmed command for the selected object', async () => {
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        connection: 'online',
+        state: 'printing',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'queue/object_plate.gcode',
+          filePath: 'queue/object_plate.gcode',
+          state: 'printing',
+          progress: 0.35,
+          progressPercent: 35,
+          isActive: true,
+          isPaused: false,
+        },
+        excludeObjects: {
+          supported: true,
+          state: 'ready',
+          objects: [
+            {
+              name: 'part_1',
+              displayName: 'part 1',
+              center: { x: 40, y: 40 },
+              polygon: [{ x: 20, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 60 }, { x: 20, y: 60 }],
+              isCurrent: false,
+              isExcluded: false,
+            },
+            {
+              name: 'part_2',
+              displayName: 'part 2',
+              center: { x: 105, y: 40 },
+              polygon: [{ x: 85, y: 20 }, { x: 125, y: 20 }, { x: 125, y: 60 }, { x: 85, y: 60 }],
+              isCurrent: true,
+              isExcluded: false,
+            },
+            {
+              name: 'part_3',
+              displayName: 'part 3',
+              center: { x: 170, y: 40 },
+              polygon: null,
+              isCurrent: false,
+              isExcluded: true,
+            },
+          ],
+          currentObjectName: 'part_2',
+          excludedObjectNames: ['part_3'],
+          message: null,
+        },
+      })
+
+      render(<App />)
+
+      fireEvent.click(await screen.findByTestId('open-exclude-object-modal'))
+      expect(screen.getByRole('heading', { name: 'Исключение объектов' })).toBeInTheDocument()
+      expect(screen.getAllByText('Текущий').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Исключён').length).toBeGreaterThan(0)
+
+      fireEvent.click(screen.getByTestId('exclude-object-map-item-part_1'))
+      expect(screen.getByTestId('exclude-object-selected-name')).toHaveTextContent('part 1')
+      fireEvent.click(screen.getByTestId('exclude-object-submit'))
+      expect(screen.getByText('Исключить «part 1»?')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('exclude-object-confirm-submit'))
+
+      await waitFor(() => {
+        expect(getMockCommandOperations()).toEqual([
+          expect.objectContaining({ command: 'excludeObject', objectName: 'part_1' }),
+        ])
+      })
+      expect(screen.getByTestId('exclude-object-list-item-part_1')).toBeDisabled()
+      expect(screen.getByTestId('exclude-object-map-item-part_1')).toHaveAttribute('aria-disabled', 'true')
+
+      applyPrinterSnapshot({
+        ...getPrinterSnapshot(),
+        excludeObjects: {
+          ...getPrinterSnapshot().excludeObjects,
+          excludedObjectNames: ['part_1', 'part_3'],
+          objects: getPrinterSnapshot().excludeObjects.objects.map((item) => (
+            item.name === 'part_1' ? { ...item, isExcluded: true } : item
+          )),
+        },
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId('exclude-object-list-item-part_1')).toHaveTextContent('Исключён')
+      })
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  }, 10000)
+
+  it('opens exclude-object modal after starting a mock print', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    const openButton = await screen.findByTestId('open-exclude-object-modal')
+    fireEvent.click(openButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Исключение объектов' })).toBeInTheDocument()
+    })
+  }, 10000)
+
+  it('keeps the exclude-object button hidden while printer is idle', () => {
+    render(<App />)
+
+    expect(screen.queryByTestId('open-exclude-object-modal')).not.toBeInTheDocument()
   })
 
   it('renders active print thermal and quick metrics from live snapshot', async () => {
@@ -561,8 +873,8 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Сдвиг X в минус' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Сдвиг Y в минус' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Сдвиг Z в плюс' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Сдвиг Z в минус' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг Z вверх' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг Z вниз' })).toBeInTheDocument()
     expect(screen.getByTestId('move-step-1')).toBeInTheDocument()
     expect(screen.getByTestId('axis-coordinates')).toBeInTheDocument()
 
@@ -742,21 +1054,43 @@ describe('App', () => {
     }
   })
 
-  it('keeps macros tab empty after removing temporary implementation', () => {
+  it('renders Eddy calibration workflow as step screens and dispatches step commands', async () => {
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Макросы' }))
 
     expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
+    expect(screen.getByTestId('macros-manager')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByTestId('screen-macros').textContent).toBe('')
-    expect(screen.queryByTestId('macros-group-bedMesh')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('macros-bed-manual-card')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('macros-bed-auto-card')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('macros-bed-zoffset-card')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('macros-bed-map-workspace')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('macros-bed-intro-modal')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('macros-zoffset-value')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Выберите проход' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('macros-manager-workflows')).getAllByRole('button')).toHaveLength(1)
+
+    fireEvent.click(
+      within(screen.getByTestId('macros-manager-workflows')).getByRole('button', {
+        name: 'Калибровка датчика уровня 0/5',
+      }),
+    )
+
+    expect(screen.getByRole('heading', { name: 'Калибровка датчика уровня' })).toBeInTheDocument()
+    expect(screen.getByText('Шаг 1 из 6')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Первичная калибровка датчика' })).toBeInTheDocument()
+    expect(screen.queryByTestId('eddy-step-list')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Калибровать ток' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Начать paper test' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'TESTZ -0.05 мм' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ACCEPT и сохранить' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+
+    expect(screen.getByText('Шаг 2 из 6')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Температурная калибровка' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Запустить поиск Z0' }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({ command: 'eddyCheckZ0' })
+    })
   })
 
   it('opens print file modal and handles start and delete actions', async () => {

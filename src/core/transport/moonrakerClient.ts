@@ -7,7 +7,7 @@ import {
 } from './moonrakerNormalizer'
 import { subscribeToMoonrakerStatus } from './moonrakerWebSocketClient'
 import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
-import type { PrinterSnapshot, TransportClient } from './types'
+import type { PrinterSnapshot, PrinterUsageSnapshot, TransportClient } from './types'
 import { normalizePrinterFilePath } from '@treed/printer-logic'
 
 type MoonrakerResponse<T> = {
@@ -29,6 +29,8 @@ type MoonrakerClientOptions = {
 
 type MoonrakerFetchContext = Required<MoonrakerClientOptions> & {
   metadataCache: Map<string, MoonrakerPrintFileMetadata>
+  usageCache: PrinterUsageSnapshot | null
+  usageExpiresAtMs: number
 }
 
 type NormalizeMoonrakerSnapshotInput = {
@@ -42,6 +44,7 @@ type NormalizeMoonrakerSnapshotInput = {
   files?: MoonrakerPrintFileInput[]
   filesError?: string | null
   fileMetadata?: Record<string, MoonrakerPrintFileMetadata>
+  usage?: PrinterUsageSnapshot
 }
 
 type PrintFilesFetchResult = {
@@ -56,9 +59,21 @@ type MoonrakerFileListItem = {
   size?: number
 }
 
+type MoonrakerHistoryTotalsResponse = {
+  job_totals?: {
+    total_jobs?: number
+    total_time?: number
+    total_print_time?: number
+    total_filament_used?: number
+    longest_job?: number
+    longest_print?: number
+  }
+}
+
 const DEFAULT_FETCH_TIMEOUT_MS = 8_000
 const DEFAULT_METADATA_CONCURRENCY = 4
 const DEFAULT_METADATA_FILE_LIMIT = 24
+const DEFAULT_USAGE_CACHE_TTL_MS = 5 * 60 * 1000
 
 export class MoonrakerTransportError extends Error {
   readonly kind: MoonrakerTransportErrorKind
@@ -136,6 +151,40 @@ async function fetchMoonraker<T>(
 
 function getMoonrakerFilePath(item: MoonrakerFileListItem): string {
   return item.path ?? item.filename ?? ''
+}
+
+function toNullableNonNegativeNumber(value: unknown): number | null {
+  const numericValue = typeof value === 'number' ? value : Number(value)
+
+  return Number.isFinite(numericValue) ? Math.max(0, numericValue) : null
+}
+
+function createUnavailableUsageSnapshot(message: string): PrinterUsageSnapshot {
+  return {
+    totalPrintTimeSec: null,
+    totalJobTimeSec: null,
+    totalJobs: null,
+    totalFilamentUsedMm: null,
+    longestPrintSec: null,
+    updatedAt: null,
+    state: 'unavailable',
+    message,
+  }
+}
+
+function normalizeHistoryTotals(result: MoonrakerHistoryTotalsResponse, updatedAt: string): PrinterUsageSnapshot {
+  const totals = result.job_totals
+
+  return {
+    totalPrintTimeSec: toNullableNonNegativeNumber(totals?.total_print_time),
+    totalJobTimeSec: toNullableNonNegativeNumber(totals?.total_time),
+    totalJobs: toNullableNonNegativeNumber(totals?.total_jobs),
+    totalFilamentUsedMm: toNullableNonNegativeNumber(totals?.total_filament_used),
+    longestPrintSec: toNullableNonNegativeNumber(totals?.longest_print),
+    updatedAt,
+    state: 'ready',
+    message: null,
+  }
 }
 
 function getMetadataCacheKey(path: string, item: MoonrakerFileListItem): string {
@@ -256,6 +305,25 @@ async function fetchPrintFilesBestEffort(context: MoonrakerFetchContext): Promis
   }
 }
 
+async function fetchHistoryTotalsBestEffort(context: MoonrakerFetchContext): Promise<PrinterUsageSnapshot> {
+  const nowMs = Date.now()
+  if (context.usageCache !== null && nowMs < context.usageExpiresAtMs) {
+    return context.usageCache
+  }
+
+  try {
+    const result = await fetchMoonraker<MoonrakerHistoryTotalsResponse>('/server/history/totals', context)
+    const usage = normalizeHistoryTotals(result, new Date(nowMs).toISOString())
+    context.usageCache = usage
+    context.usageExpiresAtMs = nowMs + DEFAULT_USAGE_CACHE_TTL_MS
+    return usage
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn('[treed-runtime] history totals unavailable', message)
+    return context.usageCache ?? createUnavailableUsageSnapshot(message)
+  }
+}
+
 export function normalizeMoonrakerSnapshot(input: NormalizeMoonrakerSnapshotInput): PrinterSnapshot {
   const status = input.objects?.status ?? {}
   const files = (input.files ?? []).map((file) => {
@@ -285,6 +353,7 @@ export function normalizeMoonrakerSnapshot(input: NormalizeMoonrakerSnapshotInpu
       nowIso: input.nowIso,
       printFiles: files,
       printFilesError: input.filesError,
+      usage: input.usage,
     },
   )
 }
@@ -297,13 +366,16 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
     metadataConcurrency: options.metadataConcurrency ?? DEFAULT_METADATA_CONCURRENCY,
     metadataFileLimit: options.metadataFileLimit ?? DEFAULT_METADATA_FILE_LIMIT,
     metadataCache: new Map(),
+    usageCache: null,
+    usageExpiresAtMs: 0,
   }
 
   return {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
-      const [objects, printFilesResult] = await Promise.all([
+      const [objects, printFilesResult, usage] = await Promise.all([
         fetchMoonraker<MoonrakerObjectsQueryPayload>(MOONRAKER_RUNTIME_OBJECTS_QUERY, context),
         fetchPrintFilesBestEffort(context),
+        fetchHistoryTotalsBestEffort(context),
       ])
 
       return normalizeMoonrakerRuntimeSnapshot(objects, {
@@ -311,6 +383,7 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
         source: 'live',
         printFiles: printFilesResult.files,
         printFilesError: printFilesResult.error,
+        usage,
       })
     },
     async deletePrintFile(path: string): Promise<void> {

@@ -29,6 +29,16 @@ describe('reconcilePrinterSnapshot', () => {
       source: 'http',
     }
     staleHttp.extruderTemp = 180
+    staleHttp.usage = {
+      totalPrintTimeSec: 100,
+      totalJobTimeSec: 120,
+      totalJobs: 2,
+      totalFilamentUsedMm: 300,
+      longestPrintSec: 90,
+      updatedAt: '2026-06-30T00:00:00.000Z',
+      state: 'ready',
+      message: null,
+    }
     staleHttp.printFiles = [{
       id: 'new-file',
       path: 'new-file.gcode',
@@ -43,6 +53,7 @@ describe('reconcilePrinterSnapshot', () => {
     const result = reconcilePrinterSnapshot(previous, staleHttp)
 
     expect(result.extruderTemp).toBe(220)
+    expect(result.usage).toEqual(staleHttp.usage)
     expect(result.printFiles).toEqual(staleHttp.printFiles)
     expect(result.revisions.printerObjects.eventtime).toBe(20)
     expect(result.revisions.files?.receivedAt).toBe(300)

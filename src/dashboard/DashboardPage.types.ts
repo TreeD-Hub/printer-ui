@@ -7,6 +7,10 @@ import type {
 } from 'react'
 import type { PrinterFilePreview } from '@treed/printer-logic'
 import type { PrinterCommandId } from '../core/commands'
+import type {
+  DashboardDiagnostic,
+  DashboardDiagnosticAction,
+} from './dashboardDiagnosticState'
 
 export type DashboardTuneGroupId =
   | 'nozzle'
@@ -39,6 +43,9 @@ export type MaintenanceSummary = {
   runtimeHours: number
   hoursLeft: number
   isRuntimeBacked: boolean
+  systemLabel: string
+  systemTone: 'ok' | 'warning' | 'error' | 'muted'
+  systemNotice: string
 }
 
 export type IdleWidgetRefs = {
@@ -68,6 +75,7 @@ export type DashboardPageProps = {
   isBusy: boolean
   printPauseBlockReason: string | null
   printCancelBlockReason: string | null
+  excludeObjectOpenBlockReason: string | null
   babystepStep: number
   babystepActiveIndex: number
   zOffsetMm: number
@@ -80,9 +88,11 @@ export type DashboardPageProps = {
   maintenanceSummary: MaintenanceSummary
   idleNotesInputRef: RefObject<HTMLTextAreaElement | null>
   idleNotesText: string
+  diagnostic: DashboardDiagnostic | null
   onPrintTuneGroupOpen: (groupId: DashboardTuneGroupId) => void
   onPause: () => void
   onStopRequest: () => void
+  onExcludeObjectOpen: () => void
   onBabystepStepChange: (step: number) => void
   onBabystepAdjust: (deltaMm: number) => void
   onIdleWidgetTargetOpen: (widgetId: DashboardIdleWidgetId) => void
@@ -92,6 +102,7 @@ export type DashboardPageProps = {
   onIdleWidgetDragHandleClick: (event: MouseEvent<HTMLButtonElement>) => void
   onIdleNotesKeyboardOpen: () => void
   onIdleNotesChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
+  onDiagnosticAction: (action: DashboardDiagnosticAction) => Promise<string | null>
 }
 
 export type DashboardPrintViewProps = Pick<
@@ -112,8 +123,10 @@ export type DashboardPrintViewProps = Pick<
   | 'onPause'
   | 'onPrintTuneGroupOpen'
   | 'onStopRequest'
+  | 'onExcludeObjectOpen'
   | 'pendingCommand'
   | 'printCancelBlockReason'
+  | 'excludeObjectOpenBlockReason'
   | 'printFilePreview'
   | 'printFill'
   | 'printPauseBlockReason'
@@ -128,6 +141,7 @@ export type DashboardIdleViewProps = Pick<
   DashboardPageProps,
   | 'armedIdleWidgetId'
   | 'draggingIdleWidgetId'
+  | 'diagnostic'
   | 'idleHeroStatusLabel'
   | 'idleNotesInputRef'
   | 'idleNotesText'
@@ -137,10 +151,12 @@ export type DashboardIdleViewProps = Pick<
   | 'maintenanceSummary'
   | 'onIdleNotesChange'
   | 'onIdleNotesKeyboardOpen'
+  | 'onDiagnosticAction'
   | 'onIdleWidgetDragHandleClick'
   | 'onIdleWidgetDragPointerDown'
   | 'onIdleWidgetDragPointerEnd'
   | 'onIdleWidgetDragPointerMove'
   | 'onIdleWidgetTargetOpen'
   | 'statusDock'
+  | 'pendingCommand'
 >

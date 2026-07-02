@@ -6,14 +6,9 @@ import {
 import { DashboardContainer, type DashboardContainerProps } from '../dashboard/DashboardContainer'
 import { ControlContainer, type ControlContainerProps } from '../control'
 import { FilesContainer, type FilesContainerProps } from '../files'
+import { MacrosContainer, type MacrosContainerProps } from '../macros'
 import { SettingsContainer, type SettingsContainerProps } from '../settings'
 import { NavItemButton } from '../ui'
-
-const SCREEN_PLACEHOLDERS: Record<Exclude<ScreenId, 'dashboard' | 'control' | 'files' | 'settings'>, { description: string }> = {
-  macros: {
-    description: '',
-  },
-}
 
 type AppScreenContentProps = {
   activeScreen: ScreenId
@@ -22,6 +17,7 @@ type AppScreenContentProps = {
   dashboard: DashboardContainerProps
   files: FilesContainerProps
   control: ControlContainerProps
+  macros: MacrosContainerProps
   settings: SettingsContainerProps
   onScreenSelect: (screenId: ScreenId) => void
 }
@@ -33,6 +29,7 @@ export function AppScreenContent({
   dashboard,
   files,
   control,
+  macros,
   settings,
   onScreenSelect,
 }: AppScreenContentProps) {
@@ -50,13 +47,13 @@ export function AppScreenContent({
           <FilesContainer {...files} />
         ) : activeScreen === 'control' ? (
           <ControlContainer {...control} />
+        ) : activeScreen === 'macros' ? (
+          <MacrosContainer {...macros} />
         ) : activeScreen === 'settings' ? (
           <SettingsContainer {...settings} />
         ) : (
           <section className="screen-placeholder" data-testid={`screen-${activeScreen}`}>
-            <p className="screen-placeholder-body">
-              {SCREEN_PLACEHOLDERS[activeScreen as keyof typeof SCREEN_PLACEHOLDERS]?.description ?? ''}
-            </p>
+            <p className="screen-placeholder-body" />
           </section>
         )}
       </div>

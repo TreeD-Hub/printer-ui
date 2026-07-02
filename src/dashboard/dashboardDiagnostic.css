@@ -1,0 +1,103 @@
+.dashboard-diagnostic {
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  text-align: left;
+}
+
+.dashboard-diagnostic-symbol {
+  width: 72px;
+  height: 72px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--color-error);
+  font-family: var(--font-family-accent);
+  font-size: 54px;
+  line-height: 1;
+}
+
+.dashboard-diagnostic.is-warning .dashboard-diagnostic-symbol {
+  color: var(--color-warning);
+}
+
+.dashboard-diagnostic-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--space-xxs);
+}
+
+.dashboard-diagnostic-kicker,
+.dashboard-diagnostic-copy h2,
+.dashboard-diagnostic-message,
+.dashboard-diagnostic-action-error {
+  margin: 0;
+}
+
+.dashboard-diagnostic-kicker {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-tiny);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+}
+
+.dashboard-diagnostic-copy h2 {
+  color: var(--color-text-primary);
+  font-size: 24px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-diagnostic-message {
+  max-height: 58px;
+  overflow: auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+}
+
+.dashboard-diagnostic-action {
+  grid-column: 1 / -1;
+  min-height: 52px;
+  border: 1px solid var(--color-error);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-error) 8%, var(--color-block-surface));
+  color: var(--color-text-primary);
+  padding: var(--space-xs) var(--space-md);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.dashboard-diagnostic.is-warning .dashboard-diagnostic-action {
+  border-color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-block-surface));
+}
+
+.dashboard-diagnostic-action.is-armed {
+  background: var(--color-error);
+  color: var(--color-background);
+}
+
+.dashboard-diagnostic-action:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.dashboard-diagnostic-action-error {
+  color: var(--color-error);
+  font-size: var(--font-size-small);
+  overflow-wrap: anywhere;
+}

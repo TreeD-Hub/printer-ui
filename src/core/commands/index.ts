@@ -20,3 +20,4 @@ export type {
   TreeDCommandRisk,
 } from './catalog'
 export { usePrinterCommands } from './usePrinterCommands'
+export { serializeGcodeStringParameter } from './gcodeString'

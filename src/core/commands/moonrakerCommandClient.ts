@@ -5,6 +5,7 @@ import {
   type PrinterLimits,
 } from '@treed/printer-logic'
 import { MoonrakerTransportError } from '../transport/moonrakerClient'
+import { serializeGcodeStringParameter } from './gcodeString'
 import type {
   CommandClient,
   CommandResult,
@@ -37,6 +38,14 @@ const MOTION_COMMANDS = new Set<ExecuteCommandArgs['command']>([
   'moveAxis',
   'loadFilament',
   'unloadFilament',
+  'eddyDriveCurrentCalibrate',
+  'eddyPrimaryHeightStart',
+  'eddyPrimaryAcceptSave',
+  'eddyTemperatureStart',
+  'eddyTemperatureAcceptSave',
+  'eddyCheckZ0',
+  'eddyScrewsTiltStart',
+  'eddyBedMeshCalibrate',
 ])
 
 function isAbortError(error: unknown): boolean {
@@ -211,12 +220,40 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return `Retraction length set to ${args.retractLengthMm}mm`
     case 'adjustZOffset':
       return `Z-offset adjusted by ${args.deltaMm}mm`
+    case 'excludeObject':
+      return `Object excluded: ${args.objectName}`
     case 'loadFilament':
       return 'LOAD_FILAMENT sent'
     case 'unloadFilament':
       return 'UNLOAD_FILAMENT sent'
     case 'zParkZeroEddy':
       return 'TREED_Z_PARK_ZERO_EDDY sent'
+    case 'eddyDriveCurrentCalibrate':
+      return 'TREED_EDDY_CALIBRATE_DRIVE_CURRENT sent'
+    case 'eddyPrimaryHeightStart':
+      return 'TREED_EDDY_PRIMARY_HEIGHT_START sent'
+    case 'eddyPrimaryAcceptSave':
+      return 'TREED_EDDY_PRIMARY_ACCEPT_SAVE sent'
+    case 'eddyTemperatureStart':
+      return 'TREED_EDDY_TEMPERATURE_START sent'
+    case 'eddyTemperatureAcceptSave':
+      return 'TREED_EDDY_TEMPERATURE_ACCEPT_SAVE sent'
+    case 'eddyCheckZ0':
+      return 'TREED_EDDY_CHECK_Z0 sent'
+    case 'eddyScrewsTiltStart':
+      return 'TREED_EDDY_SCREWS_TILT_START sent'
+    case 'eddyScrewsTiltDone':
+      return 'TREED_EDDY_SCREWS_TILT_DONE sent'
+    case 'eddyBedMeshCalibrate':
+      return 'TREED_EDDY_BED_MESH_CALIBRATE sent'
+    case 'eddyAutosaveEnable':
+      return 'TREED_EDDY_Z_OFFSET_AUTOSAVE_ENABLE sent'
+    case 'eddyAutosaveDisable':
+      return 'TREED_EDDY_Z_OFFSET_AUTOSAVE_DISABLE sent'
+    case 'eddyAutosaveStatus':
+      return 'TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS sent'
+    case 'eddyTestZ':
+      return `TESTZ ${args.deltaMm} sent`
     case 'shaperCalibrateLight':
       return 'TREED_SHAPER_CALIBRATE_LIGHT sent'
     case 'shaperCalibrateFull':
@@ -335,12 +372,40 @@ function executeMoonrakerCommand(
       return sendScript(`TREED_UI_SET_RETRACTION RETRACT_LENGTH=${args.retractLengthMm}`, options, args.command)
     case 'adjustZOffset':
       return sendScript(`TREED_UI_ADJUST_Z_OFFSET DELTA=${args.deltaMm}`, options, args.command)
+    case 'excludeObject':
+      return sendScript(`EXCLUDE_OBJECT NAME=${serializeGcodeStringParameter(args.objectName)}`, options, args.command)
     case 'loadFilament':
       return sendScript(`${formatFilamentScript('LOAD_FILAMENT', args)}\nM400`, options, args.command)
     case 'unloadFilament':
       return sendScript(`${formatFilamentScript('UNLOAD_FILAMENT', args)}\nM400`, options, args.command)
     case 'zParkZeroEddy':
       return sendScript('TREED_Z_PARK_ZERO_EDDY', options, args.command)
+    case 'eddyDriveCurrentCalibrate':
+      return sendScript('TREED_EDDY_CALIBRATE_DRIVE_CURRENT', options, args.command)
+    case 'eddyPrimaryHeightStart':
+      return sendScript('TREED_EDDY_PRIMARY_HEIGHT_START', options, args.command)
+    case 'eddyPrimaryAcceptSave':
+      return sendScript('TREED_EDDY_PRIMARY_ACCEPT_SAVE', options, args.command)
+    case 'eddyTemperatureStart':
+      return sendScript('TREED_EDDY_TEMPERATURE_START', options, args.command)
+    case 'eddyTemperatureAcceptSave':
+      return sendScript('TREED_EDDY_TEMPERATURE_ACCEPT_SAVE', options, args.command)
+    case 'eddyCheckZ0':
+      return sendScript('TREED_EDDY_CHECK_Z0', options, args.command)
+    case 'eddyScrewsTiltStart':
+      return sendScript('TREED_EDDY_SCREWS_TILT_START', options, args.command)
+    case 'eddyScrewsTiltDone':
+      return sendScript('TREED_EDDY_SCREWS_TILT_DONE', options, args.command)
+    case 'eddyBedMeshCalibrate':
+      return sendScript('TREED_EDDY_BED_MESH_CALIBRATE', options, args.command)
+    case 'eddyAutosaveEnable':
+      return sendScript('TREED_EDDY_Z_OFFSET_AUTOSAVE_ENABLE', options, args.command)
+    case 'eddyAutosaveDisable':
+      return sendScript('TREED_EDDY_Z_OFFSET_AUTOSAVE_DISABLE', options, args.command)
+    case 'eddyAutosaveStatus':
+      return sendScript('TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS', options, args.command)
+    case 'eddyTestZ':
+      return sendScript(`TESTZ Z=${args.deltaMm}`, options, args.command)
     case 'shaperCalibrateLight':
       return sendScript('TREED_SHAPER_CALIBRATE_LIGHT', options, args.command)
     case 'shaperCalibrateFull':

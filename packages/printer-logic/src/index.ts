@@ -34,9 +34,23 @@ export type PrinterCommandId =
   | 'setPressureAdvance'
   | 'setRetractionLength'
   | 'adjustZOffset'
+  | 'excludeObject'
   | 'loadFilament'
   | 'unloadFilament'
   | 'zParkZeroEddy'
+  | 'eddyDriveCurrentCalibrate'
+  | 'eddyPrimaryHeightStart'
+  | 'eddyPrimaryAcceptSave'
+  | 'eddyTemperatureStart'
+  | 'eddyTemperatureAcceptSave'
+  | 'eddyCheckZ0'
+  | 'eddyScrewsTiltStart'
+  | 'eddyScrewsTiltDone'
+  | 'eddyBedMeshCalibrate'
+  | 'eddyAutosaveEnable'
+  | 'eddyAutosaveDisable'
+  | 'eddyAutosaveStatus'
+  | 'eddyTestZ'
   | 'shaperCalibrateLight'
   | 'shaperCalibrateFull'
   | 'xyMotionTest'
@@ -69,6 +83,18 @@ export type ExecuteCommandArgs =
         | 'turnOffHeaters'
         | 'disableMotors'
         | 'zParkZeroEddy'
+        | 'eddyDriveCurrentCalibrate'
+        | 'eddyPrimaryHeightStart'
+        | 'eddyPrimaryAcceptSave'
+        | 'eddyTemperatureStart'
+        | 'eddyTemperatureAcceptSave'
+        | 'eddyCheckZ0'
+        | 'eddyScrewsTiltStart'
+        | 'eddyScrewsTiltDone'
+        | 'eddyBedMeshCalibrate'
+        | 'eddyAutosaveEnable'
+        | 'eddyAutosaveDisable'
+        | 'eddyAutosaveStatus'
         | 'shaperCalibrateLight'
         | 'shaperCalibrateFull'
         | 'xyMotionTest'
@@ -124,9 +150,17 @@ export type ExecuteCommandArgs =
       deltaMm: number
     }
   | {
+      command: 'excludeObject'
+      objectName: string
+    }
+  | {
       command: 'loadFilament' | 'unloadFilament'
       lengthMm?: number
       speedMmS?: number
+    }
+  | {
+      command: 'eddyTestZ'
+      deltaMm: number
     }
   | {
       command: 'consoleGcode'
@@ -336,6 +370,29 @@ export interface PrinterCapabilitiesSnapshot {
 }
 
 export type PrinterEddyStatus = 'unknown' | 'ready' | 'uncalibrated' | 'requires_xy_home'
+
+export type PrinterExcludeObjectPoint = {
+  x: number
+  y: number
+}
+
+export type PrinterExcludeObjectItem = {
+  name: string
+  displayName: string
+  center: PrinterExcludeObjectPoint | null
+  polygon: PrinterExcludeObjectPoint[] | null
+  isCurrent: boolean
+  isExcluded: boolean
+}
+
+export type PrinterExcludeObjectSnapshot = {
+  supported: boolean
+  state: 'unavailable' | 'waiting' | 'ready'
+  objects: PrinterExcludeObjectItem[]
+  currentObjectName: string | null
+  excludedObjectNames: string[]
+  message: string | null
+}
 
 export interface PrinterSnapshot {
   source: PrinterDataMode
@@ -702,6 +759,8 @@ export interface TreeDCommandRuntimeContext {
     isActive: boolean
     isPaused: boolean
   }
+  klippyState?: string
+  excludeObjects?: PrinterExcludeObjectSnapshot
   homedAxes?: string
   toolhead?: {
     rawX?: number
@@ -720,10 +779,11 @@ export interface TreeDCommandRuntimeContext {
 }
 
 const MIN_FILAMENT_EXTRUDE_TEMP_C = 170
-const MAX_UI_MOVE_DISTANCE_MM = 50
+const MAX_UI_MOVE_DISTANCE_MM = 100
 export const Z_OFFSET_BABYSTEP_STEP_OPTIONS = [0.01, 0.025, 0.05] as const
 const MIN_Z_OFFSET_BABYSTEP_DELTA_MM = Z_OFFSET_BABYSTEP_STEP_OPTIONS[0]
 const MAX_Z_OFFSET_BABYSTEP_DELTA_MM = Z_OFFSET_BABYSTEP_STEP_OPTIONS[Z_OFFSET_BABYSTEP_STEP_OPTIONS.length - 1]
+export const EDDY_TEST_Z_STEP_OPTIONS = [-1, -0.1, -0.05, 0.05, 0.1, 1] as const
 
 const COMMAND_CAPABILITY_LABELS: Record<TreeDCommandCapability, string> = {
   print: 'печать',
@@ -916,6 +976,13 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'print',
     requiresConfirmation: false,
   },
+  excludeObject: {
+    id: 'excludeObject',
+    risk: 'caution',
+    label: 'Исключение объекта',
+    capability: 'print',
+    requiresConfirmation: true,
+  },
   loadFilament: {
     id: 'loadFilament',
     risk: 'caution',
@@ -934,6 +1001,97 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     id: 'zParkZeroEddy',
     risk: 'caution',
     label: 'Парковка Z через Eddy',
+    capability: 'eddy',
+    requiresConfirmation: false,
+  },
+  eddyDriveCurrentCalibrate: {
+    id: 'eddyDriveCurrentCalibrate',
+    risk: 'caution',
+    label: 'Калибровка тока Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+  },
+  eddyPrimaryHeightStart: {
+    id: 'eddyPrimaryHeightStart',
+    risk: 'caution',
+    label: 'Первичная высота Eddy',
+    capability: 'eddy',
+    requiresConfirmation: false,
+  },
+  eddyPrimaryAcceptSave: {
+    id: 'eddyPrimaryAcceptSave',
+    risk: 'caution',
+    label: 'Сохранить первичную калибровку Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+  },
+  eddyTemperatureStart: {
+    id: 'eddyTemperatureStart',
+    risk: 'caution',
+    label: 'Температурная калибровка Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+  },
+  eddyTemperatureAcceptSave: {
+    id: 'eddyTemperatureAcceptSave',
+    risk: 'caution',
+    label: 'Сохранить температурную калибровку Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+  },
+  eddyCheckZ0: {
+    id: 'eddyCheckZ0',
+    risk: 'caution',
+    label: 'Поиск Z0 через Eddy',
+    capability: 'eddy',
+    requiresConfirmation: false,
+  },
+  eddyScrewsTiltStart: {
+    id: 'eddyScrewsTiltStart',
+    risk: 'caution',
+    label: 'Выравнивание винтов Eddy',
+    capability: 'eddy',
+    requiresConfirmation: false,
+  },
+  eddyScrewsTiltDone: {
+    id: 'eddyScrewsTiltDone',
+    risk: 'caution',
+    label: 'Винты стола выровнены',
+    capability: 'eddy',
+    requiresConfirmation: false,
+  },
+  eddyBedMeshCalibrate: {
+    id: 'eddyBedMeshCalibrate',
+    risk: 'caution',
+    label: 'Карта стола Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+  },
+  eddyAutosaveEnable: {
+    id: 'eddyAutosaveEnable',
+    risk: 'caution',
+    label: 'Включить автосохранение Z-offset',
+    capability: 'eddy',
+    requiresConfirmation: true,
+  },
+  eddyAutosaveDisable: {
+    id: 'eddyAutosaveDisable',
+    risk: 'caution',
+    label: 'Отключить автосохранение Z-offset',
+    capability: 'eddy',
+    requiresConfirmation: false,
+  },
+  eddyAutosaveStatus: {
+    id: 'eddyAutosaveStatus',
+    risk: 'caution',
+    label: 'Статус автосохранения Z-offset',
+    capability: 'eddy',
+    requiresConfirmation: false,
+  },
+  eddyTestZ: {
+    id: 'eddyTestZ',
+    risk: 'caution',
+    label: 'TESTZ Eddy',
     capability: 'eddy',
     requiresConfirmation: false,
   },
@@ -1026,6 +1184,10 @@ const DIRECT_MOONRAKER_SYSTEM_COMMANDS = new Set<PrinterCommandId>([
   'firmwareRestart',
   'restartMoonraker',
 ])
+const FAILSAFE_COMMANDS = new Set<PrinterCommandId>([
+  'emergencyStop',
+  'turnOffHeaters',
+])
 const RUNTIME_TUNE_COMMANDS = new Set<PrinterCommandId>([
   'setPrintSpeedFactorPercent',
   'setPrintFlowFactorPercent',
@@ -1052,6 +1214,18 @@ const MOTION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'shaperCalibrateFull',
   'xyMotionTest',
 ])
+const EDDY_CALIBRATION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
+  'eddyDriveCurrentCalibrate',
+  'eddyPrimaryHeightStart',
+  'eddyPrimaryAcceptSave',
+  'eddyTemperatureStart',
+  'eddyTemperatureAcceptSave',
+  'eddyCheckZ0',
+  'eddyScrewsTiltStart',
+  'eddyScrewsTiltDone',
+  'eddyBedMeshCalibrate',
+  'eddyTestZ',
+])
 
 function normalizeState(value: string | undefined): string {
   return value?.trim().toLowerCase() ?? ''
@@ -1071,6 +1245,56 @@ function hasPausedPrint(context: TreeDCommandRuntimeContext): boolean {
   const state = normalizeState(context.printJob?.state)
 
   return Boolean(context.printJob?.isPaused || PAUSED_PRINT_STATES.has(state))
+}
+
+function getExcludeObjectBlockReason(
+  context: TreeDCommandRuntimeContext,
+  args: ExecuteCommandArgs | undefined,
+): string | null {
+  const item = getTreeDCommandCatalogItem('excludeObject')
+
+  if (args?.command !== 'excludeObject') {
+    return `${item.label}: объект не указан.`
+  }
+
+  if (context.transportState !== 'online') {
+    return `${item.label}: Moonraker недоступен.`
+  }
+
+  if (!hasActivePrint(context)) {
+    return `${item.label}: нет активной печати.`
+  }
+
+  if (normalizeState(context.klippyState) !== 'ready') {
+    return `${item.label}: Klipper не готов.`
+  }
+
+  const snapshot = context.excludeObjects
+  if (snapshot === undefined || !snapshot.supported || snapshot.state === 'unavailable') {
+    return `${item.label}: exclude_object не поддерживается текущей конфигурацией.`
+  }
+
+  if (snapshot.state === 'waiting') {
+    return `${item.label}: список объектов еще загружается.`
+  }
+
+  const object = snapshot.objects.find((candidate) => candidate.name === args.objectName)
+  if (object === undefined) {
+    return `${item.label}: объект не найден в текущей печати.`
+  }
+
+  if (object.isExcluded || snapshot.excludedObjectNames.includes(args.objectName)) {
+    return `${item.label}: объект уже исключён.`
+  }
+
+  const remainingObjects = snapshot.objects.filter((candidate) => (
+    !candidate.isExcluded && !snapshot.excludedObjectNames.includes(candidate.name)
+  ))
+  if (remainingObjects.length <= 1) {
+    return `${item.label}: это последняя оставшаяся деталь.`
+  }
+
+  return null
 }
 
 function isAxisHomed(homedAxes: string | undefined, axis: AxisId): boolean {
@@ -1093,6 +1317,10 @@ function getCommandSpecificBlockReason(
   }
   const activePrint = hasActivePrint(context)
   const pausedPrint = hasPausedPrint(context)
+
+  if (command === 'excludeObject' || args?.command === 'excludeObject') {
+    return getExcludeObjectBlockReason(context, args)
+  }
 
   if (command === 'start' && activePrint) {
     return `${item.label}: уже есть активная печать.`
@@ -1128,6 +1356,10 @@ function getCommandSpecificBlockReason(
 
   if (activePrint && MOTION_COMMANDS_BLOCKED_DURING_PRINT.has(command)) {
     return `${item.label}: движение недоступно во время печати.`
+  }
+
+  if (activePrint && EDDY_CALIBRATION_COMMANDS_BLOCKED_DURING_PRINT.has(command)) {
+    return `${item.label}: калибровка Eddy недоступна во время печати.`
   }
 
   if (activePrint && !pausedPrint && FILAMENT_COMMANDS.has(command)) {
@@ -1238,6 +1470,19 @@ export function getTreeDCommandArgumentError(
       }
       return null
     }
+    case 'excludeObject':
+      if (typeof args.objectName !== 'string' || args.objectName.length === 0) {
+        return 'NAME должен быть непустой строкой.'
+      }
+      if (args.objectName.includes('\n') || args.objectName.includes('\r')) {
+        return 'NAME не должен содержать переносы строк.'
+      }
+      return null
+    case 'eddyTestZ':
+      if (!EDDY_TEST_Z_STEP_OPTIONS.some((step) => Math.abs(step - args.deltaMm) < 0.0001)) {
+        return `TESTZ delta должен быть одним из значений: ${EDDY_TEST_Z_STEP_OPTIONS.join(', ')}.`
+      }
+      return null
     default:
       return null
   }
@@ -1258,6 +1503,14 @@ export function getTreeDCommandBlockReason(
 ): string | null {
   const item = getTreeDCommandCatalogItem(command)
   const capabilityEnabled = context.capabilities[item.capability]
+
+  if (FAILSAFE_COMMANDS.has(command)) {
+    if (context.transportState !== 'online') {
+      return `${item.label}: Moonraker недоступен.`
+    }
+
+    return getCommandSpecificBlockReason(command, context, args)
+  }
 
   if (DIRECT_MOONRAKER_SYSTEM_COMMANDS.has(command)) {
     if (context.transportState !== 'online') {

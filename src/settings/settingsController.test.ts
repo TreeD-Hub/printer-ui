@@ -6,7 +6,7 @@ import {
   type WifiNetworkItem,
 } from '@treed/printer-logic'
 import { createMockSnapshot } from '../../mocks/runtime'
-import type { HostNetworkClient } from '../core/hostNetwork'
+import type { HostNetworkClient, HostNetworkStatus } from '../core/hostNetwork'
 import type { HostUpdateClient, HostUpdateStatus } from '../core/hostUpdate'
 import {
   getSettingsKeyboardMeta,
@@ -145,6 +145,56 @@ describe('settings controller helpers', () => {
       'connected-home',
       'saved-office',
     ])
+  })
+
+  it('refreshes host network status when opening network settings group', async () => {
+    const initialStatus: HostNetworkStatus = {
+      available: true,
+      ssid: 'Office_Main_5G',
+      ipAddress: '192.168.1.10',
+      message: 'initial status',
+      networks: [],
+    }
+    const refreshedStatus: HostNetworkStatus = {
+      available: true,
+      ssid: 'TreeD_Workshop',
+      ipAddress: '192.168.1.11',
+      message: 'refreshed status',
+      networks: [],
+    }
+    const getStatus = vi.fn()
+      .mockResolvedValueOnce(initialStatus)
+      .mockResolvedValueOnce(refreshedStatus)
+    const networkClient: HostNetworkClient = {
+      getStatus,
+      scan: vi.fn().mockResolvedValue(refreshedStatus),
+      connect: vi.fn().mockResolvedValue(refreshedStatus),
+      forget: vi.fn().mockResolvedValue(refreshedStatus),
+    }
+    const { result } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(),
+      connectionLabel: 'Подключено',
+      networkClient,
+      updateClient: unavailableUpdateClient,
+      executeCommand: vi.fn().mockResolvedValue(true),
+      getCommandBlockReason: () => null,
+      activeKeyboardTarget: null,
+      openKeyboard: () => undefined,
+      closeKeyboard: () => undefined,
+    }))
+
+    await waitFor(() => {
+      expect(result.current.pageProps.network.currentSsid).toBe('Office_Main_5G')
+    })
+
+    act(() => {
+      result.current.pageProps.onSettingsGroupChange('network')
+    })
+
+    await waitFor(() => {
+      expect(getStatus).toHaveBeenCalledTimes(2)
+      expect(result.current.pageProps.network.currentSsid).toBe('TreeD_Workshop')
+    })
   })
 
   it('describes settings keyboard targets without treating idle notes as settings input', () => {

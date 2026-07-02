@@ -17,6 +17,9 @@ describe('MaintenanceControlPanel', () => {
           intervalHours: 1000,
           isRuntimeBacked: false,
           notice: 'Данные ТО пока не подключены к runtime.',
+          systemLabel: 'Внимание',
+          systemTone: 'warning',
+          systemNotice: 'Сервис moonraker: failed / failed.',
         }}
         historyItems={[]}
         checklistItems={CHECKLIST_ITEMS}
@@ -30,6 +33,9 @@ describe('MaintenanceControlPanel', () => {
     )
 
     expect(screen.getByText('Данные ТО пока не подключены к runtime.')).toBeInTheDocument()
+    expect(screen.getByText('Система')).toBeInTheDocument()
+    expect(screen.getByText('Внимание')).toBeInTheDocument()
+    expect(screen.getByText('Сервис moonraker: failed / failed.')).toBeInTheDocument()
     expect(screen.queryByText('874 ч')).not.toBeInTheDocument()
     expect(screen.queryByText('126 ч')).not.toBeInTheDocument()
   })
@@ -45,6 +51,9 @@ describe('MaintenanceControlPanel', () => {
           intervalHours: 1000,
           isRuntimeBacked: false,
           notice: 'Данные ТО пока не подключены к runtime.',
+          systemLabel: 'Загрузка',
+          systemTone: 'muted',
+          systemNotice: 'Диагностика системы загружается.',
         }}
         historyItems={[]}
         checklistItems={CHECKLIST_ITEMS}

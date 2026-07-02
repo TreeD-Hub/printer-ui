@@ -7,7 +7,7 @@ export type ParkingMode = 'all' | 'axis'
 export type MovementMode = 'buttons' | 'joystick'
 export type MoveStepKey = '1' | '10' | '25' | '100'
 export type TemperatureKeyboardTarget = 'nozzle' | 'bed'
-export type MaintenanceIconName = 'runtime' | 'due' | 'interval' | 'wrench'
+export type MaintenanceIconName = 'runtime' | 'due' | 'interval' | 'system' | 'wrench'
 
 export type PrintHeadPosition = {
   x: number
@@ -77,6 +77,9 @@ export type MaintenanceStatus = {
   intervalHours: number
   isRuntimeBacked: boolean
   notice: string
+  systemLabel: string
+  systemTone: 'ok' | 'warning' | 'error' | 'muted'
+  systemNotice: string
 }
 
 export type MaintenanceHistoryItem = {

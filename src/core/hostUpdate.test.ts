@@ -98,4 +98,68 @@ describe('Moonraker host update client', () => {
       }),
     )
   })
+
+  it('aborts status and check requests after 30 seconds', async () => {
+    vi.useFakeTimers()
+    const fetchImpl = vi.fn((_: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      })
+    }))
+    const client = createMoonrakerHostUpdateClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchImpl as typeof fetch,
+    })
+
+    try {
+      const statusPromise = client.getStatus()
+      const checkPromise = client.check()
+      const statusExpectation = expect(statusPromise).rejects.toMatchObject({
+        message: expect.stringContaining('30000ms'),
+        status: 408,
+      })
+      const checkExpectation = expect(checkPromise).rejects.toMatchObject({
+        message: expect.stringContaining('30000ms'),
+        status: 408,
+      })
+      await vi.advanceTimersByTimeAsync(30_000)
+      await Promise.all([statusExpectation, checkExpectation])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('aborts apply requests after 10 seconds', async () => {
+    vi.useFakeTimers()
+    const fetchImpl = vi.fn((_: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      })
+    }))
+    const client = createMoonrakerHostUpdateClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchImpl as typeof fetch,
+    })
+
+    try {
+      const promise = client.apply({ targetId: 'treed-mainshellos', targetTag: 'v0.2.0' })
+      const timeoutExpectation = expect(promise).rejects.toMatchObject({
+        message: expect.stringContaining('10000ms'),
+        status: 408,
+      })
+      await vi.advanceTimersByTimeAsync(10_000)
+      await timeoutExpectation
+      expect(fetchImpl).toHaveBeenCalledWith(
+        'http://moonraker.local/server/treed/update/apply',
+        expect.objectContaining({
+          body: JSON.stringify({ targetId: 'treed-mainshellos', targetTag: 'v0.2.0' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+          signal: expect.any(AbortSignal),
+        }),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

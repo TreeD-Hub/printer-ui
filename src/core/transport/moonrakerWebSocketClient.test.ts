@@ -104,6 +104,7 @@ describe('moonrakerWebSocketClient', () => {
     expect(MOONRAKER_SUBSCRIPTION_OBJECTS.toolhead).toBeNull()
     expect(MOONRAKER_SUBSCRIPTION_OBJECTS.gcode_move).toBeNull()
     expect(MOONRAKER_SUBSCRIPTION_OBJECTS.print_stats).toBeNull()
+    expect(MOONRAKER_SUBSCRIPTION_OBJECTS.exclude_object).toBeNull()
     expect(MOONRAKER_SUBSCRIPTION_OBJECTS.idle_timeout).toBeNull()
     expect(MOONRAKER_SUBSCRIPTION_OBJECTS['gcode_macro _TREED_GEOMETRY_CFG']).toBeNull()
   })
@@ -188,6 +189,128 @@ describe('moonrakerWebSocketClient', () => {
     expect(snapshots[1]?.toolhead.rawY).toBe(20)
     expect(snapshots[1]?.homedAxes).toBe('xyz')
     expect(snapshots[1]?.connection).toBe('online')
+
+    subscription.close()
+  })
+
+  it('merges partial exclude_object status updates without losing object definitions', () => {
+    const { snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+          },
+          print_stats: {
+            state: 'printing',
+          },
+          virtual_sdcard: {
+            is_active: true,
+          },
+          exclude_object: {
+            current_object: 'part_1',
+            excluded_objects: [],
+            objects: [
+              {
+                name: 'part_1',
+                center: [40, 40],
+                polygon: [[20, 20], [60, 20], [60, 60]],
+              },
+              {
+                name: 'part_2',
+                center: [100, 40],
+                polygon: [[80, 20], [120, 20], [120, 60]],
+              },
+            ],
+          },
+        },
+      },
+    })
+    socket?.message({
+      method: 'notify_status_update',
+      params: [
+        {
+          exclude_object: {
+            current_object: 'part_2',
+          },
+        },
+        13.4,
+      ],
+    })
+    socket?.message({
+      method: 'notify_status_update',
+      params: [
+        {
+          exclude_object: {
+            excluded_objects: ['part_1'],
+          },
+        },
+        13.5,
+      ],
+    })
+
+    expect(snapshots).toHaveLength(3)
+    expect(snapshots[1]?.excludeObjects.objects).toHaveLength(2)
+    expect(snapshots[1]?.excludeObjects.currentObjectName).toBe('part_2')
+    expect(snapshots[1]?.excludeObjects.excludedObjectNames).toEqual([])
+    expect(snapshots[2]?.excludeObjects.objects).toHaveLength(2)
+    expect(snapshots[2]?.excludeObjects.currentObjectName).toBe('part_2')
+    expect(snapshots[2]?.excludeObjects.excludedObjectNames).toEqual(['part_1'])
+    expect(snapshots[2]?.excludeObjects.objects[0]?.isExcluded).toBe(true)
+
+    subscription.close()
+  })
+
+  it('replaces cached status on reconnect when the initial subscription omits fields', () => {
+    vi.useFakeTimers()
+    const { snapshots, subscription } = subscribeForTest()
+    const firstSocket = TestWebSocket.instances[0]
+
+    firstSocket?.open()
+    firstSocket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+            state_message: 'Printer is ready',
+          },
+          toolhead: {
+            position: [10, 20, 30, 0],
+            homed_axes: 'xy',
+          },
+        },
+      },
+    })
+
+    expect(snapshots).toHaveLength(1)
+    expect(snapshots[0]?.toolhead.rawX).toBe(10)
+
+    firstSocket?.failClose()
+    vi.advanceTimersByTime(50)
+
+    const secondSocket = TestWebSocket.instances[1]
+    secondSocket?.open()
+    secondSocket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+            state_message: 'Printer is ready',
+          },
+        },
+      },
+    })
+
+    expect(snapshots).toHaveLength(2)
+    expect(snapshots[1]?.toolhead.rawX).toBe(0)
+    expect(snapshots[1]?.toolhead.rawY).toBe(0)
+    expect(snapshots[1]?.homedAxes).toBe('')
 
     subscription.close()
   })

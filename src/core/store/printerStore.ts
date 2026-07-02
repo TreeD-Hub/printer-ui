@@ -76,6 +76,16 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     serviceCommands: false,
   },
   limits: TREED_V2_COREXY_V1_LIMITS,
+  usage: {
+    totalPrintTimeSec: null,
+    totalJobTimeSec: null,
+    totalJobs: null,
+    totalFilamentUsedMm: null,
+    longestPrintSec: null,
+    updatedAt: null,
+    state: 'unavailable',
+    message: 'Moonraker history totals еще не загружены.',
+  },
   printJob: {
     filename: '',
     filePath: null,
@@ -90,6 +100,14 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     totalLayer: null,
     isPaused: false,
     isActive: false,
+  },
+  excludeObjects: {
+    supported: false,
+    state: 'unavailable',
+    objects: [],
+    currentObjectName: null,
+    excludedObjectNames: [],
+    message: 'Исключение объектов не поддерживается текущей конфигурацией принтера.',
   },
   files: {
     type: 'unknown',
@@ -109,7 +127,7 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     rawZ: 0,
     rawE: 0,
     printOffsetX: 0,
-    printOffsetY: 65,
+    printOffsetY: 0,
     homedAxes: '',
     coordinateMode: 'raw',
   },
@@ -148,6 +166,17 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
       status: 'unknown',
       autosaveEnabled: false,
       autosavePending: false,
+      calibration: {
+        activeStep: 'not_started',
+        operatorPrompt: 'none',
+        driveCurrentDone: false,
+        primaryDone: false,
+        temperatureDone: false,
+        z0Done: false,
+        screwsDone: false,
+        meshDone: false,
+        requiredDone: false,
+      },
     },
   },
 }
@@ -205,6 +234,7 @@ export function reconcilePrinterSnapshot(
 
   return {
     ...previous,
+    usage: next.usage.state === 'ready' ? next.usage : previous.usage,
     printFiles: next.printFiles,
     fileList: next.fileList,
     revisions: {

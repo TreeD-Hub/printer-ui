@@ -2,6 +2,10 @@ import type { ChangeEvent, MouseEvent, PointerEvent, ReactNode, RefObject } from
 import type { PrinterFilePreview } from '@treed/printer-logic'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { BABYSTEP_STEP_OPTIONS } from './config'
+import {
+  type DashboardDiagnostic,
+  type DashboardDiagnosticAction,
+} from './dashboardDiagnosticState'
 import { DashboardPage } from './DashboardPage'
 import type {
   DashboardIdleWidgetId,
@@ -28,6 +32,7 @@ type DashboardPrintProps = {
   isPrintPaused: boolean
   pendingCommand: PrinterCommandId | null
   printCancelBlockReason: string | null
+  excludeObjectOpenBlockReason: string | null
   printFilePreview?: PrinterFilePreview
   printFill: number
   printPauseCommand: Extract<PrinterCommandId, 'pause' | 'resume'>
@@ -52,6 +57,7 @@ type DashboardIdleProps = {
   idleWidgetOrder: DashboardIdleWidgetId[]
   idleWidgetRefs: IdleWidgetRefs
   maintenanceSummary: MaintenanceSummary
+  diagnostic: DashboardDiagnostic | null
 }
 type DashboardActionProps = {
   onBabystepAdjust: (deltaMm: number) => void
@@ -66,6 +72,8 @@ type DashboardActionProps = {
   onPause: () => void
   onPrintTuneGroupOpen: (groupId: DashboardTuneGroupId) => void
   onStopRequest: () => void
+  onExcludeObjectOpen: () => void
+  onDiagnosticAction: (action: DashboardDiagnosticAction) => Promise<string | null>
 }
 
 export type DashboardContainerProps = {

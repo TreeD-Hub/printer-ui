@@ -1,7 +1,7 @@
 {
   "name": "@treed/printer-logic",
   "version": "0.1.0",
-  "private": false,
+  "private": true,
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

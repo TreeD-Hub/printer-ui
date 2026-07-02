@@ -147,9 +147,20 @@ export function subscribeToMoonrakerStatus(
     reconnectTimer = null
   }
 
-  function emitStatusSnapshot(nextStatus: MoonrakerPrinterObjectsStatus, eventtime?: number): void {
-    cachedStatus = mergePrinterStatus(cachedStatus, nextStatus)
-    cachedEventtime = eventtime ?? cachedEventtime
+  function resetCachedStatus(): void {
+    cachedStatus = {}
+    cachedEventtime = undefined
+  }
+
+  function emitStatusSnapshot(
+    nextStatus: MoonrakerPrinterObjectsStatus,
+    eventtime?: number,
+    mode: 'merge' | 'replace' = 'merge',
+  ): void {
+    cachedStatus = mode === 'replace'
+      ? nextStatus
+      : mergePrinterStatus(cachedStatus, nextStatus)
+    cachedEventtime = mode === 'replace' ? eventtime : eventtime ?? cachedEventtime
     const snapshot = normalizeCachedStatus(cachedStatus, runtimeUrl, cachedEventtime)
     handlers.onSnapshot(snapshot)
   }
@@ -202,7 +213,7 @@ export function subscribeToMoonrakerStatus(
     }
 
     if (message.id === SUBSCRIPTION_REQUEST_ID && message.result?.status) {
-      emitStatusSnapshot(message.result.status, message.result.eventtime)
+      emitStatusSnapshot(message.result.status, message.result.eventtime, 'replace')
       return
     }
 
@@ -274,6 +285,7 @@ export function subscribeToMoonrakerStatus(
 
     socket.onclose = () => {
       socket = null
+      resetCachedStatus()
       scheduleReconnect('Moonraker WebSocket closed')
     }
   }
@@ -284,6 +296,7 @@ export function subscribeToMoonrakerStatus(
     close() {
       closedByClient = true
       clearReconnectTimer()
+      resetCachedStatus()
       if (socket !== null) {
         socket.close()
         socket = null

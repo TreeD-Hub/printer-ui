@@ -34,9 +34,23 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'setPressureAdvance',
   'setRetractionLength',
   'adjustZOffset',
+  'excludeObject',
   'loadFilament',
   'unloadFilament',
   'zParkZeroEddy',
+  'eddyDriveCurrentCalibrate',
+  'eddyPrimaryHeightStart',
+  'eddyPrimaryAcceptSave',
+  'eddyTemperatureStart',
+  'eddyTemperatureAcceptSave',
+  'eddyCheckZ0',
+  'eddyScrewsTiltStart',
+  'eddyScrewsTiltDone',
+  'eddyBedMeshCalibrate',
+  'eddyAutosaveEnable',
+  'eddyAutosaveDisable',
+  'eddyAutosaveStatus',
+  'eddyTestZ',
   'shaperCalibrateLight',
   'shaperCalibrateFull',
   'xyMotionTest',
@@ -95,6 +109,40 @@ const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {
     isActive: true,
     isPaused: false,
   },
+  klippyState: 'ready',
+  excludeObjects: {
+    supported: true,
+    state: 'ready',
+    objects: [
+      {
+        name: 'part_1',
+        displayName: 'part 1',
+        center: { x: 40, y: 40 },
+        polygon: null,
+        isCurrent: false,
+        isExcluded: false,
+      },
+      {
+        name: 'part_2',
+        displayName: 'part 2',
+        center: { x: 90, y: 40 },
+        polygon: null,
+        isCurrent: true,
+        isExcluded: false,
+      },
+      {
+        name: 'part_3',
+        displayName: 'part 3',
+        center: { x: 140, y: 40 },
+        polygon: null,
+        isCurrent: false,
+        isExcluded: true,
+      },
+    ],
+    currentObjectName: 'part_2',
+    excludedObjectNames: ['part_3'],
+    message: null,
+  },
 }
 
 const PAUSED_CONTEXT: TreeDCommandRuntimeContext = {
@@ -144,6 +192,8 @@ describe('TREE_D_COMMAND_CATALOG', () => {
   it('keeps Eddy Z-home and TreeD calibration commands out of safe tier', () => {
     expect(getTreeDCommandCatalogItem('homeZ').risk).toBe('caution')
     expect(getTreeDCommandCatalogItem('zParkZeroEddy').risk).toBe('caution')
+    expect(getTreeDCommandCatalogItem('eddyBedMeshCalibrate').risk).toBe('caution')
+    expect(getTreeDCommandCatalogItem('eddyTestZ').risk).toBe('caution')
     expect(getTreeDCommandCatalogItem('shaperCalibrateLight').risk).toBe('caution')
     expect(getTreeDCommandCatalogItem('shaperCalibrateFull').risk).toBe('caution')
   })
@@ -245,13 +295,18 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       distanceMm: 1,
     })).toContain('во время печати')
     expect(getTreeDCommandBlockReason('disableMotors', PRINTING_CONTEXT)).toContain('во время печати')
+    expect(getTreeDCommandBlockReason('eddyTemperatureStart', PRINTING_CONTEXT)).toContain('во время печати')
   })
 
-  it('validates filament arguments', () => {
+  it('validates filament and Eddy paper-test arguments', () => {
     expect(getTreeDCommandBlockReason('loadFilament', IDLE_CONTEXT, {
       command: 'loadFilament',
       lengthMm: 0,
     })).toContain('LENGTH')
+    expect(getTreeDCommandBlockReason('eddyTestZ', IDLE_CONTEXT, {
+      command: 'eddyTestZ',
+      deltaMm: 0.03,
+    })).toContain('TESTZ')
   })
 
   it('allows confirmed host power and service commands without capability flags', () => {
@@ -297,5 +352,89 @@ describe('TREE_D_COMMAND_CATALOG', () => {
         transportState: 'offline',
       })).toContain('Moonraker')
     }
+  })
+
+  it('keeps fail-safe commands available without published UI capabilities', () => {
+    const degradedContext: TreeDCommandRuntimeContext = {
+      ...PRINTING_CONTEXT,
+      connection: 'degraded',
+      capabilities: {
+        ...ALL_CAPABILITIES,
+        motion: false,
+        thermal: false,
+      },
+    }
+
+    expect(getTreeDCommandBlockReason('emergencyStop', degradedContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('turnOffHeaters', degradedContext)).toBeNull()
+  })
+
+  it('allows excluding a known non-excluded object during active print only', () => {
+    expect(getTreeDCommandBlockReason('excludeObject', PRINTING_CONTEXT, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toBeNull()
+
+    expect(getTreeDCommandBlockReason('excludeObject', IDLE_CONTEXT, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toContain('нет активной печати')
+
+    expect(getTreeDCommandBlockReason('excludeObject', {
+      ...PRINTING_CONTEXT,
+      transportState: 'offline',
+    }, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toContain('Moonraker')
+
+    expect(getTreeDCommandBlockReason('excludeObject', {
+      ...PRINTING_CONTEXT,
+      klippyState: 'shutdown',
+    }, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toContain('Klipper')
+
+    expect(getTreeDCommandBlockReason('excludeObject', PRINTING_CONTEXT, {
+      command: 'excludeObject',
+      objectName: 'part_3',
+    })).toContain('уже исключён')
+
+    expect(getTreeDCommandBlockReason('excludeObject', PRINTING_CONTEXT, {
+      command: 'excludeObject',
+      objectName: 'missing_part',
+    })).toContain('не найден')
+  })
+
+  it('blocks EXCLUDE_OBJECT for the last remaining object', () => {
+    expect(getTreeDCommandBlockReason('excludeObject', {
+      ...PRINTING_CONTEXT,
+      excludeObjects: {
+        ...PRINTING_CONTEXT.excludeObjects!,
+        objects: [
+          {
+            name: 'part_1',
+            displayName: 'part 1',
+            center: null,
+            polygon: null,
+            isCurrent: true,
+            isExcluded: false,
+          },
+          {
+            name: 'part_2',
+            displayName: 'part 2',
+            center: null,
+            polygon: null,
+            isCurrent: false,
+            isExcluded: true,
+          },
+        ],
+        excludedObjectNames: ['part_2'],
+      },
+    }, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toContain('последняя оставшаяся')
   })
 })

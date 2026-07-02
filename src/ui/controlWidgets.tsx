@@ -169,10 +169,10 @@ export function AxisCrossControls({
         <div className="axis-cross-z">
           <button
             type="button"
-            className={joinClassNames('axis-cross-btn axis-cross-btn-labeled', isMoveDisabled('Z', 1) && 'is-disabled')}
-            aria-label="Сдвиг Z в плюс"
-            aria-disabled={isMoveDisabled('Z', 1) || undefined}
-            onClick={() => handleMoveClick('Z', 1)}
+            className={joinClassNames('axis-cross-btn axis-cross-btn-labeled', isMoveDisabled('Z', -1) && 'is-disabled')}
+            aria-label="Сдвиг Z вверх"
+            aria-disabled={isMoveDisabled('Z', -1) || undefined}
+            onClick={() => handleMoveClick('Z', -1)}
             disabled={disabled}
           >
             <span className="axis-cross-arrow" aria-hidden="true">↑</span>
@@ -181,10 +181,10 @@ export function AxisCrossControls({
           <span className="axis-cross-spacer" aria-hidden="true" />
           <button
             type="button"
-            className={joinClassNames('axis-cross-btn axis-cross-btn-labeled', isMoveDisabled('Z', -1) && 'is-disabled')}
-            aria-label="Сдвиг Z в минус"
-            aria-disabled={isMoveDisabled('Z', -1) || undefined}
-            onClick={() => handleMoveClick('Z', -1)}
+            className={joinClassNames('axis-cross-btn axis-cross-btn-labeled', isMoveDisabled('Z', 1) && 'is-disabled')}
+            aria-label="Сдвиг Z вниз"
+            aria-disabled={isMoveDisabled('Z', 1) || undefined}
+            onClick={() => handleMoveClick('Z', 1)}
             disabled={disabled}
           >
             <span className="axis-cross-arrow" aria-hidden="true">↓</span>

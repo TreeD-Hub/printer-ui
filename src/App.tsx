@@ -15,6 +15,10 @@ import {
   BABYSTEP_STEP_OPTIONS,
   type ScreenId,
 } from './dashboard/config'
+import {
+  resolveDashboardDiagnostic,
+  type DashboardDiagnosticAction,
+} from './dashboard/dashboardDiagnosticState'
 import { useDashboardIdleController, type DashboardIdleControlGroupId } from './dashboard/useDashboardIdleController'
 import { usePrinterDisplayStatus } from './dashboard/usePrinterDisplayStatus'
 import {
@@ -34,6 +38,7 @@ import {
   useSettingsController,
   type SettingsKeyboardTarget,
 } from './settings'
+import { useMoonrakerSystemStatus } from './settings/useMoonrakerSystemStatus'
 import { TopStatusPopups, useTopStatusController } from './shell'
 import {
   PrintTuneModal,
@@ -43,6 +48,8 @@ import {
 import { usePrintSessionController } from './printSession'
 import { useHeatingFanController } from './heating'
 import { useMaintenanceController } from './maintenance'
+import { ExcludeObjectModal, getExcludeObjectOpenBlockReason } from './excludeObject'
+import { recordOperationalDiagnostic } from './diagnostics'
 import type { PrinterConnectionState } from './core/transport/types'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
@@ -63,9 +70,11 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
 
 function App() {
   const { snapshot, refresh, deletePrintFile } = usePrinterSnapshot()
+  const systemStatusController = useMoonrakerSystemStatus()
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
+  const [isExcludeObjectModalOpen, setIsExcludeObjectModalOpen] = useState<boolean>(false)
   const printSessionController = usePrintSessionController({ snapshot, deletePrintFile })
   const commandRuntimeContext = useMemo(
     () => ({
@@ -74,6 +83,8 @@ function App() {
       connection: snapshot.connection,
       transportState: snapshot.transport.state,
       printJob: printSessionController.commandRuntimePrintJob,
+      klippyState: snapshot.klippy.state,
+      excludeObjects: snapshot.excludeObjects,
       homedAxes: snapshot.homedAxes,
       toolhead: {
         rawX: snapshot.toolhead.rawX,
@@ -94,9 +105,11 @@ function App() {
       snapshot.connection,
       snapshot.extruderTemp,
       snapshot.homedAxes,
+      snapshot.klippy.state,
       snapshot.limits,
       snapshot.mainLightEnabled,
       snapshot.modelFanPercent,
+      snapshot.excludeObjects,
       snapshot.thermalTargets,
       snapshot.transport.state,
       snapshot.toolhead.rawX,
@@ -108,6 +121,7 @@ function App() {
   const {
     pendingCommand,
     error: commandError,
+    lastResult,
     executeCommand,
     getLastCommandError,
   } = usePrinterCommands(commandRuntimeContext)
@@ -123,6 +137,18 @@ function App() {
     (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
     [],
   )
+  const dashboardDiagnostic = resolveDashboardDiagnostic({
+    source: snapshot.source,
+    connection: snapshot.connection,
+    transportState: snapshot.transport.state,
+    transportMessage: snapshot.transport.message,
+    klippyState: snapshot.klippy.state,
+    klippyMessage: snapshot.klippy.message,
+    runtimeMessage: snapshot.message,
+    uiContractStatus: snapshot.uiContract.status,
+    uiContractMessage: snapshot.uiContract.message,
+    systemStatus: systemStatusController.status,
+  })
   const handlePrintSpeedFactorChange = useCallback((percent: number): void => {
     void executeCommand({ command: 'setPrintSpeedFactorPercent', percent })
   }, [executeCommand])
@@ -148,7 +174,11 @@ function App() {
   const [activeControlGroup, setActiveControlGroup] = useState<ControlGroupId>('movement')
   const [isControlMenuCompact, setIsControlMenuCompact] = useState<boolean>(false)
   const [activeControlFlashKey, setActiveControlFlashKey] = useState<string | null>(null)
-  const maintenanceController = useMaintenanceController()
+  const maintenanceController = useMaintenanceController({
+    usage: snapshot.usage,
+    printJob: snapshot.printJob,
+    systemStatus: systemStatusController.status,
+  })
   const controlFlashTimeoutRef = useRef<number | null>(null)
   const printTuneFanChangeRef = useRef<(value: number) => void>(() => undefined)
   const handlePrintTuneFanPercentChange = useCallback((value: number): void => {
@@ -255,6 +285,36 @@ function App() {
   const settingsKeyboard = settingsController.keyboard
   const isSettingsKeyboardTargetAllowed = settingsController.isKeyboardTargetAllowed
   const setActiveSettingsGroup = settingsPageProps.onSettingsGroupChange
+  const handleDashboardDiagnosticAction = useCallback(async (
+    action: DashboardDiagnosticAction,
+  ): Promise<string | null> => {
+    if (action.kind === 'openSystem') {
+      setActiveSettingsGroup('system')
+      setActiveScreen('settings')
+      return null
+    }
+
+    if (action.kind === 'refresh') {
+      void refresh()
+      systemStatusController.refresh()
+      return null
+    }
+
+    const ok = await executeCommand({ command: action.command })
+    if (!ok) {
+      return getLastCommandError() || 'Не удалось выполнить действие.'
+    }
+
+    void refresh()
+    systemStatusController.refresh()
+    return null
+  }, [
+    executeCommand,
+    getLastCommandError,
+    refresh,
+    setActiveSettingsGroup,
+    systemStatusController.refresh,
+  ])
   const handleKeyboardClose = useCallback(() => {
     setActiveKeyboardTarget(null)
   }, [])
@@ -290,6 +350,7 @@ function App() {
     onControlGroupOpen: handleDashboardIdleControlGroupOpen,
   })
   const printCancelBlockReason = getCommandBlockReason('cancel')
+  const excludeObjectOpenBlockReason = hasActivePrint ? getExcludeObjectOpenBlockReason(snapshot) : null
   const printStartBlockReason = getCommandBlockReason('start')
   const fileStartNotice = getFileStartNotice(printStartBlockReason)
   const printSessionCommandHandlers = createPrintSessionCommandHandlers({
@@ -346,6 +407,14 @@ function App() {
     command: 'setMainLightEnabled',
     enabled: !snapshot.mainLightEnabled,
   })
+
+  const handleExcludeObjectOpen = useCallback((): void => {
+    recordOperationalDiagnostic('command', 'exclude-object-modal-opened', JSON.stringify({
+      filename: snapshot.printJob.filename,
+      printState: snapshot.printJob.state,
+    }))
+    setIsExcludeObjectModalOpen(true)
+  }, [snapshot.printJob.filename, snapshot.printJob.state])
 
   function handleScreenSelect(nextScreen: ScreenId): void {
     if (nextScreen !== 'dashboard') {
@@ -606,6 +675,7 @@ function App() {
       pendingCommand,
       isBusy,
       printCancelBlockReason,
+      excludeObjectOpenBlockReason,
     },
     tune: {
       temperatureTargets: dashboardTemperatureTargets,
@@ -624,11 +694,13 @@ function App() {
       maintenanceSummary: maintenanceController.status,
       idleNotesInputRef: dashboardIdleController.idleNotesInputRef,
       idleNotesText: dashboardIdleController.idleNotesText,
+      diagnostic: dashboardDiagnostic,
     },
     actions: {
       onPrintTuneGroupOpen: handlePrintTuneGroupOpen,
       onPause: () => void printSessionCommandHandlers.togglePause(),
       onStopRequest: () => void printSessionCommandHandlers.requestStop(),
+      onExcludeObjectOpen: handleExcludeObjectOpen,
       onBabystepStepChange: setBabystepStep,
       onBabystepAdjust: handleBabystepAdjust,
       onIdleWidgetTargetOpen: dashboardIdleController.openIdleWidgetTarget,
@@ -638,6 +710,7 @@ function App() {
       onIdleWidgetDragHandleClick: dashboardIdleController.handleIdleWidgetDragHandleClick,
       onIdleNotesKeyboardOpen: dashboardIdleController.handleIdleNotesKeyboardOpen,
       onIdleNotesChange: dashboardIdleController.handleIdleNotesChange,
+      onDiagnosticAction: handleDashboardDiagnosticAction,
     },
     getCommandBlockReason,
   }
@@ -694,7 +767,16 @@ function App() {
             onMaintenanceChecklistItemChange: maintenanceController.handleChecklistItemChange,
             onMaintenanceChecklistComplete: maintenanceController.handleChecklistComplete,
           }}
-          settings={settingsPageProps}
+          macros={{
+            snapshot,
+            pendingCommand,
+            executeCommand,
+            getCommandBlockReason,
+          }}
+          settings={{
+            ...settingsPageProps,
+            systemStatus: systemStatusController,
+          }}
         />
 
         {activeKeyboardTarget !== null ? (
@@ -753,6 +835,19 @@ function App() {
             onDelete={handleDeleteSelectedFile}
           />
         ) : null}
+
+        <ExcludeObjectModal
+          snapshot={snapshot}
+          isOpen={isExcludeObjectModalOpen}
+          pendingCommand={pendingCommand}
+          commandError={commandError}
+          lastResult={lastResult}
+          executeCommand={executeCommand}
+          getCommandBlockReason={getCommandBlockReason}
+          refresh={refresh}
+          onClose={() => setIsExcludeObjectModalOpen(false)}
+          onRequestStopPrint={() => void printSessionCommandHandlers.requestStop()}
+        />
 
         {isPrintCancelConfirmOpen ? (
           <div className="print-cancel-modal-layer" role="presentation" onClick={closePrintCancelConfirm}>

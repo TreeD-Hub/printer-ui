@@ -71,19 +71,23 @@ describe('createMoonrakerHostNetworkClient', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'http://moonraker.local/server/treed/network/status', {
       method: 'GET',
+      signal: expect.any(AbortSignal),
     })
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'http://moonraker.local/server/treed/network/scan', {
       method: 'POST',
+      signal: expect.any(AbortSignal),
     })
     expect(fetchMock).toHaveBeenNthCalledWith(3, 'http://moonraker.local/server/treed/network/connect', {
       body: JSON.stringify({ ssid: 'TreeD Lab', password: 'secret' }),
       headers: { 'content-type': 'application/json' },
       method: 'POST',
+      signal: expect.any(AbortSignal),
     })
     expect(fetchMock).toHaveBeenNthCalledWith(4, 'http://moonraker.local/server/treed/network/forget', {
       body: JSON.stringify({ ssid: 'TreeD Lab' }),
       headers: { 'content-type': 'application/json' },
       method: 'POST',
+      signal: expect.any(AbortSignal),
     })
   })
 
@@ -113,5 +117,101 @@ describe('createMoonrakerHostNetworkClient', () => {
     await expect(client.getStatus()).resolves.toEqual(
       createUnavailableHostNetworkStatus('Moonraker network endpoint returned invalid HostNetworkStatus.'),
     )
+  })
+
+  it('aborts status requests after 8 seconds', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn((_: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      })
+    }))
+    const client = createMoonrakerHostNetworkClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    try {
+      const promise = client.getStatus()
+      const timeoutExpectation = expect(promise).rejects.toMatchObject({
+        message: expect.stringContaining('8000ms'),
+        status: 408,
+      })
+      await vi.advanceTimersByTimeAsync(8_000)
+      await timeoutExpectation
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://moonraker.local/server/treed/network/status',
+        expect.objectContaining({
+          method: 'GET',
+          signal: expect.any(AbortSignal),
+        }),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('aborts scan and forget requests after 30 seconds', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn((_: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      })
+    }))
+    const client = createMoonrakerHostNetworkClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    try {
+      const scanPromise = client.scan()
+      const forgetPromise = client.forget({ ssid: 'TreeD Lab' })
+      const scanExpectation = expect(scanPromise).rejects.toMatchObject({
+        message: expect.stringContaining('30000ms'),
+        status: 408,
+      })
+      const forgetExpectation = expect(forgetPromise).rejects.toMatchObject({
+        message: expect.stringContaining('30000ms'),
+        status: 408,
+      })
+      await vi.advanceTimersByTimeAsync(30_000)
+      await Promise.all([scanExpectation, forgetExpectation])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('aborts connect requests after 60 seconds', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn((_: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => {
+        reject(new DOMException('Aborted', 'AbortError'))
+      })
+    }))
+    const client = createMoonrakerHostNetworkClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    try {
+      const promise = client.connect({ ssid: 'TreeD Lab', password: 'secret' })
+      const timeoutExpectation = expect(promise).rejects.toMatchObject({
+        message: expect.stringContaining('60000ms'),
+        status: 408,
+      })
+      await vi.advanceTimersByTimeAsync(60_000)
+      await timeoutExpectation
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://moonraker.local/server/treed/network/connect',
+        expect.objectContaining({
+          body: JSON.stringify({ ssid: 'TreeD Lab', password: 'secret' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'POST',
+          signal: expect.any(AbortSignal),
+        }),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
