@@ -151,7 +151,34 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
   switch (args.command) {
     case 'start':
       updateMockSnapshot((snapshot) => {
+        snapshot.state = 'printing'
+        snapshot.printJob = {
+          ...snapshot.printJob,
+          filename: args.filename,
+          filePath: args.filename,
+          state: 'printing',
+          message: 'Mock print active',
+          isActive: true,
+          isPaused: false,
+        }
         snapshot.excludeObjects = createMockExcludeObjects()
+      })
+      return
+    case 'cancel':
+      updateMockSnapshot((snapshot) => {
+        snapshot.state = 'ready'
+        snapshot.printJob = {
+          ...snapshot.printJob,
+          filename: '',
+          filePath: null,
+          state: 'ready',
+          message: 'Ready for local mock print',
+          progress: 0,
+          progressPercent: 0,
+          isActive: false,
+          isPaused: false,
+        }
+        snapshot.excludeObjects = createUnavailableMockExcludeObjects()
       })
       return
     case 'setNozzleTarget':

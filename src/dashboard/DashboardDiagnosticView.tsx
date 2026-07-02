@@ -56,7 +56,7 @@ export function DashboardDiagnosticView({
       className={`dashboard-diagnostic is-${diagnostic.severity}`}
       data-testid="dashboard-diagnostic"
       role="alert"
-      aria-live={diagnostic.severity === 'error' ? 'assertive' : 'polite'}
+      aria-live={diagnostic.severity === 'warning' ? 'polite' : 'assertive'}
     >
       <div className="dashboard-diagnostic-symbol" aria-hidden="true">!</div>
       <div className="dashboard-diagnostic-copy">

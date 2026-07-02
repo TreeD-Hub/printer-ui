@@ -14,15 +14,21 @@ import {
   setMockTransportSnapshot,
 } from '../mocks/runtime'
 import type { PrinterSnapshot } from './core/transport/types'
+import { createLoadingMoonrakerSystemStatus, type MoonrakerSystemStatus } from './settings/systemStatus'
+
+const systemStatusMock = vi.hoisted(() => ({
+  status: undefined as MoonrakerSystemStatus | undefined,
+  refresh: vi.fn(),
+}))
 
 vi.mock('./settings/useMoonrakerSystemStatus', async () => {
   const { createLoadingMoonrakerSystemStatus } = await import('./settings/systemStatus')
 
   return {
     useMoonrakerSystemStatus: () => ({
-      status: createLoadingMoonrakerSystemStatus(),
+      status: systemStatusMock.status ?? createLoadingMoonrakerSystemStatus(),
       isRefreshing: false,
-      refresh: vi.fn(),
+      refresh: systemStatusMock.refresh,
     }),
   }
 })
@@ -34,7 +40,19 @@ function applyPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
   })
 }
 
+function createSystemStatus(overrides: Partial<MoonrakerSystemStatus> = {}): MoonrakerSystemStatus {
+  return {
+    ...createLoadingMoonrakerSystemStatus(),
+    loadState: 'ready',
+    health: 'ok',
+    updatedAt: '2026-07-02T12:00:00.000Z',
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
+  systemStatusMock.status = undefined
+  systemStatusMock.refresh.mockClear()
   act(() => {
     setPrinterSnapshot(createMockSnapshot())
   })
@@ -94,7 +112,10 @@ describe('App', () => {
     render(<App />)
 
     const idleDashboard = await screen.findByTestId('screen-dashboard-idle')
-    expect(within(idleDashboard).getByTestId('dashboard-diagnostic')).toBeInTheDocument()
+    const diagnostic = within(idleDashboard).getByTestId('dashboard-diagnostic')
+    expect(diagnostic).toBeInTheDocument()
+    expect(diagnostic).toHaveClass('is-fatal')
+    expect(diagnostic).toHaveAttribute('aria-live', 'assertive')
     expect(within(idleDashboard).getByText('Klipper остановлен')).toBeInTheDocument()
     expect(within(idleDashboard).getByText("Lost communication with MCU 'eddy'")).toBeInTheDocument()
     expect(within(idleDashboard).getByTestId('idle-widget-temperature')).toBeInTheDocument()
@@ -173,6 +194,66 @@ describe('App', () => {
     expect(screen.getByTestId('screen-dashboard-idle')).toContainElement(diagnostic)
   })
 
+  it('opens System settings from a system health warning', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+    })
+    systemStatusMock.status = createSystemStatus({
+      health: 'warning',
+      services: [{
+        name: 'crowsnest',
+        activeState: 'failed',
+        subState: 'failed',
+        healthy: false,
+      }],
+    })
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    expect(within(diagnostic).getByText('Камера недоступна')).toBeInTheDocument()
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Открыть «Систему»' }))
+
+    expect(await screen.findByRole('heading', { name: 'Система' })).toBeInTheDocument()
+  })
+
+  it('refreshes printer and system snapshots from an unavailable system diagnostic', async () => {
+    const snapshot = createMockSnapshot()
+    const liveSnapshot: PrinterSnapshot = {
+      ...snapshot,
+      source: 'live',
+    }
+    applyPrinterSnapshot(liveSnapshot)
+    systemStatusMock.status = createSystemStatus({
+      loadState: 'unavailable',
+      health: 'error',
+      updatedAt: null,
+      errors: ['Moonraker: HTTP 503'],
+    })
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    const shutdownSnapshot: PrinterSnapshot = {
+      ...liveSnapshot,
+      connection: 'shutdown',
+      klippy: {
+        state: 'shutdown',
+        message: 'MCU shutdown',
+      },
+    }
+    setMockTransportSnapshot(shutdownSnapshot)
+
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Повторить подключение' }))
+
+    await waitFor(() => {
+      expect(systemStatusMock.refresh).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Klipper остановлен')).toBeInTheDocument()
+    })
+  })
+
   it('returns to waiting state after print cancel', async () => {
     render(<App />)
 
@@ -192,6 +273,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Стоп' })).toBeInTheDocument()
     })
+    expect(getPrinterSnapshot().printJob.isActive).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Стоп' }))
     expect(screen.getByTestId('print-cancel-modal')).toBeInTheDocument()
@@ -201,6 +283,7 @@ describe('App', () => {
       expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
     })
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
+    expect(getPrinterSnapshot().printJob.isActive).toBe(false)
   })
 
   it('switches print state between pause and print from the pause button', async () => {
@@ -412,6 +495,21 @@ describe('App', () => {
     } finally {
       applyPrinterSnapshot(previousSnapshot)
     }
+  }, 10000)
+
+  it('opens exclude-object modal after starting a mock print', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    const openButton = await screen.findByTestId('open-exclude-object-modal')
+    fireEvent.click(openButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Исключение объектов' })).toBeInTheDocument()
+    })
   }, 10000)
 
   it('keeps the exclude-object button hidden while printer is idle', () => {

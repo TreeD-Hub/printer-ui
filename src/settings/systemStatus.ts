@@ -425,7 +425,7 @@ function normalizeServices(systemInfoInput: unknown): SystemServiceStatus[] {
     .slice(0, 8)
 }
 
-function canDeviceHealthy(device: SystemCanDeviceStatus): boolean {
+export function isSystemCanDeviceHealthy(device: SystemCanDeviceStatus): boolean {
   const state = device.busState?.toLowerCase()
   return (state === null || state === 'active')
     && (device.rxErrors ?? 0) === 0
@@ -455,7 +455,7 @@ export function normalizeMoonrakerSystemStatus(input: NormalizeSystemStatusInput
     || software.warnings.length > 0
     || host.throttledFlags.length > 0
     || services.some((service) => !service.healthy)
-    || canDevices.some((device) => !canDeviceHealthy(device))
+    || canDevices.some((device) => !isSystemCanDeviceHealthy(device))
 
   return {
     loadState,
@@ -491,7 +491,7 @@ export function summarizeMoonrakerSystemStatus(status: MoonrakerSystemStatus): S
 
   const failedComponent = status.software.failedComponents[0]
   const unhealthyService = status.services.find((service) => !service.healthy)
-  const unhealthyCanDevice = status.canDevices.find((device) => !canDeviceHealthy(device))
+  const unhealthyCanDevice = status.canDevices.find((device) => !isSystemCanDeviceHealthy(device))
   const issueNotice = klippyFailed(status.software.klippyState)
     ? status.software.stateMessage ?? `Klipper: ${status.software.klippyState}`
     : failedComponent !== undefined

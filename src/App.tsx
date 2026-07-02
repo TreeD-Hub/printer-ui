@@ -147,23 +147,8 @@ function App() {
     runtimeMessage: snapshot.message,
     uiContractStatus: snapshot.uiContract.status,
     uiContractMessage: snapshot.uiContract.message,
+    systemStatus: systemStatusController.status,
   })
-  const handleDashboardDiagnosticAction = useCallback(async (
-    action: DashboardDiagnosticAction,
-  ): Promise<string | null> => {
-    if (action.kind === 'refresh') {
-      void refresh()
-      return null
-    }
-
-    const ok = await executeCommand({ command: action.command })
-    if (!ok) {
-      return getLastCommandError() || 'Не удалось выполнить действие.'
-    }
-
-    void refresh()
-    return null
-  }, [executeCommand, getLastCommandError, refresh])
   const handlePrintSpeedFactorChange = useCallback((percent: number): void => {
     void executeCommand({ command: 'setPrintSpeedFactorPercent', percent })
   }, [executeCommand])
@@ -300,6 +285,36 @@ function App() {
   const settingsKeyboard = settingsController.keyboard
   const isSettingsKeyboardTargetAllowed = settingsController.isKeyboardTargetAllowed
   const setActiveSettingsGroup = settingsPageProps.onSettingsGroupChange
+  const handleDashboardDiagnosticAction = useCallback(async (
+    action: DashboardDiagnosticAction,
+  ): Promise<string | null> => {
+    if (action.kind === 'openSystem') {
+      setActiveSettingsGroup('system')
+      setActiveScreen('settings')
+      return null
+    }
+
+    if (action.kind === 'refresh') {
+      void refresh()
+      systemStatusController.refresh()
+      return null
+    }
+
+    const ok = await executeCommand({ command: action.command })
+    if (!ok) {
+      return getLastCommandError() || 'Не удалось выполнить действие.'
+    }
+
+    void refresh()
+    systemStatusController.refresh()
+    return null
+  }, [
+    executeCommand,
+    getLastCommandError,
+    refresh,
+    setActiveSettingsGroup,
+    systemStatusController.refresh,
+  ])
   const handleKeyboardClose = useCallback(() => {
     setActiveKeyboardTarget(null)
   }, [])
