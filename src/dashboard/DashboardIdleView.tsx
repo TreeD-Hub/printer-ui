@@ -1,4 +1,5 @@
 import { DashboardIdleTemperatureWidgetContent } from './DashboardTemperatureWidgets'
+import { DashboardDiagnosticView } from './DashboardDiagnosticView'
 import type { DashboardIdleViewProps } from './DashboardPage.types'
 
 export function DashboardIdleView({
@@ -12,6 +13,8 @@ export function DashboardIdleView({
   maintenanceSummary,
   idleNotesInputRef,
   idleNotesText,
+  diagnostic,
+  pendingCommand,
   onIdleWidgetTargetOpen,
   onIdleWidgetDragPointerDown,
   onIdleWidgetDragPointerMove,
@@ -19,6 +22,7 @@ export function DashboardIdleView({
   onIdleWidgetDragHandleClick,
   onIdleNotesKeyboardOpen,
   onIdleNotesChange,
+  onDiagnosticAction,
 }: DashboardIdleViewProps) {
   const maintenanceRuntimeLabel = maintenanceSummary.isRuntimeBacked
     ? `${maintenanceSummary.runtimeHours} ч`
@@ -30,11 +34,25 @@ export function DashboardIdleView({
   return (
     <section className="dashboard-idle-screen" data-testid="screen-dashboard-idle">
       <div className="dashboard-idle-hero">
-        <div className="dashboard-idle-logo" aria-hidden="true">
-          <img className="dashboard-idle-logo-image" src={logoSrc} alt="" />
-        </div>
-        <p className="dashboard-idle-title">{idleHeroStatusLabel}</p>
         {statusDock}
+        {diagnostic === null ? (
+          <>
+            <div className="dashboard-idle-logo" aria-hidden="true">
+              <img className="dashboard-idle-logo-image" src={logoSrc} alt="" />
+            </div>
+            <p className="dashboard-idle-title">{idleHeroStatusLabel}</p>
+          </>
+        ) : (
+          <DashboardDiagnosticView
+            key={diagnostic.id}
+            diagnostic={diagnostic}
+            isActionPending={
+              diagnostic.action.kind === 'command' &&
+              pendingCommand === diagnostic.action.command
+            }
+            onAction={onDiagnosticAction}
+          />
+        )}
       </div>
 
       <aside className="dashboard-idle-sidebar">

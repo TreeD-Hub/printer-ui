@@ -7,6 +7,10 @@ import type {
 } from 'react'
 import type { PrinterFilePreview } from '@treed/printer-logic'
 import type { PrinterCommandId } from '../core/commands'
+import type {
+  DashboardDiagnostic,
+  DashboardDiagnosticAction,
+} from './dashboardDiagnosticState'
 
 export type DashboardTuneGroupId =
   | 'nozzle'
@@ -81,6 +85,7 @@ export type DashboardPageProps = {
   maintenanceSummary: MaintenanceSummary
   idleNotesInputRef: RefObject<HTMLTextAreaElement | null>
   idleNotesText: string
+  diagnostic: DashboardDiagnostic | null
   onPrintTuneGroupOpen: (groupId: DashboardTuneGroupId) => void
   onPause: () => void
   onStopRequest: () => void
@@ -94,6 +99,7 @@ export type DashboardPageProps = {
   onIdleWidgetDragHandleClick: (event: MouseEvent<HTMLButtonElement>) => void
   onIdleNotesKeyboardOpen: () => void
   onIdleNotesChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
+  onDiagnosticAction: (action: DashboardDiagnosticAction) => Promise<string | null>
 }
 
 export type DashboardPrintViewProps = Pick<
@@ -132,6 +138,7 @@ export type DashboardIdleViewProps = Pick<
   DashboardPageProps,
   | 'armedIdleWidgetId'
   | 'draggingIdleWidgetId'
+  | 'diagnostic'
   | 'idleHeroStatusLabel'
   | 'idleNotesInputRef'
   | 'idleNotesText'
@@ -141,10 +148,12 @@ export type DashboardIdleViewProps = Pick<
   | 'maintenanceSummary'
   | 'onIdleNotesChange'
   | 'onIdleNotesKeyboardOpen'
+  | 'onDiagnosticAction'
   | 'onIdleWidgetDragHandleClick'
   | 'onIdleWidgetDragPointerDown'
   | 'onIdleWidgetDragPointerEnd'
   | 'onIdleWidgetDragPointerMove'
   | 'onIdleWidgetTargetOpen'
   | 'statusDock'
+  | 'pendingCommand'
 >

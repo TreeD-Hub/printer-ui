@@ -15,6 +15,10 @@ import {
   BABYSTEP_STEP_OPTIONS,
   type ScreenId,
 } from './dashboard/config'
+import {
+  resolveDashboardDiagnostic,
+  type DashboardDiagnosticAction,
+} from './dashboard/dashboardDiagnosticState'
 import { useDashboardIdleController, type DashboardIdleControlGroupId } from './dashboard/useDashboardIdleController'
 import { usePrinterDisplayStatus } from './dashboard/usePrinterDisplayStatus'
 import {
@@ -131,6 +135,33 @@ function App() {
     (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
     [],
   )
+  const dashboardDiagnostic = resolveDashboardDiagnostic({
+    source: snapshot.source,
+    connection: snapshot.connection,
+    transportState: snapshot.transport.state,
+    transportMessage: snapshot.transport.message,
+    klippyState: snapshot.klippy.state,
+    klippyMessage: snapshot.klippy.message,
+    runtimeMessage: snapshot.message,
+    uiContractStatus: snapshot.uiContract.status,
+    uiContractMessage: snapshot.uiContract.message,
+  })
+  const handleDashboardDiagnosticAction = useCallback(async (
+    action: DashboardDiagnosticAction,
+  ): Promise<string | null> => {
+    if (action.kind === 'refresh') {
+      void refresh()
+      return null
+    }
+
+    const ok = await executeCommand({ command: action.command })
+    if (!ok) {
+      return getLastCommandError() || 'Не удалось выполнить действие.'
+    }
+
+    void refresh()
+    return null
+  }, [executeCommand, getLastCommandError, refresh])
   const handlePrintSpeedFactorChange = useCallback((percent: number): void => {
     void executeCommand({ command: 'setPrintSpeedFactorPercent', percent })
   }, [executeCommand])
@@ -645,6 +676,7 @@ function App() {
       maintenanceSummary: maintenanceController.status,
       idleNotesInputRef: dashboardIdleController.idleNotesInputRef,
       idleNotesText: dashboardIdleController.idleNotesText,
+      diagnostic: dashboardDiagnostic,
     },
     actions: {
       onPrintTuneGroupOpen: handlePrintTuneGroupOpen,
@@ -660,6 +692,7 @@ function App() {
       onIdleWidgetDragHandleClick: dashboardIdleController.handleIdleWidgetDragHandleClick,
       onIdleNotesKeyboardOpen: dashboardIdleController.handleIdleNotesKeyboardOpen,
       onIdleNotesChange: dashboardIdleController.handleIdleNotesChange,
+      onDiagnosticAction: handleDashboardDiagnosticAction,
     },
     getCommandBlockReason,
   }

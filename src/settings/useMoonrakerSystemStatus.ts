@@ -13,17 +13,13 @@ export type MoonrakerSystemStatusController = {
   refresh: () => void
 }
 
-export function useMoonrakerSystemStatus(enabled = true): MoonrakerSystemStatusController {
+export function useMoonrakerSystemStatus(): MoonrakerSystemStatusController {
   const [status, setStatus] = useState<MoonrakerSystemStatus>(createLoadingMoonrakerSystemStatus)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const requestSequenceRef = useRef<number>(0)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const refresh = useCallback((): void => {
-    if (!enabled) {
-      return
-    }
-
     requestSequenceRef.current += 1
     const requestSequence = requestSequenceRef.current
     abortControllerRef.current?.abort()
@@ -56,16 +52,9 @@ export function useMoonrakerSystemStatus(enabled = true): MoonrakerSystemStatusC
           setIsRefreshing(false)
         }
       })
-  }, [enabled])
+  }, [])
 
   useEffect(() => {
-    if (!enabled) {
-      requestSequenceRef.current += 1
-      abortControllerRef.current?.abort()
-      abortControllerRef.current = null
-      return
-    }
-
     refresh()
     const timer = window.setInterval(refresh, SYSTEM_STATUS_POLL_INTERVAL_MS)
 
@@ -74,7 +63,7 @@ export function useMoonrakerSystemStatus(enabled = true): MoonrakerSystemStatusC
       abortControllerRef.current?.abort()
       window.clearInterval(timer)
     }
-  }, [enabled, refresh])
+  }, [refresh])
 
   return {
     status,

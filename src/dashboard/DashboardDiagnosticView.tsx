@@ -1,89 +1,86 @@
-import type { ReactNode } from 'react'
-import type { DashboardDiagnostic } from './dashboardDiagnosticState'
+import { useState } from 'react'
+import type {
+  DashboardDiagnostic,
+  DashboardDiagnosticAction,
+} from './dashboardDiagnosticState'
 import './dashboardDiagnostic.css'
 
 type DashboardDiagnosticViewProps = {
   diagnostic: DashboardDiagnostic
-  statusDock: ReactNode
   isActionPending: boolean
-  isActionArmed: boolean
-  actionError: string | null
-  onAction: () => void
+  onAction: (action: DashboardDiagnosticAction) => Promise<string | null>
 }
 
 export function DashboardDiagnosticView({
   diagnostic,
-  statusDock,
   isActionPending,
-  isActionArmed,
-  actionError,
   onAction,
 }: DashboardDiagnosticViewProps) {
+  const [armedDiagnosticId, setArmedDiagnosticId] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const isCommandAction = diagnostic.action.kind === 'command'
-  const actionLabel = isActionPending
+  const isActionArmed = armedDiagnosticId === diagnostic.id
+  const isPending = isActionPending || isSubmitting
+  const actionLabel = isPending
     ? isCommandAction ? 'Выполнение…' : 'Проверка…'
     : isCommandAction && isActionArmed
       ? `Подтвердить: ${diagnostic.action.label}`
       : diagnostic.action.label
 
+  async function handleAction(): Promise<void> {
+    if (isPending) {
+      return
+    }
+
+    setActionError(null)
+
+    if (isCommandAction && !isActionArmed) {
+      setArmedDiagnosticId(diagnostic.id)
+      return
+    }
+
+    setArmedDiagnosticId(null)
+    setIsSubmitting(true)
+    try {
+      setActionError(await onAction(diagnostic.action))
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'Не удалось выполнить действие.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
-    <section
-      className={`dashboard-diagnostic-screen is-${diagnostic.severity}`}
-      data-testid="screen-dashboard-diagnostic"
+    <div
+      className={`dashboard-diagnostic is-${diagnostic.severity}`}
+      data-testid="dashboard-diagnostic"
       role="alert"
       aria-live={diagnostic.severity === 'error' ? 'assertive' : 'polite'}
     >
-      <div className="dashboard-diagnostic-main">
-        <div className="dashboard-diagnostic-symbol" aria-hidden="true">!</div>
+      <div className="dashboard-diagnostic-symbol" aria-hidden="true">!</div>
+      <div className="dashboard-diagnostic-copy">
         <p className="dashboard-diagnostic-kicker">Диагностика</p>
         <h2>{diagnostic.title}</h2>
         <p className="dashboard-diagnostic-message" title={diagnostic.message}>
           {diagnostic.message}
         </p>
-
-        <button
-          type="button"
-          className={`dashboard-diagnostic-action ${isActionArmed ? 'is-armed' : ''}`}
-          onClick={onAction}
-          disabled={isActionPending}
-          data-testid="dashboard-diagnostic-action"
-        >
-          {actionLabel}
-        </button>
-
-        {isCommandAction && !isActionArmed && !isActionPending ? (
-          <p className="dashboard-diagnostic-confirm-note">
-            Действие потребует повторного нажатия.
-          </p>
-        ) : null}
-
         {actionError !== null ? (
           <p className="dashboard-diagnostic-action-error" role="status">
             {actionError}
           </p>
         ) : null}
-
-        <div className="dashboard-diagnostic-status-dock">
-          {statusDock}
-        </div>
       </div>
 
-      <aside className="dashboard-diagnostic-details" aria-label="Подробности диагностики">
-        <header>
-          <span>Состояние</span>
-          <strong>{diagnostic.severity === 'error' ? 'Ошибка' : 'Предупреждение'}</strong>
-        </header>
-
-        {diagnostic.details.length > 0 ? (
-          <ul>
-            {diagnostic.details.map((detail) => (
-              <li key={detail} title={detail}>{detail}</li>
-            ))}
-          </ul>
-        ) : (
-          <p>Дополнительных сведений нет.</p>
-        )}
-      </aside>
-    </section>
+      <button
+        type="button"
+        className={`dashboard-diagnostic-action ${isActionArmed ? 'is-armed' : ''}`}
+        onClick={() => void handleAction()}
+        disabled={isPending}
+        data-testid="dashboard-diagnostic-action"
+      >
+        {actionLabel}
+      </button>
+    </div>
   )
 }

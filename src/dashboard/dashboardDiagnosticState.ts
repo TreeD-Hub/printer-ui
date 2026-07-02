@@ -6,7 +6,6 @@ import type {
   PrinterTransportState,
   PrinterUiContractSnapshot,
 } from '../core/transport/types'
-import type { MoonrakerSystemStatus } from '../settings/systemStatus'
 
 export type DashboardRecoveryCommand = Extract<
   PrinterCommandId,
@@ -41,110 +40,41 @@ export type DashboardDiagnostic = {
   severity: 'warning' | 'error'
   title: string
   message: string
-  details: string[]
   action: DashboardDiagnosticAction
 }
 
 const MAX_MESSAGE_LENGTH = 320
 
-function singleLine(value: string | null | undefined): string {
-  return value?.replace(/\s+/g, ' ').trim() ?? ''
-}
-
 function compactMessage(value: string | null | undefined, fallback: string): string {
-  const normalized = singleLine(value) || fallback
+  const normalized = value?.replace(/\s+/g, ' ').trim() || fallback
   return normalized.length <= MAX_MESSAGE_LENGTH
     ? normalized
     : `${normalized.slice(0, MAX_MESSAGE_LENGTH - 1).trimEnd()}…`
-}
-
-function uniqueStrings(values: Array<string | null | undefined>): string[] {
-  const result: string[] = []
-  const seen = new Set<string>()
-
-  for (const value of values) {
-    const normalized = singleLine(value)
-    if (!normalized || seen.has(normalized)) {
-      continue
-    }
-    seen.add(normalized)
-    result.push(normalized)
-  }
-
-  return result
-}
-
-function buildVersionDetails(status: MoonrakerSystemStatus): string[] {
-  const details: string[] = []
-  const { software } = status
-
-  if (software.klipperVersion !== null) {
-    details.push(`Klipper: ${software.klipperVersion}`)
-  }
-
-  if (software.moonrakerVersion !== null || software.moonrakerApiVersion !== null) {
-    const version = software.moonrakerVersion ?? 'версия неизвестна'
-    const api = software.moonrakerApiVersion === null ? '' : ` · API ${software.moonrakerApiVersion}`
-    details.push(`Moonraker: ${version}${api}`)
-  }
-
-  return details
 }
 
 function createDiagnostic(
   severity: DashboardDiagnostic['severity'],
   title: string,
   message: string,
-  details: string[],
   action: DashboardDiagnosticAction,
 ): DashboardDiagnostic {
-  const normalizedDetails = uniqueStrings(details).slice(0, 6)
+  const normalizedMessage = compactMessage(message, title)
   const actionKey = action.kind === 'command' ? action.command : action.kind
-  const id = [severity, title, message, actionKey, ...normalizedDetails]
-    .join('|')
-    .toLowerCase()
 
   return {
-    id,
+    id: `${severity}|${title}|${normalizedMessage}|${actionKey}`.toLowerCase(),
     severity,
     title,
-    message: compactMessage(message, title),
-    details: normalizedDetails,
+    message: normalizedMessage,
     action,
   }
-}
-
-function getKlippyTitle(state: PrinterKlippyState, message: string): string {
-  const normalized = message.toLowerCase()
-
-  if (normalized.includes('lost communication') || normalized.includes('timer too close')) {
-    return 'Потеря связи с MCU'
-  }
-  if (normalized.includes('config') && (normalized.includes('error') || normalized.includes('not valid'))) {
-    return 'Ошибка конфигурации Klipper'
-  }
-  if (normalized.includes('heater') || normalized.includes('thermal')) {
-    return 'Ошибка нагрева'
-  }
-  if (normalized.includes('can') && (normalized.includes('error') || normalized.includes('timeout'))) {
-    return 'Ошибка CAN-шины'
-  }
-  if (state === 'disconnected') {
-    return 'Нет связи с Klipper'
-  }
-  if (state === 'shutdown') {
-    return 'Klipper остановлен'
-  }
-  return 'Ошибка Klipper'
 }
 
 function getKlippyRecoveryAction(
   state: PrinterKlippyState,
   message: string,
 ): Extract<DashboardDiagnosticAction, { kind: 'command' }> {
-  const normalized = message.toUpperCase()
-
-  if (normalized.includes('FIRMWARE_RESTART') || state === 'shutdown') {
+  if (state === 'shutdown' || message.toUpperCase().includes('FIRMWARE_RESTART')) {
     return {
       kind: 'command',
       command: 'firmwareRestart',
@@ -159,70 +89,39 @@ function getKlippyRecoveryAction(
   }
 }
 
-function getCoreServiceFailure(status: MoonrakerSystemStatus) {
-  return status.services.find((service) => {
-    const name = service.name.toLowerCase()
-    return !service.healthy && (name === 'klipper' || name === 'moonraker')
-  })
-}
-
 export function resolveDashboardDiagnostic(
   runtime: DashboardDiagnosticRuntime,
-  systemStatus: MoonrakerSystemStatus,
 ): DashboardDiagnostic | null {
   if (runtime.source === 'mock') {
     return null
   }
 
-  const versionDetails = buildVersionDetails(systemStatus)
-
   if (runtime.transportState === 'offline' || runtime.transportState === 'reconnecting') {
     const isOffline = runtime.transportState === 'offline'
-    const title = isOffline ? 'Нет связи с Moonraker' : 'Восстановление связи'
-    const message = compactMessage(
-      runtime.transportMessage || runtime.runtimeMessage,
-      isOffline ? 'Moonraker недоступен.' : 'Повторное подключение к Moonraker.',
-    )
-
     return createDiagnostic(
       isOffline ? 'error' : 'warning',
-      title,
-      message,
-      versionDetails,
+      isOffline ? 'Нет связи с Moonraker' : 'Восстановление связи',
+      runtime.transportMessage || runtime.runtimeMessage,
       { kind: 'refresh', label: 'Повторить подключение' },
     )
   }
 
-  if (['error', 'shutdown', 'disconnected'].includes(runtime.klippyState)) {
-    const message = compactMessage(
-      systemStatus.software.stateMessage || runtime.klippyMessage || runtime.runtimeMessage,
-      runtime.klippyState === 'disconnected' ? 'Klipper недоступен.' : 'Klipper остановлен.',
-    )
+  if (
+    runtime.connection === 'shutdown' ||
+    ['error', 'shutdown', 'disconnected'].includes(runtime.klippyState)
+  ) {
+    const title = runtime.klippyState === 'disconnected'
+      ? 'Нет связи с Klipper'
+      : runtime.klippyState === 'error'
+        ? 'Ошибка Klipper'
+        : 'Klipper остановлен'
+    const message = runtime.klippyMessage || runtime.runtimeMessage
 
     return createDiagnostic(
       'error',
-      getKlippyTitle(runtime.klippyState, message),
+      title,
       message,
-      versionDetails,
       getKlippyRecoveryAction(runtime.klippyState, message),
-    )
-  }
-
-  if (systemStatus.software.failedComponents.length > 0) {
-    const failedComponents = systemStatus.software.failedComponents
-    return createDiagnostic(
-      'error',
-      'Компоненты Moonraker не загрузились',
-      `Не запущены: ${failedComponents.join(', ')}.`,
-      [
-        ...versionDetails,
-        ...failedComponents.map((component) => `Компонент: ${component}`),
-      ],
-      {
-        kind: 'command',
-        command: 'restartMoonraker',
-        label: 'Перезапустить Moonraker',
-      },
     )
   }
 
@@ -230,63 +129,8 @@ export function resolveDashboardDiagnostic(
     return createDiagnostic(
       'warning',
       'Ограниченный режим',
-      compactMessage(
-        runtime.uiContractMessage || runtime.runtimeMessage,
-        'Moonraker отвечает, но часть функций принтера недоступна.',
-      ),
-      versionDetails,
+      runtime.uiContractMessage || runtime.runtimeMessage,
       { kind: 'refresh', label: 'Проверить повторно' },
-    )
-  }
-
-  if (systemStatus.software.warnings.length > 0) {
-    const [firstWarning, ...otherWarnings] = systemStatus.software.warnings
-    return createDiagnostic(
-      'warning',
-      'Предупреждение Moonraker',
-      compactMessage(firstWarning, 'Moonraker сообщил предупреждение.'),
-      [...versionDetails, ...otherWarnings.map((warning) => `Moonraker: ${warning}`)],
-      { kind: 'refresh', label: 'Обновить диагностику' },
-    )
-  }
-
-  const coreServiceFailure = getCoreServiceFailure(systemStatus)
-  if (coreServiceFailure !== undefined) {
-    const isMoonraker = coreServiceFailure.name.toLowerCase() === 'moonraker'
-    return createDiagnostic(
-      'error',
-      `Служба ${coreServiceFailure.name} не работает`,
-      compactMessage(
-        [coreServiceFailure.activeState, coreServiceFailure.subState].filter(Boolean).join(' / '),
-        'Системная служба остановлена.',
-      ),
-      versionDetails,
-      {
-        kind: 'command',
-        command: isMoonraker ? 'restartMoonraker' : 'restartKlipper',
-        label: isMoonraker ? 'Перезапустить Moonraker' : 'Перезапустить Klipper',
-      },
-    )
-  }
-
-  if (systemStatus.errors.length > 0 || systemStatus.loadState === 'unavailable') {
-    return createDiagnostic(
-      'warning',
-      'Диагностика доступна частично',
-      compactMessage(systemStatus.errors[0], 'Не удалось получить данные диагностики.'),
-      [...versionDetails, ...systemStatus.errors.slice(1)],
-      { kind: 'refresh', label: 'Повторить проверку' },
-    )
-  }
-
-  if (systemStatus.host.throttledFlags.length > 0) {
-    const [firstFlag, ...otherFlags] = systemStatus.host.throttledFlags
-    return createDiagnostic(
-      'warning',
-      'Ограничение производительности',
-      compactMessage(firstFlag, 'Хост сообщает об ограничении производительности.'),
-      [...versionDetails, ...otherFlags.map((flag) => `Host: ${flag}`)],
-      { kind: 'refresh', label: 'Обновить диагностику' },
     )
   }
 

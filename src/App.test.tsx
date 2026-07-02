@@ -59,6 +59,104 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
   }, 10000)
 
+  it('keeps idle dashboard chrome and sidebar visible during a Klipper diagnostic', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      connection: 'shutdown',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+    })
+
+    render(<App />)
+
+    const idleDashboard = await screen.findByTestId('screen-dashboard-idle')
+    expect(within(idleDashboard).getByTestId('dashboard-diagnostic')).toBeInTheDocument()
+    expect(within(idleDashboard).getByText('Klipper остановлен')).toBeInTheDocument()
+    expect(within(idleDashboard).getByText("Lost communication with MCU 'eddy'")).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-widget-temperature')).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-widget-maintenance')).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-notes-input')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /Основная навигация/i })).toBeInTheDocument()
+  })
+
+  it('keeps active print view visible when a diagnostic condition is present', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      connection: 'shutdown',
+      state: 'printing',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+      printJob: {
+        ...snapshot.printJob,
+        filename: 'diagnostic-active-print.gcode',
+        filePath: 'diagnostic-active-print.gcode',
+        state: 'printing',
+        progress: 0.4,
+        progressPercent: 40,
+        isActive: true,
+        isPaused: false,
+      },
+    })
+
+    render(<App />)
+
+    expect(await screen.findByTestId('print-progress-summary')).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard-diagnostic')).not.toBeInTheDocument()
+  })
+
+  it('requires confirmation before recovery and keeps command errors inside the idle hero', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      connection: 'shutdown',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+    })
+    setMockCommandFailure('firmwareRestart', 'Mock: firmware restart failed')
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    const commandCountBeforeConfirm = getMockCommandOperations().length
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Перезапустить прошивку' }))
+    expect(getMockCommandOperations()).toHaveLength(commandCountBeforeConfirm)
+
+    fireEvent.click(within(diagnostic).getByRole('button', { name: /Подтвердить/i }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'firmwareRestart' }),
+        ]),
+      )
+      expect(within(diagnostic).getByText('Mock: firmware restart failed')).toBeInTheDocument()
+    })
+    expect(screen.getByTestId('screen-dashboard-idle')).toContainElement(diagnostic)
+  })
+
   it('returns to waiting state after print cancel', async () => {
     render(<App />)
 
