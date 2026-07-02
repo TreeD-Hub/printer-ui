@@ -101,6 +101,14 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     isPaused: false,
     isActive: false,
   },
+  excludeObjects: {
+    supported: false,
+    state: 'unavailable',
+    objects: [],
+    currentObjectName: null,
+    excludedObjectNames: [],
+    message: 'Исключение объектов не поддерживается текущей конфигурацией принтера.',
+  },
   files: {
     type: 'unknown',
     path: null,

@@ -28,6 +28,7 @@ type DashboardPrintProps = {
   isPrintPaused: boolean
   pendingCommand: PrinterCommandId | null
   printCancelBlockReason: string | null
+  excludeObjectOpenBlockReason: string | null
   printFilePreview?: PrinterFilePreview
   printFill: number
   printPauseCommand: Extract<PrinterCommandId, 'pause' | 'resume'>
@@ -66,6 +67,7 @@ type DashboardActionProps = {
   onPause: () => void
   onPrintTuneGroupOpen: (groupId: DashboardTuneGroupId) => void
   onStopRequest: () => void
+  onExcludeObjectOpen: () => void
 }
 
 export type DashboardContainerProps = {

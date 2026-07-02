@@ -3,6 +3,7 @@ import type {
   PrinterConnectionState,
   PrinterEddyStatus,
   PrinterFileItem,
+  PrinterExcludeObjectSnapshot,
   PrinterLimits,
   PrinterTransportState,
 } from '@treed/printer-logic'
@@ -12,6 +13,7 @@ export type {
   PrinterConnectionState,
   PrinterEddyStatus,
   PrinterFileItem,
+  PrinterExcludeObjectSnapshot,
   PrinterLimits,
   PrinterTransportState,
 } from '@treed/printer-logic'
@@ -213,6 +215,7 @@ export interface PrinterRuntimeSnapshot {
   limits: PrinterLimits
   usage: PrinterUsageSnapshot
   printJob: PrinterPrintJobSnapshot
+  excludeObjects: PrinterExcludeObjectSnapshot
   files: PrinterFilesSnapshot
   fileList?: PrinterFileListStatusSnapshot
   toolhead: PrinterToolheadRuntimeSnapshot

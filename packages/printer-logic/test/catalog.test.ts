@@ -35,6 +35,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'setPressureAdvance',
   'setRetractionLength',
   'adjustZOffset',
+  'excludeObject',
   'loadFilament',
   'unloadFilament',
   'zParkZeroEddy',
@@ -109,6 +110,40 @@ const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {
     state: 'printing',
     isActive: true,
     isPaused: false,
+  },
+  klippyState: 'ready',
+  excludeObjects: {
+    supported: true,
+    state: 'ready',
+    objects: [
+      {
+        name: 'part_1',
+        displayName: 'part 1',
+        center: { x: 40, y: 40 },
+        polygon: null,
+        isCurrent: false,
+        isExcluded: false,
+      },
+      {
+        name: 'part_2',
+        displayName: 'part 2',
+        center: { x: 90, y: 40 },
+        polygon: null,
+        isCurrent: true,
+        isExcluded: false,
+      },
+      {
+        name: 'part_3',
+        displayName: 'part 3',
+        center: { x: 140, y: 40 },
+        polygon: null,
+        isCurrent: false,
+        isExcluded: true,
+      },
+    ],
+    currentObjectName: 'part_2',
+    excludedObjectNames: ['part_3'],
+    message: null,
   },
 }
 
@@ -427,5 +462,74 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       command: 'adjustZOffset',
       deltaMm: Number.NaN,
     })).toContain('0.01…0.05')
+  })
+
+  it('allows excluding a known non-excluded object during active print only', () => {
+    expect(getTreeDCommandBlockReason('excludeObject', PRINTING_CONTEXT, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toBeNull()
+
+    expect(getTreeDCommandBlockReason('excludeObject', IDLE_CONTEXT, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toContain('нет активной печати')
+
+    expect(getTreeDCommandBlockReason('excludeObject', {
+      ...PRINTING_CONTEXT,
+      transportState: 'offline',
+    }, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toContain('Moonraker')
+
+    expect(getTreeDCommandBlockReason('excludeObject', {
+      ...PRINTING_CONTEXT,
+      klippyState: 'shutdown',
+    }, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toContain('Klipper')
+
+    expect(getTreeDCommandBlockReason('excludeObject', PRINTING_CONTEXT, {
+      command: 'excludeObject',
+      objectName: 'part_3',
+    })).toContain('уже исключён')
+
+    expect(getTreeDCommandBlockReason('excludeObject', PRINTING_CONTEXT, {
+      command: 'excludeObject',
+      objectName: 'missing_part',
+    })).toContain('не найден')
+  })
+
+  it('blocks EXCLUDE_OBJECT for the last remaining object', () => {
+    expect(getTreeDCommandBlockReason('excludeObject', {
+      ...PRINTING_CONTEXT,
+      excludeObjects: {
+        ...PRINTING_CONTEXT.excludeObjects!,
+        objects: [
+          {
+            name: 'part_1',
+            displayName: 'part 1',
+            center: null,
+            polygon: null,
+            isCurrent: true,
+            isExcluded: false,
+          },
+          {
+            name: 'part_2',
+            displayName: 'part 2',
+            center: null,
+            polygon: null,
+            isCurrent: false,
+            isExcluded: true,
+          },
+        ],
+        excludedObjectNames: ['part_2'],
+      },
+    }, {
+      command: 'excludeObject',
+      objectName: 'part_1',
+    })).toContain('последняя оставшаяся')
   })
 })

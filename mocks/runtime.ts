@@ -149,6 +149,11 @@ function updateMockSnapshot(mutator: (snapshot: PrinterSnapshot) => void): void 
 
 function applyMockCommandEffect(args: ExecuteCommandArgs): void {
   switch (args.command) {
+    case 'start':
+      updateMockSnapshot((snapshot) => {
+        snapshot.excludeObjects = createMockExcludeObjects()
+      })
+      return
     case 'setNozzleTarget':
       updateMockSnapshot((snapshot) => {
         snapshot.thermalTargets.nozzle = args.targetCelsius
@@ -174,6 +179,21 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
     case 'setMainLightEnabled':
       updateMockSnapshot((snapshot) => {
         snapshot.mainLightEnabled = args.enabled
+      })
+      return
+    case 'excludeObject':
+      updateMockSnapshot((snapshot) => {
+        const excludedObjectNames = new Set(snapshot.excludeObjects.excludedObjectNames)
+        excludedObjectNames.add(args.objectName)
+        snapshot.excludeObjects = {
+          ...snapshot.excludeObjects,
+          excludedObjectNames: [...excludedObjectNames],
+          objects: snapshot.excludeObjects.objects.map((item) => (
+            item.name === args.objectName
+              ? { ...item, isExcluded: true }
+              : item
+          )),
+        }
       })
       return
     default:
@@ -206,6 +226,61 @@ function cloneHostNetworkStatus(status: HostNetworkStatus): HostNetworkStatus {
   return {
     ...status,
     networks: status.networks.map((network) => ({ ...network })),
+  }
+}
+
+function createUnavailableMockExcludeObjects(): PrinterSnapshot['excludeObjects'] {
+  return {
+    supported: false,
+    state: 'unavailable',
+    objects: [],
+    currentObjectName: null,
+    excludedObjectNames: [],
+    message: 'Исключение объектов не поддерживается текущей конфигурацией принтера.',
+  }
+}
+
+function createMockExcludeObjects(): PrinterSnapshot['excludeObjects'] {
+  return {
+    supported: true,
+    state: 'ready',
+    currentObjectName: 'part_2',
+    excludedObjectNames: ['part_4'],
+    message: null,
+    objects: [
+      {
+        name: 'part_1',
+        displayName: 'part 1',
+        center: { x: 42, y: 44 },
+        polygon: [{ x: 20, y: 22 }, { x: 64, y: 22 }, { x: 64, y: 66 }, { x: 20, y: 66 }],
+        isCurrent: false,
+        isExcluded: false,
+      },
+      {
+        name: 'part_2',
+        displayName: 'part 2',
+        center: { x: 108, y: 44 },
+        polygon: [{ x: 86, y: 22 }, { x: 130, y: 22 }, { x: 130, y: 66 }, { x: 86, y: 66 }],
+        isCurrent: true,
+        isExcluded: false,
+      },
+      {
+        name: 'part_3',
+        displayName: 'part 3',
+        center: { x: 174, y: 44 },
+        polygon: [{ x: 152, y: 22 }, { x: 196, y: 22 }, { x: 196, y: 66 }, { x: 152, y: 66 }],
+        isCurrent: false,
+        isExcluded: false,
+      },
+      {
+        name: 'part_4',
+        displayName: 'part 4',
+        center: { x: 42, y: 112 },
+        polygon: null,
+        isCurrent: false,
+        isExcluded: true,
+      },
+    ],
   }
 }
 
@@ -323,6 +398,7 @@ export function createMockSnapshot(): PrinterSnapshot {
       isPaused: false,
       isActive: false,
     },
+    excludeObjects: createUnavailableMockExcludeObjects(),
     files: {
       type: 'virtual_sdcard',
       path: null,

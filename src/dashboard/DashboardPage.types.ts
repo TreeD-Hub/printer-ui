@@ -68,6 +68,7 @@ export type DashboardPageProps = {
   isBusy: boolean
   printPauseBlockReason: string | null
   printCancelBlockReason: string | null
+  excludeObjectOpenBlockReason: string | null
   babystepStep: number
   babystepActiveIndex: number
   zOffsetMm: number
@@ -83,6 +84,7 @@ export type DashboardPageProps = {
   onPrintTuneGroupOpen: (groupId: DashboardTuneGroupId) => void
   onPause: () => void
   onStopRequest: () => void
+  onExcludeObjectOpen: () => void
   onBabystepStepChange: (step: number) => void
   onBabystepAdjust: (deltaMm: number) => void
   onIdleWidgetTargetOpen: (widgetId: DashboardIdleWidgetId) => void
@@ -112,8 +114,10 @@ export type DashboardPrintViewProps = Pick<
   | 'onPause'
   | 'onPrintTuneGroupOpen'
   | 'onStopRequest'
+  | 'onExcludeObjectOpen'
   | 'pendingCommand'
   | 'printCancelBlockReason'
+  | 'excludeObjectOpenBlockReason'
   | 'printFilePreview'
   | 'printFill'
   | 'printPauseBlockReason'

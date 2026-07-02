@@ -252,6 +252,39 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
         pause_resume: {
           is_paused: false,
         },
+        exclude_object: {
+          current_object: 'part_2',
+          excluded_objects: ['part_4', 'unknown_part'],
+          objects: [
+            {
+              name: 'part_1',
+              center: [40, 40],
+              polygon: [[20, 20], [60, 20], [60, 60], [20, 60]],
+            },
+            {
+              name: 'part_2',
+              center: [105, 40],
+              polygon: [[85, 20], [125, 20], [125, 60], [85, 60]],
+            },
+            {
+              name: 'part_3',
+              center: ['bad', 40],
+              polygon: [[150, 20], [190, Number.NaN], [190, 60]],
+            },
+            {
+              name: 'part_4',
+              center: [40, 105],
+            },
+            {
+              name: 'part_1',
+              center: [999, 999],
+            },
+            {
+              name: '',
+              center: [10, 10],
+            },
+          ],
+        },
         webhooks: {
           state: 'ready',
           state_message: 'Printer is ready',
@@ -335,6 +368,47 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       totalLayer: 96,
       isPaused: false,
       isActive: true,
+    })
+    expect(snapshot.excludeObjects).toEqual({
+      supported: true,
+      state: 'ready',
+      objects: [
+        {
+          name: 'part_1',
+          displayName: 'part 1',
+          center: { x: 40, y: 40 },
+          polygon: [{ x: 20, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 60 }, { x: 20, y: 60 }],
+          isCurrent: false,
+          isExcluded: false,
+        },
+        {
+          name: 'part_2',
+          displayName: 'part 2',
+          center: { x: 105, y: 40 },
+          polygon: [{ x: 85, y: 20 }, { x: 125, y: 20 }, { x: 125, y: 60 }, { x: 85, y: 60 }],
+          isCurrent: true,
+          isExcluded: false,
+        },
+        {
+          name: 'part_3',
+          displayName: 'part 3',
+          center: null,
+          polygon: null,
+          isCurrent: false,
+          isExcluded: false,
+        },
+        {
+          name: 'part_4',
+          displayName: 'part 4',
+          center: { x: 40, y: 105 },
+          polygon: null,
+          isCurrent: false,
+          isExcluded: true,
+        },
+      ],
+      currentObjectName: 'part_2',
+      excludedObjectNames: ['part_4', 'unknown_part'],
+      message: 'Klipper сообщает исключённые объекты вне текущей разметки: unknown_part.',
     })
     expect(snapshot.files).toEqual({
       type: 'virtual_sdcard',
@@ -525,6 +599,77 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       totalLayer: null,
       isPaused: false,
       isActive: false,
+    })
+  })
+
+  it('marks exclude_object as unavailable when Moonraker does not publish it', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: {
+        state: 'ready',
+      },
+    }))
+
+    expect(snapshot.excludeObjects).toEqual({
+      supported: false,
+      state: 'unavailable',
+      objects: [],
+      currentObjectName: null,
+      excludedObjectNames: [],
+      message: 'Исключение объектов не поддерживается текущей конфигурацией принтера.',
+    })
+  })
+
+  it('keeps empty exclude_object object lists as a waiting state early in the print', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: {
+        state: 'ready',
+      },
+      print_stats: {
+        state: 'printing',
+        print_duration: 5,
+      },
+      virtual_sdcard: {
+        is_active: true,
+      },
+      exclude_object: {
+        objects: [],
+        current_object: null,
+        excluded_objects: [],
+      },
+    }))
+
+    expect(snapshot.excludeObjects).toMatchObject({
+      supported: true,
+      state: 'waiting',
+      objects: [],
+      message: 'Получение списка объектов...',
+    })
+  })
+
+  it('explains missing object markup after the print has advanced', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: {
+        state: 'ready',
+      },
+      print_stats: {
+        state: 'printing',
+        print_duration: 30,
+      },
+      virtual_sdcard: {
+        is_active: true,
+      },
+      exclude_object: {
+        objects: [],
+        current_object: null,
+        excluded_objects: [],
+      },
+    }))
+
+    expect(snapshot.excludeObjects).toMatchObject({
+      supported: true,
+      state: 'ready',
+      objects: [],
+      message: 'В этом файле нет разметки отдельных объектов.',
     })
   })
 })

@@ -4,6 +4,7 @@ export const MOONRAKER_RUNTIME_OBJECTS = [
   'gcode_move',
   'print_stats',
   'virtual_sdcard',
+  'exclude_object',
   'extruder',
   'heater_bed',
   'fan',

@@ -5,6 +5,7 @@ import {
   type PrinterLimits,
 } from '@treed/printer-logic'
 import { MoonrakerTransportError } from '../transport/moonrakerClient'
+import { serializeGcodeStringParameter } from './gcodeString'
 import type {
   CommandClient,
   CommandResult,
@@ -219,6 +220,8 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return `Retraction length set to ${args.retractLengthMm}mm`
     case 'adjustZOffset':
       return `Z-offset adjusted by ${args.deltaMm}mm`
+    case 'excludeObject':
+      return `Object excluded: ${args.objectName}`
     case 'loadFilament':
       return 'LOAD_FILAMENT sent'
     case 'unloadFilament':
@@ -369,6 +372,8 @@ function executeMoonrakerCommand(
       return sendScript(`TREED_UI_SET_RETRACTION RETRACT_LENGTH=${args.retractLengthMm}`, options, args.command)
     case 'adjustZOffset':
       return sendScript(`TREED_UI_ADJUST_Z_OFFSET DELTA=${args.deltaMm}`, options, args.command)
+    case 'excludeObject':
+      return sendScript(`EXCLUDE_OBJECT NAME=${serializeGcodeStringParameter(args.objectName)}`, options, args.command)
     case 'loadFilament':
       return sendScript(`${formatFilamentScript('LOAD_FILAMENT', args)}\nM400`, options, args.command)
     case 'unloadFilament':

@@ -4,6 +4,7 @@ import type {
   PrinterEddyCalibrationSnapshot,
   PrinterEddyCalibrationStep,
   PrinterEddyOperatorPrompt,
+  PrinterExcludeObjectSnapshot,
   PrinterFileItemSnapshot,
   PrinterFilesSnapshot,
   PrinterGeometrySnapshot,
@@ -51,6 +52,7 @@ export interface MoonrakerPrinterObjectsStatus {
   firmware_retraction?: MoonrakerFirmwareRetractionStatus
   display_status?: MoonrakerDisplayStatus
   pause_resume?: MoonrakerPauseResumeStatus
+  exclude_object?: MoonrakerExcludeObjectStatus
   webhooks?: MoonrakerWebhooksStatus
   save_variables?: MoonrakerSaveVariablesStatus
   [key: string]: unknown
@@ -119,6 +121,12 @@ export interface MoonrakerDisplayStatus {
 
 export interface MoonrakerPauseResumeStatus {
   is_paused?: boolean
+}
+
+export interface MoonrakerExcludeObjectStatus {
+  objects?: unknown
+  current_object?: unknown
+  excluded_objects?: unknown
 }
 
 export interface MoonrakerWebhooksStatus {
@@ -330,6 +338,138 @@ function normalizePrintStats(
     totalLayer: toNullableNumber(info?.total_layer),
     isPaused: Boolean(pauseResume?.is_paused),
     isActive: state === 'printing' || Boolean(virtualSdCard?.is_active),
+  }
+}
+
+function readObjectField(value: Record<string, unknown>, ...fieldNames: string[]): unknown {
+  for (const fieldName of fieldNames) {
+    if (fieldName in value) {
+      return value[fieldName]
+    }
+  }
+
+  return undefined
+}
+
+function normalizeExcludeObjectName(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+function normalizeExcludeObjectPoint(value: unknown): { x: number, y: number } | null {
+  if (!Array.isArray(value) || value.length < 2) {
+    return null
+  }
+
+  const x = toNullableNumber(value[0])
+  const y = toNullableNumber(value[1])
+  return x === null || y === null ? null : { x, y }
+}
+
+function normalizeExcludeObjectPolygon(value: unknown): Array<{ x: number, y: number }> | null {
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const points: Array<{ x: number, y: number }> = []
+  for (const point of value) {
+    const normalizedPoint = normalizeExcludeObjectPoint(point)
+    if (normalizedPoint === null) {
+      return null
+    }
+    points.push(normalizedPoint)
+  }
+
+  return points.length >= 3 ? points : null
+}
+
+function normalizeExcludeObjectNames(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const names: string[] = []
+  const seen = new Set<string>()
+  for (const item of value) {
+    const name = normalizeExcludeObjectName(item)
+    if (name === null || seen.has(name)) {
+      continue
+    }
+    seen.add(name)
+    names.push(name)
+  }
+
+  return names
+}
+
+function normalizeExcludeObjects(
+  excludeObject: MoonrakerExcludeObjectStatus | undefined,
+  printJob: PrinterPrintJobSnapshot,
+): PrinterExcludeObjectSnapshot {
+  if (excludeObject === undefined) {
+    return {
+      supported: false,
+      state: 'unavailable',
+      objects: [],
+      currentObjectName: null,
+      excludedObjectNames: [],
+      message: 'Исключение объектов не поддерживается текущей конфигурацией принтера.',
+    }
+  }
+
+  const currentObjectName = normalizeExcludeObjectName(excludeObject.current_object)
+  const excludedObjectNames = normalizeExcludeObjectNames(excludeObject.excluded_objects)
+  const excludedObjectNameSet = new Set(excludedObjectNames)
+  const objects: PrinterExcludeObjectSnapshot['objects'] = []
+  const seenObjects = new Set<string>()
+
+  if (Array.isArray(excludeObject.objects)) {
+    for (const rawObject of excludeObject.objects) {
+      if (!isRecord(rawObject)) {
+        continue
+      }
+
+      const name = normalizeExcludeObjectName(readObjectField(rawObject, 'name', 'NAME'))
+      if (name === null || seenObjects.has(name)) {
+        continue
+      }
+      seenObjects.add(name)
+
+      const center = normalizeExcludeObjectPoint(readObjectField(rawObject, 'center', 'CENTER'))
+      const polygon = normalizeExcludeObjectPolygon(readObjectField(rawObject, 'polygon', 'POLYGON'))
+      objects.push({
+        name,
+        displayName: name.replaceAll('_', ' '),
+        center,
+        polygon,
+        isCurrent: currentObjectName === name,
+        isExcluded: excludedObjectNameSet.has(name),
+      })
+    }
+  }
+
+  const unknownExcludedObjectNames = excludedObjectNames.filter((name) => !seenObjects.has(name))
+  const unknownExcludedMessage = unknownExcludedObjectNames.length > 0
+    ? `Klipper сообщает исключённые объекты вне текущей разметки: ${unknownExcludedObjectNames.join(', ')}.`
+    : null
+  if (objects.length === 0) {
+    const hasPrintAdvanced = printJob.printDurationSec >= 20 || printJob.progress >= 0.02
+    return {
+      supported: true,
+      state: hasPrintAdvanced ? 'ready' : 'waiting',
+      objects,
+      currentObjectName,
+      excludedObjectNames,
+      message: hasPrintAdvanced ? 'В этом файле нет разметки отдельных объектов.' : 'Получение списка объектов...',
+    }
+  }
+
+  return {
+    supported: true,
+    state: 'ready',
+    objects,
+    currentObjectName,
+    excludedObjectNames,
+    message: unknownExcludedMessage,
   }
 }
 
@@ -1038,6 +1178,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const displayStatus = normalizeDisplayStatus(status.display_status)
   const webhooks = normalizeWebhooks(status.webhooks)
   const printJob = normalizePrintStats(status.print_stats, status.virtual_sdcard, status.display_status, status.pause_resume, status.webhooks)
+  const excludeObjects = normalizeExcludeObjects(status.exclude_object, printJob)
   const macros = normalizeMacroValues(status)
   const uiContract = normalizeUiContract(macros)
   const homedAxes = typeof status.toolhead?.homed_axes === 'string' ? status.toolhead.homed_axes : ''
@@ -1095,6 +1236,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     limits: normalizeLimits(macros, uiContract),
     usage: options.usage ?? createUnavailableUsageSnapshot(),
     printJob,
+    excludeObjects,
     files: virtualSdCard.type === 'virtual_sdcard'
       ? virtualSdCard
       : {
@@ -1134,6 +1276,7 @@ export {
   normalizeKlippyState,
   normalizeUiContract,
   normalizeDisplayStatus,
+  normalizeExcludeObjects,
   normalizeFan,
   normalizeGcodeMove,
   normalizeHardware,

@@ -1,5 +1,6 @@
 import actionPause from '../assets/icons/action-pause.svg'
 import actionDelete from '../assets/icons/action-delete.svg'
+import actionExcludeObject from '../assets/icons/action-exclude-object.svg'
 import actionResume from '../assets/icons/action-resume.svg'
 import actionStopCritical from '../assets/icons/action-stop-critical.svg'
 import menuControl from '../assets/icons/menu-control.svg'
@@ -26,6 +27,7 @@ import utilitySnowflake from '../assets/icons/utility-snowflake.svg'
 
 export const UI_ICON_ASSETS = {
   actionDelete,
+  actionExcludeObject,
   actionPause,
   actionResume,
   actionStopCritical,

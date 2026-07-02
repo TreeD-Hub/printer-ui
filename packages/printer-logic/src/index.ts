@@ -34,6 +34,7 @@ export type PrinterCommandId =
   | 'setPressureAdvance'
   | 'setRetractionLength'
   | 'adjustZOffset'
+  | 'excludeObject'
   | 'loadFilament'
   | 'unloadFilament'
   | 'zParkZeroEddy'
@@ -147,6 +148,10 @@ export type ExecuteCommandArgs =
   | {
       command: 'adjustZOffset'
       deltaMm: number
+    }
+  | {
+      command: 'excludeObject'
+      objectName: string
     }
   | {
       command: 'loadFilament' | 'unloadFilament'
@@ -365,6 +370,29 @@ export interface PrinterCapabilitiesSnapshot {
 }
 
 export type PrinterEddyStatus = 'unknown' | 'ready' | 'uncalibrated' | 'requires_xy_home'
+
+export type PrinterExcludeObjectPoint = {
+  x: number
+  y: number
+}
+
+export type PrinterExcludeObjectItem = {
+  name: string
+  displayName: string
+  center: PrinterExcludeObjectPoint | null
+  polygon: PrinterExcludeObjectPoint[] | null
+  isCurrent: boolean
+  isExcluded: boolean
+}
+
+export type PrinterExcludeObjectSnapshot = {
+  supported: boolean
+  state: 'unavailable' | 'waiting' | 'ready'
+  objects: PrinterExcludeObjectItem[]
+  currentObjectName: string | null
+  excludedObjectNames: string[]
+  message: string | null
+}
 
 export interface PrinterSnapshot {
   source: PrinterDataMode
@@ -731,6 +759,8 @@ export interface TreeDCommandRuntimeContext {
     isActive: boolean
     isPaused: boolean
   }
+  klippyState?: string
+  excludeObjects?: PrinterExcludeObjectSnapshot
   homedAxes?: string
   toolhead?: {
     rawX?: number
@@ -945,6 +975,13 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Z-offset',
     capability: 'print',
     requiresConfirmation: false,
+  },
+  excludeObject: {
+    id: 'excludeObject',
+    risk: 'caution',
+    label: 'Исключение объекта',
+    capability: 'print',
+    requiresConfirmation: true,
   },
   loadFilament: {
     id: 'loadFilament',
@@ -1210,6 +1247,56 @@ function hasPausedPrint(context: TreeDCommandRuntimeContext): boolean {
   return Boolean(context.printJob?.isPaused || PAUSED_PRINT_STATES.has(state))
 }
 
+function getExcludeObjectBlockReason(
+  context: TreeDCommandRuntimeContext,
+  args: ExecuteCommandArgs | undefined,
+): string | null {
+  const item = getTreeDCommandCatalogItem('excludeObject')
+
+  if (args?.command !== 'excludeObject') {
+    return `${item.label}: объект не указан.`
+  }
+
+  if (context.transportState !== 'online') {
+    return `${item.label}: Moonraker недоступен.`
+  }
+
+  if (!hasActivePrint(context)) {
+    return `${item.label}: нет активной печати.`
+  }
+
+  if (normalizeState(context.klippyState) !== 'ready') {
+    return `${item.label}: Klipper не готов.`
+  }
+
+  const snapshot = context.excludeObjects
+  if (snapshot === undefined || !snapshot.supported || snapshot.state === 'unavailable') {
+    return `${item.label}: exclude_object не поддерживается текущей конфигурацией.`
+  }
+
+  if (snapshot.state === 'waiting') {
+    return `${item.label}: список объектов еще загружается.`
+  }
+
+  const object = snapshot.objects.find((candidate) => candidate.name === args.objectName)
+  if (object === undefined) {
+    return `${item.label}: объект не найден в текущей печати.`
+  }
+
+  if (object.isExcluded || snapshot.excludedObjectNames.includes(args.objectName)) {
+    return `${item.label}: объект уже исключён.`
+  }
+
+  const remainingObjects = snapshot.objects.filter((candidate) => (
+    !candidate.isExcluded && !snapshot.excludedObjectNames.includes(candidate.name)
+  ))
+  if (remainingObjects.length <= 1) {
+    return `${item.label}: это последняя оставшаяся деталь.`
+  }
+
+  return null
+}
+
 function isAxisHomed(homedAxes: string | undefined, axis: AxisId): boolean {
   if (homedAxes === undefined) {
     return true
@@ -1230,6 +1317,10 @@ function getCommandSpecificBlockReason(
   }
   const activePrint = hasActivePrint(context)
   const pausedPrint = hasPausedPrint(context)
+
+  if (command === 'excludeObject' || args?.command === 'excludeObject') {
+    return getExcludeObjectBlockReason(context, args)
+  }
 
   if (command === 'start' && activePrint) {
     return `${item.label}: уже есть активная печать.`
@@ -1379,6 +1470,14 @@ export function getTreeDCommandArgumentError(
       }
       return null
     }
+    case 'excludeObject':
+      if (typeof args.objectName !== 'string' || args.objectName.length === 0) {
+        return 'NAME должен быть непустой строкой.'
+      }
+      if (args.objectName.includes('\n') || args.objectName.includes('\r')) {
+        return 'NAME не должен содержать переносы строк.'
+      }
+      return null
     case 'eddyTestZ':
       if (!EDDY_TEST_Z_STEP_OPTIONS.some((step) => Math.abs(step - args.deltaMm) < 0.0001)) {
         return `TESTZ delta должен быть одним из значений: ${EDDY_TEST_Z_STEP_OPTIONS.join(', ')}.`

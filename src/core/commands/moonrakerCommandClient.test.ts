@@ -116,6 +116,7 @@ describe('createMoonrakerCommandClient', () => {
     await client.execute({ command: 'setPressureAdvance', advance: 0.075 })
     await client.execute({ command: 'setRetractionLength', retractLengthMm: 0.9 })
     await client.execute({ command: 'adjustZOffset', deltaMm: -0.025 })
+    await client.execute({ command: 'excludeObject', objectName: 'part_1' })
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -230,6 +231,46 @@ describe('createMoonrakerCommandClient', () => {
         body: JSON.stringify({ script: 'TREED_UI_ADJUST_Z_OFFSET DELTA=-0.025' }),
       }),
     )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      17,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        body: JSON.stringify({ script: 'EXCLUDE_OBJECT NAME=part_1' }),
+      }),
+    )
+  })
+
+  it('serializes EXCLUDE_OBJECT names without changing the object name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: 'ok' }),
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
+    })
+
+    await client.execute({ command: 'excludeObject', objectName: 'part 1' })
+    await client.execute({ command: 'excludeObject', objectName: 'деталь 2' })
+    await client.execute({ command: 'excludeObject', objectName: 'part "quoted" \\ test' })
+    await client.execute({ command: 'excludeObject', objectName: 'part_#3+ok' })
+
+    const scripts = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)).script)
+    expect(scripts).toEqual([
+      'EXCLUDE_OBJECT NAME="part 1"',
+      'EXCLUDE_OBJECT NAME="деталь 2"',
+      'EXCLUDE_OBJECT NAME="part \\"quoted\\" \\\\ test"',
+      'EXCLUDE_OBJECT NAME="part_#3+ok"',
+    ])
+  })
+
+  it('rejects object names that cannot be serialized safely', async () => {
+    const fetchImpl = vi.fn<typeof fetch>()
+    const client = createMoonrakerCommandClient({ fetchImpl })
+
+    await expect(client.execute({ command: 'excludeObject', objectName: 'part\nM112' })).rejects.toThrow('NAME')
+    await expect(client.execute({ command: 'excludeObject', objectName: 'part;comment' })).rejects.toThrow('NAME')
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 
   it('maps main light toggle commands to TreeD chamber light macros', async () => {

@@ -206,6 +206,106 @@ describe('App', () => {
     }
   })
 
+  it('opens exclude-object modal and sends one confirmed command for the selected object', async () => {
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        connection: 'online',
+        state: 'printing',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'queue/object_plate.gcode',
+          filePath: 'queue/object_plate.gcode',
+          state: 'printing',
+          progress: 0.35,
+          progressPercent: 35,
+          isActive: true,
+          isPaused: false,
+        },
+        excludeObjects: {
+          supported: true,
+          state: 'ready',
+          objects: [
+            {
+              name: 'part_1',
+              displayName: 'part 1',
+              center: { x: 40, y: 40 },
+              polygon: [{ x: 20, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 60 }, { x: 20, y: 60 }],
+              isCurrent: false,
+              isExcluded: false,
+            },
+            {
+              name: 'part_2',
+              displayName: 'part 2',
+              center: { x: 105, y: 40 },
+              polygon: [{ x: 85, y: 20 }, { x: 125, y: 20 }, { x: 125, y: 60 }, { x: 85, y: 60 }],
+              isCurrent: true,
+              isExcluded: false,
+            },
+            {
+              name: 'part_3',
+              displayName: 'part 3',
+              center: { x: 170, y: 40 },
+              polygon: null,
+              isCurrent: false,
+              isExcluded: true,
+            },
+          ],
+          currentObjectName: 'part_2',
+          excludedObjectNames: ['part_3'],
+          message: null,
+        },
+      })
+
+      render(<App />)
+
+      fireEvent.click(await screen.findByTestId('open-exclude-object-modal'))
+      expect(screen.getByRole('heading', { name: 'Исключение объектов' })).toBeInTheDocument()
+      expect(screen.getAllByText('Текущий').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Исключён').length).toBeGreaterThan(0)
+
+      fireEvent.click(screen.getByTestId('exclude-object-map-item-part_1'))
+      expect(screen.getByTestId('exclude-object-selected-name')).toHaveTextContent('part 1')
+      fireEvent.click(screen.getByTestId('exclude-object-submit'))
+      expect(screen.getByText('Исключить «part 1»?')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('exclude-object-confirm-submit'))
+
+      await waitFor(() => {
+        expect(getMockCommandOperations()).toEqual([
+          expect.objectContaining({ command: 'excludeObject', objectName: 'part_1' }),
+        ])
+      })
+      expect(screen.getByTestId('exclude-object-list-item-part_1')).toBeDisabled()
+      expect(screen.getByTestId('exclude-object-map-item-part_1')).toHaveAttribute('aria-disabled', 'true')
+
+      applyPrinterSnapshot({
+        ...getPrinterSnapshot(),
+        excludeObjects: {
+          ...getPrinterSnapshot().excludeObjects,
+          excludedObjectNames: ['part_1', 'part_3'],
+          objects: getPrinterSnapshot().excludeObjects.objects.map((item) => (
+            item.name === 'part_1' ? { ...item, isExcluded: true } : item
+          )),
+        },
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId('exclude-object-list-item-part_1')).toHaveTextContent('Исключён')
+      })
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  }, 10000)
+
+  it('keeps the exclude-object button hidden while printer is idle', () => {
+    render(<App />)
+
+    expect(screen.queryByTestId('open-exclude-object-modal')).not.toBeInTheDocument()
+  })
+
   it('renders active print thermal and quick metrics from live snapshot', async () => {
     const previousSnapshot = getPrinterSnapshot()
 
