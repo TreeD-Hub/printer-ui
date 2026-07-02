@@ -109,6 +109,17 @@ export interface PrinterFileListStatusSnapshot {
   message: string | null
 }
 
+export interface PrinterUsageSnapshot {
+  totalPrintTimeSec: number | null
+  totalJobTimeSec: number | null
+  totalJobs: number | null
+  totalFilamentUsedMm: number | null
+  longestPrintSec: number | null
+  updatedAt: string | null
+  state: 'ready' | 'unavailable'
+  message: string | null
+}
+
 export interface PrinterPrintJobSnapshot {
   filename: string
   filePath: string | null
@@ -200,6 +211,7 @@ export interface PrinterRuntimeSnapshot {
   uiContract: PrinterUiContractSnapshot
   capabilities: PrinterCapabilitiesSnapshot
   limits: PrinterLimits
+  usage: PrinterUsageSnapshot
   printJob: PrinterPrintJobSnapshot
   files: PrinterFilesSnapshot
   fileList?: PrinterFileListStatusSnapshot

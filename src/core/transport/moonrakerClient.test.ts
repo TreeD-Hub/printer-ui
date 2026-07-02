@@ -319,6 +319,16 @@ describe('createMoonrakerClient', () => {
         return Promise.resolve(moonrakerResponse(files))
       }
 
+      if (url.includes('/server/history/totals')) {
+        return Promise.resolve(moonrakerResponse({
+          job_totals: {
+            total_print_time: 437 * 60 * 60,
+            total_time: 462 * 60 * 60,
+            total_jobs: 126,
+          },
+        }))
+      }
+
       metadataRequestCount += 1
       activeMetadataRequests += 1
       maxActiveMetadataRequests = Math.max(maxActiveMetadataRequests, activeMetadataRequests)
@@ -361,6 +371,49 @@ describe('createMoonrakerClient', () => {
     expect(metadataRequestCount).toBe(5)
   })
 
+  it('loads Moonraker history totals into usage snapshot', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/query')) {
+        return Promise.resolve(moonrakerResponse(runtimeObjects()))
+      }
+
+      if (url.includes('/server/files/list')) {
+        return Promise.resolve(moonrakerResponse([]))
+      }
+
+      if (url.includes('/server/history/totals')) {
+        return Promise.resolve(moonrakerResponse({
+          job_totals: {
+            total_jobs: 126,
+            total_time: 462 * 60 * 60,
+            total_print_time: 437 * 60 * 60,
+            total_filament_used: 824_500,
+            longest_print: 18 * 60 * 60,
+          },
+        }))
+      }
+
+      return Promise.resolve(moonrakerResponse({}))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    const snapshot = await client.fetchSnapshot()
+
+    expect(snapshot.usage).toEqual({
+      totalPrintTimeSec: 437 * 60 * 60,
+      totalJobTimeSec: 462 * 60 * 60,
+      totalJobs: 126,
+      totalFilamentUsedMm: 824_500,
+      longestPrintSec: 18 * 60 * 60,
+      updatedAt: expect.any(String),
+      state: 'ready',
+      message: null,
+    })
+  })
+
   it('keeps the full file list but limits metadata lookups per snapshot', async () => {
     const files = Array.from({ length: 30 }, (_item, index) => ({
       path: `queue/part-${index}.gcode`,
@@ -375,6 +428,14 @@ describe('createMoonrakerClient', () => {
 
       if (url.includes('/server/files/list')) {
         return Promise.resolve(moonrakerResponse(files))
+      }
+
+      if (url.includes('/server/history/totals')) {
+        return Promise.resolve(moonrakerResponse({
+          job_totals: {
+            total_print_time: 437 * 60 * 60,
+          },
+        }))
       }
 
       metadataUrls.push(url)
@@ -415,6 +476,16 @@ describe('createMoonrakerClient', () => {
     expect(snapshot.printFiles).toEqual([])
     expect(snapshot.fileList).toEqual({
       state: 'error',
+      message: 'Moonraker 503',
+    })
+    expect(snapshot.usage).toEqual({
+      totalPrintTimeSec: null,
+      totalJobTimeSec: null,
+      totalJobs: null,
+      totalFilamentUsedMm: null,
+      longestPrintSec: null,
+      updatedAt: null,
+      state: 'unavailable',
       message: 'Moonraker 503',
     })
   })

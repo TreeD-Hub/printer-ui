@@ -298,6 +298,16 @@ export function createMockSnapshot(): PrinterSnapshot {
       serviceCommands: true,
     },
     limits: TREED_V2_COREXY_V1_LIMITS,
+    usage: {
+      totalPrintTimeSec: 437 * 60 * 60,
+      totalJobTimeSec: 462 * 60 * 60,
+      totalJobs: 126,
+      totalFilamentUsedMm: 824_500,
+      longestPrintSec: 18 * 60 * 60,
+      updatedAt: nowIso(),
+      state: 'ready',
+      message: null,
+    },
     printJob: {
       filename: '',
       filePath: null,

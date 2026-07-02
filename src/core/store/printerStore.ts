@@ -76,6 +76,16 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     serviceCommands: false,
   },
   limits: TREED_V2_COREXY_V1_LIMITS,
+  usage: {
+    totalPrintTimeSec: null,
+    totalJobTimeSec: null,
+    totalJobs: null,
+    totalFilamentUsedMm: null,
+    longestPrintSec: null,
+    updatedAt: null,
+    state: 'unavailable',
+    message: 'Moonraker history totals еще не загружены.',
+  },
   printJob: {
     filename: '',
     filePath: null,
@@ -216,6 +226,7 @@ export function reconcilePrinterSnapshot(
 
   return {
     ...previous,
+    usage: next.usage.state === 'ready' ? next.usage : previous.usage,
     printFiles: next.printFiles,
     fileList: next.fileList,
     revisions: {

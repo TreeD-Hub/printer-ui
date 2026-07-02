@@ -15,6 +15,7 @@ const selectPrinterSnapshot = (snapshot: PrinterSnapshot) => snapshot
 function mergeWebSocketSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
   return {
     ...next,
+    usage: next.usage.state === 'ready' ? next.usage : previous.usage,
     printFiles: next.printFiles.length > 0 ? next.printFiles : previous.printFiles,
     fileList: next.fileList?.state === 'unknown' ? previous.fileList : next.fileList ?? previous.fileList,
   }

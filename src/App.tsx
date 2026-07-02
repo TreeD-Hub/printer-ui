@@ -148,7 +148,10 @@ function App() {
   const [activeControlGroup, setActiveControlGroup] = useState<ControlGroupId>('movement')
   const [isControlMenuCompact, setIsControlMenuCompact] = useState<boolean>(false)
   const [activeControlFlashKey, setActiveControlFlashKey] = useState<string | null>(null)
-  const maintenanceController = useMaintenanceController()
+  const maintenanceController = useMaintenanceController({
+    usage: snapshot.usage,
+    printJob: snapshot.printJob,
+  })
   const controlFlashTimeoutRef = useRef<number | null>(null)
   const printTuneFanChangeRef = useRef<(value: number) => void>(() => undefined)
   const handlePrintTuneFanPercentChange = useCallback((value: number): void => {

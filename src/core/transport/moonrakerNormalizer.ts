@@ -19,6 +19,7 @@ import type {
   PrinterThermalTargetsSnapshot,
   PrinterToolheadRuntimeSnapshot,
   PrinterUiContractSnapshot,
+  PrinterUsageSnapshot,
   PrinterV2Snapshot,
 } from './types'
 import {
@@ -138,6 +139,7 @@ export interface MoonrakerNormalizeOptions {
   wifiSsid?: string
   printFiles?: MoonrakerPrintFileInput[]
   printFilesError?: string | null
+  usage?: PrinterUsageSnapshot
   nowIso?: string
 }
 
@@ -1012,6 +1014,19 @@ function normalizeIpAddress(moonrakerUrl?: string): string {
   }
 }
 
+function createUnavailableUsageSnapshot(message = 'Moonraker history totals еще не загружены.'): PrinterUsageSnapshot {
+  return {
+    totalPrintTimeSec: null,
+    totalJobTimeSec: null,
+    totalJobs: null,
+    totalFilamentUsedMm: null,
+    longestPrintSec: null,
+    updatedAt: null,
+    state: 'unavailable',
+    message,
+  }
+}
+
 export function normalizeMoonrakerRuntimeSnapshot(
   payload: MoonrakerObjectsQueryPayload,
   options: MoonrakerNormalizeOptions = {},
@@ -1078,6 +1093,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     uiContract,
     capabilities: normalizeCapabilities(macros, uiContract),
     limits: normalizeLimits(macros, uiContract),
+    usage: options.usage ?? createUnavailableUsageSnapshot(),
     printJob,
     files: virtualSdCard.type === 'virtual_sdcard'
       ? virtualSdCard

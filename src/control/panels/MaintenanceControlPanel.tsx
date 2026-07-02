@@ -91,7 +91,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
           </span>
           <span className="control-maintenance-progress-labels">
             <span>0</span>
-            <span>500</span>
+            <span>{Math.round(status.intervalHours / 2)}</span>
             <span>{intervalHoursLabel}</span>
           </span>
         </div>

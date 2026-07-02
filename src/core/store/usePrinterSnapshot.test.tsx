@@ -97,4 +97,48 @@ describe('usePrinterSnapshot', () => {
       hook.unmount()
     })
   })
+
+  it('keeps HTTP usage totals when a websocket snapshot omits history data', async () => {
+    vi.useFakeTimers()
+    runtimeMocks.fetchSnapshot.mockReturnValue(new Promise<PrinterSnapshot>(() => undefined))
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+
+    const initialSnapshot = createSnapshot(10, 180, 3)
+    initialSnapshot.usage = {
+      totalPrintTimeSec: 120,
+      totalJobTimeSec: 150,
+      totalJobs: 3,
+      totalFilamentUsedMm: 400,
+      longestPrintSec: 80,
+      updatedAt: '2026-06-30T00:00:01.000Z',
+      state: 'ready',
+      message: null,
+    }
+    setPrinterSnapshot(initialSnapshot)
+
+    let hook!: {
+      result: { current: ReturnType<typeof usePrinterSnapshot> }
+      unmount: () => void
+    }
+    await act(async () => {
+      hook = renderHook(() => usePrinterSnapshot(60_000))
+      await Promise.resolve()
+    })
+    vi.clearAllTimers()
+
+    const websocketSnapshot = createSnapshot(20, 220, 10)
+    await act(async () => {
+      handlers?.onSnapshot(websocketSnapshot)
+    })
+
+    expect(hook.result.current.snapshot.extruderTemp).toBe(220)
+    expect(hook.result.current.snapshot.usage).toEqual(initialSnapshot.usage)
+
+    await act(async () => {
+      hook.unmount()
+    })
+  })
 })
