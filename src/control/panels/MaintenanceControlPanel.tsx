@@ -22,20 +22,20 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
 
   return (
     <div className="control-maintenance-grid">
-      {!status.isRuntimeBacked ? (
-        <p className="control-maintenance-runtime-notice" data-testid="maintenance-runtime-notice">
-          {status.notice}
-        </p>
-      ) : null}
-
       <section className="control-maintenance-metrics" aria-label="Сводка технического обслуживания">
-        <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
+        <article
+          className="control-maintenance-panel control-maintenance-metric-card control-subpanel"
+          title={status.isRuntimeBacked ? undefined : status.notice}
+        >
           <span className="control-maintenance-icon-box" aria-hidden="true">
             <MaintenanceLineIcon name="runtime" />
           </span>
           <p>
             <span>Пробег</span>
             <strong>{runtimeHoursLabel}</strong>
+            {!status.isRuntimeBacked ? (
+              <small data-testid="maintenance-runtime-notice">{status.notice}</small>
+            ) : null}
           </p>
         </article>
 
@@ -49,13 +49,17 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
           </p>
         </article>
 
-        <article className="control-maintenance-panel control-maintenance-metric-card control-subpanel">
+        <article
+          className={`control-maintenance-panel control-maintenance-metric-card control-maintenance-system-status is-${status.systemTone} control-subpanel`}
+          title={status.systemNotice}
+        >
           <span className="control-maintenance-icon-box" aria-hidden="true">
-            <MaintenanceLineIcon name="interval" />
+            <MaintenanceLineIcon name="system" />
           </span>
           <p>
-            <span>Интервал ТО</span>
-            <strong>{intervalHoursLabel}</strong>
+            <span>Система</span>
+            <strong>{status.systemLabel}</strong>
+            {status.systemTone !== 'ok' ? <small>{status.systemNotice}</small> : null}
           </p>
         </article>
       </section>
@@ -194,6 +198,16 @@ function MaintenanceLineIcon({ name }: { name: MaintenanceIconName }) {
         <path d="M18.2 4.7v3.7h-3.7" />
         <path d="M5.8 15.6A7 7 0 0 0 18 16.5" />
         <path d="M5.8 19.3v-3.7h3.7" />
+      </svg>
+    )
+  }
+
+  if (name === 'system') {
+    return (
+      <svg className="control-maintenance-line-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="5" y="4.5" width="14" height="6" rx="1.5" />
+        <rect x="5" y="13.5" width="14" height="6" rx="1.5" />
+        <path d="M8 7.5h.01M8 16.5h.01M11 7.5h5M11 16.5h5" />
       </svg>
     )
   }

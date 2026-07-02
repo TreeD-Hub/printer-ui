@@ -2,22 +2,24 @@ import type { CSSProperties, ReactNode } from 'react'
 import { SettingsSidebarMenu } from '../ui'
 import { SETTINGS_GROUP_OPTIONS } from './config'
 import type { SettingsPageProps } from './SettingsPage'
-import type {
-  MoonrakerSystemStatus,
-  SystemCanDeviceStatus,
-  SystemHealth,
-  SystemLoadState,
-  SystemMcuStatus,
-  SystemNetworkStatus,
-  SystemServiceStatus,
+import {
+  summarizeMoonrakerSystemStatus,
+  type MoonrakerSystemStatus,
+  type SystemCanDeviceStatus,
+  type SystemHealth,
+  type SystemMcuStatus,
+  type SystemNetworkStatus,
+  type SystemServiceStatus,
 } from './systemStatus'
-import { useMoonrakerSystemStatus } from './useMoonrakerSystemStatus'
+import type { MoonrakerSystemStatusController } from './useMoonrakerSystemStatus'
 import './systemSettings.css'
 
 type SystemSettingsPageProps = Pick<
   SettingsPageProps,
   'activeSettingsGroup' | 'onSettingsGroupChange' | 'system'
->
+> & {
+  systemStatus: MoonrakerSystemStatusController
+}
 
 type SystemCardProps = {
   title: string
@@ -126,32 +128,6 @@ function getMemoryPercent(usedBytes: number | null, totalBytes: number | null): 
   }
 
   return Math.min(100, Math.max(0, (usedBytes / totalBytes) * 100))
-}
-
-function getLoadStateLabel(loadState: SystemLoadState, health: SystemHealth): string {
-  if (loadState === 'loading') {
-    return 'Загрузка'
-  }
-  if (loadState === 'unavailable') {
-    return 'Нет данных'
-  }
-  if (health === 'error') {
-    return 'Ошибка'
-  }
-  if (loadState === 'partial' || health === 'warning') {
-    return 'Есть предупреждения'
-  }
-  return 'В норме'
-}
-
-function getLoadStateTone(loadState: SystemLoadState, health: SystemHealth): SystemHealth | 'muted' {
-  if (loadState === 'loading') {
-    return 'muted'
-  }
-  if (loadState === 'unavailable') {
-    return 'error'
-  }
-  return health
 }
 
 function getKlippyTone(state: string | null): SystemHealth | 'muted' {
@@ -300,12 +276,12 @@ export function SystemSettingsPage({
   activeSettingsGroup,
   onSettingsGroupChange,
   system,
+  systemStatus,
 }: SystemSettingsPageProps) {
-  const { status, isRefreshing, refresh } = useMoonrakerSystemStatus()
+  const { status, isRefreshing, refresh } = systemStatus
   const memoryPercent = getMemoryPercent(status.host.memoryUsedBytes, status.host.memoryTotalBytes)
   const warnings = collectWarnings(status)
-  const stateLabel = getLoadStateLabel(status.loadState, status.health)
-  const stateTone = getLoadStateTone(status.loadState, status.health)
+  const stateSummary = summarizeMoonrakerSystemStatus(status)
   const canInterfaceSummary = status.canInterfaces.length === 0
     ? 'CAN-интерфейсы не обнаружены'
     : status.canInterfaces
@@ -335,7 +311,7 @@ export function SystemSettingsPage({
               </div>
               <div className="system-settings-head-actions">
                 <div className="system-settings-state">
-                  <span className={`system-status-badge is-${stateTone}`}>{stateLabel}</span>
+                  <span className={`system-status-badge is-${stateSummary.tone}`}>{stateSummary.label}</span>
                   <small>{formatUpdatedAt(status.updatedAt)}</small>
                 </div>
                 <button

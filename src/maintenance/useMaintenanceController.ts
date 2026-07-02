@@ -2,6 +2,10 @@ import { useCallback, useState } from 'react'
 import { clampPercent } from '../dashboard/helpers'
 import type { MaintenanceChecklistItem, MaintenanceHistoryItem, MaintenanceStatus } from '../control'
 import type { PrinterPrintJobSnapshot, PrinterUsageSnapshot } from '../core/transport/types'
+import {
+  summarizeMoonrakerSystemStatus,
+  type MoonrakerSystemStatus,
+} from '../settings/systemStatus'
 
 const MAINTENANCE_INTERVAL_HOURS = 1000
 
@@ -23,6 +27,7 @@ type MaintenanceChecklistItemId = (typeof MAINTENANCE_CHECKLIST_ITEMS)[number]['
 type UseMaintenanceControllerArgs = {
   usage: PrinterUsageSnapshot
   printJob: PrinterPrintJobSnapshot
+  systemStatus: MoonrakerSystemStatus
 }
 
 function createMaintenanceChecklistState(checked: boolean): Record<MaintenanceChecklistItemId, boolean> {
@@ -36,7 +41,8 @@ function secondsToDisplayHours(seconds: number): number {
   return Math.round((seconds / 3600) * 10) / 10
 }
 
-function createMaintenanceStatus({ usage, printJob }: UseMaintenanceControllerArgs): MaintenanceStatus {
+function createMaintenanceStatus({ usage, printJob, systemStatus }: UseMaintenanceControllerArgs): MaintenanceStatus {
+  const systemSummary = summarizeMoonrakerSystemStatus(systemStatus)
   const activePrintDurationSec = printJob.isActive ? Math.max(0, printJob.printDurationSec) : 0
   const displayedRuntimeSec = usage.totalPrintTimeSec === null
     ? null
@@ -50,6 +56,9 @@ function createMaintenanceStatus({ usage, printJob }: UseMaintenanceControllerAr
       intervalHours: MAINTENANCE_INTERVAL_HOURS,
       isRuntimeBacked: false,
       notice: usage.message ?? 'Пробег Moonraker недоступен.',
+      systemLabel: systemSummary.label,
+      systemTone: systemSummary.tone,
+      systemNotice: systemSummary.notice,
     }
   }
 
@@ -62,6 +71,9 @@ function createMaintenanceStatus({ usage, printJob }: UseMaintenanceControllerAr
     intervalHours: MAINTENANCE_INTERVAL_HOURS,
     isRuntimeBacked: true,
     notice: '',
+    systemLabel: systemSummary.label,
+    systemTone: systemSummary.tone,
+    systemNotice: systemSummary.notice,
   }
 }
 

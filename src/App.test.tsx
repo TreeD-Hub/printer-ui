@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { vi } from 'vitest'
 import App from './App'
 import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
 import {
@@ -13,6 +14,18 @@ import {
   setMockTransportSnapshot,
 } from '../mocks/runtime'
 import type { PrinterSnapshot } from './core/transport/types'
+
+vi.mock('./settings/useMoonrakerSystemStatus', async () => {
+  const { createLoadingMoonrakerSystemStatus } = await import('./settings/systemStatus')
+
+  return {
+    useMoonrakerSystemStatus: () => ({
+      status: createLoadingMoonrakerSystemStatus(),
+      isRefreshing: false,
+      refresh: vi.fn(),
+    }),
+  }
+})
 
 function applyPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
   setMockTransportSnapshot(nextSnapshot)
@@ -43,6 +56,9 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Статус Wi-Fi' })).toBeInTheDocument()
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
     expect(screen.getByText(/Экосистема/i)).toBeInTheDocument()
+    const maintenanceWidget = within(screen.getByTestId('idle-widget-maintenance'))
+    expect(maintenanceWidget.getByText('Загрузка')).toBeInTheDocument()
+    expect(maintenanceWidget.getByText('Диагностика системы загружается.')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Ожидание печати' })).not.toBeInTheDocument()
     const idleNotesInput = screen.getByTestId('idle-notes-input') as HTMLTextAreaElement
     expect(idleNotesInput.value.length).toBeGreaterThan(0)

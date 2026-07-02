@@ -38,6 +38,7 @@ import {
   useSettingsController,
   type SettingsKeyboardTarget,
 } from './settings'
+import { useMoonrakerSystemStatus } from './settings/useMoonrakerSystemStatus'
 import { TopStatusPopups, useTopStatusController } from './shell'
 import {
   PrintTuneModal,
@@ -69,6 +70,7 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
 
 function App() {
   const { snapshot, refresh, deletePrintFile } = usePrinterSnapshot()
+  const systemStatusController = useMoonrakerSystemStatus()
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
@@ -190,6 +192,7 @@ function App() {
   const maintenanceController = useMaintenanceController({
     usage: snapshot.usage,
     printJob: snapshot.printJob,
+    systemStatus: systemStatusController.status,
   })
   const controlFlashTimeoutRef = useRef<number | null>(null)
   const printTuneFanChangeRef = useRef<(value: number) => void>(() => undefined)
@@ -755,7 +758,10 @@ function App() {
             executeCommand,
             getCommandBlockReason,
           }}
-          settings={settingsPageProps}
+          settings={{
+            ...settingsPageProps,
+            systemStatus: systemStatusController,
+          }}
         />
 
         {activeKeyboardTarget !== null ? (

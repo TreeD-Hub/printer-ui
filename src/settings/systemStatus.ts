@@ -2,6 +2,13 @@ import { moonrakerUrl } from '../config'
 
 export type SystemHealth = 'ok' | 'warning' | 'error'
 export type SystemLoadState = 'loading' | 'ready' | 'partial' | 'unavailable'
+export type SystemStatusTone = SystemHealth | 'muted'
+
+export type SystemStatusSummary = {
+  label: string
+  tone: SystemStatusTone
+  notice: string
+}
 
 export type SystemHostStatus = {
   hostname: string | null
@@ -462,6 +469,63 @@ export function normalizeMoonrakerSystemStatus(input: NormalizeSystemStatusInput
     networks,
     services,
     errors,
+  }
+}
+
+export function summarizeMoonrakerSystemStatus(status: MoonrakerSystemStatus): SystemStatusSummary {
+  if (status.loadState === 'loading') {
+    return {
+      label: 'Загрузка',
+      tone: 'muted',
+      notice: 'Диагностика системы загружается.',
+    }
+  }
+
+  if (status.loadState === 'unavailable') {
+    return {
+      label: 'Нет данных',
+      tone: 'error',
+      notice: status.errors[0] ?? 'Системная диагностика Moonraker недоступна.',
+    }
+  }
+
+  const failedComponent = status.software.failedComponents[0]
+  const unhealthyService = status.services.find((service) => !service.healthy)
+  const unhealthyCanDevice = status.canDevices.find((device) => !canDeviceHealthy(device))
+  const issueNotice = klippyFailed(status.software.klippyState)
+    ? status.software.stateMessage ?? `Klipper: ${status.software.klippyState}`
+    : failedComponent !== undefined
+      ? `Компонент Moonraker не запущен: ${failedComponent}.`
+      : status.errors[0]
+        ?? status.software.warnings[0]
+        ?? (status.host.throttledFlags[0] === undefined ? undefined : `Host: ${status.host.throttledFlags[0]}.`)
+        ?? (unhealthyService === undefined
+          ? undefined
+          : `Сервис ${unhealthyService.name}: ${[unhealthyService.activeState, unhealthyService.subState].filter(Boolean).join(' / ') || 'нет данных'}.`)
+        ?? (unhealthyCanDevice === undefined
+          ? undefined
+          : `CAN ${unhealthyCanDevice.label}: ${unhealthyCanDevice.busState ?? 'ошибки обмена'}.`)
+
+  if (status.health === 'error') {
+    return {
+      label: 'Ошибка',
+      tone: 'error',
+      notice: issueNotice ?? 'Runtime сообщает о критической ошибке.',
+    }
+  }
+
+  if (status.health === 'warning') {
+    return {
+      label: 'Внимание',
+      tone: 'warning',
+      notice: issueNotice ?? 'Runtime сообщает о предупреждении.',
+    }
+  }
+
+  return {
+    label: 'В норме',
+    tone: 'ok',
+    notice: 'Доступные runtime-данные без предупреждений.',
   }
 }
 

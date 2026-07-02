@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { createMockSnapshot } from '../../mocks/runtime'
 import { useMaintenanceController } from './useMaintenanceController'
 import type { PrinterUsageSnapshot } from '../core/transport/types'
+import { createLoadingMoonrakerSystemStatus, normalizeMoonrakerSystemStatus } from '../settings/systemStatus'
 
 const UNAVAILABLE_USAGE: PrinterUsageSnapshot = {
   totalPrintTimeSec: null,
@@ -20,6 +21,7 @@ describe('useMaintenanceController', () => {
     const { result } = renderHook(() => useMaintenanceController({
       usage: UNAVAILABLE_USAGE,
       printJob: createMockSnapshot().printJob,
+      systemStatus: createLoadingMoonrakerSystemStatus(),
     }))
 
     expect(result.current.status.isRuntimeBacked).toBe(false)
@@ -41,6 +43,7 @@ describe('useMaintenanceController', () => {
         message: null,
       },
       printJob,
+      systemStatus: createLoadingMoonrakerSystemStatus(),
     }))
 
     expect(result.current.status.isRuntimeBacked).toBe(true)
@@ -53,6 +56,7 @@ describe('useMaintenanceController', () => {
     const { result } = renderHook(() => useMaintenanceController({
       usage: UNAVAILABLE_USAGE,
       printJob: createMockSnapshot().printJob,
+      systemStatus: createLoadingMoonrakerSystemStatus(),
     }))
     const firstItemId = result.current.checklistItems[0].id
 
@@ -67,5 +71,32 @@ describe('useMaintenanceController', () => {
     })
 
     expect(result.current.checklistItems.every((item) => result.current.checklistState[item.id])).toBe(true)
+  })
+
+  it('exposes the normalized live system warning without replacing usage data', () => {
+    const { result } = renderHook(() => useMaintenanceController({
+      usage: {
+        ...UNAVAILABLE_USAGE,
+        totalPrintTimeSec: 437 * 60 * 60,
+        state: 'ready',
+        message: null,
+      },
+      printJob: createMockSnapshot().printJob,
+      systemStatus: normalizeMoonrakerSystemStatus({
+        systemInfo: {
+          system_info: {
+            hostname: 'printer-v2',
+            service_state: {
+              moonraker: { active_state: 'failed', sub_state: 'failed' },
+            },
+          },
+        },
+      }),
+    }))
+
+    expect(result.current.status.runtimeHours).toBe(437)
+    expect(result.current.status.systemLabel).toBe('Внимание')
+    expect(result.current.status.systemTone).toBe('warning')
+    expect(result.current.status.systemNotice).toBe('Сервис moonraker: failed / failed.')
   })
 })

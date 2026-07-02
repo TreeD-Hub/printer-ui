@@ -43,6 +43,9 @@ export type MaintenanceSummary = {
   runtimeHours: number
   hoursLeft: number
   isRuntimeBacked: boolean
+  systemLabel: string
+  systemTone: 'ok' | 'warning' | 'error' | 'muted'
+  systemNotice: string
 }
 
 export type IdleWidgetRefs = {

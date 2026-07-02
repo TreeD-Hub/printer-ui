@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeMoonrakerSystemStatus } from './systemStatus'
+import { normalizeMoonrakerSystemStatus, summarizeMoonrakerSystemStatus } from './systemStatus'
 
 function buildHealthyInput() {
   return {
@@ -156,5 +156,45 @@ describe('normalizeMoonrakerSystemStatus', () => {
     expect(status.loadState).toBe('unavailable')
     expect(status.health).toBe('error')
     expect(status.updatedAt).toBeNull()
+  })
+})
+
+describe('summarizeMoonrakerSystemStatus', () => {
+  it('returns a compact healthy runtime status', () => {
+    const summary = summarizeMoonrakerSystemStatus(normalizeMoonrakerSystemStatus(buildHealthyInput()))
+
+    expect(summary).toEqual({
+      label: 'В норме',
+      tone: 'ok',
+      notice: 'Доступные runtime-данные без предупреждений.',
+    })
+  })
+
+  it('uses a concrete unhealthy service as the warning notice', () => {
+    const input = buildHealthyInput()
+    input.systemInfo.system_info.service_state.moonraker = {
+      active_state: 'failed',
+      sub_state: 'failed',
+    }
+
+    const summary = summarizeMoonrakerSystemStatus(normalizeMoonrakerSystemStatus(input))
+
+    expect(summary).toEqual({
+      label: 'Внимание',
+      tone: 'warning',
+      notice: 'Сервис moonraker: failed / failed.',
+    })
+  })
+
+  it('keeps the endpoint error when diagnostics are unavailable', () => {
+    const summary = summarizeMoonrakerSystemStatus(normalizeMoonrakerSystemStatus({
+      errors: ['Система: таймаут'],
+    }))
+
+    expect(summary).toEqual({
+      label: 'Нет данных',
+      tone: 'error',
+      notice: 'Система: таймаут',
+    })
   })
 })
