@@ -12,8 +12,6 @@ import type {
   ControlGroupId,
   FanControlPanelProps,
   HeatingControlPanelProps,
-  MaintenanceChecklistItem,
-  MaintenanceHistoryItem,
   MaintenanceStatus,
   MovementCommandBlockReasons,
   MovementMode,
@@ -44,12 +42,9 @@ export type ControlContainerProps = {
   onMainLightToggle: () => void
   onToolheadLightToggle: () => void
   maintenanceStatus: MaintenanceStatus
-  maintenanceHistoryItems: readonly MaintenanceHistoryItem[]
-  maintenanceChecklistItems: readonly MaintenanceChecklistItem[]
   maintenanceProgressTicks: readonly number[]
-  maintenanceChecklistState: Record<string, boolean>
-  onMaintenanceChecklistItemChange: (itemId: string, checked: boolean) => void
-  onMaintenanceChecklistComplete: () => Promise<boolean> | void
+  maintenanceProgressPercent: number
+  onMaintenanceComplete: () => Promise<boolean>
   onControlGroupChange: (groupId: ControlGroupId) => void
   onControlMenuCompactToggle: () => void
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
@@ -86,12 +81,9 @@ export function ControlContainer({
   onMainLightToggle,
   onToolheadLightToggle,
   maintenanceStatus,
-  maintenanceHistoryItems: _maintenanceHistoryItems,
-  maintenanceChecklistItems: _maintenanceChecklistItems,
   maintenanceProgressTicks,
-  maintenanceChecklistState: _maintenanceChecklistState,
-  onMaintenanceChecklistItemChange: _onMaintenanceChecklistItemChange,
-  onMaintenanceChecklistComplete,
+  maintenanceProgressPercent,
+  onMaintenanceComplete,
   onControlGroupChange,
   onControlMenuCompactToggle,
   getCommandBlockReason,
@@ -144,9 +136,6 @@ export function ControlContainer({
       mode: 'motion',
     }),
   }), [getCommandBlockReason])
-  const maintenanceProgressPercent = maintenanceStatus.isCycleBacked === true
-    ? Math.min(100, Math.max(0, ((maintenanceStatus.cycleRuntimeHours ?? 0) / maintenanceStatus.intervalHours) * 100))
-    : 0
   const filamentSensitivityBlockReasons = useMemo<Record<FilamentSensorSensitivity, string | null>>(() => ({
     low: getCommandBlockReason('setFilamentEncoderSensitivity', {
       command: 'setFilamentEncoderSensitivity',
@@ -214,10 +203,7 @@ export function ControlContainer({
         isCompletingMaintenance: maintenanceStatus.isCompletingMaintenance ?? false,
         completionError: maintenanceStatus.completionError ?? '',
         completionBlockReason: maintenanceStatus.completionBlockReason ?? null,
-        onMaintenanceComplete: async () => {
-          const result = await Promise.resolve(onMaintenanceChecklistComplete())
-          return result !== false
-        },
+        onMaintenanceComplete,
       }}
     />
   )
