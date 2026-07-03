@@ -81,12 +81,28 @@ export const ControlPage = memo(function ControlPage({
                   Сервисное обслуживание и напоминания для вашего 3D-принтера.
                 </p>
               </div>
-              <p className="control-maintenance-status-pill">
-                {maintenance.status.isRuntimeBacked
-                  ? `Следующее ТО через ${maintenance.status.hoursLeft} ч`
-                  : 'ТО не подключено'}
-                <span aria-hidden="true" />
-              </p>
+              <div className="control-maintenance-header-actions">
+                <p className="control-maintenance-status-pill">
+                  {maintenance.status.isRuntimeBacked
+                    ? maintenance.status.hoursLeft > 0
+                      ? `Следующее ТО через ${maintenance.status.hoursLeft} ч`
+                      : 'Требуется плановое ТО'
+                    : 'ТО не подключено'}
+                  <span aria-hidden="true" />
+                </p>
+                <button
+                  type="button"
+                  className="control-maintenance-history-button"
+                  aria-label="История ТО — в разработке"
+                  title="История ТО — в разработке"
+                  data-testid="maintenance-history-button"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="7.5" />
+                    <path d="M12 7.7v4.6l3 1.9" />
+                  </svg>
+                </button>
+              </div>
             </div>
           ) : (
             <p className="control-tab-label" data-testid="control-active-tab-label">
