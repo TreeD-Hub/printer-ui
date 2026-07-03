@@ -92,15 +92,7 @@ export function DashboardIdleView({
                     <div className="idle-maintenance-head">
                       <p className="idle-mini-label idle-maintenance-label">
                         <span>Т.О</span>
-                        <span className={`idle-maintenance-status is-${maintenanceSummary.systemTone}`}>
-                          {maintenanceSummary.systemLabel}
-                        </span>
                       </p>
-                      {maintenanceSummary.systemTone !== 'ok' ? (
-                        <p className="idle-maintenance-notice" title={maintenanceSummary.systemNotice}>
-                          {maintenanceSummary.systemNotice}
-                        </p>
-                      ) : null}
                     </div>
                     <div className="idle-service-metrics">
                       <p><span>Пробег</span><strong>{maintenanceRuntimeLabel}</strong></p>
