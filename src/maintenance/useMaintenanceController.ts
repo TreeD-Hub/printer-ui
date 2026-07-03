@@ -237,12 +237,8 @@ export function useMaintenanceController(args: UseMaintenanceControllerArgs) {
   return {
     status,
     historyItems: historyItems(ledgerState.ledger),
-    checklistItems: [] as const,
     progressTicks: MAINTENANCE_PROGRESS_TICKS,
     progressPercent,
-    checklistState: {} as Record<string, boolean>,
-    handleChecklistItemChange: (_itemId: string, _checked: boolean): void => undefined,
-    handleChecklistComplete: handleMaintenanceComplete,
     isCompletingMaintenance,
     completionError,
     completionBlockReason,
