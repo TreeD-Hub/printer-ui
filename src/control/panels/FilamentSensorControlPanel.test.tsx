@@ -42,6 +42,29 @@ describe('FilamentSensorControlPanel', () => {
     expect(screen.getByTestId('filament-sensitivity-medium')).toBeDisabled()
   })
 
+  it('renders compact mode buttons and one dynamic mode description', () => {
+    const presenceProps = createProps()
+    const { rerender } = render(<FilamentSensorControlPanel {...presenceProps} />)
+
+    expect(screen.getByTestId('filament-mode-presence')).toHaveTextContent('Только наличие')
+    expect(screen.getByTestId('filament-mode-presence')).not.toHaveTextContent('Контролируется установка')
+    expect(screen.getByTestId('filament-mode-description')).toHaveTextContent('Сигнал энкодера движения не учитывается')
+    expect(screen.getByRole('group', { name: 'Чувствительность энкодера' }))
+      .toHaveClass('control-filament-sensitivity-grid--vertical')
+
+    const motionProps = createProps({
+      snapshot: {
+        ...presenceProps.snapshot,
+        mode: 'motion',
+        motionEnabled: true,
+      },
+      sensitivityBlockReasons: { low: null, medium: null, high: null },
+    })
+    rerender(<FilamentSensorControlPanel {...motionProps} />)
+
+    expect(screen.getByTestId('filament-mode-description')).toHaveTextContent('фактическая подача во время печати')
+  })
+
   it('changes mode without optimistic selection', () => {
     const onModeChange = vi.fn().mockResolvedValue(true)
     render(<FilamentSensorControlPanel {...createProps({ onModeChange })} />)
