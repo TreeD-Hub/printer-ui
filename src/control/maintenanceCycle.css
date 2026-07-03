@@ -2,6 +2,10 @@
   position: relative;
 }
 
+.maintenance-overview-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .maintenance-overview-progress-actions {
   min-width: 0;
   max-width: 52%;
