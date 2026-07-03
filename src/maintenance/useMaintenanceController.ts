@@ -1,110 +1,238 @@
-import { useCallback, useState } from 'react'
-import { clampPercent } from '../dashboard/helpers'
-import type { MaintenanceChecklistItem, MaintenanceHistoryItem, MaintenanceStatus } from '../control'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { runtimeMode } from '#runtime'
+import type { MaintenanceHistoryItem, MaintenanceStatus } from '../control'
 import type { PrinterPrintJobSnapshot, PrinterUsageSnapshot } from '../core/transport/types'
 import {
   summarizeMoonrakerSystemStatus,
   type MoonrakerSystemStatus,
 } from '../settings/systemStatus'
+import {
+  createMemoryMaintenanceRepository,
+  createMoonrakerMaintenanceRepository,
+  type MaintenanceLedger,
+  type MaintenanceRepository,
+} from './maintenanceRepository'
 
 const MAINTENANCE_INTERVAL_HOURS = 1000
-
-const MAINTENANCE_HISTORY_ITEMS: readonly MaintenanceHistoryItem[] = []
-
-const MAINTENANCE_CHECKLIST_ITEMS = [
-  { id: 'belts', label: 'Проверка натяжения ремней' },
-  { id: 'guides', label: 'Очистка направляющих и винтов' },
-  { id: 'axes', label: 'Смазка осей и подшипников' },
-  { id: 'fans', label: 'Проверка вентиляторов и обдува' },
-  { id: 'hotend', label: 'Осмотр сопла и хотэнда' },
-  { id: 'calibration', label: 'Калибровка стола (при необходимости)' },
-] as const satisfies readonly MaintenanceChecklistItem[]
-
 const MAINTENANCE_PROGRESS_TICKS = Array.from({ length: 31 }, (_item, index) => index)
+const RUNTIME_RESET_TOLERANCE_SEC = 60
 
-type MaintenanceChecklistItemId = (typeof MAINTENANCE_CHECKLIST_ITEMS)[number]['id']
+const EMPTY_LEDGER: MaintenanceLedger = {
+  schemaVersion: 1,
+  records: [],
+}
+
+type MaintenanceLedgerState = {
+  loadState: 'loading' | 'ready' | 'error'
+  ledger: MaintenanceLedger
+  error: string
+}
 
 type UseMaintenanceControllerArgs = {
   usage: PrinterUsageSnapshot
   printJob: PrinterPrintJobSnapshot
   systemStatus: MoonrakerSystemStatus
+  repository?: MaintenanceRepository
 }
 
-function createMaintenanceChecklistState(checked: boolean): Record<MaintenanceChecklistItemId, boolean> {
-  return MAINTENANCE_CHECKLIST_ITEMS.reduce<Record<MaintenanceChecklistItemId, boolean>>((state, item) => {
-    state[item.id] = checked
-    return state
-  }, {} as Record<MaintenanceChecklistItemId, boolean>)
-}
-
-function secondsToDisplayHours(seconds: number): number {
-  return Math.round((seconds / 3600) * 10) / 10
-}
-
-function createMaintenanceStatus({ usage, printJob, systemStatus }: UseMaintenanceControllerArgs): MaintenanceStatus {
-  const systemSummary = summarizeMoonrakerSystemStatus(systemStatus)
-  const activePrintDurationSec = printJob.isActive ? Math.max(0, printJob.printDurationSec) : 0
-  const displayedRuntimeSec = usage.totalPrintTimeSec === null
-    ? null
-    : Math.max(0, usage.totalPrintTimeSec) + activePrintDurationSec
-  const isRuntimeBacked = usage.state === 'ready' && displayedRuntimeSec !== null
-
-  if (!isRuntimeBacked) {
-    return {
-      runtimeHours: 0,
-      hoursLeft: 0,
-      intervalHours: MAINTENANCE_INTERVAL_HOURS,
-      isRuntimeBacked: false,
-      notice: usage.message ?? 'Пробег Moonraker недоступен.',
-      systemLabel: systemSummary.label,
-      systemTone: systemSummary.tone,
-      systemNotice: systemSummary.notice,
-    }
+function currentRuntimeSec(usage: PrinterUsageSnapshot, printJob: PrinterPrintJobSnapshot): number | null {
+  if (usage.state !== 'ready' || usage.totalPrintTimeSec === null) {
+    return null
   }
 
-  const intervalSec = MAINTENANCE_INTERVAL_HOURS * 60 * 60
-  const remainingSec = Math.max(0, intervalSec - displayedRuntimeSec)
+  const activePrintDurationSec = printJob.isActive ? Math.max(0, printJob.printDurationSec) : 0
+  return Math.max(0, usage.totalPrintTimeSec) + activePrintDurationSec
+}
 
-  return {
-    runtimeHours: secondsToDisplayHours(displayedRuntimeSec),
-    hoursLeft: Math.ceil(remainingSec / 3600),
+function hours(seconds: number): number {
+  return seconds / 3600
+}
+
+export function createMaintenanceStatus(
+  args: UseMaintenanceControllerArgs,
+  ledgerState: MaintenanceLedgerState,
+): MaintenanceStatus {
+  const systemSummary = summarizeMoonrakerSystemStatus(args.systemStatus)
+  const totalRuntimeSec = currentRuntimeSec(args.usage, args.printJob)
+  const isRuntimeBacked = totalRuntimeSec !== null
+  const baseStatus = {
+    runtimeHours: totalRuntimeSec === null ? 0 : hours(totalRuntimeSec),
+    cycleRuntimeHours: 0,
+    hoursLeft: 0,
     intervalHours: MAINTENANCE_INTERVAL_HOURS,
-    isRuntimeBacked: true,
-    notice: '',
+    isRuntimeBacked,
+    isCycleBacked: false,
+    cycleState: 'unavailable' as const,
+    notice: totalRuntimeSec === null
+      ? (args.usage.message ?? 'Пробег Moonraker недоступен.')
+      : '',
+    cycleNotice: '',
+    lastMaintenanceAt: null as string | null,
     systemLabel: systemSummary.label,
     systemTone: systemSummary.tone,
     systemNotice: systemSummary.notice,
   }
+
+  if (totalRuntimeSec === null) {
+    return {
+      ...baseStatus,
+      cycleNotice: baseStatus.notice,
+    }
+  }
+
+  if (ledgerState.loadState === 'loading') {
+    return {
+      ...baseStatus,
+      cycleState: 'loading',
+      cycleNotice: 'Загрузка истории технического обслуживания.',
+    }
+  }
+
+  if (ledgerState.loadState === 'error') {
+    return {
+      ...baseStatus,
+      cycleNotice: ledgerState.error || 'История технического обслуживания недоступна.',
+    }
+  }
+
+  const latestRecord = ledgerState.ledger.records[0]
+  if (latestRecord !== undefined && latestRecord.runtimeSec > totalRuntimeSec + RUNTIME_RESET_TOLERANCE_SEC) {
+    return {
+      ...baseStatus,
+      lastMaintenanceAt: latestRecord.completedAt,
+      cycleNotice: 'Пробег Moonraker меньше значения последнего ТО. Зафиксируйте новый сервисный цикл.',
+    }
+  }
+
+  const baselineRuntimeSec = latestRecord?.runtimeSec ?? 0
+  const cycleRuntimeSec = Math.max(0, totalRuntimeSec - baselineRuntimeSec)
+  const intervalSec = MAINTENANCE_INTERVAL_HOURS * 60 * 60
+  const remainingSec = Math.max(0, intervalSec - cycleRuntimeSec)
+
+  return {
+    ...baseStatus,
+    cycleRuntimeHours: hours(cycleRuntimeSec),
+    hoursLeft: Math.ceil(remainingSec / 3600),
+    isCycleBacked: true,
+    cycleState: 'ready',
+    cycleNotice: latestRecord === undefined
+      ? 'ТО ещё не фиксировалось. Отсчёт ведётся от общего пробега.'
+      : '',
+    lastMaintenanceAt: latestRecord?.completedAt ?? null,
+  }
+}
+
+function historyItems(ledger: MaintenanceLedger): MaintenanceHistoryItem[] {
+  return ledger.records.map((item) => ({
+    id: item.id,
+    date: new Intl.DateTimeFormat('ru-RU').format(new Date(item.completedAt)),
+    runtimeHours: hours(item.runtimeSec),
+    label: 'Плановое ТО',
+  }))
 }
 
 export function useMaintenanceController(args: UseMaintenanceControllerArgs) {
-  const [checklistState, setChecklistState] = useState<Record<MaintenanceChecklistItemId, boolean>>(() =>
-    createMaintenanceChecklistState(false),
+  const repository = useMemo(
+    () => args.repository ?? (
+      runtimeMode === 'mock'
+        ? createMemoryMaintenanceRepository()
+        : createMoonrakerMaintenanceRepository()
+    ),
+    [args.repository],
   )
-  const status = createMaintenanceStatus(args)
-  const progressPercent = status.isRuntimeBacked
-    ? clampPercent(status.runtimeHours, status.intervalHours)
+  const [ledgerState, setLedgerState] = useState<MaintenanceLedgerState>({
+    loadState: 'loading',
+    ledger: EMPTY_LEDGER,
+    error: '',
+  })
+  const [isCompletingMaintenance, setIsCompletingMaintenance] = useState(false)
+  const [completionError, setCompletionError] = useState('')
+
+  useEffect(() => {
+    let isDisposed = false
+
+    void repository.load()
+      .then((ledger) => {
+        if (!isDisposed) {
+          setLedgerState({ loadState: 'ready', ledger, error: '' })
+        }
+      })
+      .catch((error: unknown) => {
+        if (!isDisposed) {
+          setLedgerState({
+            loadState: 'error',
+            ledger: EMPTY_LEDGER,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+      })
+
+    return () => {
+      isDisposed = true
+    }
+  }, [repository])
+
+  const calculatedStatus = createMaintenanceStatus(args, ledgerState)
+  const progressPercent = calculatedStatus.isCycleBacked === true
+    ? Math.min(100, Math.max(0, ((calculatedStatus.cycleRuntimeHours ?? 0) / calculatedStatus.intervalHours) * 100))
     : 0
+  const totalRuntimeSec = currentRuntimeSec(args.usage, args.printJob)
+  const completionBlockReason = args.printJob.isActive
+    ? 'Нельзя фиксировать техническое обслуживание во время печати.'
+    : totalRuntimeSec === null
+      ? (args.usage.message ?? 'Пробег Moonraker недоступен.')
+      : ledgerState.loadState === 'loading'
+        ? 'История технического обслуживания ещё загружается.'
+        : isCompletingMaintenance
+          ? 'Сохранение технического обслуживания.'
+          : null
 
-  const handleChecklistItemChange = useCallback((itemId: string, checked: boolean): void => {
-    setChecklistState((current) => ({
-      ...current,
-      [itemId]: checked,
-    }))
-  }, [])
+  const status: MaintenanceStatus = {
+    ...calculatedStatus,
+    isCompletingMaintenance,
+    completionError,
+    completionBlockReason,
+  }
 
-  const handleChecklistComplete = useCallback((): void => {
-    setChecklistState(createMaintenanceChecklistState(true))
-  }, [])
+  const handleMaintenanceComplete = useCallback(async (): Promise<boolean> => {
+    const runtimeSec = currentRuntimeSec(args.usage, args.printJob)
+    if (args.printJob.isActive || runtimeSec === null || isCompletingMaintenance) {
+      return false
+    }
+
+    setIsCompletingMaintenance(true)
+    setCompletionError('')
+
+    try {
+      const ledger = await repository.complete(runtimeSec)
+      setLedgerState({ loadState: 'ready', ledger, error: '' })
+      return true
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      setCompletionError(message)
+      setLedgerState((current) => ({
+        ...current,
+        loadState: current.ledger.records.length > 0 ? 'ready' : 'error',
+        error: message,
+      }))
+      return false
+    } finally {
+      setIsCompletingMaintenance(false)
+    }
+  }, [args.printJob, args.usage, isCompletingMaintenance, repository])
 
   return {
     status,
-    historyItems: MAINTENANCE_HISTORY_ITEMS,
-    checklistItems: MAINTENANCE_CHECKLIST_ITEMS,
+    historyItems: historyItems(ledgerState.ledger),
+    checklistItems: [] as const,
     progressTicks: MAINTENANCE_PROGRESS_TICKS,
     progressPercent,
-    checklistState,
-    handleChecklistItemChange,
-    handleChecklistComplete,
+    checklistState: {} as Record<string, boolean>,
+    handleChecklistItemChange: (_itemId: string, _checked: boolean): void => undefined,
+    handleChecklistComplete: handleMaintenanceComplete,
+    isCompletingMaintenance,
+    completionError,
+    completionBlockReason,
+    handleMaintenanceComplete,
   }
 }
