@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { runtimeMode } from '#runtime'
 import {
   createLoadingMoonrakerSystemStatus,
   fetchMoonrakerSystemStatus,
@@ -20,6 +21,10 @@ export function useMoonrakerSystemStatus(): MoonrakerSystemStatusController {
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const refresh = useCallback((): void => {
+    if (runtimeMode === 'mock') {
+      return
+    }
+
     requestSequenceRef.current += 1
     const requestSequence = requestSequenceRef.current
     abortControllerRef.current?.abort()
@@ -55,6 +60,10 @@ export function useMoonrakerSystemStatus(): MoonrakerSystemStatusController {
   }, [])
 
   useEffect(() => {
+    if (runtimeMode === 'mock') {
+      return
+    }
+
     refresh()
     const timer = window.setInterval(refresh, SYSTEM_STATUS_POLL_INTERVAL_MS)
 
