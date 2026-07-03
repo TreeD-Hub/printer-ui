@@ -16,6 +16,7 @@ import {
 const MAINTENANCE_INTERVAL_HOURS = 1000
 const MAINTENANCE_PROGRESS_TICKS = Array.from({ length: 31 }, (_item, index) => index)
 const RUNTIME_RESET_TOLERANCE_SEC = 60
+const MAINTENANCE_LOAD_RETRY_MS = 10_000
 
 const EMPTY_LEDGER: MaintenanceLedger = {
   schemaVersion: 1,
@@ -150,25 +151,37 @@ export function useMaintenanceController(args: UseMaintenanceControllerArgs) {
 
   useEffect(() => {
     let isDisposed = false
+    let retryTimer: number | null = null
 
-    void repository.load()
-      .then((ledger) => {
+    const loadLedger = async (): Promise<void> => {
+      try {
+        const ledger = await repository.load()
         if (!isDisposed) {
           setLedgerState({ loadState: 'ready', ledger, error: '' })
         }
-      })
-      .catch((error: unknown) => {
-        if (!isDisposed) {
-          setLedgerState({
-            loadState: 'error',
-            ledger: EMPTY_LEDGER,
-            error: error instanceof Error ? error.message : String(error),
-          })
+      } catch (error) {
+        if (isDisposed) {
+          return
         }
-      })
+
+        setLedgerState({
+          loadState: 'error',
+          ledger: EMPTY_LEDGER,
+          error: error instanceof Error ? error.message : String(error),
+        })
+        retryTimer = window.setTimeout(() => {
+          void loadLedger()
+        }, MAINTENANCE_LOAD_RETRY_MS)
+      }
+    }
+
+    void loadLedger()
 
     return () => {
       isDisposed = true
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer)
+      }
     }
   }, [repository])
 
