@@ -2,6 +2,10 @@ import { DashboardIdleTemperatureWidgetContent } from './DashboardTemperatureWid
 import { DashboardDiagnosticView } from './DashboardDiagnosticView'
 import type { DashboardIdleViewProps } from './DashboardPage.types'
 
+const HOURS_FORMATTER = new Intl.NumberFormat('ru-RU', {
+  maximumFractionDigits: 1,
+})
+
 export function DashboardIdleView({
   statusDock,
   logoSrc,
@@ -25,10 +29,10 @@ export function DashboardIdleView({
   onDiagnosticAction,
 }: DashboardIdleViewProps) {
   const maintenanceRuntimeLabel = maintenanceSummary.isRuntimeBacked
-    ? `${maintenanceSummary.runtimeHours} ч`
+    ? `${HOURS_FORMATTER.format(maintenanceSummary.runtimeHours)} ч`
     : '—'
-  const maintenanceDueLabel = maintenanceSummary.isRuntimeBacked
-    ? `${maintenanceSummary.hoursLeft} ч`
+  const maintenanceDueLabel = maintenanceSummary.isCycleBacked === true
+    ? `${HOURS_FORMATTER.format(maintenanceSummary.hoursLeft)} ч`
     : '—'
 
   return (
