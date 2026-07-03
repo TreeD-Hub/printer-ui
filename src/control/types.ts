@@ -1,8 +1,13 @@
 import type { ReactNode } from 'react'
 import type { PrinterCommandId } from '../core/commands'
+import type {
+  FilamentSensorMode,
+  FilamentSensorSensitivity,
+  FilamentSensorSnapshot,
+} from '@treed/printer-logic'
 import type { AxisId, UiIconName } from '../ui'
 
-export type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'maintenance'
+export type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'filament' | 'maintenance'
 export type ParkingMode = 'all' | 'axis'
 export type MovementMode = 'buttons' | 'joystick'
 export type MoveStepKey = '1' | '10' | '25' | '100'
@@ -134,6 +139,17 @@ export type FanControlPanelProps = {
   isBusy: boolean
   commandBlockReason: string | null
   onFanPercentChange: (nextValue: number) => void
+}
+
+export type FilamentSensorControlPanelProps = {
+  snapshot: FilamentSensorSnapshot
+  isStale: boolean
+  pendingCommand: PrinterCommandId | null
+  commandError: string
+  modeBlockReasons: Record<FilamentSensorMode, string | null>
+  sensitivityBlockReasons: Record<FilamentSensorSensitivity, string | null>
+  onModeChange: (mode: FilamentSensorMode) => Promise<boolean>
+  onSensitivityChange: (sensitivity: FilamentSensorSensitivity) => Promise<boolean>
 }
 
 export type LightingControlPanelProps = {

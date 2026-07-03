@@ -1,5 +1,6 @@
 import type {
   PrinterCapabilitiesSnapshot,
+  FilamentSensorSnapshot,
   PrinterConnectionState,
   PrinterEddyCalibrationSnapshot,
   PrinterEddyCalibrationStep,
@@ -963,6 +964,7 @@ function normalizeHardware(
 function normalizeCapabilities(
   macros: PrinterMacroStateSnapshot,
   uiContract: PrinterUiContractSnapshot,
+  filamentSensor: FilamentSensorSnapshot,
 ): PrinterCapabilitiesSnapshot {
   const systemPower = readBooleanMacroFlag(macros.values, '_TREED_SYSTEM_POWER')
   const hasMainLightMacros = macros.available.includes('LIGHT_ON') && macros.available.includes('LIGHT_OFF')
@@ -975,6 +977,8 @@ function normalizeCapabilities(
       fan: false,
       lighting: false,
       filament: false,
+      filamentSensorControl: false,
+      filamentEncoderSensitivity: false,
       console: false,
       eddy: false,
       shaper: false,
@@ -1001,6 +1005,11 @@ function normalizeCapabilities(
       fan: capability('fan'),
       lighting: hasMainLightMacros && lightingCapability !== false,
       filament: capability('filament'),
+      filamentSensorControl: capability('filament_sensor_control') && filamentSensor.supported,
+      filamentEncoderSensitivity:
+        capability('filament_encoder_sensitivity') &&
+        filamentSensor.motionSupported &&
+        macros.available.includes('_FILAMENT_SENSOR_SENSITIVITY_STATE'),
       console: capability('console'),
       eddy: capability('eddy'),
       shaper: capability('shaper'),
@@ -1022,6 +1031,9 @@ function normalizeCapabilities(
     fan: true,
     lighting: hasMainLightMacros,
     filament: true,
+    filamentSensorControl: filamentSensor.supported && macros.available.includes('FILAMENT_SENSOR_STATUS'),
+    filamentEncoderSensitivity:
+      filamentSensor.motionSupported && macros.available.includes('_FILAMENT_SENSOR_SENSITIVITY_STATE'),
     console: true,
     eddy: true,
     shaper: true,
@@ -1033,6 +1045,50 @@ function normalizeCapabilities(
     systemPower,
     camera: readBooleanMacroFlag(macros.values, '_TREED_CAMERA') || readBooleanMacroFlag(macros.values, '_TREED_CAM_STATE'),
     serviceCommands: readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
+  }
+}
+
+function normalizeFilamentSensor(
+  status: MoonrakerPrinterObjectsStatus,
+  macros: PrinterMacroStateSnapshot,
+): FilamentSensorSnapshot {
+  const switchStatus = status['filament_switch_sensor filament_switch']
+  const motionStatus = status['filament_motion_sensor filament_motion']
+  const supported = isRecord(switchStatus)
+  const motionSupported = isRecord(motionStatus)
+  const modeValue = readMacro(macros.values, 'FILAMENT_SENSOR_STATUS')?.mode
+  const sensitivityValue = readMacro(macros.values, '_FILAMENT_SENSOR_SENSITIVITY_STATE')?.sensitivity
+  const mode = modeValue === 'motion' || modeValue === 'presence'
+    ? modeValue
+    : isRecord(motionStatus) && motionStatus.enabled === true
+      ? 'motion'
+      : 'presence'
+  const sensitivity = sensitivityValue === 'low' || sensitivityValue === 'medium' || sensitivityValue === 'high'
+    ? sensitivityValue
+    : 'medium'
+
+  let message: string | null = null
+  if (!supported) {
+    message = 'Датчик наличия филамента недоступен.'
+  } else if (!motionSupported) {
+    message = 'Канал движения датчика недоступен.'
+  } else if (modeValue !== 'presence' && modeValue !== 'motion') {
+    message = 'Состояние режима датчика недоступно.'
+  } else if (sensitivityValue !== 'low' && sensitivityValue !== 'medium' && sensitivityValue !== 'high') {
+    message = 'Настройки чувствительности энкодера недоступны.'
+  }
+
+  return {
+    supported,
+    motionSupported,
+    mode,
+    sensitivity,
+    filamentDetected: isRecord(switchStatus) && typeof switchStatus.filament_detected === 'boolean'
+      ? switchStatus.filament_detected
+      : null,
+    switchEnabled: isRecord(switchStatus) && switchStatus.enabled === true,
+    motionEnabled: isRecord(motionStatus) && motionStatus.enabled === true,
+    message,
   }
 }
 
@@ -1181,6 +1237,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const excludeObjects = normalizeExcludeObjects(status.exclude_object, printJob)
   const macros = normalizeMacroValues(status)
   const uiContract = normalizeUiContract(macros)
+  const filamentSensor = normalizeFilamentSensor(status, macros)
   const homedAxes = typeof status.toolhead?.homed_axes === 'string' ? status.toolhead.homed_axes : ''
   const source = options.source ?? 'live'
   const revisionSource = options.revisionSource ?? (source === 'mock' ? 'mock' : 'http')
@@ -1232,7 +1289,8 @@ export function normalizeMoonrakerRuntimeSnapshot(
     ),
     hardware: normalizeHardware(macros, uiContract),
     uiContract,
-    capabilities: normalizeCapabilities(macros, uiContract),
+    capabilities: normalizeCapabilities(macros, uiContract, filamentSensor),
+    filamentSensor,
     limits: normalizeLimits(macros, uiContract),
     usage: options.usage ?? createUnavailableUsageSnapshot(),
     printJob,

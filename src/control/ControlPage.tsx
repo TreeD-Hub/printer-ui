@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { IconMask, SettingsSidebarMenu } from '../ui'
 import { CONTROL_GROUP_OPTIONS } from './config'
 import { FanControlPanel } from './panels/FanControlPanel'
+import { FilamentSensorControlPanel } from './panels/FilamentSensorControlPanel'
 import { HeatingControlPanel } from './panels/HeatingControlPanel'
 import { LightingControlPanel } from './panels/LightingControlPanel'
 import { MaintenanceControlPanel } from './panels/MaintenanceControlPanel'
@@ -9,6 +10,7 @@ import { MovementControlPanel } from './panels/MovementControlPanel'
 import type {
   ControlGroupId,
   FanControlPanelProps,
+  FilamentSensorControlPanelProps,
   HeatingControlPanelProps,
   LightingControlPanelProps,
   MaintenanceControlPanelProps,
@@ -24,6 +26,7 @@ type ControlPageProps = {
   movement: MovementControlPanelProps
   heating: HeatingControlPanelProps
   fan: FanControlPanelProps
+  filament: FilamentSensorControlPanelProps
   lighting: LightingControlPanelProps
   maintenance: MaintenanceControlPanelProps
 }
@@ -37,6 +40,7 @@ export const ControlPage = memo(function ControlPage({
   movement,
   heating,
   fan,
+  filament,
   lighting,
   maintenance,
 }: ControlPageProps) {
@@ -98,6 +102,8 @@ export const ControlPage = memo(function ControlPage({
               <FanControlPanel {...fan} />
             ) : activeControlGroup === 'lighting' ? (
               <LightingControlPanel {...lighting} />
+            ) : activeControlGroup === 'filament' ? (
+              <FilamentSensorControlPanel {...filament} />
             ) : (
               <MaintenanceControlPanel {...maintenance} />
             )}

@@ -944,6 +944,33 @@ describe('App', () => {
     }
   })
 
+  it('opens filament sensor control and dispatches typed settings commands', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+    fireEvent.click(screen.getByTestId('control-group-filament'))
+
+    expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Датчик нити')
+    expect(screen.getByText('Нить установлена')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('filament-mode-presence'))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({
+        command: 'setFilamentSensorMode',
+        mode: 'presence',
+      })
+    })
+
+    fireEvent.click(screen.getByTestId('filament-sensitivity-high'))
+    fireEvent.click(screen.getByTestId('filament-sensitivity-confirm'))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({
+        command: 'setFilamentEncoderSensitivity',
+        sensitivity: 'high',
+      })
+    })
+  })
+
   it('blocks movement tab during active print and opens control on heating', async () => {
     render(<App />)
 

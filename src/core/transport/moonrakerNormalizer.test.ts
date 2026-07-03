@@ -4,6 +4,7 @@ import {
   normalizeMoonrakerPrintFiles,
   type MoonrakerObjectsQueryPayload,
 } from './moonrakerNormalizer'
+import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
 
 function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']>): MoonrakerObjectsQueryPayload {
   return {
@@ -13,6 +14,66 @@ function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']
 }
 
 describe('normalizeMoonrakerRuntimeSnapshot', () => {
+  it('normalizes both filament sensor channels and selected settings', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: { state: 'ready' },
+      'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '1.0',
+        profile: 'treed_v2_corexy_v1',
+        capability_filament_sensor_control: 1,
+        capability_filament_encoder_sensitivity: 1,
+        required_macros: '',
+      },
+      'gcode_macro FILAMENT_SENSOR_STATUS': { mode: 'motion' },
+      'gcode_macro _FILAMENT_SENSOR_SENSITIVITY_STATE': { sensitivity: 'high' },
+      'filament_switch_sensor filament_switch': { enabled: true, filament_detected: false },
+      'filament_motion_sensor filament_motion': { enabled: true, filament_detected: true },
+    }))
+
+    expect(MOONRAKER_RUNTIME_OBJECTS).toEqual(expect.arrayContaining([
+      'filament_switch_sensor filament_switch',
+      'filament_motion_sensor filament_motion',
+      'gcode_macro FILAMENT_SENSOR_STATUS',
+      'gcode_macro _FILAMENT_SENSOR_SENSITIVITY_STATE',
+    ]))
+    expect(snapshot.filamentSensor).toEqual({
+      supported: true,
+      motionSupported: true,
+      mode: 'motion',
+      sensitivity: 'high',
+      filamentDetected: false,
+      switchEnabled: true,
+      motionEnabled: true,
+      message: null,
+    })
+    expect(snapshot.capabilities.filamentSensorControl).toBe(true)
+    expect(snapshot.capabilities.filamentEncoderSensitivity).toBe(true)
+  })
+
+  it('keeps presence control available when the motion channel is absent', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: { state: 'ready' },
+      'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '1.0',
+        profile: 'treed_v2_corexy_v1',
+        capability_filament_sensor_control: 1,
+        capability_filament_encoder_sensitivity: 1,
+        required_macros: '',
+      },
+      'gcode_macro FILAMENT_SENSOR_STATUS': { mode: 'presence' },
+      'filament_switch_sensor filament_switch': { enabled: true, filament_detected: true },
+    }))
+
+    expect(snapshot.filamentSensor).toMatchObject({
+      supported: true,
+      motionSupported: false,
+      mode: 'presence',
+      message: 'Канал движения датчика недоступен.',
+    })
+    expect(snapshot.capabilities.filamentSensorControl).toBe(true)
+    expect(snapshot.capabilities.filamentEncoderSensitivity).toBe(false)
+  })
+
   it('uses a compatible device contract for limits and capabilities', () => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
       webhooks: { state: 'ready' },
@@ -330,6 +391,8 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       fan: true,
       lighting: true,
       filament: true,
+      filamentSensorControl: false,
+      filamentEncoderSensitivity: false,
       console: true,
       eddy: true,
       shaper: true,

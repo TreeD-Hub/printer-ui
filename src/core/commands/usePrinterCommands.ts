@@ -70,6 +70,14 @@ function isCommandConfirmed(
       return context.mainLightEnabled === args.enabled
     case 'excludeObject':
       return context.excludeObjects?.excludedObjectNames.includes(args.objectName) === true
+    case 'setFilamentSensorMode':
+      return (
+        context.filamentSensor?.mode === args.mode &&
+        context.filamentSensor.switchEnabled === true &&
+        context.filamentSensor.motionEnabled === (args.mode === 'motion')
+      )
+    case 'setFilamentEncoderSensitivity':
+      return context.filamentSensor?.sensitivity === args.sensitivity
     default:
       return null
   }

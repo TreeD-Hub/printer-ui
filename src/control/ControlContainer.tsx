@@ -3,6 +3,11 @@ import { ControlPage } from './ControlPage'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { clampPercent } from '../dashboard/helpers'
 import type { AxisId } from '../ui'
+import type {
+  FilamentSensorMode,
+  FilamentSensorSensitivity,
+  FilamentSensorSnapshot,
+} from '@treed/printer-logic'
 import { CONTROL_MOVE_STEP_OPTIONS } from './config'
 import type {
   ControlGroupId,
@@ -30,6 +35,9 @@ export type ControlContainerProps = {
   moveStepKey: MoveStepKey
   heating: HeatingControlPanelProps
   fan: FanControlPanelProps
+  filamentSensor: FilamentSensorSnapshot
+  isFilamentSensorSnapshotStale: boolean
+  commandError: string
   isMainLightEnabled: boolean
   isToolheadLightEnabled: boolean
   mainLightCommandBlockReason: string | null
@@ -53,6 +61,8 @@ export type ControlContainerProps = {
   onMoveStepChange: (nextStep: MoveStepKey) => void
   onAxisMove: (axis: AxisId, distanceMm: number) => Promise<boolean>
   onFilamentMove: (direction: -1 | 1, distanceMm: number) => Promise<boolean>
+  onFilamentSensorModeChange: (mode: FilamentSensorMode) => Promise<boolean>
+  onFilamentSensitivityChange: (sensitivity: FilamentSensorSensitivity) => Promise<boolean>
   getLastCommandError: () => string
 }
 
@@ -67,6 +77,9 @@ export function ControlContainer({
   moveStepKey,
   heating,
   fan,
+  filamentSensor,
+  isFilamentSensorSnapshotStale,
+  commandError,
   isMainLightEnabled,
   isToolheadLightEnabled,
   mainLightCommandBlockReason,
@@ -90,6 +103,8 @@ export function ControlContainer({
   onMoveStepChange,
   onAxisMove,
   onFilamentMove,
+  onFilamentSensorModeChange,
+  onFilamentSensitivityChange,
   getLastCommandError,
 }: ControlContainerProps) {
   const moveStepMm = CONTROL_MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)?.valueMm ?? 1
@@ -120,6 +135,30 @@ export function ControlContainer({
     loadFilament: getCommandBlockReason('loadFilament'),
     unloadFilament: getCommandBlockReason('unloadFilament'),
   }), [getCommandBlockReason, moveStepMm])
+  const filamentModeBlockReasons = useMemo<Record<FilamentSensorMode, string | null>>(() => ({
+    presence: getCommandBlockReason('setFilamentSensorMode', {
+      command: 'setFilamentSensorMode',
+      mode: 'presence',
+    }),
+    motion: getCommandBlockReason('setFilamentSensorMode', {
+      command: 'setFilamentSensorMode',
+      mode: 'motion',
+    }),
+  }), [getCommandBlockReason])
+  const filamentSensitivityBlockReasons = useMemo<Record<FilamentSensorSensitivity, string | null>>(() => ({
+    low: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'low',
+    }),
+    medium: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'medium',
+    }),
+    high: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'high',
+    }),
+  }), [getCommandBlockReason])
   const maintenanceProgressPercent = maintenanceStatus.isRuntimeBacked
     ? clampPercent(
         maintenanceStatus.runtimeHours,
@@ -154,6 +193,16 @@ export function ControlContainer({
       }}
       heating={heating}
       fan={fan}
+      filament={{
+        snapshot: filamentSensor,
+        isStale: isFilamentSensorSnapshotStale,
+        pendingCommand,
+        commandError,
+        modeBlockReasons: filamentModeBlockReasons,
+        sensitivityBlockReasons: filamentSensitivityBlockReasons,
+        onModeChange: onFilamentSensorModeChange,
+        onSensitivityChange: onFilamentSensitivityChange,
+      }}
       lighting={{
         isMainLightEnabled,
         isToolheadLightEnabled,

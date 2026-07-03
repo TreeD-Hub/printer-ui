@@ -37,6 +37,8 @@ export type PrinterCommandId =
   | 'excludeObject'
   | 'loadFilament'
   | 'unloadFilament'
+  | 'setFilamentSensorMode'
+  | 'setFilamentEncoderSensitivity'
   | 'zParkZeroEddy'
   | 'eddyDriveCurrentCalibrate'
   | 'eddyPrimaryHeightStart'
@@ -63,6 +65,19 @@ export type PrinterCommandId =
   | 'shutdownHost'
 
 export type AxisId = 'X' | 'Y' | 'Z'
+export type FilamentSensorMode = 'presence' | 'motion'
+export type FilamentSensorSensitivity = 'low' | 'medium' | 'high'
+
+export type FilamentSensorSnapshot = {
+  supported: boolean
+  motionSupported: boolean
+  mode: FilamentSensorMode
+  sensitivity: FilamentSensorSensitivity
+  filamentDetected: boolean | null
+  switchEnabled: boolean
+  motionEnabled: boolean
+  message: string | null
+}
 
 export type ExecuteCommandArgs =
   | {
@@ -157,6 +172,14 @@ export type ExecuteCommandArgs =
       command: 'loadFilament' | 'unloadFilament'
       lengthMm?: number
       speedMmS?: number
+    }
+  | {
+      command: 'setFilamentSensorMode'
+      mode: FilamentSensorMode
+    }
+  | {
+      command: 'setFilamentEncoderSensitivity'
+      sensitivity: FilamentSensorSensitivity
     }
   | {
       command: 'eddyTestZ'
@@ -356,6 +379,8 @@ export interface PrinterCapabilitiesSnapshot {
   fan: boolean
   lighting: boolean
   filament: boolean
+  filamentSensorControl: boolean
+  filamentEncoderSensitivity: boolean
   console: boolean
   eddy: boolean
   shaper: boolean
@@ -733,6 +758,8 @@ export type TreeDCommandCapability =
   | 'fan'
   | 'lighting'
   | 'filament'
+  | 'filamentSensorControl'
+  | 'filamentEncoderSensitivity'
   | 'console'
   | 'eddy'
   | 'shaper'
@@ -776,6 +803,7 @@ export interface TreeDCommandRuntimeContext {
   }
   modelFanPercent?: number
   mainLightEnabled?: boolean
+  filamentSensor?: FilamentSensorSnapshot
 }
 
 const MIN_FILAMENT_EXTRUDE_TEMP_C = 170
@@ -792,6 +820,8 @@ const COMMAND_CAPABILITY_LABELS: Record<TreeDCommandCapability, string> = {
   fan: 'обдув',
   lighting: 'подсветка',
   filament: 'филамент',
+  filamentSensorControl: 'управление датчиком филамента',
+  filamentEncoderSensitivity: 'чувствительность энкодера филамента',
   console: 'консоль G-code',
   eddy: 'Eddy/Z-контур',
   shaper: 'input shaper',
@@ -997,6 +1027,20 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'filament',
     requiresConfirmation: false,
   },
+  setFilamentSensorMode: {
+    id: 'setFilamentSensorMode',
+    risk: 'caution',
+    label: 'Режим датчика филамента',
+    capability: 'filamentSensorControl',
+    requiresConfirmation: false,
+  },
+  setFilamentEncoderSensitivity: {
+    id: 'setFilamentEncoderSensitivity',
+    risk: 'caution',
+    label: 'Чувствительность энкодера филамента',
+    capability: 'filamentEncoderSensitivity',
+    requiresConfirmation: true,
+  },
   zParkZeroEddy: {
     id: 'zParkZeroEddy',
     risk: 'caution',
@@ -1200,6 +1244,10 @@ const FILAMENT_COMMANDS = new Set<PrinterCommandId>([
   'loadFilament',
   'unloadFilament',
 ])
+const FILAMENT_SENSOR_SETTING_COMMANDS = new Set<PrinterCommandId>([
+  'setFilamentSensorMode',
+  'setFilamentEncoderSensitivity',
+])
 const MOTION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'home',
   'homeAll',
@@ -1366,6 +1414,28 @@ function getCommandSpecificBlockReason(
     return `${item.label}: перемещение филамента недоступно во время печати.`
   }
 
+  if (activePrint && FILAMENT_SENSOR_SETTING_COMMANDS.has(command)) {
+    return `${item.label}: настройка недоступна во время печати.`
+  }
+
+  if (command === 'setFilamentSensorMode' || args?.command === 'setFilamentSensorMode') {
+    if (!context.filamentSensor?.supported) {
+      return `${item.label}: датчик наличия недоступен.`
+    }
+    if (args?.command === 'setFilamentSensorMode' && args.mode === 'motion' && !context.filamentSensor.motionSupported) {
+      return `${item.label}: канал движения недоступен.`
+    }
+  }
+
+  if (command === 'setFilamentEncoderSensitivity' || args?.command === 'setFilamentEncoderSensitivity') {
+    if (!context.filamentSensor?.motionSupported) {
+      return `${item.label}: канал движения недоступен.`
+    }
+    if (context.filamentSensor.mode !== 'motion') {
+      return `${item.label}: сначала выберите режим «Наличие и движение».`
+    }
+  }
+
   if (command === 'homeZ') {
     if (context.eddyStatus === 'uncalibrated') {
       return `${item.label}: Eddy не калиброван.`
@@ -1450,6 +1520,14 @@ export function getTreeDCommandArgumentError(
         return 'SPEED должна быть конечным положительным числом.'
       }
       return null
+    case 'setFilamentSensorMode':
+      return args.mode === 'presence' || args.mode === 'motion'
+        ? null
+        : 'MODE должен быть presence или motion.'
+    case 'setFilamentEncoderSensitivity':
+      return args.sensitivity === 'low' || args.sensitivity === 'medium' || args.sensitivity === 'high'
+        ? null
+        : 'SENSITIVITY должна быть low, medium или high.'
     case 'setNozzleTarget':
       return getRangeError(args.targetCelsius, 0, limits.nozzleMaxC, 'Температура сопла')
     case 'setBedTarget':
