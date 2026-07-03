@@ -78,13 +78,21 @@ export type TemperatureChartSeries = {
 
 export type MaintenanceStatus = {
   runtimeHours: number
+  cycleRuntimeHours?: number
   hoursLeft: number
   intervalHours: number
   isRuntimeBacked: boolean
+  isCycleBacked?: boolean
+  cycleState?: 'loading' | 'ready' | 'unavailable'
   notice: string
+  cycleNotice?: string
+  lastMaintenanceAt?: string | null
   systemLabel: string
   systemTone: 'ok' | 'warning' | 'error' | 'muted'
   systemNotice: string
+  isCompletingMaintenance?: boolean
+  completionError?: string
+  completionBlockReason?: string | null
 }
 
 export type MaintenanceHistoryItem = {
@@ -164,12 +172,10 @@ export type LightingControlPanelProps = {
 
 export type MaintenanceControlPanelProps = {
   status: MaintenanceStatus
-  historyItems: readonly MaintenanceHistoryItem[]
-  checklistItems: readonly MaintenanceChecklistItem[]
   progressTicks: readonly number[]
   progressPercent: number
-  checklistState: Record<string, boolean>
-  isChecklistComplete: boolean
-  onChecklistItemChange: (itemId: string, checked: boolean) => void
-  onChecklistComplete: () => void
+  isCompletingMaintenance: boolean
+  completionError: string
+  completionBlockReason: string | null
+  onMaintenanceComplete: () => Promise<boolean>
 }

@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { ControlPage } from './ControlPage'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
-import { clampPercent } from '../dashboard/helpers'
 import type { AxisId } from '../ui'
 import type {
   FilamentSensorMode,
@@ -50,7 +49,7 @@ export type ControlContainerProps = {
   maintenanceProgressTicks: readonly number[]
   maintenanceChecklistState: Record<string, boolean>
   onMaintenanceChecklistItemChange: (itemId: string, checked: boolean) => void
-  onMaintenanceChecklistComplete: () => void
+  onMaintenanceChecklistComplete: () => Promise<boolean> | void
   onControlGroupChange: (groupId: ControlGroupId) => void
   onControlMenuCompactToggle: () => void
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
@@ -87,11 +86,11 @@ export function ControlContainer({
   onMainLightToggle,
   onToolheadLightToggle,
   maintenanceStatus,
-  maintenanceHistoryItems,
-  maintenanceChecklistItems,
+  maintenanceHistoryItems: _maintenanceHistoryItems,
+  maintenanceChecklistItems: _maintenanceChecklistItems,
   maintenanceProgressTicks,
-  maintenanceChecklistState,
-  onMaintenanceChecklistItemChange,
+  maintenanceChecklistState: _maintenanceChecklistState,
+  onMaintenanceChecklistItemChange: _onMaintenanceChecklistItemChange,
   onMaintenanceChecklistComplete,
   onControlGroupChange,
   onControlMenuCompactToggle,
@@ -145,6 +144,9 @@ export function ControlContainer({
       mode: 'motion',
     }),
   }), [getCommandBlockReason])
+  const maintenanceProgressPercent = maintenanceStatus.isCycleBacked === true
+    ? Math.min(100, Math.max(0, ((maintenanceStatus.cycleRuntimeHours ?? 0) / maintenanceStatus.intervalHours) * 100))
+    : 0
   const filamentSensitivityBlockReasons = useMemo<Record<FilamentSensorSensitivity, string | null>>(() => ({
     low: getCommandBlockReason('setFilamentEncoderSensitivity', {
       command: 'setFilamentEncoderSensitivity',
@@ -159,13 +161,6 @@ export function ControlContainer({
       sensitivity: 'high',
     }),
   }), [getCommandBlockReason])
-  const maintenanceProgressPercent = maintenanceStatus.isRuntimeBacked
-    ? clampPercent(
-        maintenanceStatus.runtimeHours,
-        maintenanceStatus.intervalHours,
-      )
-    : 0
-  const isMaintenanceChecklistComplete = maintenanceChecklistItems.every((item) => maintenanceChecklistState[item.id])
 
   return (
     <ControlPage
@@ -214,14 +209,15 @@ export function ControlContainer({
       }}
       maintenance={{
         status: maintenanceStatus,
-        historyItems: maintenanceHistoryItems,
-        checklistItems: maintenanceChecklistItems,
         progressTicks: maintenanceProgressTicks,
         progressPercent: maintenanceProgressPercent,
-        checklistState: maintenanceChecklistState,
-        isChecklistComplete: isMaintenanceChecklistComplete,
-        onChecklistItemChange: onMaintenanceChecklistItemChange,
-        onChecklistComplete: onMaintenanceChecklistComplete,
+        isCompletingMaintenance: maintenanceStatus.isCompletingMaintenance ?? false,
+        completionError: maintenanceStatus.completionError ?? '',
+        completionBlockReason: maintenanceStatus.completionBlockReason ?? null,
+        onMaintenanceComplete: async () => {
+          const result = await Promise.resolve(onMaintenanceChecklistComplete())
+          return result !== false
+        },
       }}
     />
   )
