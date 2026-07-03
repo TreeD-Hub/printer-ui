@@ -46,6 +46,13 @@ export const ControlPage = memo(function ControlPage({
 }: ControlPageProps) {
   const activeControlGroupOption =
     CONTROL_GROUP_OPTIONS.find((option) => option.id === activeControlGroup) ?? CONTROL_GROUP_OPTIONS[0]
+  const maintenanceStatusLabel = maintenance.status.isCycleBacked === true
+    ? maintenance.status.hoursLeft > 0
+      ? `Следующее ТО через ${maintenance.status.hoursLeft} ч`
+      : 'Требуется плановое ТО'
+    : maintenance.status.cycleState === 'loading'
+      ? 'Загрузка данных ТО'
+      : 'Расчёт ТО недоступен'
 
   return (
     <section className="control-screen" data-testid="screen-control">
@@ -83,11 +90,7 @@ export const ControlPage = memo(function ControlPage({
               </div>
               <div className="control-maintenance-header-actions">
                 <p className="control-maintenance-status-pill">
-                  {maintenance.status.isRuntimeBacked
-                    ? maintenance.status.hoursLeft > 0
-                      ? `Следующее ТО через ${maintenance.status.hoursLeft} ч`
-                      : 'Требуется плановое ТО'
-                    : 'ТО не подключено'}
+                  {maintenanceStatusLabel}
                   <span aria-hidden="true" />
                 </p>
                 <button
