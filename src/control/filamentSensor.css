@@ -1,0 +1,264 @@
+.control-filament-panel.control-filament-panel--refined {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: block;
+  padding: 0;
+}
+
+.control-filament-layout-v2 {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(270px, 0.96fr);
+  gap: 10px;
+}
+
+.control-filament-primary-column {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.control-filament-panel--refined .control-filament-status,
+.control-filament-panel--refined .control-filament-section {
+  min-width: 0;
+  border: 1px solid var(--color-border-default);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-block-surface) 86%, transparent);
+  box-shadow: inset 0 0 0 1px var(--color-border-subtle);
+}
+
+.control-filament-panel--refined .control-filament-status {
+  min-height: 94px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.control-filament-panel--refined .control-filament-status p {
+  margin: 0 0 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+  line-height: 1;
+}
+
+.control-filament-panel--refined .control-filament-status strong {
+  display: block;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-accent);
+  font-size: clamp(22px, 2.5vw, 30px);
+  font-weight: var(--font-weight-accent);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.control-filament-panel--refined .control-filament-status-dot {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+}
+
+.control-filament-notices {
+  display: grid;
+  gap: 6px;
+}
+
+.control-filament-notices:empty {
+  display: none;
+}
+
+.control-filament-panel--refined .control-filament-notice {
+  margin: 0;
+}
+
+.control-filament-panel--refined .control-filament-section {
+  padding: 14px;
+}
+
+.control-filament-mode-section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.control-filament-panel--refined .control-filament-section-head {
+  min-width: 0;
+  margin-bottom: 12px;
+}
+
+.control-filament-panel--refined .control-filament-section-head h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-accent);
+  font-size: var(--font-size-heading-small);
+  font-weight: var(--font-weight-accent);
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+
+.control-filament-mode-grid.control-filament-mode-grid--compact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.control-filament-choice.control-filament-choice--compact {
+  min-width: 0;
+  min-height: 64px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.control-filament-choice.control-filament-choice--compact strong {
+  min-width: 0;
+  font-size: var(--font-size-body-large);
+  line-height: 1.15;
+}
+
+.control-filament-choice.control-filament-choice--compact.is-active,
+.control-filament-sensitivity.control-filament-sensitivity--vertical.is-active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary-surface) 72%, var(--color-surface-elevated));
+  box-shadow: inset 0 0 0 1px var(--color-primary-ring);
+}
+
+.control-filament-choice.control-filament-choice--compact:disabled,
+.control-filament-sensitivity.control-filament-sensitivity--vertical:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.control-filament-panel--refined .control-filament-radio {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--color-text-soft);
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.control-filament-panel--refined .is-active > .control-filament-radio {
+  border: 5px solid var(--color-primary);
+  background: var(--color-background);
+}
+
+.control-filament-mode-description {
+  min-height: 70px;
+  margin-top: auto;
+  padding: 14px 2px 0;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.control-filament-mode-description strong,
+.control-filament-mode-description p {
+  margin: 0;
+}
+
+.control-filament-mode-description strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body-large);
+  line-height: 1.1;
+}
+
+.control-filament-mode-description p {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+  line-height: 1.3;
+}
+
+.control-filament-sensitivity-section {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.control-filament-sensitivity-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.control-filament-panel--refined .control-filament-sensitivity-head span {
+  max-width: 136px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-small);
+  line-height: 1.2;
+  text-align: right;
+}
+
+.control-filament-sensitivity-grid.control-filament-sensitivity-grid--vertical {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-rows: minmax(68px, 1fr);
+  gap: 10px;
+  align-content: stretch;
+}
+
+.control-filament-sensitivity.control-filament-sensitivity--vertical {
+  min-width: 0;
+  min-height: 68px;
+  padding: 10px 16px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.control-filament-sensitivity-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.control-filament-sensitivity-copy strong {
+  font-size: var(--font-size-body-large);
+  line-height: 1;
+}
+
+.control-filament-sensitivity-copy small {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+  line-height: 1;
+}
+
+.control-filament-panel--refined .control-filament-block-reason {
+  margin: 10px 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body-small);
+  line-height: 1.25;
+}
+
+@media (max-width: 760px) {
+  .control-filament-layout-v2 {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow-y: auto;
+  }
+
+  .control-filament-sensitivity-grid.control-filament-sensitivity-grid--vertical {
+    grid-auto-rows: 68px;
+  }
+}
