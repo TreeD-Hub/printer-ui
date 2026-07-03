@@ -12,6 +12,8 @@ import type {
   ControlGroupId,
   FanControlPanelProps,
   HeatingControlPanelProps,
+  MaintenanceChecklistItem,
+  MaintenanceHistoryItem,
   MaintenanceStatus,
   MovementCommandBlockReasons,
   MovementMode,
@@ -42,9 +44,12 @@ export type ControlContainerProps = {
   onMainLightToggle: () => void
   onToolheadLightToggle: () => void
   maintenanceStatus: MaintenanceStatus
+  maintenanceHistoryItems: readonly MaintenanceHistoryItem[]
+  maintenanceChecklistItems: readonly MaintenanceChecklistItem[]
   maintenanceProgressTicks: readonly number[]
-  maintenanceProgressPercent: number
-  onMaintenanceComplete: () => Promise<boolean>
+  maintenanceChecklistState: Record<string, boolean>
+  onMaintenanceChecklistItemChange: (itemId: string, checked: boolean) => void
+  onMaintenanceChecklistComplete: () => Promise<boolean> | void
   onControlGroupChange: (groupId: ControlGroupId) => void
   onControlMenuCompactToggle: () => void
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
@@ -82,8 +87,7 @@ export function ControlContainer({
   onToolheadLightToggle,
   maintenanceStatus,
   maintenanceProgressTicks,
-  maintenanceProgressPercent,
-  onMaintenanceComplete,
+  onMaintenanceChecklistComplete,
   onControlGroupChange,
   onControlMenuCompactToggle,
   getCommandBlockReason,
@@ -136,6 +140,9 @@ export function ControlContainer({
       mode: 'motion',
     }),
   }), [getCommandBlockReason])
+  const maintenanceProgressPercent = maintenanceStatus.isCycleBacked === true
+    ? Math.min(100, Math.max(0, ((maintenanceStatus.cycleRuntimeHours ?? 0) / maintenanceStatus.intervalHours) * 100))
+    : 0
   const filamentSensitivityBlockReasons = useMemo<Record<FilamentSensorSensitivity, string | null>>(() => ({
     low: getCommandBlockReason('setFilamentEncoderSensitivity', {
       command: 'setFilamentEncoderSensitivity',
@@ -203,7 +210,10 @@ export function ControlContainer({
         isCompletingMaintenance: maintenanceStatus.isCompletingMaintenance ?? false,
         completionError: maintenanceStatus.completionError ?? '',
         completionBlockReason: maintenanceStatus.completionBlockReason ?? null,
-        onMaintenanceComplete,
+        onMaintenanceComplete: async () => {
+          const result = await Promise.resolve(onMaintenanceChecklistComplete())
+          return result !== false
+        },
       }}
     />
   )
