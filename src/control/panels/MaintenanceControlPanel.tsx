@@ -86,20 +86,6 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
             <small>{status.isCycleBacked === true ? lastMaintenanceLabel : (status.cycleNotice ?? '')}</small>
           </div>
         </article>
-
-        <article
-          className={`maintenance-overview-metric maintenance-overview-system is-${status.systemTone} control-subpanel`}
-          title={status.systemNotice}
-        >
-          <span className="maintenance-overview-icon" aria-hidden="true">
-            <MaintenanceLineIcon name="system" />
-          </span>
-          <div className="maintenance-overview-metric-copy">
-            <span className="maintenance-overview-metric-label">Состояние системы</span>
-            <strong className="maintenance-overview-metric-value">{status.systemLabel}</strong>
-            <small>{status.systemNotice}</small>
-          </div>
-        </article>
       </section>
 
       <section
@@ -233,21 +219,11 @@ function MaintenanceLineIcon({ name }: { name: MaintenanceIconName }) {
     )
   }
 
-  if (name === 'due') {
-    return (
-      <svg className="maintenance-overview-line-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3.8 18.9 7.8v8.1L12 20 5.1 15.9V7.8L12 3.8Z" />
-        <circle cx="12" cy="10" r="2.1" />
-        <path d="M8.6 15.2c.8-1.6 1.9-2.4 3.4-2.4s2.6.8 3.4 2.4" />
-      </svg>
-    )
-  }
-
   return (
     <svg className="maintenance-overview-line-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="5" y="4.5" width="14" height="6" rx="1.5" />
-      <rect x="5" y="13.5" width="14" height="6" rx="1.5" />
-      <path d="M8 7.5h.01M8 16.5h.01M11 7.5h5M11 16.5h5" />
+      <path d="M12 3.8 18.9 7.8v8.1L12 20 5.1 15.9V7.8L12 3.8Z" />
+      <circle cx="12" cy="10" r="2.1" />
+      <path d="M8.6 15.2c.8-1.6 1.9-2.4 3.4-2.4s2.6.8 3.4 2.4" />
     </svg>
   )
 }
