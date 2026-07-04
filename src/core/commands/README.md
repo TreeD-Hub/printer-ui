@@ -18,7 +18,7 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 - Парковка и движение: `home`, `homeAll`, `homeX`, `homeY`, `homeXY`, `homeZ`, `moveAxis`, `disableMotors`.
 - Нагрев, обдув и свет: `setNozzleTarget`, `setBedTarget`, `setHeatingTargets`, `turnOffHeaters`, `setFanPercent`, `setMainLightEnabled`.
 - Runtime tune: speed factor, flow factor, accel, pressure advance, retraction length, Z-offset.
-- Филамент: `loadFilament`, `unloadFilament`.
+- Филамент: `loadFilament`, `unloadFilament`, `setFilamentSensorMode`, `setFilamentEncoderSensitivity`.
 - V2/Eddy/shaper: `zParkZeroEddy`, `shaperCalibrateLight`, `shaperCalibrateFull`, `xyMotionTest`.
 - Сервисные команды: `restartKlipper`, `firmwareRestart`, `restartMoonraker`.
 - Host power: `rebootHost`, `shutdownHost`.

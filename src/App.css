@@ -2967,6 +2967,219 @@ body {
   color: var(--color-text-soft);
 }
 
+.control-filament-panel {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+}
+
+.control-filament-status {
+  grid-column: 1;
+  min-height: 76px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.control-filament-status p,
+.control-filament-status strong,
+.control-filament-section h3,
+.control-filament-section-head span,
+.control-filament-notice,
+.control-filament-block-reason {
+  margin: 0;
+}
+
+.control-filament-status p,
+.control-filament-section-head span,
+.control-filament-choice small,
+.control-filament-sensitivity span {
+  color: var(--color-text-soft);
+  font-size: 12px;
+}
+
+.control-filament-status strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-family-accent);
+  font-size: 21px;
+  text-transform: uppercase;
+}
+
+.control-filament-status-dot {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-text-soft);
+  border-radius: 50%;
+}
+
+.control-filament-status-dot.is-ok {
+  border-color: var(--color-success);
+  background: var(--color-success);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-success) 55%, transparent);
+}
+
+.control-filament-status-dot.is-warning {
+  border-color: var(--color-warning);
+}
+
+.control-filament-section {
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  background: var(--color-block-surface);
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.control-filament-section:nth-of-type(2) {
+  grid-column: 1;
+}
+
+.control-filament-section:nth-of-type(3) {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.control-filament-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.control-filament-section h3 {
+  font-family: var(--font-family-accent);
+  font-size: 15px;
+  text-transform: uppercase;
+}
+
+.control-filament-mode-grid,
+.control-filament-sensitivity-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.control-filament-mode-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.control-filament-choice,
+.control-filament-sensitivity,
+.control-filament-confirm button {
+  min-height: 52px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-block-surface) 66%, transparent);
+  color: var(--color-text-primary);
+}
+
+.control-filament-choice {
+  padding: 8px 10px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.control-filament-choice strong,
+.control-filament-choice small {
+  display: block;
+}
+
+.control-filament-radio {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--color-text-soft);
+  border-radius: 50%;
+}
+
+.control-filament-choice.is-active,
+.control-filament-sensitivity.is-active {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-block-surface));
+}
+
+.control-filament-choice.is-active .control-filament-radio {
+  border: 5px solid var(--color-primary);
+}
+
+.control-filament-sensitivity-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.control-filament-sensitivity {
+  padding: 8px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+}
+
+.control-filament-choice:disabled,
+.control-filament-sensitivity:disabled {
+  opacity: 0.46;
+  cursor: not-allowed;
+}
+
+.control-filament-notice,
+.control-filament-block-reason {
+  grid-column: 1 / -1;
+  padding: 7px 10px;
+  border-left: 3px solid var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 8%, transparent);
+  color: var(--color-text-soft);
+  font-size: 12px;
+}
+
+.control-filament-notice.is-error {
+  border-left-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.control-filament-confirm-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.control-filament-confirm {
+  width: min(460px, calc(100% - 32px));
+  padding: 18px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 10px;
+  background: var(--color-block-surface);
+  display: grid;
+  gap: 14px;
+}
+
+.control-filament-confirm h3,
+.control-filament-confirm p {
+  margin: 0;
+}
+
+.control-filament-confirm > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.control-filament-confirm button:last-child {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-background);
+}
+
 .control-heating-main {
   min-height: 0;
   padding: 0;

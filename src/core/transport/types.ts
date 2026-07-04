@@ -4,6 +4,7 @@ import type {
   PrinterEddyStatus,
   PrinterFileItem,
   PrinterExcludeObjectSnapshot,
+  FilamentSensorSnapshot,
   PrinterLimits,
   PrinterTransportState,
 } from '@treed/printer-logic'
@@ -14,6 +15,7 @@ export type {
   PrinterEddyStatus,
   PrinterFileItem,
   PrinterExcludeObjectSnapshot,
+  FilamentSensorSnapshot,
   PrinterLimits,
   PrinterTransportState,
 } from '@treed/printer-logic'
@@ -212,6 +214,7 @@ export interface PrinterRuntimeSnapshot {
   hardware: PrinterHardwareSnapshot
   uiContract: PrinterUiContractSnapshot
   capabilities: PrinterCapabilitiesSnapshot
+  filamentSensor: FilamentSensorSnapshot
   limits: PrinterLimits
   usage: PrinterUsageSnapshot
   printJob: PrinterPrintJobSnapshot

@@ -1,73 +1,80 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { MaintenanceControlPanel } from './MaintenanceControlPanel'
+import type { MaintenanceStatus } from '../types'
 
-const CHECKLIST_ITEMS = [
-  { id: 'belts', label: 'Проверка ремней' },
-  { id: 'fans', label: 'Проверка обдува' },
-] as const
+function createStatus(overrides: Partial<MaintenanceStatus> = {}): MaintenanceStatus {
+  return {
+    runtimeHours: 437,
+    cycleRuntimeHours: 126,
+    hoursLeft: 874,
+    intervalHours: 1000,
+    isRuntimeBacked: true,
+    isCycleBacked: true,
+    cycleState: 'ready',
+    notice: '',
+    cycleNotice: '',
+    lastMaintenanceAt: '2026-06-01T10:00:00.000Z',
+    systemLabel: 'В норме',
+    systemTone: 'ok',
+    systemNotice: 'Доступные runtime-данные без предупреждений.',
+    ...overrides,
+  }
+}
+
+function renderPanel(
+  status: MaintenanceStatus,
+  onMaintenanceComplete = vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
+) {
+  return render(
+    <MaintenanceControlPanel
+      status={status}
+      progressTicks={[0, 1, 2]}
+      progressPercent={12.6}
+      isCompletingMaintenance={false}
+      completionError=""
+      completionBlockReason={null}
+      onMaintenanceComplete={onMaintenanceComplete}
+    />,
+  )
+}
 
 describe('MaintenanceControlPanel', () => {
-  it('marks maintenance values as unavailable when runtime data is not connected', () => {
-    render(
-      <MaintenanceControlPanel
-        status={{
-          runtimeHours: 874,
-          hoursLeft: 126,
-          intervalHours: 1000,
-          isRuntimeBacked: false,
-          notice: 'Данные ТО пока не подключены к runtime.',
-          systemLabel: 'Внимание',
-          systemTone: 'warning',
-          systemNotice: 'Сервис moonraker: failed / failed.',
-        }}
-        historyItems={[]}
-        checklistItems={CHECKLIST_ITEMS}
-        progressTicks={[0, 1, 2]}
-        progressPercent={0}
-        checklistState={{}}
-        isChecklistComplete={false}
-        onChecklistItemChange={vi.fn()}
-        onChecklistComplete={vi.fn()}
-      />,
-    )
+  it('separates total runtime from the current maintenance cycle', () => {
+    renderPanel(createStatus())
 
-    expect(screen.getByText('Данные ТО пока не подключены к runtime.')).toBeInTheDocument()
-    expect(screen.getByText('Система')).toBeInTheDocument()
-    expect(screen.getByText('Внимание')).toBeInTheDocument()
-    expect(screen.getByText('Сервис moonraker: failed / failed.')).toBeInTheDocument()
-    expect(screen.queryByText('874 ч')).not.toBeInTheDocument()
-    expect(screen.queryByText('126 ч')).not.toBeInTheDocument()
+    expect(screen.getByText('437 ч')).toBeInTheDocument()
+    expect(screen.getByText('126 ч')).toBeInTheDocument()
+    expect(screen.getByText('874 ч')).toBeInTheDocument()
+    expect(screen.getByText('13%')).toBeInTheDocument()
   })
 
-  it('keeps the checklist interactive', () => {
-    const onChecklistItemChange = vi.fn()
+  it('does not present a maintenance cycle as valid when persistence is unavailable', () => {
+    renderPanel(createStatus({
+      cycleRuntimeHours: 0,
+      hoursLeft: 0,
+      isCycleBacked: false,
+      cycleState: 'unavailable',
+      cycleNotice: 'История технического обслуживания недоступна.',
+    }))
 
-    render(
-      <MaintenanceControlPanel
-        status={{
-          runtimeHours: 0,
-          hoursLeft: 0,
-          intervalHours: 1000,
-          isRuntimeBacked: false,
-          notice: 'Данные ТО пока не подключены к runtime.',
-          systemLabel: 'Загрузка',
-          systemTone: 'muted',
-          systemNotice: 'Диагностика системы загружается.',
-        }}
-        historyItems={[]}
-        checklistItems={CHECKLIST_ITEMS}
-        progressTicks={[0, 1, 2]}
-        progressPercent={0}
-        checklistState={{}}
-        isChecklistComplete={false}
-        onChecklistItemChange={onChecklistItemChange}
-        onChecklistComplete={vi.fn()}
-      />,
-    )
+    expect(screen.getByText('437 ч')).toBeInTheDocument()
+    expect(screen.getAllByText('История технического обслуживания недоступна.').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
 
-    fireEvent.click(screen.getAllByRole('checkbox')[0])
+  it('requires confirmation before resetting the maintenance cycle', async () => {
+    const onMaintenanceComplete = vi.fn<() => Promise<boolean>>().mockResolvedValue(true)
+    renderPanel(createStatus(), onMaintenanceComplete)
 
-    expect(onChecklistItemChange).toHaveBeenCalledWith('belts', true)
+    fireEvent.click(screen.getByTestId('maintenance-complete-button'))
+    expect(screen.getByTestId('maintenance-complete-dialog')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('maintenance-complete-confirm'))
+
+    await waitFor(() => {
+      expect(onMaintenanceComplete).toHaveBeenCalledTimes(1)
+      expect(screen.queryByTestId('maintenance-complete-dialog')).not.toBeInTheDocument()
+    })
   })
 })

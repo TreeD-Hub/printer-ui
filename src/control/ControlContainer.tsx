@@ -1,8 +1,12 @@
 import { useMemo } from 'react'
 import { ControlPage } from './ControlPage'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
-import { clampPercent } from '../dashboard/helpers'
 import type { AxisId } from '../ui'
+import type {
+  FilamentSensorMode,
+  FilamentSensorSensitivity,
+  FilamentSensorSnapshot,
+} from '@treed/printer-logic'
 import { CONTROL_MOVE_STEP_OPTIONS } from './config'
 import type {
   ControlGroupId,
@@ -30,6 +34,9 @@ export type ControlContainerProps = {
   moveStepKey: MoveStepKey
   heating: HeatingControlPanelProps
   fan: FanControlPanelProps
+  filamentSensor: FilamentSensorSnapshot
+  isFilamentSensorSnapshotStale: boolean
+  commandError: string
   isMainLightEnabled: boolean
   isToolheadLightEnabled: boolean
   mainLightCommandBlockReason: string | null
@@ -42,7 +49,7 @@ export type ControlContainerProps = {
   maintenanceProgressTicks: readonly number[]
   maintenanceChecklistState: Record<string, boolean>
   onMaintenanceChecklistItemChange: (itemId: string, checked: boolean) => void
-  onMaintenanceChecklistComplete: () => void
+  onMaintenanceChecklistComplete: () => Promise<boolean> | void
   onControlGroupChange: (groupId: ControlGroupId) => void
   onControlMenuCompactToggle: () => void
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
@@ -53,6 +60,8 @@ export type ControlContainerProps = {
   onMoveStepChange: (nextStep: MoveStepKey) => void
   onAxisMove: (axis: AxisId, distanceMm: number) => Promise<boolean>
   onFilamentMove: (direction: -1 | 1, distanceMm: number) => Promise<boolean>
+  onFilamentSensorModeChange: (mode: FilamentSensorMode) => Promise<boolean>
+  onFilamentSensitivityChange: (sensitivity: FilamentSensorSensitivity) => Promise<boolean>
   getLastCommandError: () => string
 }
 
@@ -67,6 +76,9 @@ export function ControlContainer({
   moveStepKey,
   heating,
   fan,
+  filamentSensor,
+  isFilamentSensorSnapshotStale,
+  commandError,
   isMainLightEnabled,
   isToolheadLightEnabled,
   mainLightCommandBlockReason,
@@ -74,11 +86,7 @@ export function ControlContainer({
   onMainLightToggle,
   onToolheadLightToggle,
   maintenanceStatus,
-  maintenanceHistoryItems,
-  maintenanceChecklistItems,
   maintenanceProgressTicks,
-  maintenanceChecklistState,
-  onMaintenanceChecklistItemChange,
   onMaintenanceChecklistComplete,
   onControlGroupChange,
   onControlMenuCompactToggle,
@@ -90,6 +98,8 @@ export function ControlContainer({
   onMoveStepChange,
   onAxisMove,
   onFilamentMove,
+  onFilamentSensorModeChange,
+  onFilamentSensitivityChange,
   getLastCommandError,
 }: ControlContainerProps) {
   const moveStepMm = CONTROL_MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)?.valueMm ?? 1
@@ -120,13 +130,33 @@ export function ControlContainer({
     loadFilament: getCommandBlockReason('loadFilament'),
     unloadFilament: getCommandBlockReason('unloadFilament'),
   }), [getCommandBlockReason, moveStepMm])
-  const maintenanceProgressPercent = maintenanceStatus.isRuntimeBacked
-    ? clampPercent(
-        maintenanceStatus.runtimeHours,
-        maintenanceStatus.intervalHours,
-      )
+  const filamentModeBlockReasons = useMemo<Record<FilamentSensorMode, string | null>>(() => ({
+    presence: getCommandBlockReason('setFilamentSensorMode', {
+      command: 'setFilamentSensorMode',
+      mode: 'presence',
+    }),
+    motion: getCommandBlockReason('setFilamentSensorMode', {
+      command: 'setFilamentSensorMode',
+      mode: 'motion',
+    }),
+  }), [getCommandBlockReason])
+  const maintenanceProgressPercent = maintenanceStatus.isCycleBacked === true
+    ? Math.min(100, Math.max(0, ((maintenanceStatus.cycleRuntimeHours ?? 0) / maintenanceStatus.intervalHours) * 100))
     : 0
-  const isMaintenanceChecklistComplete = maintenanceChecklistItems.every((item) => maintenanceChecklistState[item.id])
+  const filamentSensitivityBlockReasons = useMemo<Record<FilamentSensorSensitivity, string | null>>(() => ({
+    low: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'low',
+    }),
+    medium: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'medium',
+    }),
+    high: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'high',
+    }),
+  }), [getCommandBlockReason])
 
   return (
     <ControlPage
@@ -154,6 +184,16 @@ export function ControlContainer({
       }}
       heating={heating}
       fan={fan}
+      filament={{
+        snapshot: filamentSensor,
+        isStale: isFilamentSensorSnapshotStale,
+        pendingCommand,
+        commandError,
+        modeBlockReasons: filamentModeBlockReasons,
+        sensitivityBlockReasons: filamentSensitivityBlockReasons,
+        onModeChange: onFilamentSensorModeChange,
+        onSensitivityChange: onFilamentSensitivityChange,
+      }}
       lighting={{
         isMainLightEnabled,
         isToolheadLightEnabled,
@@ -165,14 +205,15 @@ export function ControlContainer({
       }}
       maintenance={{
         status: maintenanceStatus,
-        historyItems: maintenanceHistoryItems,
-        checklistItems: maintenanceChecklistItems,
         progressTicks: maintenanceProgressTicks,
         progressPercent: maintenanceProgressPercent,
-        checklistState: maintenanceChecklistState,
-        isChecklistComplete: isMaintenanceChecklistComplete,
-        onChecklistItemChange: onMaintenanceChecklistItemChange,
-        onChecklistComplete: onMaintenanceChecklistComplete,
+        isCompletingMaintenance: maintenanceStatus.isCompletingMaintenance ?? false,
+        completionError: maintenanceStatus.completionError ?? '',
+        completionBlockReason: maintenanceStatus.completionBlockReason ?? null,
+        onMaintenanceComplete: async () => {
+          const result = await Promise.resolve(onMaintenanceChecklistComplete())
+          return result !== false
+        },
       }}
     />
   )

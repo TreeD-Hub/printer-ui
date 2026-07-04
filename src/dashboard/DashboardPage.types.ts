@@ -43,6 +43,7 @@ export type MaintenanceSummary = {
   runtimeHours: number
   hoursLeft: number
   isRuntimeBacked: boolean
+  isCycleBacked?: boolean
   systemLabel: string
   systemTone: 'ok' | 'warning' | 'error' | 'muted'
   systemNotice: string

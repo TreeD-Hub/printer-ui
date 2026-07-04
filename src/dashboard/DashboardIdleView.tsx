@@ -2,6 +2,10 @@ import { DashboardIdleTemperatureWidgetContent } from './DashboardTemperatureWid
 import { DashboardDiagnosticView } from './DashboardDiagnosticView'
 import type { DashboardIdleViewProps } from './DashboardPage.types'
 
+const HOURS_FORMATTER = new Intl.NumberFormat('ru-RU', {
+  maximumFractionDigits: 1,
+})
+
 export function DashboardIdleView({
   statusDock,
   logoSrc,
@@ -25,10 +29,10 @@ export function DashboardIdleView({
   onDiagnosticAction,
 }: DashboardIdleViewProps) {
   const maintenanceRuntimeLabel = maintenanceSummary.isRuntimeBacked
-    ? `${maintenanceSummary.runtimeHours} ч`
+    ? `${HOURS_FORMATTER.format(maintenanceSummary.runtimeHours)} ч`
     : '—'
-  const maintenanceDueLabel = maintenanceSummary.isRuntimeBacked
-    ? `${maintenanceSummary.hoursLeft} ч`
+  const maintenanceDueLabel = maintenanceSummary.isCycleBacked === true
+    ? `${HOURS_FORMATTER.format(maintenanceSummary.hoursLeft)} ч`
     : '—'
 
   return (
@@ -88,15 +92,7 @@ export function DashboardIdleView({
                     <div className="idle-maintenance-head">
                       <p className="idle-mini-label idle-maintenance-label">
                         <span>Т.О</span>
-                        <span className={`idle-maintenance-status is-${maintenanceSummary.systemTone}`}>
-                          {maintenanceSummary.systemLabel}
-                        </span>
                       </p>
-                      {maintenanceSummary.systemTone !== 'ok' ? (
-                        <p className="idle-maintenance-notice" title={maintenanceSummary.systemNotice}>
-                          {maintenanceSummary.systemNotice}
-                        </p>
-                      ) : null}
                     </div>
                     <div className="idle-service-metrics">
                       <p><span>Пробег</span><strong>{maintenanceRuntimeLabel}</strong></p>

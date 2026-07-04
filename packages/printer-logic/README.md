@@ -6,7 +6,7 @@
 
 Пакет хранит только стабильную общую логику:
 
-- типы printer snapshot, connection state, limits, files и host-network;
+- типы printer snapshot, connection state, limits, files, host-network и BTT SFS runtime state;
 - pure helpers для файлов печати: normalize id/path/name/directory и sort;
 - pure helpers для Wi-Fi/host-network статусов и выбора сети;
 - нормализацию homed axes;
@@ -15,6 +15,8 @@
 - причины блокировки команд через `getTreeDCommandBlockReason`;
 - базовую валидацию аргументов команд через `getTreeDCommandArgumentError`;
 - лимиты профиля `TREED_V2_COREXY_V1_LIMITS`.
+
+Контракт датчика нити включает `FilamentSensorSnapshot`, capability `filamentSensorControl` / `filamentEncoderSensitivity` и команды `setFilamentSensorMode` / `setFilamentEncoderSensitivity`. Правила блокируют обе настройки во время активной печати и чувствительность вне motion-режима.
 
 Пакет не выполняет команды, не вызывает `nmcli`, не ходит в Moonraker и не знает про layout. UI-приложения отвечают за transport, errors, retry, confirmation flow и отображение.
 

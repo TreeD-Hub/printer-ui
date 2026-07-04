@@ -51,6 +51,7 @@ import { useMaintenanceController } from './maintenance'
 import { ExcludeObjectModal, getExcludeObjectOpenBlockReason } from './excludeObject'
 import { recordOperationalDiagnostic } from './diagnostics'
 import type { PrinterConnectionState } from './core/transport/types'
+import type { FilamentSensorMode, FilamentSensorSensitivity } from '@treed/printer-logic'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
 
@@ -97,6 +98,7 @@ function App() {
       thermalTargets: snapshot.thermalTargets,
       modelFanPercent: snapshot.modelFanPercent,
       mainLightEnabled: snapshot.mainLightEnabled,
+      filamentSensor: snapshot.filamentSensor,
     }),
     [
       printSessionController.commandRuntimePrintJob,
@@ -110,6 +112,7 @@ function App() {
       snapshot.mainLightEnabled,
       snapshot.modelFanPercent,
       snapshot.excludeObjects,
+      snapshot.filamentSensor,
       snapshot.thermalTargets,
       snapshot.transport.state,
       snapshot.toolhead.rawX,
@@ -480,6 +483,14 @@ function App() {
     })
   }
 
+  function handleFilamentSensorModeChange(mode: FilamentSensorMode): Promise<boolean> {
+    return executeCommand({ command: 'setFilamentSensorMode', mode })
+  }
+
+  function handleFilamentSensitivityChange(sensitivity: FilamentSensorSensitivity): Promise<boolean> {
+    return executeCommand({ command: 'setFilamentEncoderSensitivity', sensitivity })
+  }
+
   function flashControlAction(nextKey: string): void {
     setActiveControlFlashKey(nextKey)
 
@@ -734,6 +745,9 @@ function App() {
             isControlMenuCompact,
             controlGroupBlockReasons: {
               movement: movementTabBlockReason,
+              filament: snapshot.filamentSensor.supported
+                ? null
+                : (snapshot.filamentSensor.message ?? 'Датчик нити недоступен.'),
             },
             pendingCommand,
             isBusy,
@@ -750,9 +764,14 @@ function App() {
             onMoveStepChange: setMoveStepKey,
             onAxisMove: handleAxisMove,
             onFilamentMove: handleFilamentMove,
+            onFilamentSensorModeChange: handleFilamentSensorModeChange,
+            onFilamentSensitivityChange: handleFilamentSensitivityChange,
             getLastCommandError,
             heating: heatingProps,
             fan: fanProps,
+            filamentSensor: snapshot.filamentSensor,
+            isFilamentSensorSnapshotStale: snapshot.connection !== 'online' && snapshot.connection !== 'degraded',
+            commandError,
             isMainLightEnabled: snapshot.mainLightEnabled,
             isToolheadLightEnabled: false,
             mainLightCommandBlockReason,

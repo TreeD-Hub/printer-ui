@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { IconMask, SettingsSidebarMenu } from '../ui'
 import { CONTROL_GROUP_OPTIONS } from './config'
 import { FanControlPanel } from './panels/FanControlPanel'
+import { FilamentSensorControlPanel } from './panels/FilamentSensorControlPanel'
 import { HeatingControlPanel } from './panels/HeatingControlPanel'
 import { LightingControlPanel } from './panels/LightingControlPanel'
 import { MaintenanceControlPanel } from './panels/MaintenanceControlPanel'
@@ -9,6 +10,7 @@ import { MovementControlPanel } from './panels/MovementControlPanel'
 import type {
   ControlGroupId,
   FanControlPanelProps,
+  FilamentSensorControlPanelProps,
   HeatingControlPanelProps,
   LightingControlPanelProps,
   MaintenanceControlPanelProps,
@@ -24,6 +26,7 @@ type ControlPageProps = {
   movement: MovementControlPanelProps
   heating: HeatingControlPanelProps
   fan: FanControlPanelProps
+  filament: FilamentSensorControlPanelProps
   lighting: LightingControlPanelProps
   maintenance: MaintenanceControlPanelProps
 }
@@ -37,11 +40,19 @@ export const ControlPage = memo(function ControlPage({
   movement,
   heating,
   fan,
+  filament,
   lighting,
   maintenance,
 }: ControlPageProps) {
   const activeControlGroupOption =
     CONTROL_GROUP_OPTIONS.find((option) => option.id === activeControlGroup) ?? CONTROL_GROUP_OPTIONS[0]
+  const maintenanceStatusLabel = maintenance.status.isCycleBacked === true
+    ? maintenance.status.hoursLeft > 0
+      ? `Следующее ТО через ${maintenance.status.hoursLeft} ч`
+      : 'Требуется плановое ТО'
+    : maintenance.status.cycleState === 'loading'
+      ? 'Загрузка данных ТО'
+      : 'Расчёт ТО недоступен'
 
   return (
     <section className="control-screen" data-testid="screen-control">
@@ -77,12 +88,24 @@ export const ControlPage = memo(function ControlPage({
                   Сервисное обслуживание и напоминания для вашего 3D-принтера.
                 </p>
               </div>
-              <p className="control-maintenance-status-pill">
-                {maintenance.status.isRuntimeBacked
-                  ? `Следующее ТО через ${maintenance.status.hoursLeft} ч`
-                  : 'ТО не подключено'}
-                <span aria-hidden="true" />
-              </p>
+              <div className="control-maintenance-header-actions">
+                <p className="control-maintenance-status-pill">
+                  {maintenanceStatusLabel}
+                  <span aria-hidden="true" />
+                </p>
+                <button
+                  type="button"
+                  className="control-maintenance-history-button"
+                  aria-label="История ТО — в разработке"
+                  title="История ТО — в разработке"
+                  data-testid="maintenance-history-button"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="7.5" />
+                    <path d="M12 7.7v4.6l3 1.9" />
+                  </svg>
+                </button>
+              </div>
             </div>
           ) : (
             <p className="control-tab-label" data-testid="control-active-tab-label">
@@ -98,6 +121,8 @@ export const ControlPage = memo(function ControlPage({
               <FanControlPanel {...fan} />
             ) : activeControlGroup === 'lighting' ? (
               <LightingControlPanel {...lighting} />
+            ) : activeControlGroup === 'filament' ? (
+              <FilamentSensorControlPanel {...filament} />
             ) : (
               <MaintenanceControlPanel {...maintenance} />
             )}

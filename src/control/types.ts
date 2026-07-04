@@ -1,8 +1,13 @@
 import type { ReactNode } from 'react'
 import type { PrinterCommandId } from '../core/commands'
+import type {
+  FilamentSensorMode,
+  FilamentSensorSensitivity,
+  FilamentSensorSnapshot,
+} from '@treed/printer-logic'
 import type { AxisId, UiIconName } from '../ui'
 
-export type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'maintenance'
+export type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'filament' | 'maintenance'
 export type ParkingMode = 'all' | 'axis'
 export type MovementMode = 'buttons' | 'joystick'
 export type MoveStepKey = '1' | '10' | '25' | '100'
@@ -73,13 +78,21 @@ export type TemperatureChartSeries = {
 
 export type MaintenanceStatus = {
   runtimeHours: number
+  cycleRuntimeHours?: number
   hoursLeft: number
   intervalHours: number
   isRuntimeBacked: boolean
+  isCycleBacked?: boolean
+  cycleState?: 'loading' | 'ready' | 'unavailable'
   notice: string
+  cycleNotice?: string
+  lastMaintenanceAt?: string | null
   systemLabel: string
   systemTone: 'ok' | 'warning' | 'error' | 'muted'
   systemNotice: string
+  isCompletingMaintenance?: boolean
+  completionError?: string
+  completionBlockReason?: string | null
 }
 
 export type MaintenanceHistoryItem = {
@@ -136,6 +149,17 @@ export type FanControlPanelProps = {
   onFanPercentChange: (nextValue: number) => void
 }
 
+export type FilamentSensorControlPanelProps = {
+  snapshot: FilamentSensorSnapshot
+  isStale: boolean
+  pendingCommand: PrinterCommandId | null
+  commandError: string
+  modeBlockReasons: Record<FilamentSensorMode, string | null>
+  sensitivityBlockReasons: Record<FilamentSensorSensitivity, string | null>
+  onModeChange: (mode: FilamentSensorMode) => Promise<boolean>
+  onSensitivityChange: (sensitivity: FilamentSensorSensitivity) => Promise<boolean>
+}
+
 export type LightingControlPanelProps = {
   isMainLightEnabled: boolean
   isToolheadLightEnabled: boolean
@@ -148,12 +172,10 @@ export type LightingControlPanelProps = {
 
 export type MaintenanceControlPanelProps = {
   status: MaintenanceStatus
-  historyItems: readonly MaintenanceHistoryItem[]
-  checklistItems: readonly MaintenanceChecklistItem[]
   progressTicks: readonly number[]
   progressPercent: number
-  checklistState: Record<string, boolean>
-  isChecklistComplete: boolean
-  onChecklistItemChange: (itemId: string, checked: boolean) => void
-  onChecklistComplete: () => void
+  isCompletingMaintenance: boolean
+  completionError: string
+  completionBlockReason: string | null
+  onMaintenanceComplete: () => Promise<boolean>
 }

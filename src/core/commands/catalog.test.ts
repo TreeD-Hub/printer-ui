@@ -70,6 +70,8 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
   fan: true,
   lighting: true,
   filament: true,
+  filamentSensorControl: true,
+  filamentEncoderSensitivity: true,
   console: true,
   eddy: true,
   shaper: true,

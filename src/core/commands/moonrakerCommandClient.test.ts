@@ -89,6 +89,37 @@ describe('createMoonrakerCommandClient', () => {
     )
   })
 
+  it('routes filament sensor mode through G-code and sensitivity through host API', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: 'ok' }),
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
+    })
+
+    await client.execute({ command: 'setFilamentSensorMode', mode: 'motion' })
+    await client.execute({ command: 'setFilamentEncoderSensitivity', sensitivity: 'high' })
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ script: 'FILAMENT_SENSOR_SET_MODE MODE=MOTION' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://moonraker.local/server/treed/filament-sensor/settings',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ sensitivity: 'high' }),
+      }),
+    )
+  })
+
   it('maps TreeD V2 motion and service commands to Moonraker G-code scripts', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

@@ -23,6 +23,8 @@ const ALL_CAPABILITIES = {
   fan: true,
   lighting: true,
   filament: true,
+  filamentSensorControl: true,
+  filamentEncoderSensitivity: true,
   console: true,
   eddy: true,
   shaper: true,
@@ -61,6 +63,16 @@ const RUNTIME_CONTEXT: TreeDCommandRuntimeContext = {
   },
   modelFanPercent: 50,
   mainLightEnabled: false,
+  filamentSensor: {
+    supported: true,
+    motionSupported: true,
+    mode: 'motion',
+    sensitivity: 'medium',
+    filamentDetected: true,
+    switchEnabled: true,
+    motionEnabled: true,
+    message: null,
+  },
 }
 
 type PrinterCommandsApi = ReturnType<typeof usePrinterCommands>
@@ -302,6 +314,65 @@ describe('usePrinterCommands', () => {
       },
     }} onReady={onReady} />)
 
+    await waitFor(() => {
+      expect(api!.pendingCommand).toBeNull()
+      expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'confirmed' }))
+    })
+  })
+
+  it('confirms filament mode and sensitivity only from updated runtime state', async () => {
+    runtimeMocks.execute
+      .mockResolvedValueOnce(accepted('setFilamentSensorMode'))
+      .mockResolvedValueOnce(accepted('setFilamentEncoderSensitivity'))
+    let api: PrinterCommandsApi | null = null
+    const onReady = (nextApi: PrinterCommandsApi) => {
+      api = nextApi
+    }
+    const idleContext: TreeDCommandRuntimeContext = {
+      ...RUNTIME_CONTEXT,
+      printJob: {
+        filename: '',
+        state: 'standby',
+        isActive: false,
+        isPaused: false,
+      },
+      filamentSensor: {
+        ...RUNTIME_CONTEXT.filamentSensor!,
+        mode: 'presence',
+        motionEnabled: false,
+      },
+    }
+    const { rerender } = render(<Harness context={idleContext} onReady={onReady} />)
+
+    await waitFor(() => expect(api).not.toBeNull())
+    await act(async () => {
+      await api!.executeCommand({ command: 'setFilamentSensorMode', mode: 'motion' })
+    })
+    expect(api!.pendingCommand).toBe('setFilamentSensorMode')
+
+    const motionContext = {
+      ...idleContext,
+      filamentSensor: {
+        ...idleContext.filamentSensor!,
+        mode: 'motion' as const,
+        motionEnabled: true,
+      },
+    }
+    rerender(<Harness context={motionContext} onReady={onReady} />)
+    await waitFor(() => expect(api!.pendingCommand).toBeNull())
+
+    await act(async () => {
+      await api!.executeCommand({ command: 'setFilamentEncoderSensitivity', sensitivity: 'high' })
+    })
+    expect(api!.pendingCommand).toBe('setFilamentEncoderSensitivity')
+
+    rerender(<Harness context={{
+      ...motionContext,
+      filamentSensor: {
+        ...motionContext.filamentSensor,
+        sensitivity: 'high',
+      },
+    }} onReady={onReady} />)
     await waitFor(() => {
       expect(api!.pendingCommand).toBeNull()
       expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'confirmed' }))

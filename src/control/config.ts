@@ -19,6 +19,7 @@ export const CONTROL_GROUP_OPTIONS: Array<SettingsMenuOption<ControlGroupId>> = 
   { id: 'heating', label: 'Нагрев', icon: 'metricNozzle' },
   { id: 'fans', label: 'Вентиляторы', icon: 'metricFan' },
   { id: 'lighting', label: 'Освещение', icon: 'metricLight' },
+  { id: 'filament', label: 'Датчик нити', icon: 'menuDevice' },
   { id: 'maintenance', label: 'Т.О', icon: 'menuDevice' },
 ]
 

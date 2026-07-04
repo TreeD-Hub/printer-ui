@@ -38,6 +38,8 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'excludeObject',
   'loadFilament',
   'unloadFilament',
+  'setFilamentSensorMode',
+  'setFilamentEncoderSensitivity',
   'zParkZeroEddy',
   'eddyDriveCurrentCalibrate',
   'eddyPrimaryHeightStart',
@@ -71,6 +73,8 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
   fan: true,
   lighting: true,
   filament: true,
+  filamentSensorControl: true,
+  filamentEncoderSensitivity: true,
   console: true,
   eddy: true,
   shaper: true,
@@ -101,6 +105,16 @@ const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   },
   eddyStatus: 'ready',
   extruderTemp: 210,
+  filamentSensor: {
+    supported: true,
+    motionSupported: true,
+    mode: 'presence',
+    sensitivity: 'medium',
+    filamentDetected: true,
+    switchEnabled: true,
+    motionEnabled: false,
+    message: null,
+  },
   limits: TREED_V2_COREXY_V1_LIMITS,
 }
 
@@ -301,6 +315,46 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     })).toContain('во время печати')
     expect(getTreeDCommandBlockReason('disableMotors', PRINTING_CONTEXT)).toContain('во время печати')
     expect(getTreeDCommandBlockReason('eddyBedMeshCalibrate', PRINTING_CONTEXT)).toContain('во время печати')
+  })
+
+  it('gates filament sensor settings by print state, mode and degraded hardware', () => {
+    expect(getTreeDCommandBlockReason('setFilamentSensorMode', IDLE_CONTEXT, {
+      command: 'setFilamentSensorMode',
+      mode: 'motion',
+    })).toBeNull()
+    expect(getTreeDCommandBlockReason('setFilamentEncoderSensitivity', IDLE_CONTEXT, {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'high',
+    })).toContain('режим')
+    expect(getTreeDCommandBlockReason('setFilamentEncoderSensitivity', {
+      ...IDLE_CONTEXT,
+      filamentSensor: {
+        ...IDLE_CONTEXT.filamentSensor!,
+        mode: 'motion',
+        motionEnabled: true,
+      },
+    }, {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'low',
+    })).toBeNull()
+    expect(getTreeDCommandBlockReason('setFilamentSensorMode', PRINTING_CONTEXT, {
+      command: 'setFilamentSensorMode',
+      mode: 'presence',
+    })).toContain('во время печати')
+    expect(getTreeDCommandBlockReason('setFilamentEncoderSensitivity', PRINTING_CONTEXT, {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'medium',
+    })).toContain('во время печати')
+    expect(getTreeDCommandBlockReason('setFilamentSensorMode', {
+      ...IDLE_CONTEXT,
+      filamentSensor: {
+        ...IDLE_CONTEXT.filamentSensor!,
+        motionSupported: false,
+      },
+    }, {
+      command: 'setFilamentSensorMode',
+      mode: 'motion',
+    })).toContain('канал движения')
   })
 
   it('validates movement and heating arguments against the active profile', () => {

@@ -75,8 +75,8 @@ describe('App', () => {
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
     expect(screen.getByText(/Экосистема/i)).toBeInTheDocument()
     const maintenanceWidget = within(screen.getByTestId('idle-widget-maintenance'))
-    expect(maintenanceWidget.getByText('Загрузка')).toBeInTheDocument()
-    expect(maintenanceWidget.getByText('Диагностика системы загружается.')).toBeInTheDocument()
+    expect(maintenanceWidget.getByText('Пробег')).toBeInTheDocument()
+    expect(maintenanceWidget.getByText('До Т.О')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Ожидание печати' })).not.toBeInTheDocument()
     const idleNotesInput = screen.getByTestId('idle-notes-input') as HTMLTextAreaElement
     expect(idleNotesInput.value.length).toBeGreaterThan(0)
@@ -942,6 +942,33 @@ describe('App', () => {
     } finally {
       applyPrinterSnapshot(previousSnapshot)
     }
+  })
+
+  it('opens filament sensor control and dispatches typed settings commands', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+    fireEvent.click(screen.getByTestId('control-group-filament'))
+
+    expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Датчик нити')
+    expect(screen.getByText('Нить установлена')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('filament-mode-presence'))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({
+        command: 'setFilamentSensorMode',
+        mode: 'presence',
+      })
+    })
+
+    fireEvent.click(screen.getByTestId('filament-sensitivity-high'))
+    fireEvent.click(screen.getByTestId('filament-sensitivity-confirm'))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({
+        command: 'setFilamentEncoderSensitivity',
+        sensitivity: 'high',
+      })
+    })
   })
 
   it('blocks movement tab during active print and opens control on heating', async () => {
