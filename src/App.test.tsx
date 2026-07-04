@@ -75,8 +75,8 @@ describe('App', () => {
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
     expect(screen.getByText(/Экосистема/i)).toBeInTheDocument()
     const maintenanceWidget = within(screen.getByTestId('idle-widget-maintenance'))
-    expect(maintenanceWidget.getByText('Загрузка')).toBeInTheDocument()
-    expect(maintenanceWidget.getByText('Диагностика системы загружается.')).toBeInTheDocument()
+    expect(maintenanceWidget.getByText('Пробег')).toBeInTheDocument()
+    expect(maintenanceWidget.getByText('До Т.О')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Ожидание печати' })).not.toBeInTheDocument()
     const idleNotesInput = screen.getByTestId('idle-notes-input') as HTMLTextAreaElement
     expect(idleNotesInput.value.length).toBeGreaterThan(0)
