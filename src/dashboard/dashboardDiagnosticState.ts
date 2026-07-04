@@ -8,6 +8,7 @@ import type {
 } from '../core/transport/types'
 import {
   isSystemCanDeviceHealthy,
+  isSystemServiceHealthRelevant,
   type MoonrakerSystemStatus,
   type SystemServiceStatus,
 } from '../settings/systemStatus'
@@ -109,7 +110,7 @@ function findUnhealthyService(
   status: MoonrakerSystemStatus,
   name?: string,
 ): SystemServiceStatus | undefined {
-  return status.services.find((service) => !service.healthy && (
+  return status.services.find((service) => isSystemServiceHealthRelevant(service) && !service.healthy && (
     name === undefined || service.name.toLowerCase() === name.toLowerCase()
   ))
 }

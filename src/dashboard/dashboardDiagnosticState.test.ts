@@ -143,6 +143,35 @@ describe('resolveDashboardDiagnostic', () => {
     })
   })
 
+  it('skips inactive KlipperScreen when selecting the dashboard service warning', () => {
+    const systemStatus = createSystemStatus({
+      health: 'warning',
+      services: [
+        {
+          name: 'KlipperScreen',
+          activeState: 'inactive',
+          subState: 'dead',
+          healthy: false,
+        },
+        {
+          name: 'crowsnest',
+          activeState: 'failed',
+          subState: 'failed',
+          healthy: false,
+        },
+      ],
+    })
+
+    expect(resolveDashboardDiagnostic({
+      ...createRuntime(),
+      systemStatus,
+    })).toMatchObject({
+      severity: 'warning',
+      title: 'Камера недоступна',
+      action: { kind: 'openSystem' },
+    })
+  })
+
   it('reports CAN errors as a warning with system details action', () => {
     const systemStatus = createSystemStatus({
       health: 'warning',

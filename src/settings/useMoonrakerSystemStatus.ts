@@ -6,7 +6,11 @@ import {
   type MoonrakerSystemStatus,
 } from './systemStatus'
 
-const SYSTEM_STATUS_POLL_INTERVAL_MS = 10_000
+const DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS = 10_000
+
+type UseMoonrakerSystemStatusOptions = {
+  pollIntervalMs?: number
+}
 
 export type MoonrakerSystemStatusController = {
   status: MoonrakerSystemStatus
@@ -14,11 +18,14 @@ export type MoonrakerSystemStatusController = {
   refresh: () => void
 }
 
-export function useMoonrakerSystemStatus(): MoonrakerSystemStatusController {
+export function useMoonrakerSystemStatus(
+  options: UseMoonrakerSystemStatusOptions = {},
+): MoonrakerSystemStatusController {
   const [status, setStatus] = useState<MoonrakerSystemStatus>(createLoadingMoonrakerSystemStatus)
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false)
   const requestSequenceRef = useRef<number>(0)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const pollIntervalMs = options.pollIntervalMs ?? DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS
 
   const refresh = useCallback((): void => {
     if (runtimeMode === 'mock') {
@@ -65,14 +72,14 @@ export function useMoonrakerSystemStatus(): MoonrakerSystemStatusController {
     }
 
     refresh()
-    const timer = window.setInterval(refresh, SYSTEM_STATUS_POLL_INTERVAL_MS)
+    const timer = window.setInterval(refresh, pollIntervalMs)
 
     return () => {
       requestSequenceRef.current += 1
       abortControllerRef.current?.abort()
       window.clearInterval(timer)
     }
-  }, [refresh])
+  }, [pollIntervalMs, refresh])
 
   return {
     status,
