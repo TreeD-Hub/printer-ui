@@ -12,6 +12,7 @@ type EddyCalibrationScreenProps = {
   snapshot: PrinterSnapshot
   pendingCommand: PrinterCommandId | null
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
+  refresh: () => Promise<void>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   onBackToList: () => void
 }
@@ -82,6 +83,7 @@ export function EddyCalibrationScreen({
   snapshot,
   pendingCommand,
   executeCommand,
+  refresh,
   getCommandBlockReason,
   onBackToList,
 }: EddyCalibrationScreenProps) {
@@ -96,13 +98,15 @@ export function EddyCalibrationScreen({
     }
   }, [calibration.activeStep])
 
-  function runCommand(args: ExecuteCommandArgs): void {
+  async function runCommand(args: ExecuteCommandArgs): Promise<void> {
     const blockReason = getCommandBlockReason(args.command, args)
     if (blockReason !== null) {
       return
     }
 
-    void executeCommand(args)
+    if (await executeCommand(args)) {
+      void refresh()
+    }
   }
 
   function isCommandBlocked(args: ExecuteCommandArgs): boolean {

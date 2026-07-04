@@ -23,9 +23,9 @@ function createProps(overrides: Partial<FilamentSensorControlPanelProps> = {}): 
       motion: null,
     },
     sensitivityBlockReasons: {
-      low: 'Сначала выберите режим «Наличие и движение».',
-      medium: 'Сначала выберите режим «Наличие и движение».',
-      high: 'Сначала выберите режим «Наличие и движение».',
+      low: null,
+      medium: null,
+      high: null,
     },
     onModeChange: vi.fn().mockResolvedValue(true),
     onSensitivityChange: vi.fn().mockResolvedValue(true),
@@ -34,12 +34,12 @@ function createProps(overrides: Partial<FilamentSensorControlPanelProps> = {}): 
 }
 
 describe('FilamentSensorControlPanel', () => {
-  it('renders device-backed presence status and blocks sensitivity in presence mode', () => {
+  it('renders device-backed presence status and keeps sensitivity available in presence mode', () => {
     render(<FilamentSensorControlPanel {...createProps()} />)
 
     expect(screen.getByText('Нить установлена')).toBeInTheDocument()
     expect(screen.getByTestId('filament-mode-presence')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByTestId('filament-sensitivity-medium')).toBeDisabled()
+    expect(screen.getByTestId('filament-sensitivity-medium')).not.toBeDisabled()
   })
 
   it('renders compact mode buttons and one dynamic mode description', () => {
@@ -58,7 +58,6 @@ describe('FilamentSensorControlPanel', () => {
         mode: 'motion',
         motionEnabled: true,
       },
-      sensitivityBlockReasons: { low: null, medium: null, high: null },
     })
     rerender(<FilamentSensorControlPanel {...motionProps} />)
 

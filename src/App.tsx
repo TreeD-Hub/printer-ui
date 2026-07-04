@@ -58,6 +58,8 @@ import './App.css'
 const DEFAULT_SCREEN: ScreenId = 'dashboard'
 const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
 const DEFAULT_BABYSTEP_STEP = BABYSTEP_STEP_OPTIONS[BABYSTEP_STEP_OPTIONS.length - 1]
+const DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS = 10_000
+const OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS = 1_000
 const TOOLHEAD_LIGHT_UNAVAILABLE_REASON = 'Подсветка ПГ: команда пока не подключена к runtime.'
 type KeyboardTarget = 'idleNotes' | SettingsKeyboardTarget
 const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
@@ -71,10 +73,14 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
 
 function App() {
   const { snapshot, refresh, deletePrintFile } = usePrinterSnapshot()
-  const systemStatusController = useMoonrakerSystemStatus()
+  const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
+  const systemStatusController = useMoonrakerSystemStatus({
+    pollIntervalMs: activeScreen === 'settings'
+      ? OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS
+      : DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS,
+  })
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
-  const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
   const [isExcludeObjectModalOpen, setIsExcludeObjectModalOpen] = useState<boolean>(false)
   const printSessionController = usePrintSessionController({ snapshot, deletePrintFile })
   const commandRuntimeContext = useMemo(
@@ -790,6 +796,7 @@ function App() {
             snapshot,
             pendingCommand,
             executeCommand,
+            refresh,
             getCommandBlockReason,
           }}
           settings={{

@@ -148,6 +148,28 @@ describe('normalizeMoonrakerSystemStatus', () => {
     expect(status.health).toBe('error')
   })
 
+  it('does not turn an inactive KlipperScreen fallback service into a warning', () => {
+    const input = buildHealthyInput()
+    input.systemInfo.system_info.available_services.push('KlipperScreen')
+    const serviceState = input.systemInfo.system_info.service_state as Record<
+      string,
+      { active_state: string; sub_state: string }
+    >
+    serviceState.KlipperScreen = {
+      active_state: 'inactive',
+      sub_state: 'dead',
+    }
+
+    const status = normalizeMoonrakerSystemStatus(input)
+
+    expect(status.health).toBe('ok')
+    expect(status.services.find((service) => service.name === 'KlipperScreen')).toMatchObject({
+      activeState: 'inactive',
+      subState: 'dead',
+      healthy: false,
+    })
+  })
+
   it('returns unavailable when no endpoint provides usable data', () => {
     const status = normalizeMoonrakerSystemStatus({
       errors: ['Система: таймаут', 'Moonraker: таймаут'],

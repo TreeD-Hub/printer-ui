@@ -1431,9 +1431,6 @@ function getCommandSpecificBlockReason(
     if (!context.filamentSensor?.motionSupported) {
       return `${item.label}: канал движения недоступен.`
     }
-    if (context.filamentSensor.mode !== 'motion') {
-      return `${item.label}: сначала выберите режим «Наличие и движение».`
-    }
   }
 
   if (command === 'homeZ') {

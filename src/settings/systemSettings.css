@@ -54,17 +54,6 @@
   gap: 3px;
 }
 
-.system-settings-state small {
-  color: var(--color-text-soft);
-  font-size: var(--font-size-tiny);
-  white-space: nowrap;
-}
-
-.system-refresh-button {
-  min-width: 112px;
-  padding-inline: 12px;
-}
-
 .system-status-badge {
   min-height: 24px;
   max-width: 100%;

@@ -121,6 +121,7 @@ type RecordValue = Record<string, unknown>
 
 const DEFAULT_TIMEOUT_MS = 6_000
 const SERVICE_PRIORITY = ['klipper', 'moonraker', 'crowsnest', 'nginx', 'NetworkManager'] as const
+const OPTIONAL_INACTIVE_SERVICES = new Set(['klipperscreen'])
 
 function record(value: unknown): RecordValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -432,6 +433,10 @@ export function isSystemCanDeviceHealthy(device: SystemCanDeviceStatus): boolean
     && (device.txErrors ?? 0) === 0
 }
 
+export function isSystemServiceHealthRelevant(service: SystemServiceStatus): boolean {
+  return !OPTIONAL_INACTIVE_SERVICES.has(service.name.toLowerCase())
+}
+
 function klippyFailed(state: string | null): boolean {
   return ['error', 'shutdown', 'disconnected'].includes(state?.toLowerCase() ?? '')
 }
@@ -454,7 +459,7 @@ export function normalizeMoonrakerSystemStatus(input: NormalizeSystemStatusInput
   const warning = loadState === 'partial'
     || software.warnings.length > 0
     || host.throttledFlags.length > 0
-    || services.some((service) => !service.healthy)
+    || services.some((service) => isSystemServiceHealthRelevant(service) && !service.healthy)
     || canDevices.some((device) => !isSystemCanDeviceHealthy(device))
 
   return {
@@ -490,7 +495,7 @@ export function summarizeMoonrakerSystemStatus(status: MoonrakerSystemStatus): S
   }
 
   const failedComponent = status.software.failedComponents[0]
-  const unhealthyService = status.services.find((service) => !service.healthy)
+  const unhealthyService = status.services.find((service) => isSystemServiceHealthRelevant(service) && !service.healthy)
   const unhealthyCanDevice = status.canDevices.find((device) => !isSystemCanDeviceHealthy(device))
   const issueNotice = klippyFailed(status.software.klippyState)
     ? status.software.stateMessage ?? `Klipper: ${status.software.klippyState}`

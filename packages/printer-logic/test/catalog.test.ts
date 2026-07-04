@@ -317,7 +317,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(getTreeDCommandBlockReason('eddyBedMeshCalibrate', PRINTING_CONTEXT)).toContain('во время печати')
   })
 
-  it('gates filament sensor settings by print state, mode and degraded hardware', () => {
+  it('gates filament sensor settings by print state and degraded hardware', () => {
     expect(getTreeDCommandBlockReason('setFilamentSensorMode', IDLE_CONTEXT, {
       command: 'setFilamentSensorMode',
       mode: 'motion',
@@ -325,7 +325,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(getTreeDCommandBlockReason('setFilamentEncoderSensitivity', IDLE_CONTEXT, {
       command: 'setFilamentEncoderSensitivity',
       sensitivity: 'high',
-    })).toContain('режим')
+    })).toBeNull()
     expect(getTreeDCommandBlockReason('setFilamentEncoderSensitivity', {
       ...IDLE_CONTEXT,
       filamentSensor: {
@@ -354,6 +354,16 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     }, {
       command: 'setFilamentSensorMode',
       mode: 'motion',
+    })).toContain('канал движения')
+    expect(getTreeDCommandBlockReason('setFilamentEncoderSensitivity', {
+      ...IDLE_CONTEXT,
+      filamentSensor: {
+        ...IDLE_CONTEXT.filamentSensor!,
+        motionSupported: false,
+      },
+    }, {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'medium',
     })).toContain('канал движения')
   })
 

@@ -103,17 +103,6 @@ function formatFrequency(value: number | null): string {
   return `${formatNumber(value)} Hz`
 }
 
-function formatUpdatedAt(value: string | null): string {
-  if (value === null) {
-    return 'Нет актуальных данных'
-  }
-
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? 'Время обновления неизвестно'
-    : `Обновлено ${date.toLocaleTimeString('ru-RU')}`
-}
-
 function formatMemoryUsage(usedBytes: number | null, totalBytes: number | null): string {
   if (usedBytes === null || totalBytes === null || totalBytes <= 0) {
     return '—'
@@ -278,7 +267,7 @@ export function SystemSettingsPage({
   system,
   systemStatus,
 }: SystemSettingsPageProps) {
-  const { status, isRefreshing, refresh } = systemStatus
+  const { status } = systemStatus
   const memoryPercent = getMemoryPercent(status.host.memoryUsedBytes, status.host.memoryTotalBytes)
   const warnings = collectWarnings(status)
   const stateSummary = summarizeMoonrakerSystemStatus(status)
@@ -312,17 +301,7 @@ export function SystemSettingsPage({
               <div className="system-settings-head-actions">
                 <div className="system-settings-state">
                   <span className={`system-status-badge is-${stateSummary.tone}`}>{stateSummary.label}</span>
-                  <small>{formatUpdatedAt(status.updatedAt)}</small>
                 </div>
-                <button
-                  type="button"
-                  className="settings-network-btn system-refresh-button"
-                  onClick={refresh}
-                  disabled={isRefreshing}
-                  data-testid="settings-system-refresh"
-                >
-                  {isRefreshing ? 'Обновление…' : 'Обновить'}
-                </button>
               </div>
             </header>
 
