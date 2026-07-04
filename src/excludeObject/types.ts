@@ -9,7 +9,7 @@ export type ExcludeObjectControllerArgs = {
   lastResult: CommandResult | null
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
-  refresh: () => Promise<void>
+  refreshExcludeObjects: () => Promise<void>
   onClose: () => void
   onRequestStopPrint: () => void
 }

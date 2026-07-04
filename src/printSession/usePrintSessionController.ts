@@ -32,7 +32,7 @@ type CreateCommandHandlersArgs = {
   printStartBlockReason: string | null
   printCancelBlockReason: string | null
   requiresCommandConfirmation: (command: PrinterCommandId) => boolean
-  refresh: () => Promise<void>
+  refreshPrintJob: () => Promise<void>
   onOpenDashboard: () => void
 }
 
@@ -204,7 +204,7 @@ export function usePrintSessionController({
     printStartBlockReason,
     printCancelBlockReason,
     requiresCommandConfirmation,
-    refresh,
+    refreshPrintJob,
     onOpenDashboard,
   }: CreateCommandHandlersArgs): PrintSessionCommandHandlers => {
     async function startSelectedFile(): Promise<boolean> {
@@ -232,7 +232,7 @@ export function usePrintSessionController({
         setActivePrintUiState('printing')
       }
 
-      await refresh()
+      await refreshPrintJob()
       onOpenDashboard()
       closeFileModal()
       return true
@@ -242,7 +242,7 @@ export function usePrintSessionController({
       const ok = await executeCommand({ command: printPauseCommand })
       if (ok) {
         setActivePrintUiState(isPrintPaused ? 'printing' : 'paused')
-        await refresh()
+        await refreshPrintJob()
       }
 
       return ok
@@ -254,7 +254,7 @@ export function usePrintSessionController({
         setActivePrintFileName(null)
         setMockActivePrintFile(null)
         setActivePrintUiState(null)
-        await refresh()
+        await refreshPrintJob()
         onOpenDashboard()
         closePrintCancelConfirm()
       }

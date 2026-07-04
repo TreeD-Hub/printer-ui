@@ -232,6 +232,28 @@ export interface PrinterRuntimeSnapshot {
 
 export type PrinterSnapshot = PrinterRuntimeSnapshot
 
+export type PrinterEddyStateSnapshot = Pick<
+  PrinterV2Snapshot['eddy'],
+  'autosaveEnabled' | 'autosavePending' | 'calibration'
+>
+
+export type PrinterPrintJobStateSnapshot = Pick<
+  PrinterSnapshot,
+  'excludeObjects' | 'files' | 'message' | 'printJob' | 'state' | 'updatedAt'
+>
+
+export type PrinterPrintFilesStateSnapshot = Pick<
+  PrinterSnapshot,
+  'fileList' | 'printFiles' | 'revisions'
+>
+
+export type PrinterMotionStateSnapshot = Pick<
+  PrinterSnapshot,
+  'geometry' | 'homedAxes' | 'message' | 'state' | 'toolhead' | 'toolheadX' | 'toolheadY' | 'toolheadZ' | 'updatedAt'
+> & {
+  eddyStatus: PrinterV2Snapshot['eddy']['status']
+}
+
 export interface TransportSubscriptionHandlers {
   onSnapshot: (snapshot: PrinterSnapshot) => void
   onConnectionChange: (connection: PrinterConnectionState, message?: string) => void
@@ -246,6 +268,13 @@ export interface TransportSubscription {
 
 export interface TransportClient {
   fetchSnapshot: () => Promise<PrinterSnapshot>
+  fetchUsage: () => Promise<PrinterUsageSnapshot>
+  fetchFilamentSensor: () => Promise<FilamentSensorSnapshot>
+  fetchEddyState: () => Promise<PrinterEddyStateSnapshot>
+  fetchExcludeObjects: () => Promise<PrinterExcludeObjectSnapshot>
+  fetchPrintJobState: () => Promise<PrinterPrintJobStateSnapshot>
+  fetchPrintFilesState: () => Promise<PrinterPrintFilesStateSnapshot>
+  fetchMotionState: () => Promise<PrinterMotionStateSnapshot>
   deletePrintFile?: (path: string) => Promise<void>
   subscribe?: (handlers: TransportSubscriptionHandlers) => TransportSubscription
 }

@@ -12,7 +12,7 @@ type EddyCalibrationScreenProps = {
   snapshot: PrinterSnapshot
   pendingCommand: PrinterCommandId | null
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
-  refresh: () => Promise<void>
+  refreshEddyState: () => Promise<void>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   onBackToList: () => void
 }
@@ -83,7 +83,7 @@ export function EddyCalibrationScreen({
   snapshot,
   pendingCommand,
   executeCommand,
-  refresh,
+  refreshEddyState,
   getCommandBlockReason,
   onBackToList,
 }: EddyCalibrationScreenProps) {
@@ -105,7 +105,7 @@ export function EddyCalibrationScreen({
     }
 
     if (await executeCommand(args)) {
-      void refresh()
+      void refreshEddyState()
     }
   }
 

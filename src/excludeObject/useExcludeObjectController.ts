@@ -30,7 +30,7 @@ export function useExcludeObjectController({
   lastResult,
   executeCommand,
   getCommandBlockReason,
-  refresh,
+  refreshExcludeObjects,
   onClose,
   onRequestStopPrint,
 }: ExcludeObjectControllerArgs) {
@@ -147,7 +147,7 @@ export function useExcludeObjectController({
     }))
 
     refreshTimeoutRef.current = window.setTimeout(() => {
-      void refresh()
+      void refreshExcludeObjects()
     }, REFRESH_AFTER_COMMAND_MS)
     confirmationTimeoutRef.current = window.setTimeout(() => {
       const message = 'Команда отправлена, но Klipper ещё не подтвердил изменение состояния.'
@@ -173,7 +173,7 @@ export function useExcludeObjectController({
     }
 
     setConfirmationObjectName(null)
-  }, [clearTimers, commandError, confirmationObject, executeCommand, getCommandBlockReason, refresh, snapshot.printJob.filename, snapshot.printJob.state])
+  }, [clearTimers, commandError, confirmationObject, executeCommand, getCommandBlockReason, refreshExcludeObjects, snapshot.printJob.filename, snapshot.printJob.state])
 
   useEffect(() => {
     if (!isOpen) {
