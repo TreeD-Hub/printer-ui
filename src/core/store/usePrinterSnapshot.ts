@@ -30,14 +30,28 @@ function mergeWebSocketSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot
   }
 }
 
-function mergeHttpUsageSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
-  if (next.usage.state !== 'ready') {
-    return previous
-  }
+function hasHttpSupplementalData(next: PrinterSnapshot): boolean {
+  return next.usage.state === 'ready'
+    || (next.fileList !== undefined && next.fileList.state !== 'unknown')
+}
+
+function mergeHttpSupplementalSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
+  const fileList = next.fileList
+  const hasFileListResult = fileList !== undefined && fileList.state !== 'unknown'
 
   return {
     ...previous,
-    usage: next.usage,
+    usage: next.usage.state === 'ready' ? next.usage : previous.usage,
+    ...(hasFileListResult
+      ? {
+          fileList,
+          printFiles: fileList.state === 'ready' ? next.printFiles : previous.printFiles,
+          revisions: {
+            ...previous.revisions,
+            files: next.revisions.files ?? previous.revisions.files,
+          },
+        }
+      : {}),
   }
 }
 
@@ -101,9 +115,9 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       }
 
       if (snapshotRevision !== snapshotRevisionRef.current) {
-        if (nextSnapshot.usage.state === 'ready') {
+        if (hasHttpSupplementalData(nextSnapshot)) {
           snapshotRevisionRef.current += 1
-          updatePrinterSnapshot((prev) => mergeHttpUsageSnapshot(prev, nextSnapshot))
+          updatePrinterSnapshot((prev) => mergeHttpSupplementalSnapshot(prev, nextSnapshot))
         }
         return
       }
