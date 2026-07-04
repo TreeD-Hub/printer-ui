@@ -72,5 +72,5 @@ jobs:
         run: |
           gh release create "${UI_RELEASE_TAG}" "${UI_ARCHIVE_NAME}" \
             --repo "${GITHUB_REPOSITORY}" \
-            --title "treed-shell UI ${UI_RELEASE_TAG}" \
+            --title "TreeD Shell · Release 0.${GITHUB_RUN_NUMBER}.${GITHUB_RUN_ATTEMPT}" \
             --notes-file release-notes.md
