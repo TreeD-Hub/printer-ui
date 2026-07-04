@@ -17,6 +17,9 @@ const MAINTENANCE_INTERVAL_HOURS = 1000
 const MAINTENANCE_PROGRESS_TICKS = Array.from({ length: 31 }, (_item, index) => index)
 const RUNTIME_RESET_TOLERANCE_SEC = 60
 const MAINTENANCE_LOAD_RETRY_MS = 10_000
+const EMPTY_MAINTENANCE_CHECKLIST_ITEMS = [] as const
+const EMPTY_MAINTENANCE_CHECKLIST_STATE: Record<string, boolean> = {}
+const NOOP_MAINTENANCE_CHECKLIST_CHANGE = (): void => undefined
 
 const EMPTY_LEDGER: MaintenanceLedger = {
   schemaVersion: 1,
@@ -237,11 +240,11 @@ export function useMaintenanceController(args: UseMaintenanceControllerArgs) {
   return {
     status,
     historyItems: historyItems(ledgerState.ledger),
-    checklistItems: [] as const,
+    checklistItems: EMPTY_MAINTENANCE_CHECKLIST_ITEMS,
     progressTicks: MAINTENANCE_PROGRESS_TICKS,
     progressPercent,
-    checklistState: {} as Record<string, boolean>,
-    handleChecklistItemChange: (_itemId: string, _checked: boolean): void => undefined,
+    checklistState: EMPTY_MAINTENANCE_CHECKLIST_STATE,
+    handleChecklistItemChange: NOOP_MAINTENANCE_CHECKLIST_CHANGE,
     handleChecklistComplete: handleMaintenanceComplete,
     isCompletingMaintenance,
     completionError,
