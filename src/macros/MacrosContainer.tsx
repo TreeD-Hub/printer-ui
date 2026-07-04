@@ -7,7 +7,7 @@ export type MacrosContainerProps = {
   snapshot: PrinterSnapshot
   pendingCommand: PrinterCommandId | null
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
-  refresh: () => Promise<void>
+  refreshEddyState: () => Promise<void>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
 }
 

@@ -416,6 +416,82 @@ describe('createMoonrakerClient', () => {
     })
   })
 
+  it('refreshes usage through history totals without fetching runtime objects or files', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/server/history/totals')) {
+        return Promise.resolve(moonrakerResponse({
+          job_totals: {
+            total_jobs: 9,
+            total_print_time: 7200,
+          },
+        }))
+      }
+
+      return Promise.resolve(moonrakerResponse({}))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    const usage = await client.fetchUsage()
+
+    expect(usage.totalJobs).toBe(9)
+    expect(usage.totalPrintTimeSec).toBe(7200)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://moonraker.local/server/history/totals')
+  })
+
+  it('refreshes filament sensor state through a minimal object query', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/query')) {
+        return Promise.resolve(moonrakerResponse({
+          status: {
+            'gcode_macro FILAMENT_SENSOR_STATUS': { mode: 'motion' },
+            'gcode_macro _FILAMENT_SENSOR_SENSITIVITY_STATE': { sensitivity: 'high' },
+            'filament_switch_sensor filament_switch': { enabled: true, filament_detected: false },
+            'filament_motion_sensor filament_motion': { enabled: true, filament_detected: true },
+          },
+        }))
+      }
+
+      return Promise.resolve(moonrakerResponse({}))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    const sensor = await client.fetchFilamentSensor()
+
+    expect(sensor.sensitivity).toBe('high')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toContain('filament_switch_sensor%20filament_switch')
+    expect(fetchMock.mock.calls[0]?.[0]).not.toContain('toolhead')
+    expect(fetchMock.mock.calls[0]?.[0]).not.toContain('/server/files/list')
+  })
+
+  it('refreshes print files without fetching runtime objects', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/server/files/list')) {
+        return Promise.resolve(moonrakerResponse([]))
+      }
+
+      return Promise.resolve(moonrakerResponse({}))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    const files = await client.fetchPrintFilesState()
+
+    expect(files.printFiles).toEqual([])
+    expect(files.fileList).toEqual({ state: 'ready', message: null })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://moonraker.local/server/files/list?root=gcodes')
+  })
+
   it('keeps the full file list but limits metadata lookups per snapshot', async () => {
     const files = Array.from({ length: 30 }, (_item, index) => ({
       path: `queue/part-${index}.gcode`,

@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createTransportClient } from '#runtime'
 import { recordOperationalDiagnostic } from '../../diagnostics'
-import type { PrinterSnapshot } from '../transport/types'
+import type {
+  FilamentSensorSnapshot,
+  PrinterEddyStateSnapshot,
+  PrinterExcludeObjectSnapshot,
+  PrinterMotionStateSnapshot,
+  PrinterPrintFilesStateSnapshot,
+  PrinterPrintJobStateSnapshot,
+  PrinterSnapshot,
+  PrinterUsageSnapshot,
+} from '../transport/types'
 import {
   setPrinterSnapshot,
   updatePrinterSnapshot,
@@ -50,6 +59,10 @@ function getTransportState(connection: PrinterSnapshot['connection']): PrinterSn
 
 function getFailureTransportState(previous: PrinterSnapshot): PrinterSnapshot['transport']['state'] {
   return previous.transport.state === 'offline' ? 'offline' : 'reconnecting'
+}
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Unknown error'
 }
 
 export function usePrinterSnapshot(pollIntervalMs = 2_000) {
@@ -104,7 +117,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         return
       }
 
-      const message = err instanceof Error ? err.message : 'Unknown error'
+      const message = getErrorMessage(err)
       recordOperationalDiagnostic('transport-error', message)
       snapshotRevisionRef.current += 1
       updatePrinterSnapshot((prev) => ({
@@ -120,6 +133,133 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       setError(message)
     }
   }, [client, recordSnapshotTransition])
+
+  const applyTargetedRefresh = useCallback(async <T,>(
+    action: string,
+    fetchValue: () => Promise<T>,
+    mergeValue: (previous: PrinterSnapshot, value: T) => PrinterSnapshot,
+  ): Promise<void> => {
+    try {
+      const value = await fetchValue()
+      snapshotRevisionRef.current += 1
+      updatePrinterSnapshot((prev) => mergeValue(prev, value))
+      setError('')
+    } catch (err) {
+      const message = getErrorMessage(err)
+      recordOperationalDiagnostic('transport-error', `${action}: ${message}`)
+      setError(message)
+    }
+  }, [])
+
+  const refreshUsage = useCallback(async (): Promise<void> => {
+    await applyTargetedRefresh(
+      'refresh-usage',
+      client.fetchUsage,
+      (prev, usage: PrinterUsageSnapshot) => ({
+        ...prev,
+        usage,
+      }),
+    )
+  }, [applyTargetedRefresh, client.fetchUsage])
+
+  const refreshFilamentSensor = useCallback(async (): Promise<void> => {
+    await applyTargetedRefresh(
+      'refresh-filament-sensor',
+      client.fetchFilamentSensor,
+      (prev, filamentSensor: FilamentSensorSnapshot) => ({
+        ...prev,
+        filamentSensor,
+      }),
+    )
+  }, [applyTargetedRefresh, client.fetchFilamentSensor])
+
+  const refreshEddyState = useCallback(async (): Promise<void> => {
+    await applyTargetedRefresh(
+      'refresh-eddy-state',
+      client.fetchEddyState,
+      (prev, eddyState: PrinterEddyStateSnapshot) => ({
+        ...prev,
+        v2: {
+          ...prev.v2,
+          eddy: {
+            ...prev.v2.eddy,
+            autosaveEnabled: eddyState.autosaveEnabled,
+            autosavePending: eddyState.autosavePending,
+            calibration: eddyState.calibration,
+          },
+        },
+      }),
+    )
+  }, [applyTargetedRefresh, client.fetchEddyState])
+
+  const refreshExcludeObjects = useCallback(async (): Promise<void> => {
+    await applyTargetedRefresh(
+      'refresh-exclude-objects',
+      client.fetchExcludeObjects,
+      (prev, excludeObjects: PrinterExcludeObjectSnapshot) => ({
+        ...prev,
+        excludeObjects,
+      }),
+    )
+  }, [applyTargetedRefresh, client.fetchExcludeObjects])
+
+  const refreshPrintJob = useCallback(async (): Promise<void> => {
+    await applyTargetedRefresh(
+      'refresh-print-job',
+      client.fetchPrintJobState,
+      (prev, printJobState: PrinterPrintJobStateSnapshot) => ({
+        ...prev,
+        excludeObjects: printJobState.excludeObjects,
+        files: printJobState.files,
+        message: printJobState.message,
+        printJob: printJobState.printJob,
+        state: printJobState.state,
+        updatedAt: printJobState.updatedAt,
+      }),
+    )
+  }, [applyTargetedRefresh, client.fetchPrintJobState])
+
+  const refreshPrintFiles = useCallback(async (): Promise<void> => {
+    await applyTargetedRefresh(
+      'refresh-print-files',
+      client.fetchPrintFilesState,
+      (prev, printFilesState: PrinterPrintFilesStateSnapshot) => ({
+        ...prev,
+        fileList: printFilesState.fileList,
+        printFiles: printFilesState.printFiles,
+        revisions: {
+          ...prev.revisions,
+          files: printFilesState.revisions.files,
+        },
+      }),
+    )
+  }, [applyTargetedRefresh, client.fetchPrintFilesState])
+
+  const refreshMotionState = useCallback(async (): Promise<void> => {
+    await applyTargetedRefresh(
+      'refresh-motion-state',
+      client.fetchMotionState,
+      (prev, motionState: PrinterMotionStateSnapshot) => ({
+        ...prev,
+        geometry: motionState.geometry,
+        homedAxes: motionState.homedAxes,
+        message: motionState.message,
+        state: motionState.state,
+        toolhead: motionState.toolhead,
+        toolheadX: motionState.toolheadX,
+        toolheadY: motionState.toolheadY,
+        toolheadZ: motionState.toolheadZ,
+        updatedAt: motionState.updatedAt,
+        v2: {
+          ...prev.v2,
+          eddy: {
+            ...prev.v2.eddy,
+            status: motionState.eddyStatus,
+          },
+        },
+      }),
+    )
+  }, [applyTargetedRefresh, client.fetchMotionState])
 
   useEffect(() => {
     let isDisposed = false
@@ -165,7 +305,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       },
       onFileListChanged() {
         if (!isDisposed) {
-          void refresh()
+          void refreshPrintFiles()
         }
       },
       onGcodeResponse(message) {
@@ -201,7 +341,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       window.clearTimeout(firstTick)
       window.clearInterval(timer)
     }
-  }, [client, pollIntervalMs, recordSnapshotTransition, refresh])
+  }, [client, pollIntervalMs, recordSnapshotTransition, refresh, refreshPrintFiles])
 
   const deletePrintFile = useCallback(async (path: string): Promise<void> => {
     if (client.deletePrintFile === undefined) {
@@ -209,13 +349,20 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     }
 
     await client.deletePrintFile(path)
-    await refresh()
-  }, [client, refresh])
+    await refreshPrintFiles()
+  }, [client, refreshPrintFiles])
 
   return {
     snapshot,
     error,
     refresh,
+    refreshUsage,
+    refreshFilamentSensor,
+    refreshEddyState,
+    refreshExcludeObjects,
+    refreshPrintJob,
+    refreshPrintFiles,
+    refreshMotionState,
     deletePrintFile,
   }
 }

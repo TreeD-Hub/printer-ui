@@ -208,6 +208,24 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
         snapshot.mainLightEnabled = args.enabled
       })
       return
+    case 'setFilamentSensorMode':
+      updateMockSnapshot((snapshot) => {
+        snapshot.filamentSensor = {
+          ...snapshot.filamentSensor,
+          mode: args.mode,
+          switchEnabled: true,
+          motionEnabled: args.mode === 'motion',
+        }
+      })
+      return
+    case 'setFilamentEncoderSensitivity':
+      updateMockSnapshot((snapshot) => {
+        snapshot.filamentSensor = {
+          ...snapshot.filamentSensor,
+          sensitivity: args.sensitivity,
+        }
+      })
+      return
     case 'excludeObject':
       updateMockSnapshot((snapshot) => {
         const excludedObjectNames = new Set(snapshot.excludeObjects.excludedObjectNames)
@@ -511,6 +529,67 @@ export function createTransportClient(): TransportClient {
   return {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
       return mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+    },
+    async fetchUsage() {
+      const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+
+      return snapshot.usage
+    },
+    async fetchFilamentSensor() {
+      const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+
+      return snapshot.filamentSensor
+    },
+    async fetchEddyState() {
+      const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+
+      return {
+        autosaveEnabled: snapshot.v2.eddy.autosaveEnabled,
+        autosavePending: snapshot.v2.eddy.autosavePending,
+        calibration: snapshot.v2.eddy.calibration,
+      }
+    },
+    async fetchExcludeObjects() {
+      const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+
+      return snapshot.excludeObjects
+    },
+    async fetchPrintJobState() {
+      const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+
+      return {
+        excludeObjects: snapshot.excludeObjects,
+        files: snapshot.files,
+        message: snapshot.message,
+        printJob: snapshot.printJob,
+        state: snapshot.state,
+        updatedAt: snapshot.updatedAt,
+      }
+    },
+    async fetchPrintFilesState() {
+      const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+
+      return {
+        fileList: snapshot.fileList,
+        printFiles: snapshot.printFiles,
+        revisions: snapshot.revisions,
+      }
+    },
+    async fetchMotionState() {
+      const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+
+      return {
+        eddyStatus: snapshot.v2.eddy.status,
+        geometry: snapshot.geometry,
+        homedAxes: snapshot.homedAxes,
+        message: snapshot.message,
+        state: snapshot.state,
+        toolhead: snapshot.toolhead,
+        toolheadX: snapshot.toolheadX,
+        toolheadY: snapshot.toolheadY,
+        toolheadZ: snapshot.toolheadZ,
+        updatedAt: snapshot.updatedAt,
+      }
     },
     async deletePrintFile(path: string): Promise<void> {
       if (mockTransportSnapshot !== null) {

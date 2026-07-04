@@ -73,13 +73,18 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
 }
 
 function App() {
-  const { snapshot, refresh, deletePrintFile } = usePrinterSnapshot()
+  const {
+    snapshot,
+    refresh,
+    refreshUsage,
+    refreshFilamentSensor,
+    refreshEddyState,
+    refreshExcludeObjects,
+    refreshPrintJob,
+    refreshMotionState,
+    deletePrintFile,
+  } = usePrinterSnapshot()
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
-  const systemStatusController = useMoonrakerSystemStatus({
-    pollIntervalMs: activeScreen === 'settings'
-      ? OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS
-      : DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS,
-  })
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
   const [isExcludeObjectModalOpen, setIsExcludeObjectModalOpen] = useState<boolean>(false)
@@ -147,18 +152,6 @@ function App() {
     (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
     [],
   )
-  const dashboardDiagnostic = resolveDashboardDiagnostic({
-    source: snapshot.source,
-    connection: snapshot.connection,
-    transportState: snapshot.transport.state,
-    transportMessage: snapshot.transport.message,
-    klippyState: snapshot.klippy.state,
-    klippyMessage: snapshot.klippy.message,
-    runtimeMessage: snapshot.message,
-    uiContractStatus: snapshot.uiContract.status,
-    uiContractMessage: snapshot.uiContract.message,
-    systemStatus: systemStatusController.status,
-  })
   const handlePrintSpeedFactorChange = useCallback((percent: number): void => {
     void executeCommand({ command: 'setPrintSpeedFactorPercent', percent })
   }, [executeCommand])
@@ -184,11 +177,6 @@ function App() {
   const [activeControlGroup, setActiveControlGroup] = useState<ControlGroupId>('movement')
   const [isControlMenuCompact, setIsControlMenuCompact] = useState<boolean>(false)
   const [activeControlFlashKey, setActiveControlFlashKey] = useState<string | null>(null)
-  const maintenanceController = useMaintenanceController({
-    usage: snapshot.usage,
-    printJob: snapshot.printJob,
-    systemStatus: systemStatusController.status,
-  })
   const controlFlashTimeoutRef = useRef<number | null>(null)
   const printTuneFanChangeRef = useRef<(value: number) => void>(() => undefined)
   const handlePrintTuneFanPercentChange = useCallback((value: number): void => {
@@ -298,6 +286,29 @@ function App() {
   const settingsKeyboard = settingsController.keyboard
   const isSettingsKeyboardTargetAllowed = settingsController.isKeyboardTargetAllowed
   const setActiveSettingsGroup = settingsPageProps.onSettingsGroupChange
+  const isSystemStatusTabOpen = activeScreen === 'settings' && settingsController.activeSettingsGroup === 'system'
+  const systemStatusController = useMoonrakerSystemStatus({
+    pollIntervalMs: isSystemStatusTabOpen
+      ? OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS
+      : DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS,
+  })
+  const dashboardDiagnostic = resolveDashboardDiagnostic({
+    source: snapshot.source,
+    connection: snapshot.connection,
+    transportState: snapshot.transport.state,
+    transportMessage: snapshot.transport.message,
+    klippyState: snapshot.klippy.state,
+    klippyMessage: snapshot.klippy.message,
+    runtimeMessage: snapshot.message,
+    uiContractStatus: snapshot.uiContract.status,
+    uiContractMessage: snapshot.uiContract.message,
+    systemStatus: systemStatusController.status,
+  })
+  const maintenanceController = useMaintenanceController({
+    usage: snapshot.usage,
+    printJob: snapshot.printJob,
+    systemStatus: systemStatusController.status,
+  })
   const handleDashboardDiagnosticAction = useCallback(async (
     action: DashboardDiagnosticAction,
   ): Promise<string | null> => {
@@ -373,7 +384,7 @@ function App() {
     printStartBlockReason,
     printCancelBlockReason,
     requiresCommandConfirmation,
-    refresh,
+    refreshPrintJob,
     onOpenDashboard: () => setActiveScreen('dashboard'),
   })
   const idleHeroStatusLabel = printerDisplayStatus.label
@@ -404,15 +415,15 @@ function App() {
       return
     }
 
-    void refresh()
+    void refreshUsage()
     const timer = window.setInterval(() => {
-      void refresh()
+      void refreshUsage()
     }, MAINTENANCE_USAGE_REFRESH_INTERVAL_MS)
 
     return () => {
       window.clearInterval(timer)
     }
-  }, [isMaintenanceUsageSurfaceActive, refresh])
+  }, [isMaintenanceUsageSurfaceActive, refreshUsage])
 
   const printTuneModalValues = createModalValues({
     fanPercent: printFanPercent,
@@ -488,7 +499,7 @@ function App() {
       return false
     }
 
-    await refresh()
+    await refreshMotionState()
     flashControlAction(nextMode === 'all' ? 'parking-all' : `parking-${resolvedAxis}`)
     return true
   }
@@ -508,14 +519,18 @@ function App() {
     })
   }
 
-  function handleFilamentSensorModeChange(mode: FilamentSensorMode): Promise<boolean> {
-    return executeCommand({ command: 'setFilamentSensorMode', mode })
+  async function handleFilamentSensorModeChange(mode: FilamentSensorMode): Promise<boolean> {
+    const ok = await executeCommand({ command: 'setFilamentSensorMode', mode })
+    if (ok) {
+      void refreshFilamentSensor()
+    }
+    return ok
   }
 
   async function handleFilamentSensitivityChange(sensitivity: FilamentSensorSensitivity): Promise<boolean> {
     const ok = await executeCommand({ command: 'setFilamentEncoderSensitivity', sensitivity })
     if (ok) {
-      void refresh()
+      void refreshFilamentSensor()
     }
     return ok
   }
@@ -819,7 +834,7 @@ function App() {
             snapshot,
             pendingCommand,
             executeCommand,
-            refresh,
+            refreshEddyState,
             getCommandBlockReason,
           }}
           settings={{
@@ -893,7 +908,7 @@ function App() {
           lastResult={lastResult}
           executeCommand={executeCommand}
           getCommandBlockReason={getCommandBlockReason}
-          refresh={refresh}
+          refreshExcludeObjects={refreshExcludeObjects}
           onClose={() => setIsExcludeObjectModalOpen(false)}
           onRequestStopPrint={() => void printSessionCommandHandlers.requestStop()}
         />

@@ -7,7 +7,17 @@ import {
 } from './moonrakerNormalizer'
 import { subscribeToMoonrakerStatus } from './moonrakerWebSocketClient'
 import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
-import type { PrinterSnapshot, PrinterUsageSnapshot, TransportClient } from './types'
+import type {
+  FilamentSensorSnapshot,
+  PrinterEddyStateSnapshot,
+  PrinterExcludeObjectSnapshot,
+  PrinterMotionStateSnapshot,
+  PrinterPrintFilesStateSnapshot,
+  PrinterPrintJobStateSnapshot,
+  PrinterSnapshot,
+  PrinterUsageSnapshot,
+  TransportClient,
+} from './types'
 import { normalizePrinterFilePath } from '@treed/printer-logic'
 
 type MoonrakerResponse<T> = {
@@ -87,9 +97,43 @@ export class MoonrakerTransportError extends Error {
   }
 }
 
-export const MOONRAKER_RUNTIME_OBJECTS_QUERY = `/printer/objects/query?${MOONRAKER_RUNTIME_OBJECTS
-  .map((objectName) => encodeURIComponent(objectName))
-  .join('&')}`
+function buildMoonrakerObjectsQuery(objectNames: readonly string[]): string {
+  return `/printer/objects/query?${objectNames
+    .map((objectName) => encodeURIComponent(objectName))
+    .join('&')}`
+}
+
+export const MOONRAKER_RUNTIME_OBJECTS_QUERY = buildMoonrakerObjectsQuery(MOONRAKER_RUNTIME_OBJECTS)
+
+const MOONRAKER_FILAMENT_SENSOR_OBJECTS = [
+  'filament_switch_sensor filament_switch',
+  'filament_motion_sensor filament_motion',
+  'gcode_macro FILAMENT_SENSOR_STATUS',
+  'gcode_macro _FILAMENT_SENSOR_SENSITIVITY_STATE',
+] as const
+
+const MOONRAKER_EDDY_STATE_OBJECTS = [
+  'webhooks',
+  'toolhead',
+  'save_variables',
+  'gcode_macro _TREED_EDDY_Z_OFFSET_AUTOSAVE_STATE',
+] as const
+
+const MOONRAKER_PRINT_JOB_OBJECTS = [
+  'webhooks',
+  'print_stats',
+  'virtual_sdcard',
+  'display_status',
+  'pause_resume',
+  'exclude_object',
+] as const
+
+const MOONRAKER_MOTION_STATE_OBJECTS = [
+  'webhooks',
+  'toolhead',
+  'gcode_move',
+  'gcode_macro _TREED_GEOMETRY_CFG',
+] as const
 
 function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === 'AbortError'
@@ -305,9 +349,12 @@ async function fetchPrintFilesBestEffort(context: MoonrakerFetchContext): Promis
   }
 }
 
-async function fetchHistoryTotalsBestEffort(context: MoonrakerFetchContext): Promise<PrinterUsageSnapshot> {
+async function fetchHistoryTotalsBestEffort(
+  context: MoonrakerFetchContext,
+  forceRefresh = false,
+): Promise<PrinterUsageSnapshot> {
   const nowMs = Date.now()
-  if (context.usageCache !== null && nowMs < context.usageExpiresAtMs) {
+  if (!forceRefresh && context.usageCache !== null && nowMs < context.usageExpiresAtMs) {
     return context.usageCache
   }
 
@@ -322,6 +369,21 @@ async function fetchHistoryTotalsBestEffort(context: MoonrakerFetchContext): Pro
     console.warn('[treed-runtime] history totals unavailable', message)
     return context.usageCache ?? createUnavailableUsageSnapshot(message)
   }
+}
+
+async function fetchObjectsSnapshot(
+  context: MoonrakerFetchContext,
+  objectNames: readonly string[],
+): Promise<PrinterSnapshot> {
+  const objects = await fetchMoonraker<MoonrakerObjectsQueryPayload>(
+    buildMoonrakerObjectsQuery(objectNames),
+    context,
+  )
+
+  return normalizeMoonrakerRuntimeSnapshot(objects, {
+    moonrakerUrl: context.moonrakerUrl,
+    source: 'live',
+  })
 }
 
 export function normalizeMoonrakerSnapshot(input: NormalizeMoonrakerSnapshotInput): PrinterSnapshot {
@@ -385,6 +447,71 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
         printFilesError: printFilesResult.error,
         usage,
       })
+    },
+    async fetchUsage(): Promise<PrinterUsageSnapshot> {
+      return fetchHistoryTotalsBestEffort(context, true)
+    },
+    async fetchFilamentSensor(): Promise<FilamentSensorSnapshot> {
+      const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_FILAMENT_SENSOR_OBJECTS)
+
+      return snapshot.filamentSensor
+    },
+    async fetchEddyState(): Promise<PrinterEddyStateSnapshot> {
+      const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_EDDY_STATE_OBJECTS)
+
+      return {
+        autosaveEnabled: snapshot.v2.eddy.autosaveEnabled,
+        autosavePending: snapshot.v2.eddy.autosavePending,
+        calibration: snapshot.v2.eddy.calibration,
+      }
+    },
+    async fetchExcludeObjects(): Promise<PrinterExcludeObjectSnapshot> {
+      const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_PRINT_JOB_OBJECTS)
+
+      return snapshot.excludeObjects
+    },
+    async fetchPrintJobState(): Promise<PrinterPrintJobStateSnapshot> {
+      const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_PRINT_JOB_OBJECTS)
+
+      return {
+        excludeObjects: snapshot.excludeObjects,
+        files: snapshot.files,
+        message: snapshot.message,
+        printJob: snapshot.printJob,
+        state: snapshot.state,
+        updatedAt: snapshot.updatedAt,
+      }
+    },
+    async fetchPrintFilesState(): Promise<PrinterPrintFilesStateSnapshot> {
+      const printFilesResult = await fetchPrintFilesBestEffort(context)
+      const snapshot = normalizeMoonrakerRuntimeSnapshot({ status: {} }, {
+        moonrakerUrl: context.moonrakerUrl,
+        source: 'live',
+        printFiles: printFilesResult.files,
+        printFilesError: printFilesResult.error,
+      })
+
+      return {
+        fileList: snapshot.fileList,
+        printFiles: snapshot.printFiles,
+        revisions: snapshot.revisions,
+      }
+    },
+    async fetchMotionState(): Promise<PrinterMotionStateSnapshot> {
+      const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_MOTION_STATE_OBJECTS)
+
+      return {
+        eddyStatus: snapshot.v2.eddy.status,
+        geometry: snapshot.geometry,
+        homedAxes: snapshot.homedAxes,
+        message: snapshot.message,
+        state: snapshot.state,
+        toolhead: snapshot.toolhead,
+        toolheadX: snapshot.toolheadX,
+        toolheadY: snapshot.toolheadY,
+        toolheadZ: snapshot.toolheadZ,
+        updatedAt: snapshot.updatedAt,
+      }
     },
     async deletePrintFile(path: string): Promise<void> {
       const normalizedPath = normalizePrinterFilePath(path)

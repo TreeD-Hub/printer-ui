@@ -8,7 +8,7 @@ import type { PrinterSnapshot } from '../core/transport/types'
 import { usePrintSessionController } from './usePrintSessionController'
 
 type ExecuteCommandMock = (args: ExecuteCommandArgs) => Promise<boolean>
-type RefreshMock = () => Promise<void>
+type RefreshPrintJobMock = () => Promise<void>
 
 type TestHarnessProps = {
   snapshot?: PrinterSnapshot
@@ -18,7 +18,7 @@ type TestHarnessProps = {
   printStartBlockReason?: string | null
   printCancelBlockReason?: string | null
   requiresCommandConfirmation?: (command: PrinterCommandId) => boolean
-  refresh?: RefreshMock
+  refreshPrintJob?: RefreshPrintJobMock
   onOpenDashboard?: () => void
   deletePrintFile?: (path: string) => Promise<void>
 }
@@ -31,7 +31,7 @@ function TestHarness({
   printStartBlockReason = null,
   printCancelBlockReason = null,
   requiresCommandConfirmation = () => true,
-  refresh = vi.fn<RefreshMock>().mockResolvedValue(undefined),
+  refreshPrintJob = vi.fn<RefreshPrintJobMock>().mockResolvedValue(undefined),
   onOpenDashboard = vi.fn(),
   deletePrintFile,
 }: TestHarnessProps) {
@@ -43,7 +43,7 @@ function TestHarness({
     printStartBlockReason,
     printCancelBlockReason,
     requiresCommandConfirmation,
-    refresh,
+    refreshPrintJob,
     onOpenDashboard,
   })
 
@@ -86,13 +86,13 @@ function TestHarness({
 describe('usePrintSessionController', () => {
   it('starts a mock print and exposes runtime print job state for command blocking', async () => {
     const executeCommand = vi.fn<ExecuteCommandMock>().mockResolvedValue(true)
-    const refresh = vi.fn<RefreshMock>().mockResolvedValue(undefined)
+    const refreshPrintJob = vi.fn<RefreshPrintJobMock>().mockResolvedValue(undefined)
     const onOpenDashboard = vi.fn()
 
     render(
       <TestHarness
         executeCommand={executeCommand}
-        refresh={refresh}
+        refreshPrintJob={refreshPrintJob}
         onOpenDashboard={onOpenDashboard}
       />,
     )
@@ -108,7 +108,7 @@ describe('usePrintSessionController', () => {
       command: 'start',
       filename: PRINT_FILE_LIBRARY[0].path,
     })
-    expect(refresh).toHaveBeenCalledTimes(1)
+    expect(refreshPrintJob).toHaveBeenCalledTimes(1)
     expect(onOpenDashboard).toHaveBeenCalledTimes(1)
     expect(screen.getByTestId('selected-file')).toHaveTextContent('none')
     expect(screen.getByTestId('active-file')).toHaveTextContent(PRINT_FILE_LIBRARY[0].name)

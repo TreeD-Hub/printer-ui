@@ -6,6 +6,14 @@ import type { PrinterSnapshot, TransportSubscriptionHandlers } from '../transpor
 
 const runtimeMocks = vi.hoisted(() => ({
   fetchSnapshot: vi.fn(),
+  fetchUsage: vi.fn(),
+  fetchFilamentSensor: vi.fn(),
+  fetchEddyState: vi.fn(),
+  fetchExcludeObjects: vi.fn(),
+  fetchPrintJobState: vi.fn(),
+  fetchPrintFilesState: vi.fn(),
+  fetchMotionState: vi.fn(),
+  deletePrintFile: vi.fn(),
   subscribe: vi.fn(),
 }))
 
@@ -13,6 +21,14 @@ vi.mock('#runtime', () => ({
   runtimeMode: 'live',
   createTransportClient: () => ({
     fetchSnapshot: runtimeMocks.fetchSnapshot,
+    fetchUsage: runtimeMocks.fetchUsage,
+    fetchFilamentSensor: runtimeMocks.fetchFilamentSensor,
+    fetchEddyState: runtimeMocks.fetchEddyState,
+    fetchExcludeObjects: runtimeMocks.fetchExcludeObjects,
+    fetchPrintJobState: runtimeMocks.fetchPrintJobState,
+    fetchPrintFilesState: runtimeMocks.fetchPrintFilesState,
+    fetchMotionState: runtimeMocks.fetchMotionState,
+    deletePrintFile: runtimeMocks.deletePrintFile,
     subscribe: runtimeMocks.subscribe,
   }),
 }))
@@ -42,6 +58,14 @@ describe('usePrinterSnapshot', () => {
 
   beforeEach(() => {
     runtimeMocks.fetchSnapshot.mockReset()
+    runtimeMocks.fetchUsage.mockReset()
+    runtimeMocks.fetchFilamentSensor.mockReset()
+    runtimeMocks.fetchEddyState.mockReset()
+    runtimeMocks.fetchExcludeObjects.mockReset()
+    runtimeMocks.fetchPrintJobState.mockReset()
+    runtimeMocks.fetchPrintFilesState.mockReset()
+    runtimeMocks.fetchMotionState.mockReset()
+    runtimeMocks.deletePrintFile.mockReset()
     runtimeMocks.subscribe.mockReset()
     handlers = null
     setPrinterSnapshot(structuredClone(FALLBACK_PRINTER_SNAPSHOT))
@@ -187,6 +211,123 @@ describe('usePrinterSnapshot', () => {
     expect(hook.result.current.snapshot.extruderTemp).toBe(220)
     expect(hook.result.current.snapshot.toolhead.rawX).toBe(10)
     expect(hook.result.current.snapshot.usage).toEqual(httpSnapshot.usage)
+
+    await act(async () => {
+      hook.unmount()
+    })
+  })
+
+  it('refreshes usage totals without replacing the printer snapshot', async () => {
+    vi.useFakeTimers()
+    runtimeMocks.fetchSnapshot.mockResolvedValue(createSnapshot(1, 180, 3))
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+
+    const initialSnapshot = createSnapshot(10, 205, 33)
+    initialSnapshot.usage = {
+      totalPrintTimeSec: 120,
+      totalJobTimeSec: 150,
+      totalJobs: 3,
+      totalFilamentUsedMm: 400,
+      longestPrintSec: 80,
+      updatedAt: '2026-06-30T00:00:01.000Z',
+      state: 'ready',
+      message: null,
+    }
+    const nextUsage = {
+      ...initialSnapshot.usage,
+      totalPrintTimeSec: 3600,
+      totalJobs: 12,
+      updatedAt: '2026-06-30T01:00:00.000Z',
+    }
+    setPrinterSnapshot(initialSnapshot)
+    runtimeMocks.fetchUsage.mockResolvedValue(nextUsage)
+
+    let hook!: {
+      result: { current: ReturnType<typeof usePrinterSnapshot> }
+      unmount: () => void
+    }
+    await act(async () => {
+      hook = renderHook(() => usePrinterSnapshot(60_000))
+      await Promise.resolve()
+    })
+    vi.clearAllTimers()
+    runtimeMocks.fetchSnapshot.mockClear()
+
+    await act(async () => {
+      await hook.result.current.refreshUsage()
+    })
+
+    expect(runtimeMocks.fetchUsage).toHaveBeenCalledTimes(1)
+    expect(runtimeMocks.fetchSnapshot).not.toHaveBeenCalled()
+    expect(hook.result.current.snapshot.usage).toEqual(nextUsage)
+    expect(hook.result.current.snapshot.extruderTemp).toBe(205)
+    expect(hook.result.current.snapshot.toolhead.rawX).toBe(33)
+
+    await act(async () => {
+      hook.unmount()
+    })
+  })
+
+  it('refreshes file list change events without fetching a full snapshot', async () => {
+    vi.useFakeTimers()
+    runtimeMocks.fetchSnapshot.mockResolvedValue(createSnapshot(1, 180, 3))
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+    const printFilesState: PrinterSnapshot['printFiles'] = [
+      {
+        id: 'file-jobs-benchy-gcode',
+        path: 'jobs/benchy.gcode',
+        name: 'benchy.gcode',
+        directory: 'jobs',
+        printTime: '20 мин',
+        weight: '—',
+        material: '—',
+        addedAt: '2026-06-30T01:00:00.000Z',
+      },
+    ]
+    runtimeMocks.fetchPrintFilesState.mockResolvedValue({
+      fileList: { state: 'ready', message: null },
+      printFiles: printFilesState,
+      revisions: {
+        printerObjects: {
+          eventtime: null,
+          receivedAt: 1,
+          source: 'http',
+        },
+        files: {
+          eventtime: null,
+          receivedAt: 2,
+          source: 'http',
+        },
+      },
+    })
+
+    let hook!: {
+      result: { current: ReturnType<typeof usePrinterSnapshot> }
+      unmount: () => void
+    }
+    await act(async () => {
+      hook = renderHook(() => usePrinterSnapshot(60_000))
+      await Promise.resolve()
+    })
+    vi.clearAllTimers()
+    runtimeMocks.fetchSnapshot.mockClear()
+
+    await act(async () => {
+      handlers?.onFileListChanged?.()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(runtimeMocks.fetchPrintFilesState).toHaveBeenCalledTimes(1)
+    expect(runtimeMocks.fetchSnapshot).not.toHaveBeenCalled()
+    expect(hook.result.current.snapshot.printFiles).toEqual(printFilesState)
+    expect(hook.result.current.snapshot.fileList).toEqual({ state: 'ready', message: null })
 
     await act(async () => {
       hook.unmount()
