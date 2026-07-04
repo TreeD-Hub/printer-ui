@@ -403,4 +403,48 @@ describe('usePrinterCommands', () => {
       kind: 'confirmation_timeout',
     }))
   })
+
+  it('keeps filament sensitivity pending through the Klipper restart window', async () => {
+    runtimeMocks.execute.mockResolvedValue(accepted('setFilamentEncoderSensitivity'))
+    let api: PrinterCommandsApi | null = null
+    const idleContext: TreeDCommandRuntimeContext = {
+      ...RUNTIME_CONTEXT,
+      printJob: {
+        filename: '',
+        state: 'standby',
+        isActive: false,
+        isPaused: false,
+      },
+    }
+
+    render(<Harness context={idleContext} onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    vi.useFakeTimers()
+    await act(async () => {
+      await api!.executeCommand({ command: 'setFilamentEncoderSensitivity', sensitivity: 'high' })
+      await vi.advanceTimersByTimeAsync(12_000)
+    })
+
+    expect(api!.pendingCommand).toBe('setFilamentEncoderSensitivity')
+    expect(api!.lastResult).toEqual(expect.objectContaining({
+      ok: true,
+      status: 'accepted',
+    }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(78_000)
+    })
+
+    expect(api!.pendingCommand).toBeNull()
+    expect(api!.lastResult).toEqual(expect.objectContaining({
+      ok: false,
+      kind: 'confirmation_timeout',
+    }))
+  })
 })

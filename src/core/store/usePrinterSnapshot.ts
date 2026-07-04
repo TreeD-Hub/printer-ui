@@ -21,6 +21,17 @@ function mergeWebSocketSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot
   }
 }
 
+function mergeHttpUsageSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
+  if (next.usage.state !== 'ready') {
+    return previous
+  }
+
+  return {
+    ...previous,
+    usage: next.usage,
+  }
+}
+
 function getFailureConnection(previous: PrinterSnapshot): PrinterSnapshot['connection'] {
   if (previous.connection === 'shutdown') {
     return 'shutdown'
@@ -72,7 +83,15 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
 
     try {
       const nextSnapshot = await client.fetchSnapshot()
-      if (refreshSequence !== refreshSequenceRef.current || snapshotRevision !== snapshotRevisionRef.current) {
+      if (refreshSequence !== refreshSequenceRef.current) {
+        return
+      }
+
+      if (snapshotRevision !== snapshotRevisionRef.current) {
+        if (nextSnapshot.usage.state === 'ready') {
+          snapshotRevisionRef.current += 1
+          updatePrinterSnapshot((prev) => mergeHttpUsageSnapshot(prev, nextSnapshot))
+        }
         return
       }
 
