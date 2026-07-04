@@ -20,7 +20,8 @@ type PendingCommandConfirmation = {
 }
 
 const COALESCED_COMMAND_RATE_LIMIT_MS = 120
-const COMMAND_CONFIRMATION_TIMEOUT_MS = 12_000
+const DEFAULT_COMMAND_CONFIRMATION_TIMEOUT_MS = 12_000
+const RESTART_COMMAND_CONFIRMATION_TIMEOUT_MS = 90_000
 const COALESCED_COMMANDS = new Set<PrinterCommandId>([
   'setFanPercent',
   'setPrintSpeedFactorPercent',
@@ -32,6 +33,12 @@ const COALESCED_COMMANDS = new Set<PrinterCommandId>([
 
 function isCoalescedCommand(command: PrinterCommandId): boolean {
   return COALESCED_COMMANDS.has(command)
+}
+
+function getCommandConfirmationTimeoutMs(args: ExecuteCommandArgs): number {
+  return args.command === 'setFilamentEncoderSensitivity'
+    ? RESTART_COMMAND_CONFIRMATION_TIMEOUT_MS
+    : DEFAULT_COMMAND_CONFIRMATION_TIMEOUT_MS
 }
 
 function isNear(left: number | undefined, right: number, tolerance = 0.5): boolean {
@@ -299,7 +306,7 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
               setLastResult(timeoutResult)
               setPendingCommand(null)
               recordOperationalDiagnostic('command', `${command}: confirmation_timeout`, message)
-            }, COMMAND_CONFIRMATION_TIMEOUT_MS)
+            }, getCommandConfirmationTimeoutMs(args))
             pendingConfirmationRef.current = {
               args,
               acceptedResult: result,

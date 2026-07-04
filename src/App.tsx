@@ -60,6 +60,7 @@ const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
 const DEFAULT_BABYSTEP_STEP = BABYSTEP_STEP_OPTIONS[BABYSTEP_STEP_OPTIONS.length - 1]
 const DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS = 10_000
 const OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS = 1_000
+const MAINTENANCE_USAGE_REFRESH_INTERVAL_MS = 60 * 60 * 1000
 const TOOLHEAD_LIGHT_UNAVAILABLE_REASON = 'Подсветка ПГ: команда пока не подключена к runtime.'
 type KeyboardTarget = 'idleNotes' | SettingsKeyboardTarget
 const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
@@ -222,6 +223,9 @@ function App() {
     : null
   const activeControlGroupForRender =
     activeControlGroup === 'movement' && movementTabBlockReason !== null ? 'heating' : activeControlGroup
+  const isMaintenanceUsageSurfaceActive = activeScreen === 'dashboard' || (
+    activeScreen === 'control' && activeControlGroupForRender === 'maintenance'
+  )
   const {
     activeGroup: activePrintTuneGroup,
     openGroup: openPrintTuneGroup,
@@ -395,6 +399,21 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (!isMaintenanceUsageSurfaceActive) {
+      return
+    }
+
+    void refresh()
+    const timer = window.setInterval(() => {
+      void refresh()
+    }, MAINTENANCE_USAGE_REFRESH_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [isMaintenanceUsageSurfaceActive, refresh])
+
   const printTuneModalValues = createModalValues({
     fanPercent: printFanPercent,
   })
@@ -493,8 +512,12 @@ function App() {
     return executeCommand({ command: 'setFilamentSensorMode', mode })
   }
 
-  function handleFilamentSensitivityChange(sensitivity: FilamentSensorSensitivity): Promise<boolean> {
-    return executeCommand({ command: 'setFilamentEncoderSensitivity', sensitivity })
+  async function handleFilamentSensitivityChange(sensitivity: FilamentSensorSensitivity): Promise<boolean> {
+    const ok = await executeCommand({ command: 'setFilamentEncoderSensitivity', sensitivity })
+    if (ok) {
+      void refresh()
+    }
+    return ok
   }
 
   function flashControlAction(nextKey: string): void {

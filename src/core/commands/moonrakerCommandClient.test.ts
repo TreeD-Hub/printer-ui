@@ -4,6 +4,16 @@ import { createMoonrakerCommandClient } from './moonrakerCommandClient'
 let consoleDebug: ReturnType<typeof vi.spyOn>
 let consoleError: ReturnType<typeof vi.spyOn>
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 describe('createMoonrakerCommandClient', () => {
   beforeEach(() => {
     consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => undefined)
@@ -13,6 +23,7 @@ describe('createMoonrakerCommandClient', () => {
   afterEach(() => {
     consoleDebug.mockRestore()
     consoleError.mockRestore()
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -65,6 +76,41 @@ describe('createMoonrakerCommandClient', () => {
         signal: expect.any(AbortSignal),
       }),
     )
+    vi.useRealTimers()
+  })
+
+  it('allows filament sensitivity restart requests to run past the default timeout', async () => {
+    vi.useFakeTimers()
+    const response = createDeferred<Response>()
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      init?.signal?.addEventListener('abort', () => {
+        response.reject(new DOMException('Aborted', 'AbortError'))
+      })
+      return response.promise
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+      fetchTimeoutMs: 25,
+    })
+
+    const promise = client.execute({ command: 'setFilamentEncoderSensitivity', sensitivity: 'high' })
+
+    await vi.advanceTimersByTimeAsync(25)
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.signal?.aborted).toBe(false)
+
+    response.resolve({
+      ok: true,
+      json: async () => ({ sensitivity: 'high' }),
+    } as Response)
+
+    await expect(promise).resolves.toMatchObject({
+      command: 'setFilamentEncoderSensitivity',
+      ok: true,
+      status: 'accepted',
+    })
     vi.useRealTimers()
   })
 

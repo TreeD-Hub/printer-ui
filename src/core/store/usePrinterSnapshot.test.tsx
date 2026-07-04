@@ -141,4 +141,55 @@ describe('usePrinterSnapshot', () => {
       hook.unmount()
     })
   })
+
+  it('applies HTTP usage totals when a websocket snapshot wins the state race', async () => {
+    vi.useFakeTimers()
+    const refresh = createDeferred<PrinterSnapshot>()
+
+    runtimeMocks.fetchSnapshot.mockReturnValue(refresh.promise)
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+
+    let hook!: {
+      result: { current: ReturnType<typeof usePrinterSnapshot> }
+      unmount: () => void
+    }
+    await act(async () => {
+      hook = renderHook(() => usePrinterSnapshot(60_000))
+      await Promise.resolve()
+    })
+    vi.clearAllTimers()
+
+    const websocketSnapshot = createSnapshot(20, 220, 10)
+    const httpSnapshot = createSnapshot(10, 180, 3)
+    httpSnapshot.usage = {
+      totalPrintTimeSec: 3600,
+      totalJobTimeSec: 4200,
+      totalJobs: 12,
+      totalFilamentUsedMm: 900,
+      longestPrintSec: 1800,
+      updatedAt: '2026-06-30T01:00:00.000Z',
+      state: 'ready',
+      message: null,
+    }
+
+    await act(async () => {
+      const refreshPromise = hook.result.current.refresh()
+      handlers?.onSnapshot(websocketSnapshot)
+      refresh.resolve(httpSnapshot)
+      await refreshPromise
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(hook.result.current.snapshot.extruderTemp).toBe(220)
+    expect(hook.result.current.snapshot.toolhead.rawX).toBe(10)
+    expect(hook.result.current.snapshot.usage).toEqual(httpSnapshot.usage)
+
+    await act(async () => {
+      hook.unmount()
+    })
+  })
 })

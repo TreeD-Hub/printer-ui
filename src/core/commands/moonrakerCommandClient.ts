@@ -28,6 +28,7 @@ type MoonrakerEnvelope = {
 
 const DEFAULT_COMMAND_FETCH_TIMEOUT_MS = 8_000
 const MOTION_COMMAND_FETCH_TIMEOUT_MS = 120_000
+const RESTART_COMMAND_FETCH_TIMEOUT_MS = 120_000
 const MOTION_COMMANDS = new Set<ExecuteCommandArgs['command']>([
   'home',
   'homeAll',
@@ -388,7 +389,10 @@ function executeMoonrakerCommand(
       return callMoonraker(
         '/server/treed/filament-sensor/settings',
         { sensitivity: args.sensitivity },
-        options,
+        {
+          ...options,
+          fetchTimeoutMs: Math.max(options.fetchTimeoutMs, RESTART_COMMAND_FETCH_TIMEOUT_MS),
+        },
         args.command,
       )
     case 'zParkZeroEddy':
