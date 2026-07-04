@@ -16,6 +16,7 @@ export const MOONRAKER_RUNTIME_OBJECTS = [
   'save_variables',
   'filament_switch_sensor filament_switch',
   'filament_motion_sensor filament_motion',
+  'gcode_macro FILAMENT_SENSOR_SET_MODE',
   'gcode_macro FILAMENT_SENSOR_STATUS',
   'gcode_macro _FILAMENT_SENSOR_SENSITIVITY_STATE',
   'gcode_macro _TREED_UI_CONTRACT',
