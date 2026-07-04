@@ -27,6 +27,8 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'setHeatingTargets',
   'turnOffHeaters',
   'setFanPercent',
+  'setFilamentSensorMode',
+  'setFilamentEncoderSensitivity',
   'setMainLightEnabled',
   'setPrintSpeedFactorPercent',
   'setPrintFlowFactorPercent',

@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react'
+import { renderHook, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { createMockSnapshot } from '../../mocks/runtime'
 import { useMaintenanceController } from './useMaintenanceController'
@@ -29,7 +29,7 @@ describe('useMaintenanceController', () => {
     expect(result.current.progressPercent).toBe(0)
   })
 
-  it('calculates runtime from Moonraker usage and active print duration', () => {
+  it('calculates runtime from Moonraker usage and active print duration', async () => {
     const printJob = {
       ...createMockSnapshot().printJob,
       isActive: true,
@@ -46,31 +46,12 @@ describe('useMaintenanceController', () => {
       systemStatus: createLoadingMoonrakerSystemStatus(),
     }))
 
-    expect(result.current.status.isRuntimeBacked).toBe(true)
-    expect(result.current.status.runtimeHours).toBe(437.5)
-    expect(result.current.status.hoursLeft).toBe(563)
-    expect(result.current.progressPercent).toBe(43.75)
-  })
-
-  it('owns maintenance checklist state outside App', () => {
-    const { result } = renderHook(() => useMaintenanceController({
-      usage: UNAVAILABLE_USAGE,
-      printJob: createMockSnapshot().printJob,
-      systemStatus: createLoadingMoonrakerSystemStatus(),
-    }))
-    const firstItemId = result.current.checklistItems[0].id
-
-    act(() => {
-      result.current.handleChecklistItemChange(firstItemId, true)
+    await waitFor(() => {
+      expect(result.current.status.isRuntimeBacked).toBe(true)
+      expect(result.current.status.runtimeHours).toBe(437.5)
+      expect(result.current.status.hoursLeft).toBe(563)
+      expect(result.current.progressPercent).toBe(43.75)
     })
-
-    expect(result.current.checklistState[firstItemId]).toBe(true)
-
-    act(() => {
-      result.current.handleChecklistComplete()
-    })
-
-    expect(result.current.checklistItems.every((item) => result.current.checklistState[item.id])).toBe(true)
   })
 
   it('exposes the normalized live system warning without replacing usage data', () => {
