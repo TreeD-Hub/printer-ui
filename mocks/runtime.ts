@@ -466,6 +466,15 @@ export function createMockSnapshot(): PrinterSnapshot {
       filePosition: 0,
       fileSize: null,
     },
+    camera: {
+      supported: false,
+      active: false,
+      resolution: null,
+      targetFps: null,
+      maxFps: null,
+      streamUrl: null,
+      snapshotUrl: null,
+    },
     toolhead: {
       rawX: 125,
       rawY: 125,

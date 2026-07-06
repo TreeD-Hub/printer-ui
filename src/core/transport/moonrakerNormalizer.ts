@@ -10,6 +10,7 @@ import type {
   PrinterFilesSnapshot,
   PrinterGeometrySnapshot,
   PrinterHardwareSnapshot,
+  PrinterCameraSnapshot,
   PrinterMacroStateSnapshot,
   PrinterPositionSnapshot,
   PrinterPrintJobSnapshot,
@@ -843,6 +844,18 @@ function readBooleanMacroFlag(values: Record<string, Record<string, unknown>>, m
   return true
 }
 
+function readMacroString(macro: Record<string, unknown> | undefined, fieldName: string): string | null {
+  const value = macro?.[fieldName]
+
+  return typeof value === 'string' && value.trim().length > 0 ? value : null
+}
+
+function readMacroPositiveNumber(macro: Record<string, unknown> | undefined, fieldName: string): number | null {
+  const value = toNullableNumber(macro?.[fieldName])
+
+  return value === null || value <= 0 ? null : value
+}
+
 function normalizeUiContract(macros: PrinterMacroStateSnapshot): PrinterUiContractSnapshot {
   const contract = readMacro(macros.values, '_TREED_UI_CONTRACT')
   if (contract === undefined) {
@@ -997,6 +1010,8 @@ function normalizeCapabilities(
     const contract = readMacro(macros.values, '_TREED_UI_CONTRACT') ?? {}
     const capability = (name: string): boolean => parseMacroBoolean(contract[`capability_${name}`]) === true
     const lightingCapability = parseMacroBoolean(contract.capability_lighting)
+    const cameraMacro = readMacro(macros.values, '_TREED_CAMERA')
+    const cameraEnabled = cameraMacro === undefined ? true : readBooleanMacroFlag(macros.values, '_TREED_CAMERA')
 
     return {
       print: capability('print'),
@@ -1019,7 +1034,7 @@ function normalizeCapabilities(
       cloud: readBooleanMacroFlag(macros.values, '_TREED_CLOUD'),
       updates: readBooleanMacroFlag(macros.values, '_TREED_UPDATES'),
       systemPower: capability('system_power') && systemPower,
-      camera: capability('camera'),
+      camera: capability('camera') && cameraEnabled,
       serviceCommands: capability('service_commands') && readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
     }
   }
@@ -1045,6 +1060,24 @@ function normalizeCapabilities(
     systemPower,
     camera: readBooleanMacroFlag(macros.values, '_TREED_CAMERA') || readBooleanMacroFlag(macros.values, '_TREED_CAM_STATE'),
     serviceCommands: readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
+  }
+}
+
+function normalizeCamera(macros: PrinterMacroStateSnapshot, cameraCapability: boolean): PrinterCameraSnapshot {
+  const camera = readMacro(macros.values, '_TREED_CAMERA')
+  const cameraState = readMacro(macros.values, '_TREED_CAM_STATE')
+  const enabledFlag = parseMacroBoolean(camera?.enabled)
+  const supported = cameraCapability && enabledFlag !== false
+  const active = parseMacroBoolean(cameraState?.enabled) === true
+
+  return {
+    supported,
+    active,
+    resolution: readMacroString(camera, 'resolution'),
+    targetFps: readMacroPositiveNumber(camera, 'target_fps'),
+    maxFps: readMacroPositiveNumber(camera, 'max_fps'),
+    streamUrl: readMacroString(camera, 'stream_url'),
+    snapshotUrl: readMacroString(camera, 'snapshot_url'),
   }
 }
 
@@ -1238,6 +1271,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const macros = normalizeMacroValues(status)
   const uiContract = normalizeUiContract(macros)
   const filamentSensor = normalizeFilamentSensor(status, macros)
+  const capabilities = normalizeCapabilities(macros, uiContract, filamentSensor)
   const homedAxes = typeof status.toolhead?.homed_axes === 'string' ? status.toolhead.homed_axes : ''
   const source = options.source ?? 'live'
   const revisionSource = options.revisionSource ?? (source === 'mock' ? 'mock' : 'http')
@@ -1289,7 +1323,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     ),
     hardware: normalizeHardware(macros, uiContract),
     uiContract,
-    capabilities: normalizeCapabilities(macros, uiContract, filamentSensor),
+    capabilities,
     filamentSensor,
     limits: normalizeLimits(macros, uiContract),
     usage: options.usage ?? createUnavailableUsageSnapshot(),
@@ -1305,6 +1339,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
           filePosition: 0,
           fileSize: null,
         },
+    camera: normalizeCamera(macros, capabilities.camera),
     fileList: {
       state: options.printFilesError ? 'error' : options.printFiles === undefined ? 'unknown' : 'ready',
       message: options.printFilesError ?? null,
