@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { ControlPage } from './ControlPage'
-import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
+import type { ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
 import type { AxisId } from '../ui'
 import type {
   FilamentSensorMode,
@@ -27,8 +27,7 @@ export type ControlContainerProps = {
   activeControlGroup: ControlGroupId
   isControlMenuCompact: boolean
   controlGroupBlockReasons?: Partial<Record<ControlGroupId, string | null>>
-  pendingCommand: PrinterCommandId | null
-  isBusy: boolean
+  pendingCommands: PrinterPendingCommands
   activeControlFlashKey: string | null
   movementMode: MovementMode
   moveStepKey: MoveStepKey
@@ -69,8 +68,7 @@ export function ControlContainer({
   activeControlGroup,
   isControlMenuCompact,
   controlGroupBlockReasons,
-  pendingCommand,
-  isBusy,
+  pendingCommands,
   activeControlFlashKey,
   movementMode,
   moveStepKey,
@@ -103,6 +101,10 @@ export function ControlContainer({
   getLastCommandError,
 }: ControlContainerProps) {
   const moveStepMm = CONTROL_MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)?.valueMm ?? 1
+  const motionPendingCommand = pendingCommands.motion ?? null
+  const isMotionBusy = motionPendingCommand !== null
+  const isFilamentBusy = (pendingCommands.filament ?? null) !== null
+  const isLightBusy = (pendingCommands.light ?? null) !== null
   const movementCommandBlockReasons = useMemo<MovementCommandBlockReasons>(() => ({
     parking: {
       all: getCommandBlockReason('homeAll'),
@@ -166,8 +168,9 @@ export function ControlContainer({
       onControlGroupChange={onControlGroupChange}
       onControlMenuCompactToggle={onControlMenuCompactToggle}
       movement={{
-        pendingCommand,
-        isBusy,
+        pendingCommand: motionPendingCommand,
+        isMotionBusy,
+        isFilamentBusy,
         activeControlFlashKey,
         movementMode,
         moveStepKey,
@@ -187,7 +190,7 @@ export function ControlContainer({
       filament={{
         snapshot: filamentSensor,
         isStale: isFilamentSensorSnapshotStale,
-        pendingCommand,
+        pendingCommand: pendingCommands.filament ?? null,
         commandError,
         modeBlockReasons: filamentModeBlockReasons,
         sensitivityBlockReasons: filamentSensitivityBlockReasons,
@@ -197,7 +200,7 @@ export function ControlContainer({
       lighting={{
         isMainLightEnabled,
         isToolheadLightEnabled,
-        isBusy,
+        isBusy: isLightBusy,
         mainLightCommandBlockReason,
         toolheadLightCommandBlockReason,
         onMainLightToggle,

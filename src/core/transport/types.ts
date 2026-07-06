@@ -268,6 +268,7 @@ export interface TransportSubscription {
 
 export interface TransportClient {
   fetchSnapshot: () => Promise<PrinterSnapshot>
+  fetchRuntimeSnapshot: () => Promise<PrinterSnapshot>
   fetchUsage: () => Promise<PrinterUsageSnapshot>
   fetchFilamentSensor: () => Promise<FilamentSensorSnapshot>
   fetchEddyState: () => Promise<PrinterEddyStateSnapshot>

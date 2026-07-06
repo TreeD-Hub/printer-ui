@@ -119,6 +119,21 @@ describe('normalizeMoonrakerSystemStatus', () => {
     expect(status.services.every((service) => service.healthy)).toBe(true)
   })
 
+  it('keeps ERROR-ACTIVE CAN with accumulated counters healthy', () => {
+    const input = buildHealthyInput()
+    input.objectStatus.status['canbus_stats EBBCan'] = {
+      bus_state: 'ERROR-ACTIVE',
+      rx_error: 2,
+      tx_error: 1,
+      tx_retries: 3,
+    }
+
+    const status = normalizeMoonrakerSystemStatus(input)
+
+    expect(status.health).toBe('ok')
+    expect(summarizeMoonrakerSystemStatus(status)).toMatchObject({ tone: 'ok' })
+  })
+
   it('marks partial data and CAN/service problems as warnings', () => {
     const input = buildHealthyInput()
     input.errors = ['Процессы: HTTP 503']

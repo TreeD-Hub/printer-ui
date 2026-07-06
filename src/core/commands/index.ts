@@ -5,9 +5,14 @@ export type {
   CommandSuccessResult,
   CommandUnsupportedResult,
   ExecuteCommandArgs,
+  PrinterCommandPendingDomain,
   PrinterCommandId,
+  PrinterPendingCommands,
 } from './types'
 export {
+  getFirstPrinterPendingCommand,
+  getPrinterCommandPendingDomain,
+  getPrinterPendingCommand,
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   isDangerousTreeDCommand,
@@ -20,4 +25,6 @@ export type {
   TreeDCommandRisk,
 } from './catalog'
 export { usePrinterCommands } from './usePrinterCommands'
+export { useSystemCommandRecovery } from './useSystemCommandRecovery'
+export type { SystemTransitionCommand } from './useSystemCommandRecovery'
 export { serializeGcodeStringParameter } from './gcodeString'

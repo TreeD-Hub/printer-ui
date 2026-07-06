@@ -21,6 +21,7 @@ const HEAD_Y_BOUNDS_MM = { min: 0, max: 250 } as const
 const MAX_JOYSTICK_SPEED_MM_S = 50
 const HOMED_AXIS_IDS: readonly AxisId[] = ['X', 'Y', 'Z']
 const COORDINATE_AXIS_IDS = ['X', 'Y', 'Z', 'E'] as const
+const MOTORS_RELEASE_CONFIRM_TITLE_ID = 'motors-release-confirm-title'
 
 type CoordinateAxisId = typeof COORDINATE_AXIS_IDS[number]
 
@@ -33,7 +34,8 @@ type MovementSnapshotInput = {
 
 type AxisMotionPanelProps = Pick<
   MovementControlPanelProps,
-  | 'isBusy'
+  | 'isMotionBusy'
+  | 'isFilamentBusy'
   | 'movementMode'
   | 'moveStepKey'
   | 'commandBlockReasons'
@@ -188,7 +190,8 @@ const MovementCoordinateSummary = memo(function MovementCoordinateSummary() {
 
 export const MovementControlPanel = memo(function MovementControlPanel({
   pendingCommand,
-  isBusy,
+  isMotionBusy,
+  isFilamentBusy,
   activeControlFlashKey,
   movementMode,
   moveStepKey,
@@ -205,6 +208,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
 }: MovementControlPanelProps) {
   const parkingLockPopupIdRef = useRef(0)
   const [parkingLockPopup, setParkingLockPopup] = useState<{ id: number; message: string } | null>(null)
+  const [isMotorsReleaseConfirmOpen, setIsMotorsReleaseConfirmOpen] = useState(false)
 
   useEffect(() => {
     if (parkingLockPopup === null) {
@@ -254,7 +258,20 @@ export const MovementControlPanel = memo(function MovementControlPanel({
       return
     }
 
+    setIsMotorsReleaseConfirmOpen(true)
+  }
+
+  async function confirmMotorsRelease(): Promise<void> {
+    if (isMotionBusy || commandBlockReasons.disableMotors !== null) {
+      setIsMotorsReleaseConfirmOpen(false)
+      showParkingLockPopup(
+        commandBlockReasons.disableMotors ?? 'Команда движения уже выполняется.',
+      )
+      return
+    }
+
     const ok = await onMotorsDisable()
+    setIsMotorsReleaseConfirmOpen(false)
     if (!ok) {
       showParkingLockPopup(getLastCommandError() || 'Не удалось отключить моторы.')
     }
@@ -263,7 +280,8 @@ export const MovementControlPanel = memo(function MovementControlPanel({
   return (
     <div className="control-movement-grid">
       <AxisMotionPanel
-        isBusy={isBusy}
+        isMotionBusy={isMotionBusy}
+        isFilamentBusy={isFilamentBusy}
         movementMode={movementMode}
         moveStepKey={moveStepKey}
         commandBlockReasons={commandBlockReasons}
@@ -310,7 +328,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
             aria-disabled={commandBlockReasons.parking.all !== null || undefined}
             data-testid="parking-mode-all"
             onClick={() => void handleParkingSelect('all')}
-            disabled={isBusy}
+            disabled={isMotionBusy}
           >
             <span className="control-target-axis">XYZ</span>
             <span className="control-target-label">Все оси</span>
@@ -324,7 +342,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
               aria-disabled={commandBlockReasons.parking.axis[option.id] !== null || undefined}
               data-testid={`parking-axis-${option.id}`}
               onClick={() => void handleParkingSelect('axis', option.id)}
-              disabled={isBusy}
+              disabled={isMotionBusy}
             >
               <span className="control-target-axis">{option.label}</span>
               <span className="control-target-label">Ось {option.label}</span>
@@ -346,17 +364,51 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           data-testid="motors-disable-button"
           onClick={() => void handleMotorsDisableClick()}
           aria-disabled={commandBlockReasons.disableMotors !== null || undefined}
-          disabled={isBusy}
+          disabled={isMotionBusy}
         >
-          Отключить моторы
+          Release
         </button>
       </article>
+
+      {isMotorsReleaseConfirmOpen ? (
+        <div
+          className="control-filament-confirm-layer"
+          role="presentation"
+          onClick={() => setIsMotorsReleaseConfirmOpen(false)}
+        >
+          <section
+            className="control-filament-confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={MOTORS_RELEASE_CONFIRM_TITLE_ID}
+            data-testid="motors-release-confirm-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id={MOTORS_RELEASE_CONFIRM_TITLE_ID}>Освободить моторы?</h3>
+            <p>Удержание осей будет снято. Z или портал могут просесть под собственным весом.</p>
+            <div>
+              <button type="button" onClick={() => setIsMotorsReleaseConfirmOpen(false)}>
+                Отмена
+              </button>
+              <button
+                type="button"
+                data-testid="motors-release-confirm"
+                onClick={() => void confirmMotorsRelease()}
+                disabled={isMotionBusy || commandBlockReasons.disableMotors !== null}
+              >
+                Release
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   )
 })
 
 const AxisMotionPanel = memo(function AxisMotionPanel({
-  isBusy,
+  isMotionBusy,
+  isFilamentBusy,
   movementMode,
   moveStepKey,
   commandBlockReasons,
@@ -376,6 +428,8 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
   const isFilamentMoveLocked =
     commandBlockReasons.loadFilament !== null ||
     commandBlockReasons.unloadFilament !== null
+  const motionBusyReason = isMotionBusy ? 'Команда движения уже выполняется.' : null
+  const filamentBusyReason = isFilamentBusy ? 'Команда филамента уже выполняется.' : null
 
   useEffect(() => {
     if (lockPopup === null) {
@@ -481,36 +535,35 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
             <AxisCrossControls
               onMove={(axis, direction) => void handleAxisMove(axis, direction)}
               onFilamentMove={(direction) => void handleFilamentMove(direction)}
-              disabled={isBusy}
               disabledMoves={{
                 X: {
-                  negative: moveAxisBlockReasons.X.negative !== null,
-                  positive: moveAxisBlockReasons.X.positive !== null,
+                  negative: isMotionBusy || moveAxisBlockReasons.X.negative !== null,
+                  positive: isMotionBusy || moveAxisBlockReasons.X.positive !== null,
                 },
                 Y: {
-                  negative: moveAxisBlockReasons.Y.negative !== null,
-                  positive: moveAxisBlockReasons.Y.positive !== null,
+                  negative: isMotionBusy || moveAxisBlockReasons.Y.negative !== null,
+                  positive: isMotionBusy || moveAxisBlockReasons.Y.positive !== null,
                 },
                 Z: {
-                  negative: moveAxisBlockReasons.Z.negative !== null,
-                  positive: moveAxisBlockReasons.Z.positive !== null,
+                  negative: isMotionBusy || moveAxisBlockReasons.Z.negative !== null,
+                  positive: isMotionBusy || moveAxisBlockReasons.Z.positive !== null,
                 },
               }}
-              filamentDisabled={isFilamentMoveLocked}
+              filamentDisabled={isFilamentBusy || isFilamentMoveLocked}
               onBlockedMove={(axis, direction) => showLockPopup(
-                moveAxisBlockReasons[axis][direction < 0 ? 'negative' : 'positive'],
+                motionBusyReason ?? moveAxisBlockReasons[axis][direction < 0 ? 'negative' : 'positive'],
               )}
               onBlockedFilamentMove={(direction) => showLockPopup(
-                direction > 0
+                filamentBusyReason ?? (direction > 0
                   ? commandBlockReasons.unloadFilament
-                  : commandBlockReasons.loadFilament,
+                  : commandBlockReasons.loadFilament),
               )}
             />
           </div>
         </section>
       ) : (
         <JoystickMotionPanel
-          isBusy={isBusy}
+          isBusy={isMotionBusy}
           isXyMovementLocked={isXyMovementLocked}
           isZMovementLocked={isZMovementLocked}
           zBounds={zBounds}

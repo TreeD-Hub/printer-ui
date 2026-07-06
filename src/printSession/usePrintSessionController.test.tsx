@@ -10,6 +10,16 @@ import { usePrintSessionController } from './usePrintSessionController'
 type ExecuteCommandMock = (args: ExecuteCommandArgs) => Promise<boolean>
 type RefreshPrintJobMock = () => Promise<void>
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
+}
+
 type TestHarnessProps = {
   snapshot?: PrinterSnapshot
   executeCommand?: ExecuteCommandMock
@@ -175,6 +185,46 @@ describe('usePrintSessionController', () => {
     expect(screen.getByTestId('active-file')).toHaveTextContent('none')
     expect(screen.getByTestId('has-active-print')).toHaveTextContent('false')
     expect(screen.getByTestId('runtime-active')).toHaveTextContent('false')
+  })
+
+  it('does not wait for print job refresh after confirmed cancel', async () => {
+    const refreshAfterCancel = createDeferred<void>()
+    const refreshPrintJob = vi.fn<RefreshPrintJobMock>()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockReturnValueOnce(refreshAfterCancel.promise)
+    const onOpenDashboard = vi.fn()
+
+    render(
+      <TestHarness
+        refreshPrintJob={refreshPrintJob}
+        onOpenDashboard={onOpenDashboard}
+      />,
+    )
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'select first' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'start selected' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'toggle pause' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'confirm stop' }))
+      await Promise.resolve()
+    })
+
+    expect(refreshPrintJob).toHaveBeenCalledTimes(3)
+    expect(onOpenDashboard).toHaveBeenCalledTimes(2)
+    expect(screen.getByTestId('cancel-confirm')).toHaveTextContent('false')
+    expect(screen.getByTestId('active-file')).toHaveTextContent('none')
+
+    await act(async () => {
+      refreshAfterCancel.resolve(undefined)
+      await refreshAfterCancel.promise
+    })
   })
 
   it('does not fake live pause and cancel state before snapshot confirms it', async () => {

@@ -62,6 +62,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'rebootHost',
   'restartKlipper',
   'firmwareRestart',
+  'restartUi',
   'restartMoonraker',
   'shutdownHost',
 ]
@@ -194,6 +195,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(isDangerousTreeDCommand('rebootHost')).toBe(true)
     expect(isDangerousTreeDCommand('restartKlipper')).toBe(true)
     expect(isDangerousTreeDCommand('firmwareRestart')).toBe(true)
+    expect(isDangerousTreeDCommand('restartUi')).toBe(true)
     expect(isDangerousTreeDCommand('restartMoonraker')).toBe(true)
     expect(isDangerousTreeDCommand('shutdownHost')).toBe(true)
 
@@ -204,6 +206,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(isDangerousTreeDCommand('disableMotors')).toBe(false)
     expect(getTreeDCommandCatalogItem('emergencyStop').requiresConfirmation).toBe(false)
     expect(getTreeDCommandCatalogItem('consoleGcode').requiresConfirmation).toBe(true)
+    expect(getTreeDCommandCatalogItem('disableMotors').requiresConfirmation).toBe(true)
   })
 
   it('keeps Eddy calibration workflow commands gated as caution commands', () => {
@@ -410,6 +413,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(getTreeDCommandBlockReason('shutdownHost', PRINTING_CONTEXT)).toBeNull()
     expect(getTreeDCommandBlockReason('restartKlipper', PRINTING_CONTEXT)).toBeNull()
     expect(getTreeDCommandBlockReason('firmwareRestart', PRINTING_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('restartUi', PRINTING_CONTEXT)).toBeNull()
     expect(getTreeDCommandBlockReason('restartMoonraker', PRINTING_CONTEXT)).toBeNull()
 
     expect(getTreeDCommandBlockReason('rebootHost', {
@@ -432,6 +436,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       'shutdownHost',
       'restartKlipper',
       'firmwareRestart',
+      'restartUi',
       'restartMoonraker',
     ] as const) {
       expect(getTreeDCommandBlockReason(command, {

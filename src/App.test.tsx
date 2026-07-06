@@ -1379,11 +1379,12 @@ describe('App', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
 
     expect(screen.getByRole('dialog', { name: 'Питание и перезапуск' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Перезапустить Klipper' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Перезапустить прошивку MCU' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Перезапустить Moonraker' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Перезагрузить принтер' })).not.toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Выключить принтер' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапуск Klipper' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапуск прошивки MCU' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапуск интерфейса' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапуск Moonraker' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезагрузка системы' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Выключение системы' })).not.toBeDisabled()
     expect(screen.queryByText(/Перезапуск сервисов может прервать печать/)).not.toBeInTheDocument()
     expect(screen.queryByText(/Перезапускает сервис Klipper/)).not.toBeInTheDocument()
   })
@@ -1397,19 +1398,20 @@ describe('App', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
 
-    const restartKlipperButton = screen.getByRole('button', { name: 'Перезапустить Klipper' })
+    const restartKlipperButton = screen.getByRole('button', { name: 'Перезапуск Klipper' })
 
     expect(restartKlipperButton).not.toBeDisabled()
     expect(restartKlipperButton).toHaveAttribute('aria-disabled', 'false')
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Выключить принтер' })).toHaveAttribute('aria-disabled', 'false')
+      expect(screen.getByRole('button', { name: 'Выключение системы' })).toHaveAttribute('aria-disabled', 'false')
     })
 
-    const shutdownHostButton = screen.getByRole('button', { name: 'Выключить принтер' })
+    const shutdownHostButton = screen.getByRole('button', { name: 'Выключение системы' })
     const commandCountBeforeConfirm = getMockCommandOperations().length
     fireEvent.click(shutdownHostButton)
     expect(getMockCommandOperations()).toHaveLength(commandCountBeforeConfirm)
-    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить' }))
+    expect(screen.getByText('Выключить систему?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить: Выключение системы' }))
 
     await waitFor(() => {
       expect(getMockCommandOperations()).toEqual(
@@ -1420,5 +1422,27 @@ describe('App', () => {
         ]),
       )
     })
+  })
+
+  it('starts bounded recovery after a restart command is accepted', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterSnapshot().connection).toBe('online')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Перезапуск прошивки MCU' }))
+
+    expect(screen.getByText('Перезапустить прошивку MCU?')).toBeInTheDocument()
+    expect(screen.getByText('Выполняет firmware restart контроллеров через Klipper.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить: Перезапуск прошивки MCU' }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({ command: 'firmwareRestart' })
+      expect(screen.getByRole('status')).toHaveTextContent('Прошивка MCU перезапускается')
+      expect(systemStatusMock.refresh).toHaveBeenCalled()
+    })
+    expect(screen.getByRole('button', { name: 'Перезапуск Moonraker' })).toBeDisabled()
   })
 })

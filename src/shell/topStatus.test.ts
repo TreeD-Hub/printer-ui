@@ -23,6 +23,7 @@ describe('top status popup helpers', () => {
     expect(POWER_MENU_ACTIONS.map((action) => action.command)).toEqual([
       'restartKlipper',
       'firmwareRestart',
+      'restartUi',
       'restartMoonraker',
       'rebootHost',
       'shutdownHost',
@@ -31,5 +32,14 @@ describe('top status popup helpers', () => {
       'rebootHost',
       'shutdownHost',
     ])
+    expect(POWER_MENU_ACTIONS.map((action) => action.label)).toEqual([
+      'Перезапуск Klipper',
+      'Перезапуск прошивки MCU',
+      'Перезапуск интерфейса',
+      'Перезапуск Moonraker',
+      'Перезагрузка системы',
+      'Выключение системы',
+    ])
+    expect(POWER_MENU_ACTIONS.every((action) => action.description.length > 0)).toBe(true)
   })
 })

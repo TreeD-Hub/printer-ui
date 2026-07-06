@@ -6,7 +6,7 @@ import type {
   RefObject,
 } from 'react'
 import type { PrinterFilePreview } from '@treed/printer-logic'
-import type { PrinterCommandId } from '../core/commands'
+import type { PrinterPendingCommands } from '../core/commands'
 import type {
   DashboardDiagnostic,
   DashboardDiagnosticAction,
@@ -72,8 +72,7 @@ export type DashboardPageProps = {
   quickMetrics: DashboardQuickMetric[]
   processMetrics: DashboardProcessMetric[]
   isPrintPaused: boolean
-  pendingCommand: PrinterCommandId | null
-  isBusy: boolean
+  pendingCommands: PrinterPendingCommands
   printPauseBlockReason: string | null
   printCancelBlockReason: string | null
   excludeObjectOpenBlockReason: string | null
@@ -116,7 +115,6 @@ export type DashboardPrintViewProps = Pick<
   | 'displayLayerTotal'
   | 'displayPrintFileName'
   | 'displayPrintFileNameScrollDistanceCh'
-  | 'isBusy'
   | 'isDisplayPrintFileNameScrollable'
   | 'isPrintPaused'
   | 'onBabystepAdjust'
@@ -125,7 +123,7 @@ export type DashboardPrintViewProps = Pick<
   | 'onPrintTuneGroupOpen'
   | 'onStopRequest'
   | 'onExcludeObjectOpen'
-  | 'pendingCommand'
+  | 'pendingCommands'
   | 'printCancelBlockReason'
   | 'excludeObjectOpenBlockReason'
   | 'printFilePreview'
@@ -159,5 +157,5 @@ export type DashboardIdleViewProps = Pick<
   | 'onIdleWidgetDragPointerMove'
   | 'onIdleWidgetTargetOpen'
   | 'statusDock'
-  | 'pendingCommand'
+  | 'pendingCommands'
 >

@@ -221,7 +221,7 @@ describe('usePrinterCommands', () => {
     await expect(latestPromise).resolves.toBe(true)
   })
 
-  it('rejects non-coalesced commands while another command is in flight', async () => {
+  it('rejects non-coalesced commands in the same domain while another command is in flight', async () => {
     const firstResult = createDeferred<CommandResult>()
     runtimeMocks.execute.mockReturnValueOnce(firstResult.promise)
     let api: PrinterCommandsApi | null = null
@@ -237,15 +237,142 @@ describe('usePrinterCommands', () => {
     let firstPromise!: Promise<boolean>
     let secondPromise!: Promise<boolean>
     await act(async () => {
-      firstPromise = api!.executeCommand({ command: 'turnOffHeaters' })
-      secondPromise = api!.executeCommand({ command: 'homeAll' })
+      firstPromise = api!.executeCommand({ command: 'setNozzleTarget', targetCelsius: 215 })
+      secondPromise = api!.executeCommand({ command: 'turnOffHeaters' })
     })
 
     expect(runtimeMocks.execute).toHaveBeenCalledTimes(1)
     await expect(secondPromise).resolves.toBe(false)
 
     await act(async () => {
-      firstResult.resolve(success('turnOffHeaters'))
+      firstResult.resolve(success('setNozzleTarget'))
+      await firstPromise
+    })
+  })
+
+  it('allows commands in other domains while a domain is awaiting runtime confirmation', async () => {
+    runtimeMocks.execute
+      .mockResolvedValueOnce(accepted('setFilamentSensorMode'))
+      .mockResolvedValueOnce(success('start'))
+    let api: PrinterCommandsApi | null = null
+    const idleContext: TreeDCommandRuntimeContext = {
+      ...RUNTIME_CONTEXT,
+      printJob: {
+        filename: '',
+        state: 'standby',
+        isActive: false,
+        isPaused: false,
+      },
+      filamentSensor: {
+        ...RUNTIME_CONTEXT.filamentSensor!,
+        mode: 'presence',
+        motionEnabled: false,
+      },
+    }
+
+    render(<Harness context={idleContext} onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    await act(async () => {
+      await api!.executeCommand({ command: 'setFilamentSensorMode', mode: 'motion' })
+    })
+    expect(api!.pendingCommands.filament).toBe('setFilamentSensorMode')
+
+    let startResult!: boolean
+    await act(async () => {
+      startResult = await api!.executeCommand({ command: 'start', filename: 'jobs/benchy.gcode' })
+    })
+
+    expect(startResult).toBe(true)
+    expect(runtimeMocks.execute).toHaveBeenCalledTimes(2)
+    expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, {
+      command: 'start',
+      filename: 'jobs/benchy.gcode',
+    })
+    expect(api!.pendingCommands.filament).toBe('setFilamentSensorMode')
+    expect(api!.pendingCommands.print ?? null).toBeNull()
+  })
+
+  it.each([
+    ['light', { command: 'setMainLightEnabled', enabled: true }, { command: 'firmwareRestart' }],
+    ['fan', { command: 'setFanPercent', percent: 35 }, { command: 'restartKlipper' }],
+    ['thermal', { command: 'setNozzleTarget', targetCelsius: 205 }, { command: 'restartUi' }],
+    ['filament', { command: 'setFilamentSensorMode', mode: 'presence' }, { command: 'restartMoonraker' }],
+  ] satisfies Array<[string, ExecuteCommandArgs, ExecuteCommandArgs]>)(
+    'does not let pending %s block a system command',
+    async (_domain, pendingArgs, systemArgs) => {
+      const pendingResult = createDeferred<CommandResult>()
+      runtimeMocks.execute
+        .mockReturnValueOnce(pendingResult.promise)
+        .mockResolvedValueOnce(success(systemArgs.command))
+      let api: PrinterCommandsApi | null = null
+      const idleContext: TreeDCommandRuntimeContext = {
+        ...RUNTIME_CONTEXT,
+        printJob: {
+          filename: '',
+          state: 'standby',
+          isActive: false,
+          isPaused: false,
+        },
+      }
+
+      render(<Harness context={idleContext} onReady={(nextApi) => {
+        api = nextApi
+      }} />)
+
+      await waitFor(() => {
+        expect(api).not.toBeNull()
+      })
+
+      let pendingPromise!: Promise<boolean>
+      let systemPromise!: Promise<boolean>
+      await act(async () => {
+        pendingPromise = api!.executeCommand(pendingArgs)
+        systemPromise = api!.executeCommand(systemArgs)
+        await systemPromise
+      })
+
+      expect(runtimeMocks.execute).toHaveBeenNthCalledWith(1, pendingArgs)
+      expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, systemArgs)
+      await expect(systemPromise).resolves.toBe(true)
+
+      await act(async () => {
+        pendingResult.resolve(success(pendingArgs.command))
+        await pendingPromise
+      })
+    },
+  )
+
+  it('blocks a second system command while the first is in flight', async () => {
+    const firstResult = createDeferred<CommandResult>()
+    runtimeMocks.execute.mockReturnValueOnce(firstResult.promise)
+    let api: PrinterCommandsApi | null = null
+
+    render(<Harness onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    let firstPromise!: Promise<boolean>
+    let secondPromise!: Promise<boolean>
+    await act(async () => {
+      firstPromise = api!.executeCommand({ command: 'restartKlipper' })
+      secondPromise = api!.executeCommand({ command: 'firmwareRestart' })
+    })
+
+    expect(runtimeMocks.execute).toHaveBeenCalledTimes(1)
+    await expect(secondPromise).resolves.toBe(false)
+
+    await act(async () => {
+      firstResult.resolve(success('restartKlipper'))
       await firstPromise
     })
   })
@@ -268,7 +395,7 @@ describe('usePrinterCommands', () => {
     let regularPromise!: Promise<boolean>
     let emergencyPromise!: Promise<boolean>
     await act(async () => {
-      regularPromise = api!.executeCommand({ command: 'turnOffHeaters' })
+      regularPromise = api!.executeCommand({ command: 'restartMoonraker' })
       emergencyPromise = api!.executeCommand({ command: 'emergencyStop' })
       await emergencyPromise
     })
@@ -278,10 +405,49 @@ describe('usePrinterCommands', () => {
     await expect(emergencyPromise).resolves.toBe(true)
 
     await act(async () => {
-      firstResult.resolve(success('turnOffHeaters'))
+      firstResult.resolve(success('restartMoonraker'))
       await regularPromise
     })
     await expect(regularPromise).resolves.toBe(false)
+  })
+
+  it('dispatches cancel through the critical path and clears noncritical pending state', async () => {
+    const firstResult = createDeferred<CommandResult>()
+    runtimeMocks.execute
+      .mockReturnValueOnce(firstResult.promise)
+      .mockResolvedValueOnce(success('cancel'))
+    let api: PrinterCommandsApi | null = null
+
+    render(<Harness context={{
+      ...RUNTIME_CONTEXT,
+      mainLightEnabled: false,
+    }} onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    let systemPromise!: Promise<boolean>
+    let cancelPromise!: Promise<boolean>
+    await act(async () => {
+      systemPromise = api!.executeCommand({ command: 'restartUi' })
+      cancelPromise = api!.executeCommand({ command: 'cancel' })
+      await cancelPromise
+    })
+
+    expect(runtimeMocks.execute).toHaveBeenCalledTimes(2)
+    expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, { command: 'cancel' })
+    await expect(cancelPromise).resolves.toBe(true)
+    expect(api!.pendingCommands.system ?? null).toBeNull()
+    expect(api!.pendingCommands.critical ?? null).toBeNull()
+
+    await act(async () => {
+      firstResult.resolve(success('restartUi'))
+      await systemPromise
+    })
+    await expect(systemPromise).resolves.toBe(false)
   })
 
   it('keeps a stateful command pending until runtime state confirms it', async () => {
@@ -318,6 +484,72 @@ describe('usePrinterCommands', () => {
       expect(api!.pendingCommand).toBeNull()
       expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'confirmed' }))
     })
+  })
+
+  it('confirms main light from updated runtime state', async () => {
+    runtimeMocks.execute.mockResolvedValue(accepted('setMainLightEnabled'))
+    let api: PrinterCommandsApi | null = null
+    const onReady = (nextApi: PrinterCommandsApi) => {
+      api = nextApi
+    }
+    const initialContext: TreeDCommandRuntimeContext = {
+      ...RUNTIME_CONTEXT,
+      mainLightEnabled: false,
+    }
+    const { rerender } = render(<Harness context={initialContext} onReady={onReady} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    await act(async () => {
+      await api!.executeCommand({ command: 'setMainLightEnabled', enabled: true })
+    })
+
+    expect(api!.pendingCommand).toBe('setMainLightEnabled')
+
+    rerender(<Harness context={{
+      ...initialContext,
+      mainLightEnabled: true,
+    }} onReady={onReady} />)
+
+    await waitFor(() => {
+      expect(api!.pendingCommand).toBeNull()
+      expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'confirmed' }))
+    })
+  })
+
+  it('allows fan changes while another command is awaiting runtime confirmation', async () => {
+    runtimeMocks.execute
+      .mockResolvedValueOnce(accepted('setMainLightEnabled'))
+      .mockResolvedValueOnce(success('setFanPercent'))
+    let api: PrinterCommandsApi | null = null
+
+    render(<Harness context={{
+      ...RUNTIME_CONTEXT,
+      mainLightEnabled: false,
+    }} onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    await act(async () => {
+      await api!.executeCommand({ command: 'setMainLightEnabled', enabled: true })
+    })
+    expect(api!.pendingCommand).toBe('setMainLightEnabled')
+
+    let fanResult!: boolean
+    await act(async () => {
+      fanResult = await api!.executeCommand({ command: 'setFanPercent', percent: 70 })
+    })
+
+    expect(fanResult).toBe(true)
+    expect(runtimeMocks.execute).toHaveBeenCalledTimes(2)
+    expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, { command: 'setFanPercent', percent: 70 })
+    expect(api!.pendingCommand).toBe('setMainLightEnabled')
   })
 
   it('confirms filament mode and sensitivity only from updated runtime state', async () => {

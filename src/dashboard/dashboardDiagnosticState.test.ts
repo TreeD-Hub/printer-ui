@@ -196,6 +196,24 @@ describe('resolveDashboardDiagnostic', () => {
     })
   })
 
+  it('does not report ERROR-ACTIVE CAN with accumulated counters', () => {
+    const systemStatus = createSystemStatus({
+      canDevices: [{
+        objectName: 'canbus_stats EBBCan',
+        label: 'EBBCan',
+        busState: 'ERROR-ACTIVE',
+        rxErrors: 2,
+        txErrors: 1,
+        retries: 3,
+      }],
+    })
+
+    expect(resolveDashboardDiagnostic({
+      ...createRuntime(),
+      systemStatus,
+    })).toBeNull()
+  })
+
   it('reports a partial diagnostic request without hiding it behind degraded mode', () => {
     const systemStatus = createSystemStatus({
       loadState: 'partial',

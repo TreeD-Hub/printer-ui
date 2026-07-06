@@ -20,9 +20,13 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 - Runtime tune: speed factor, flow factor, accel, pressure advance, retraction length, Z-offset.
 - Филамент: `loadFilament`, `unloadFilament`, `setFilamentSensorMode`, `setFilamentEncoderSensitivity`.
 - V2/Eddy/shaper: `zParkZeroEddy`, `shaperCalibrateLight`, `shaperCalibrateFull`, `xyMotionTest`.
-- Сервисные команды: `restartKlipper`, `firmwareRestart`, `restartMoonraker`.
+- Сервисные команды: `restartKlipper`, `firmwareRestart`, `restartUi`, `restartMoonraker`.
 - Host power: `rebootHost`, `shutdownHost`.
+
+`restartUi` вызывает штатный Moonraker endpoint `POST /machine/services/restart` для сервиса `treed-shell`; runtime обязан добавить сервис в `moonraker.asvc`.
 - Console G-code: `consoleGcode`, с обязательной risk/confirmation политикой на UI-слое.
+
+`disableMotors` отправляет `M84` и требует подтверждения в UI из-за риска просадки Z/портала.
 
 ## Контракт
 

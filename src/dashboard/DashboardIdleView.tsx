@@ -1,6 +1,7 @@
 import { DashboardIdleTemperatureWidgetContent } from './DashboardTemperatureWidgets'
 import { DashboardDiagnosticView } from './DashboardDiagnosticView'
 import type { DashboardIdleViewProps } from './DashboardPage.types'
+import { getPrinterCommandPendingDomain } from '../core/commands'
 
 const HOURS_FORMATTER = new Intl.NumberFormat('ru-RU', {
   maximumFractionDigits: 1,
@@ -18,7 +19,7 @@ export function DashboardIdleView({
   idleNotesInputRef,
   idleNotesText,
   diagnostic,
-  pendingCommand,
+  pendingCommands,
   onIdleWidgetTargetOpen,
   onIdleWidgetDragPointerDown,
   onIdleWidgetDragPointerMove,
@@ -52,7 +53,7 @@ export function DashboardIdleView({
             diagnostic={diagnostic}
             isActionPending={
               diagnostic.action.kind === 'command' &&
-              pendingCommand === diagnostic.action.command
+              pendingCommands[getPrinterCommandPendingDomain(diagnostic.action.command)] === diagnostic.action.command
             }
             onAction={onDiagnosticAction}
           />
