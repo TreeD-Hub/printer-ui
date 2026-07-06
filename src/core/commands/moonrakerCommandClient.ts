@@ -29,6 +29,7 @@ type MoonrakerEnvelope = {
 const DEFAULT_COMMAND_FETCH_TIMEOUT_MS = 8_000
 const MOTION_COMMAND_FETCH_TIMEOUT_MS = 120_000
 const RESTART_COMMAND_FETCH_TIMEOUT_MS = 120_000
+const MAX_MOVE_AXIS_SEGMENT_MM = 50
 const MOTION_COMMANDS = new Set<ExecuteCommandArgs['command']>([
   'home',
   'homeAll',
@@ -349,8 +350,14 @@ function executeMoonrakerCommand(
     case 'moveAxis': {
       const feedRateMmPerMin = args.feedRateMmPerMin ?? (args.speedMmS === undefined ? undefined : args.speedMmS * 60)
       const feedRate = feedRateMmPerMin !== undefined ? ` FEEDRATE=${feedRateMmPerMin}` : ''
+      const segmentCount = Math.ceil(Math.abs(args.distanceMm) / MAX_MOVE_AXIS_SEGMENT_MM)
+      const segmentDistanceMm = args.distanceMm / segmentCount
+      const script = Array.from(
+        { length: segmentCount },
+        () => `TREED_UI_MOVE_AXIS AXIS=${args.axis} DISTANCE=${segmentDistanceMm}${feedRate}`,
+      ).join('\nM400\n')
       return sendScript(
-        `TREED_UI_MOVE_AXIS AXIS=${args.axis} DISTANCE=${args.distanceMm}${feedRate}\nM400`,
+        `${script}\nM400`,
         options,
         args.command,
       )

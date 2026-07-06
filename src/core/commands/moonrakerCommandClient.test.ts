@@ -317,6 +317,37 @@ describe('createMoonrakerCommandClient', () => {
     )
   })
 
+  it.each([
+    { distanceMm: 100, segmentDistanceMm: 50 },
+    { distanceMm: -100, segmentDistanceMm: -50 },
+  ])('splits a $distanceMm mm axis move into device-safe segments', async ({ distanceMm, segmentDistanceMm }) => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: 'ok' }),
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
+    })
+
+    await client.execute({ command: 'moveAxis', axis: 'X', distanceMm })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          script: [
+            `TREED_UI_MOVE_AXIS AXIS=X DISTANCE=${segmentDistanceMm}`,
+            'M400',
+            `TREED_UI_MOVE_AXIS AXIS=X DISTANCE=${segmentDistanceMm}`,
+            'M400',
+          ].join('\n'),
+        }),
+      }),
+    )
+  })
+
   it('serializes EXCLUDE_OBJECT names without changing the object name', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
