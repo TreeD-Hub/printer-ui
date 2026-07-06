@@ -17,21 +17,21 @@ function releases(tags: string[]): Response {
 }
 
 describe('update release client', () => {
-  it('checks shell and mainshell repositories independently', async () => {
+  it('checks printer UI and core repositories independently', async () => {
     const targets: UpdateReleaseTarget[] = [
       {
-        id: 'treed-shell',
-        label: 'TreeD Shell UI',
+        id: 'printer-ui',
+        label: 'TreeD Printer UI',
         currentVersion: '0.1.0',
-        releaseApiUrl: 'https://api.github.com/repos/TreeD-Hub/treed-shell/releases',
+        releaseApiUrl: 'https://api.github.com/repos/TreeD-Hub/printer-ui/releases',
         tagPrefix: 'ui-main-',
         versionScheme: 'tag',
       },
       {
-        id: 'treed-mainshellos',
-        label: 'TreeD MainShell OS',
+        id: 'printer-core',
+        label: 'TreeD Printer Core',
         currentVersion: '0.1.0',
-        releaseApiUrl: 'https://api.github.com/repos/TreeD-Hub/treed-mainshellOS/releases',
+        releaseApiUrl: 'https://api.github.com/repos/TreeD-Hub/printer-core/releases',
         tagPrefix: 'v',
         versionScheme: 'semver',
       },
@@ -42,8 +42,8 @@ describe('update release client', () => {
 
     await expect(checkUpdateReleases(targets, fetchImpl)).resolves.toEqual([
       {
-        id: 'treed-shell',
-        label: 'TreeD Shell UI',
+        id: 'printer-ui',
+        label: 'TreeD Printer UI',
         currentVersion: '0.1.0',
         latestTag: 'ui-main-42-1',
         latestVersion: 'ui-main-42-1',
@@ -51,8 +51,8 @@ describe('update release client', () => {
         message: 'Последний релиз найден.',
       },
       {
-        id: 'treed-mainshellos',
-        label: 'TreeD MainShell OS',
+        id: 'printer-core',
+        label: 'TreeD Printer Core',
         currentVersion: '0.1.0',
         latestTag: 'v0.2.0',
         latestVersion: '0.2.0',
@@ -61,11 +61,11 @@ describe('update release client', () => {
       },
     ])
     expect(fetchImpl).toHaveBeenCalledWith(
-      'https://api.github.com/repos/TreeD-Hub/treed-shell/releases',
+      'https://api.github.com/repos/TreeD-Hub/printer-ui/releases',
       expect.objectContaining({ method: 'GET' }),
     )
     expect(fetchImpl).toHaveBeenCalledWith(
-      'https://api.github.com/repos/TreeD-Hub/treed-mainshellOS/releases',
+      'https://api.github.com/repos/TreeD-Hub/printer-core/releases',
       expect.objectContaining({ method: 'GET' }),
     )
   })

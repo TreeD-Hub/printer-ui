@@ -1,7 +1,7 @@
 import { moonrakerUrl } from '../config'
 
 type HostUpdateReleaseStatus = 'unknown' | 'latest' | 'available' | 'error' | 'mock'
-export type HostUpdateTargetId = 'treed-shell' | 'treed-mainshellos'
+export type HostUpdateTargetId = 'printer-ui' | 'printer-core'
 
 export type HostUpdateReleaseResult = {
   id: string
@@ -54,6 +54,16 @@ type MoonrakerHostUpdateClientOptions = {
 const HOST_UPDATE_STATUS_TIMEOUT_MS = 30_000
 const HOST_UPDATE_CHECK_TIMEOUT_MS = 30_000
 const HOST_UPDATE_APPLY_TIMEOUT_MS = 10_000
+const HOST_UPDATE_TARGET_ALIASES: Record<string, HostUpdateTargetId> = {
+  'printer-ui': 'printer-ui',
+  'treed-shell': 'printer-ui',
+  'printer-core': 'printer-core',
+  'treed-mainshellos': 'printer-core',
+}
+const HOST_UPDATE_TARGET_LABELS: Record<HostUpdateTargetId, string> = {
+  'printer-ui': 'TreeD Printer UI',
+  'printer-core': 'TreeD Printer Core',
+}
 
 function readString(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim().length > 0 ? value : fallback
@@ -64,7 +74,20 @@ function readNullableString(value: unknown): string | null {
 }
 
 function readTargetId(value: unknown): HostUpdateTargetId | null {
-  return value === 'treed-shell' || value === 'treed-mainshellos' ? value : null
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  return HOST_UPDATE_TARGET_ALIASES[value] ?? null
+}
+
+function normalizeReleaseId(value: string): string {
+  return HOST_UPDATE_TARGET_ALIASES[value] ?? value
+}
+
+function normalizeReleaseLabel(id: string, label: string): string {
+  const targetId = readTargetId(id)
+  return targetId === null ? label : HOST_UPDATE_TARGET_LABELS[targetId]
 }
 
 function normalizeReleaseResult(value: unknown): HostUpdateReleaseResult | null {
@@ -89,8 +112,8 @@ function normalizeReleaseResult(value: unknown): HostUpdateReleaseResult | null 
   }
 
   return {
-    id,
-    label,
+    id: normalizeReleaseId(id),
+    label: normalizeReleaseLabel(id, label),
     currentVersion,
     latestTag: readNullableString(record.latestTag),
     latestVersion: readNullableString(record.latestVersion),

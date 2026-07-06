@@ -79,21 +79,22 @@ describe('Moonraker host update client', () => {
       canApply: true,
       releaseResults: [
         expect.objectContaining({
-          id: 'treed-mainshellos',
+          id: 'printer-core',
+          label: 'TreeD Printer Core',
           latestTag: 'v0.2.0',
           canApply: true,
         }),
       ],
     })
 
-    await expect(client.apply({ targetId: 'treed-mainshellos', targetTag: 'v0.2.0' })).resolves.toMatchObject({
+    await expect(client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0' })).resolves.toMatchObject({
       busy: true,
       targetTag: 'v0.2.0',
     })
     expect(fetchImpl).toHaveBeenLastCalledWith(
       'http://moonraker.local/server/treed/update/apply',
       expect.objectContaining({
-        body: JSON.stringify({ targetId: 'treed-mainshellos', targetTag: 'v0.2.0' }),
+        body: JSON.stringify({ targetId: 'printer-core', targetTag: 'v0.2.0' }),
         method: 'POST',
       }),
     )
@@ -142,7 +143,7 @@ describe('Moonraker host update client', () => {
     })
 
     try {
-      const promise = client.apply({ targetId: 'treed-mainshellos', targetTag: 'v0.2.0' })
+      const promise = client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0' })
       const timeoutExpectation = expect(promise).rejects.toMatchObject({
         message: expect.stringContaining('10000ms'),
         status: 408,
@@ -152,7 +153,7 @@ describe('Moonraker host update client', () => {
       expect(fetchImpl).toHaveBeenCalledWith(
         'http://moonraker.local/server/treed/update/apply',
         expect.objectContaining({
-          body: JSON.stringify({ targetId: 'treed-mainshellos', targetTag: 'v0.2.0' }),
+          body: JSON.stringify({ targetId: 'printer-core', targetTag: 'v0.2.0' }),
           headers: { 'content-type': 'application/json' },
           method: 'POST',
           signal: expect.any(AbortSignal),

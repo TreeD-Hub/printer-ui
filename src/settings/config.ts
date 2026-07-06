@@ -1,7 +1,7 @@
 import type { WifiNetworkItem, WifiNetworkSecurity } from '@treed/printer-logic'
 import {
-  treedMainShellReleaseApiUrl,
-  treedShellReleaseApiUrl,
+  printerCoreReleaseApiUrl,
+  printerUiReleaseApiUrl,
 } from '../config'
 import type { UpdateReleaseTarget } from './updateReleaseClient'
 import type { SettingsMenuOption } from '../ui'
@@ -73,22 +73,22 @@ export const TIMEZONE_OPTIONS = [
 
 export const DEFAULT_TIMEZONE_OPTION = '(UTC+03:00) Москва, Санкт-Петербург'
 export const LANGUAGE_OPTIONS = ['Русский', 'English'] as const
-export const UPDATE_CURRENT_VERSION = '0.1.0'
-export const TREED_MAIN_SHELL_CURRENT_VERSION = '0.1.0'
+export const PRINTER_UI_CURRENT_VERSION = '0.1.0'
+export const PRINTER_CORE_CURRENT_VERSION = '0.1.0'
 export const UPDATE_RELEASE_TARGETS: UpdateReleaseTarget[] = [
   {
-    id: 'treed-shell',
-    label: 'TreeD Shell UI',
-    currentVersion: UPDATE_CURRENT_VERSION,
-    releaseApiUrl: treedShellReleaseApiUrl,
+    id: 'printer-ui',
+    label: 'TreeD Printer UI',
+    currentVersion: PRINTER_UI_CURRENT_VERSION,
+    releaseApiUrl: printerUiReleaseApiUrl,
     tagPrefix: 'ui-main-',
     versionScheme: 'tag',
   },
   {
-    id: 'treed-mainshellos',
-    label: 'TreeD MainShell OS',
-    currentVersion: TREED_MAIN_SHELL_CURRENT_VERSION,
-    releaseApiUrl: treedMainShellReleaseApiUrl,
+    id: 'printer-core',
+    label: 'TreeD Printer Core',
+    currentVersion: PRINTER_CORE_CURRENT_VERSION,
+    releaseApiUrl: printerCoreReleaseApiUrl,
     tagPrefix: 'v',
     versionScheme: 'semver',
   },

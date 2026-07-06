@@ -502,7 +502,7 @@ export function SettingsPage({
                 </button>
                 {updates.releaseResults
                   .filter((release): release is UpdateReleaseResult & { id: HostUpdateTargetId } => (
-                    release.id === 'treed-shell' || release.id === 'treed-mainshellos'
+                    release.id === 'printer-ui' || release.id === 'printer-core'
                   ))
                   .map((release) => (
                     <button
@@ -519,7 +519,7 @@ export function SettingsPage({
                     >
                       {updates.applyingUpdateTarget === release.id
                         ? 'Запуск...'
-                        : release.id === 'treed-shell'
+                        : release.id === 'printer-ui'
                           ? 'Обновить интерфейс'
                           : 'Обновить систему'}
                     </button>

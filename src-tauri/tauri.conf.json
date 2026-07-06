@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "treed-shell",
+  "productName": "printer-ui",
   "version": "0.1.0",
   "identifier": "com.treed.shell",
   "build": {

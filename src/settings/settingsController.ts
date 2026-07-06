@@ -27,7 +27,7 @@ import {
   SETTINGS_NOTIFICATION_HISTORY,
   SLEEP_MODE_OPTIONS,
   TIMEZONE_OPTIONS,
-  UPDATE_CURRENT_VERSION,
+  PRINTER_UI_CURRENT_VERSION,
   UPDATE_RELEASE_TARGETS,
   type SettingsGroupId,
   type SettingsNotificationItem,
@@ -675,7 +675,7 @@ export function useSettingsController({
           ? 'UI contract: legacy runtime'
           : snapshot.uiContract.message ?? 'UI contract: несовместим',
       runtimeStatus: `Transport: ${snapshot.transport.state}; Klippy: ${snapshot.klippy.state}`,
-      onExportDiagnostics: () => downloadDiagnosticReport(snapshot, UPDATE_CURRENT_VERSION),
+      onExportDiagnostics: () => downloadDiagnosticReport(snapshot, PRINTER_UI_CURRENT_VERSION),
     },
     interfaceSettings: {
       isDarkThemeEnabled,
