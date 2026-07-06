@@ -145,6 +145,16 @@ export interface PrinterMacroStateSnapshot {
   values: Record<string, Record<string, unknown>>
 }
 
+export interface PrinterCameraSnapshot {
+  supported: boolean
+  active: boolean
+  resolution: string | null
+  targetFps: number | null
+  maxFps: number | null
+  streamUrl: string | null
+  snapshotUrl: string | null
+}
+
 export type PrinterFileItemSnapshot = PrinterFileItem
 
 export interface PrinterToolheadRuntimeSnapshot {
@@ -220,6 +230,7 @@ export interface PrinterRuntimeSnapshot {
   printJob: PrinterPrintJobSnapshot
   excludeObjects: PrinterExcludeObjectSnapshot
   files: PrinterFilesSnapshot
+  camera: PrinterCameraSnapshot
   fileList?: PrinterFileListStatusSnapshot
   toolhead: PrinterToolheadRuntimeSnapshot
   geometry: PrinterGeometrySnapshot

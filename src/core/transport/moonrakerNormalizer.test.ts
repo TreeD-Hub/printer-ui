@@ -108,6 +108,15 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       'gcode_macro TREED_UI_MOVE_AXIS': {},
       'gcode_macro _TREED_SYSTEM_POWER': { enabled: 1 },
       'gcode_macro _TREED_SERVICE_COMMANDS': { enabled: 1 },
+      'gcode_macro _TREED_CAMERA': {
+        enabled: 1,
+        resolution: '1920x1080',
+        target_fps: 30,
+        max_fps: 30,
+        stream_url: '/webcam/?action=stream',
+        snapshot_url: '/webcam/?action=snapshot',
+      },
+      'gcode_macro _TREED_CAM_STATE': { enabled: 1 },
     }))
 
     expect(snapshot.uiContract).toMatchObject({
@@ -132,6 +141,15 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       systemPower: true,
       serviceCommands: true,
     })
+    expect(snapshot.camera).toEqual({
+      supported: true,
+      active: true,
+      resolution: '1920x1080',
+      targetFps: 30,
+      maxFps: 30,
+      streamUrl: '/webcam/?action=stream',
+      snapshotUrl: '/webcam/?action=snapshot',
+    })
   })
 
   it('fails closed for an explicitly incompatible device contract', () => {
@@ -150,6 +168,29 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     expect(snapshot.uiContract.missingMacros).toEqual(['TREED_UI_MOVE_AXIS'])
     expect(snapshot.capabilities.print).toBe(false)
     expect(snapshot.capabilities.motion).toBe(false)
+  })
+
+  it('uses _TREED_CAMERA as the compatible runtime camera switch', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: { state: 'ready' },
+      'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '1.0',
+        profile: 'treed_v2_corexy_v1',
+        capability_camera: 1,
+        required_macros: '_TREED_CAMERA',
+      },
+      'gcode_macro _TREED_CAMERA': {
+        enabled: 0,
+        target_fps: 30,
+      },
+    }))
+
+    expect(snapshot.capabilities.camera).toBe(false)
+    expect(snapshot.camera).toMatchObject({
+      supported: false,
+      active: false,
+      targetFps: 30,
+    })
   })
 
   it('normalizes persisted Eddy calibration workflow state from save_variables', () => {
