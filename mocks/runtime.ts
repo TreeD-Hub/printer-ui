@@ -26,8 +26,8 @@ const mockUpdateStatus: HostUpdateStatus = {
   logPath: null,
   releaseResults: [
     {
-      id: 'treed-shell',
-      label: 'TreeD Shell UI',
+      id: 'printer-ui',
+      label: 'TreeD Printer UI',
       currentVersion: '0.1.0',
       latestTag: null,
       latestVersion: '0.1.0',
@@ -36,8 +36,8 @@ const mockUpdateStatus: HostUpdateStatus = {
       canApply: false,
     },
     {
-      id: 'treed-mainshellos',
-      label: 'TreeD MainShell OS',
+      id: 'printer-core',
+      label: 'TreeD Printer Core',
       currentVersion: '0.1.0',
       latestTag: null,
       latestVersion: '0.1.0',

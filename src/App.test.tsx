@@ -1317,11 +1317,11 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('settings-group-updates'))
     expect(screen.getByTestId('settings-check-updates-button')).toBeEnabled()
-    expect(screen.getByText('TreeD Shell UI')).toBeInTheDocument()
-    expect(screen.getByText('TreeD MainShell OS')).toBeInTheDocument()
+    expect(screen.getByText('TreeD Printer UI')).toBeInTheDocument()
+    expect(screen.getByText('TreeD Printer Core')).toBeInTheDocument()
     expect(screen.getAllByText('Mock')).toHaveLength(2)
-    expect(screen.getByTestId('settings-apply-treed-shell-button')).toBeDisabled()
-    expect(screen.getByTestId('settings-apply-treed-mainshellos-button')).toBeDisabled()
+    expect(screen.getByTestId('settings-apply-printer-ui-button')).toBeDisabled()
+    expect(screen.getByTestId('settings-apply-printer-core-button')).toBeDisabled()
 
     fireEvent.click(screen.getByTestId('settings-group-console'))
     const consoleInput = screen.getByTestId('settings-console-input') as HTMLTextAreaElement

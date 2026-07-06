@@ -70,8 +70,8 @@ const availableUpdateStatus: HostUpdateStatus = {
   logPath: '/tmp/treed-update-apply.log',
   releaseResults: [
     {
-      id: 'treed-shell',
-      label: 'TreeD Shell UI',
+      id: 'printer-ui',
+      label: 'TreeD Printer UI',
       currentVersion: 'ui-main-15-1',
       latestTag: 'ui-main-16-1',
       latestVersion: 'ui-main-16-1',
@@ -80,8 +80,8 @@ const availableUpdateStatus: HostUpdateStatus = {
       canApply: true,
     },
     {
-      id: 'treed-mainshellos',
-      label: 'TreeD MainShell OS',
+      id: 'printer-core',
+      label: 'TreeD Printer Core',
       currentVersion: '0.1.0',
       latestTag: null,
       latestVersion: null,
@@ -106,7 +106,7 @@ describe('settings controller helpers', () => {
       ...availableUpdateStatus,
       busy: true,
       canApply: false,
-      targetId: 'treed-shell',
+      targetId: 'printer-ui',
       targetTag: 'ui-main-16-1',
     })
     const updateClient: HostUpdateClient = {
@@ -131,11 +131,11 @@ describe('settings controller helpers', () => {
     })
 
     await act(async () => {
-      await result.current.pageProps.updates.onApplyUpdate('treed-shell')
+      await result.current.pageProps.updates.onApplyUpdate('printer-ui')
     })
 
     expect(apply).toHaveBeenCalledWith({
-      targetId: 'treed-shell',
+      targetId: 'printer-ui',
       targetTag: 'ui-main-16-1',
     })
   })

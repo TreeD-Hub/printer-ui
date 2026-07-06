@@ -68,8 +68,8 @@ body {
 }
 
 .screen-shell {
-  --color-border-muted: color-mix(in srgb, var(--color-border-default) 62%, transparent);
-  --color-border-guide: color-mix(in srgb, var(--color-border-default) 72%, transparent);
+  --color-border-muted: var(--color-border-default);
+  --color-border-guide: rgba(58, 63, 67, 0.72);
   position: relative;
   width: min(var(--screen-width), 100vw);
   height: min(var(--screen-height), 100vh);
