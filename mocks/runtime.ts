@@ -470,6 +470,8 @@ export function createMockSnapshot(): PrinterSnapshot {
       supported: false,
       active: false,
       resolution: null,
+      format: null,
+      encoder: null,
       targetFps: null,
       maxFps: null,
       streamUrl: null,

@@ -111,6 +111,8 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       'gcode_macro _TREED_CAMERA': {
         enabled: 1,
         resolution: '1920x1080',
+        format: 'MJPEG',
+        encoder: 'HW',
         target_fps: 30,
         max_fps: 30,
         stream_url: '/webcam/?action=stream',
@@ -145,6 +147,8 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       supported: true,
       active: true,
       resolution: '1920x1080',
+      format: 'MJPEG',
+      encoder: 'HW',
       targetFps: 30,
       maxFps: 30,
       streamUrl: '/webcam/?action=stream',

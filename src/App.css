@@ -68,6 +68,8 @@ body {
 }
 
 .screen-shell {
+  --color-border-muted: color-mix(in srgb, var(--color-border-default) 62%, transparent);
+  --color-border-guide: color-mix(in srgb, var(--color-border-default) 72%, transparent);
   position: relative;
   width: min(var(--screen-width), 100vw);
   height: min(var(--screen-height), 100vh);
@@ -2339,7 +2341,7 @@ body {
 /* Control hierarchy: .control-card is a top-level panel; .control-subpanel is a nested block without elevation. */
 .control-subpanel {
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  border: 1px solid var(--color-border-muted);
   border-radius: 12px;
   background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
   box-shadow: none;
@@ -2361,7 +2363,7 @@ body {
 }
 
 .control-card.control-subpanel {
-  border-color: color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  border-color: var(--color-border-muted);
   background: color-mix(in srgb, var(--color-block-surface) 42%, transparent);
   box-shadow: none;
 }
@@ -3846,7 +3848,7 @@ body {
 
 .axis-cross-xy {
   --axis-cross-btn-size: 64px;
-  --axis-cross-dot-color: rgba(244, 244, 240, 0.58);
+  --axis-cross-dot-color: var(--color-border-guide);
   position: relative;
   width: 100%;
   min-width: 224px;
@@ -3855,7 +3857,7 @@ body {
 
 .axis-cross-z,
 .axis-cross-e {
-  --axis-cross-dot-color: rgba(244, 244, 240, 0.58);
+  --axis-cross-dot-color: var(--color-border-guide);
   position: relative;
   width: 100%;
   min-height: 156px;
@@ -4167,7 +4169,7 @@ body {
   gap: 7px;
   min-width: 0;
   padding: 0 10px;
-  border-right: 1px solid color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  border-right: 1px solid var(--color-border-muted);
 }
 
 .axis-coordinate-item:first-child {

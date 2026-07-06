@@ -1074,6 +1074,8 @@ function normalizeCamera(macros: PrinterMacroStateSnapshot, cameraCapability: bo
     supported,
     active,
     resolution: readMacroString(camera, 'resolution'),
+    format: readMacroString(camera, 'format'),
+    encoder: readMacroString(camera, 'encoder'),
     targetFps: readMacroPositiveNumber(camera, 'target_fps'),
     maxFps: readMacroPositiveNumber(camera, 'max_fps'),
     streamUrl: readMacroString(camera, 'stream_url'),

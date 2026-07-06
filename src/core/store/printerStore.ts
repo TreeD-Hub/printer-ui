@@ -133,6 +133,8 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     supported: false,
     active: false,
     resolution: null,
+    format: null,
+    encoder: null,
     targetFps: null,
     maxFps: null,
     streamUrl: null,
