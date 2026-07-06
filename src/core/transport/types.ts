@@ -149,6 +149,8 @@ export interface PrinterCameraSnapshot {
   supported: boolean
   active: boolean
   resolution: string | null
+  format: string | null
+  encoder: string | null
   targetFps: number | null
   maxFps: number | null
   streamUrl: string | null
