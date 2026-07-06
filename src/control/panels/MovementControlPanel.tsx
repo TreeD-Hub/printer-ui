@@ -21,6 +21,7 @@ const HEAD_Y_BOUNDS_MM = { min: 0, max: 250 } as const
 const MAX_JOYSTICK_SPEED_MM_S = 50
 const HOMED_AXIS_IDS: readonly AxisId[] = ['X', 'Y', 'Z']
 const COORDINATE_AXIS_IDS = ['X', 'Y', 'Z', 'E'] as const
+const MOTORS_RELEASE_CONFIRM_TITLE_ID = 'motors-release-confirm-title'
 
 type CoordinateAxisId = typeof COORDINATE_AXIS_IDS[number]
 
@@ -207,6 +208,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
 }: MovementControlPanelProps) {
   const parkingLockPopupIdRef = useRef(0)
   const [parkingLockPopup, setParkingLockPopup] = useState<{ id: number; message: string } | null>(null)
+  const [isMotorsReleaseConfirmOpen, setIsMotorsReleaseConfirmOpen] = useState(false)
 
   useEffect(() => {
     if (parkingLockPopup === null) {
@@ -256,7 +258,20 @@ export const MovementControlPanel = memo(function MovementControlPanel({
       return
     }
 
+    setIsMotorsReleaseConfirmOpen(true)
+  }
+
+  async function confirmMotorsRelease(): Promise<void> {
+    if (isMotionBusy || commandBlockReasons.disableMotors !== null) {
+      setIsMotorsReleaseConfirmOpen(false)
+      showParkingLockPopup(
+        commandBlockReasons.disableMotors ?? 'Команда движения уже выполняется.',
+      )
+      return
+    }
+
     const ok = await onMotorsDisable()
+    setIsMotorsReleaseConfirmOpen(false)
     if (!ok) {
       showParkingLockPopup(getLastCommandError() || 'Не удалось отключить моторы.')
     }
@@ -351,9 +366,42 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           aria-disabled={commandBlockReasons.disableMotors !== null || undefined}
           disabled={isMotionBusy}
         >
-          Отключить моторы
+          Release
         </button>
       </article>
+
+      {isMotorsReleaseConfirmOpen ? (
+        <div
+          className="control-filament-confirm-layer"
+          role="presentation"
+          onClick={() => setIsMotorsReleaseConfirmOpen(false)}
+        >
+          <section
+            className="control-filament-confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={MOTORS_RELEASE_CONFIRM_TITLE_ID}
+            data-testid="motors-release-confirm-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id={MOTORS_RELEASE_CONFIRM_TITLE_ID}>Освободить моторы?</h3>
+            <p>Удержание осей будет снято. Z или портал могут просесть под собственным весом.</p>
+            <div>
+              <button type="button" onClick={() => setIsMotorsReleaseConfirmOpen(false)}>
+                Отмена
+              </button>
+              <button
+                type="button"
+                data-testid="motors-release-confirm"
+                onClick={() => void confirmMotorsRelease()}
+                disabled={isMotionBusy || commandBlockReasons.disableMotors !== null}
+              >
+                Release
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   )
 })

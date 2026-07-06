@@ -2307,6 +2307,7 @@ body {
 }
 
 .control-movement-grid {
+  position: relative;
   min-height: 0;
   height: 100%;
   display: grid;

@@ -206,6 +206,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(isDangerousTreeDCommand('disableMotors')).toBe(false)
     expect(getTreeDCommandCatalogItem('emergencyStop').requiresConfirmation).toBe(false)
     expect(getTreeDCommandCatalogItem('consoleGcode').requiresConfirmation).toBe(true)
+    expect(getTreeDCommandCatalogItem('disableMotors').requiresConfirmation).toBe(true)
   })
 
   it('keeps Eddy calibration workflow commands gated as caution commands', () => {

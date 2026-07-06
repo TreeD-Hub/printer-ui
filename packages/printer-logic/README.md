@@ -20,6 +20,8 @@
 
 Системные команды `restartKlipper`, `firmwareRestart`, `restartUi`, `restartMoonraker`, `rebootHost` и `shutdownHost` относятся к независимому pending-домену `system`. Транспорт и recovery-loop остаются ответственностью UI-приложения.
 
+Команда `disableMotors` снимает удержание осей через `M84`, относится к motion-домену и требует подтверждения в UI.
+
 Пакет не выполняет команды, не вызывает `nmcli`, не ходит в Moonraker и не знает про layout. UI-приложения отвечают за transport, errors, retry, confirmation flow и отображение.
 
 ## Публичный контракт

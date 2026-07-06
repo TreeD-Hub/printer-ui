@@ -26,6 +26,8 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 `restartUi` вызывает штатный Moonraker endpoint `POST /machine/services/restart` для сервиса `treed-shell`; runtime обязан добавить сервис в `moonraker.asvc`.
 - Console G-code: `consoleGcode`, с обязательной risk/confirmation политикой на UI-слое.
 
+`disableMotors` отправляет `M84` и требует подтверждения в UI из-за риска просадки Z/портала.
+
 ## Контракт
 
 - Runtime block reasons берутся из `getTreeDCommandBlockReason`.

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createMockSnapshot } from '../../../mocks/runtime'
@@ -94,5 +94,41 @@ describe('MovementControlPanel', () => {
     })
 
     expect(screen.getByTestId('axis-nozzle-temp')).toHaveTextContent('222°C')
+  })
+
+  it('requires confirmation before releasing motors and respects motion locks', async () => {
+    const onMotorsDisable = vi.fn().mockResolvedValue(true)
+    const { rerender } = render(
+      <MovementControlPanel {...createProps({ onMotorsDisable })} />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Release' }))
+
+    expect(onMotorsDisable).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'Освободить моторы?' })).toHaveTextContent(
+      'Z или портал могут просесть',
+    )
+
+    fireEvent.click(screen.getByTestId('motors-release-confirm'))
+    expect(onMotorsDisable).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      expect(screen.queryByTestId('motors-release-confirm-dialog')).not.toBeInTheDocument()
+    })
+
+    rerender(<MovementControlPanel {...createProps({ isMotionBusy: true, onMotorsDisable })} />)
+    expect(screen.getByRole('button', { name: 'Release' })).toBeDisabled()
+  })
+
+  it('shows the block reason instead of opening Release confirmation', () => {
+    const onMotorsDisable = vi.fn().mockResolvedValue(true)
+    const props = createProps({ onMotorsDisable })
+    props.commandBlockReasons.disableMotors = 'Идет парковка осей'
+
+    render(<MovementControlPanel {...props} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Release' }))
+
+    expect(screen.queryByTestId('motors-release-confirm-dialog')).not.toBeInTheDocument()
+    expect(screen.getByTestId('movement-lock-popup')).toHaveTextContent('Идет парковка осей')
+    expect(onMotorsDisable).not.toHaveBeenCalled()
   })
 })

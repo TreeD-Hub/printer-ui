@@ -1243,7 +1243,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     risk: 'caution',
     label: 'Отключить моторы',
     capability: 'motion',
-    requiresConfirmation: false,
+    requiresConfirmation: true,
   },
   consoleGcode: {
     id: 'consoleGcode',
