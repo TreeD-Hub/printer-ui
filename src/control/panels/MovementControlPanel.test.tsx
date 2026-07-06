@@ -9,7 +9,8 @@ import { MovementControlPanel } from './MovementControlPanel'
 function createProps(overrides: Partial<MovementControlPanelProps> = {}): MovementControlPanelProps {
   return {
     pendingCommand: null,
-    isBusy: false,
+    isMotionBusy: false,
+    isFilamentBusy: false,
     activeControlFlashKey: null,
     movementMode: 'buttons',
     moveStepKey: '100',

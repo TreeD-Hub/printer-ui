@@ -109,7 +109,8 @@ export type MaintenanceChecklistItem = {
 
 export type MovementControlPanelProps = {
   pendingCommand: PrinterCommandId | null
-  isBusy: boolean
+  isMotionBusy: boolean
+  isFilamentBusy: boolean
   activeControlFlashKey: string | null
   movementMode: MovementMode
   moveStepKey: MoveStepKey

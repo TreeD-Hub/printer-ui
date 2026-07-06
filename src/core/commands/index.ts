@@ -5,9 +5,14 @@ export type {
   CommandSuccessResult,
   CommandUnsupportedResult,
   ExecuteCommandArgs,
+  PrinterCommandPendingDomain,
   PrinterCommandId,
+  PrinterPendingCommands,
 } from './types'
 export {
+  getFirstPrinterPendingCommand,
+  getPrinterCommandPendingDomain,
+  getPrinterPendingCommand,
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   isDangerousTreeDCommand,

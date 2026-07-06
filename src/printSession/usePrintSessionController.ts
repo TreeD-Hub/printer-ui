@@ -254,7 +254,7 @@ export function usePrintSessionController({
         setActivePrintFileName(null)
         setMockActivePrintFile(null)
         setActivePrintUiState(null)
-        await refreshPrintJob()
+        void refreshPrintJob()
         onOpenDashboard()
         closePrintCancelConfirm()
       }

@@ -78,6 +78,37 @@ describe('getPrinterCapabilities', () => {
     expect(capabilities.emergencyStop).toEqual({ enabled: true, reason: null, blockingState: null })
   })
 
+  test('domain pending blocks only matching capability groups and leaves cancel available', () => {
+    const thermalPending = getPrinterCapabilities(createSnapshot(), {
+      pendingCommands: {
+        thermal: 'setNozzleTarget',
+      },
+      scenarioLocks: [],
+    })
+
+    expect(thermalPending.thermal.nozzle).toMatchObject({ enabled: false, blockingState: 'pendingCommand' })
+    expect(thermalPending.motion.xy).toEqual({ enabled: true, reason: null, blockingState: null })
+    expect(thermalPending.fan.model).toEqual({ enabled: true, reason: null, blockingState: null })
+    expect(thermalPending.print.start).toEqual({ enabled: true, reason: null, blockingState: null })
+
+    const lightPending = getPrinterCapabilities(createSnapshot(), {
+      pendingCommands: {
+        light: 'setMainLightEnabled',
+      },
+      scenarioLocks: [],
+    })
+    expect(lightPending.fan.model).toEqual({ enabled: true, reason: null, blockingState: null })
+
+    const printPending = getPrinterCapabilities(createSnapshot({ state: 'printing' }), {
+      pendingCommands: {
+        print: 'pause',
+      },
+      scenarioLocks: [],
+    })
+    expect(printPending.print.pause).toMatchObject({ enabled: false, blockingState: 'pendingCommand' })
+    expect(printPending.print.cancel).toEqual({ enabled: true, reason: null, blockingState: null })
+  })
+
   test('printing blocks motion and parking while allowing pause cancel thermal and fan tune', () => {
     const capabilities = createCapabilities({ state: 'printing' })
 

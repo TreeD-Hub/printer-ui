@@ -2,11 +2,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createCommandClient } from '#runtime'
 import { recordOperationalDiagnostic } from '../../diagnostics'
 import {
+  getFirstPrinterPendingCommand,
+  getPrinterCommandPendingDomain,
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   type TreeDCommandRuntimeContext,
 } from './catalog'
-import type { CommandResult, ExecuteCommandArgs, PrinterCommandId } from './types'
+import type {
+  CommandResult,
+  ExecuteCommandArgs,
+  PrinterCommandId,
+  PrinterCommandPendingDomain,
+  PrinterPendingCommands,
+} from './types'
 
 type QueuedCoalescedCommand = {
   args: ExecuteCommandArgs
@@ -16,6 +24,8 @@ type QueuedCoalescedCommand = {
 type PendingCommandConfirmation = {
   args: ExecuteCommandArgs
   acceptedResult: Extract<CommandResult, { ok: true }>
+  domain: PrinterCommandPendingDomain
+  token: number
   timeoutId: number
 }
 
@@ -91,18 +101,18 @@ function isCommandConfirmed(
 }
 
 export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
-  const [pendingCommand, setPendingCommand] = useState<PrinterCommandId | null>(
-    null,
-  )
+  const [pendingCommands, setPendingCommands] = useState<PrinterPendingCommands>({})
   const [error, setError] = useState('')
   const lastErrorRef = useRef('')
   const [lastResult, setLastResult] = useState<CommandResult | null>(null)
-  const activeCommandRef = useRef<PrinterCommandId | null>(null)
+  const activeCommandTokensRef = useRef<Map<PrinterCommandPendingDomain, number>>(new Map())
+  const pendingCommandTokensRef = useRef<Map<PrinterCommandPendingDomain, number>>(new Map())
+  const commandTokenRef = useRef(0)
   const queuedCoalescedCommandsRef = useRef<Map<PrinterCommandId, QueuedCoalescedCommand>>(new Map())
   const coalescedCommandTimersRef = useRef<Map<PrinterCommandId, number>>(new Map())
   const lastCoalescedCommandRunAtRef = useRef<Map<PrinterCommandId, number>>(new Map())
-  const pendingConfirmationRef = useRef<PendingCommandConfirmation | null>(null)
-  const emergencyGenerationRef = useRef(0)
+  const pendingConfirmationsRef = useRef<Map<PrinterCommandPendingDomain, PendingCommandConfirmation>>(new Map())
+  const supersedeGenerationRef = useRef(0)
   const runtimeContextRef = useRef(runtimeContext)
 
   const client = useMemo(() => {
@@ -110,24 +120,63 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
   }, [])
 
   runtimeContextRef.current = runtimeContext
+  const pendingCommand = useMemo(() => getFirstPrinterPendingCommand(pendingCommands), [pendingCommands])
+
+  const setPendingCommandForDomain = useCallback((
+    domain: PrinterCommandPendingDomain,
+    command: PrinterCommandId,
+    token: number,
+  ): void => {
+    pendingCommandTokensRef.current.set(domain, token)
+    setPendingCommands((currentCommands) => ({
+      ...currentCommands,
+      [domain]: command,
+    }))
+  }, [])
+
+  const clearPendingCommandForDomain = useCallback((domain: PrinterCommandPendingDomain, token?: number): void => {
+    if (token !== undefined && pendingCommandTokensRef.current.get(domain) !== token) {
+      return
+    }
+
+    pendingCommandTokensRef.current.delete(domain)
+    setPendingCommands((currentCommands) => {
+      if ((currentCommands[domain] ?? null) === null) {
+        return currentCommands
+      }
+
+      const nextCommands = { ...currentCommands }
+      delete nextCommands[domain]
+      return nextCommands
+    })
+  }, [])
+
+  const clearPendingCommands = useCallback((): void => {
+    pendingCommandTokensRef.current.clear()
+    setPendingCommands({})
+  }, [])
 
   const executeCommand = useCallback(
     async (args: ExecuteCommandArgs): Promise<boolean> => {
       const { command } = args
+      const domain = getPrinterCommandPendingDomain(command)
+      const isCriticalCommand = domain === 'critical'
 
       function runQueuedCommand(commandToRun?: PrinterCommandId): void {
-        if (activeCommandRef.current !== null) {
-          return
-        }
-
         const nextEntry = commandToRun === undefined
-          ? queuedCoalescedCommandsRef.current.entries().next().value
+          ? Array.from(queuedCoalescedCommandsRef.current.entries()).find(([, queued]) => (
+              !activeCommandTokensRef.current.has(getPrinterCommandPendingDomain(queued.args.command))
+            ))
           : [commandToRun, queuedCoalescedCommandsRef.current.get(commandToRun)] as const
         if (nextEntry === undefined || nextEntry[1] === undefined) {
           return
         }
 
         const [queuedCommand, queued] = nextEntry
+        if (activeCommandTokensRef.current.has(getPrinterCommandPendingDomain(queued.args.command))) {
+          return
+        }
+
         queuedCoalescedCommandsRef.current.delete(queuedCommand)
         const timerId = coalescedCommandTimersRef.current.get(queuedCommand)
         if (timerId !== undefined) {
@@ -176,49 +225,18 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         queuedCoalescedCommandsRef.current.clear()
       }
 
-      if (command === 'emergencyStop') {
-        emergencyGenerationRef.current += 1
-        const pendingConfirmation = pendingConfirmationRef.current
-        if (pendingConfirmation !== null) {
+      function clearPendingConfirmations(): void {
+        for (const pendingConfirmation of pendingConfirmationsRef.current.values()) {
           window.clearTimeout(pendingConfirmation.timeoutId)
-          pendingConfirmationRef.current = null
-          setPendingCommand(null)
         }
-        clearQueuedCommands()
-        recordOperationalDiagnostic('command', `${command}: dispatched`)
-        try {
-          const result = await client.execute(args)
-          setLastResult(result)
-          if (!result.ok) {
-            lastErrorRef.current = result.message
-            setError(result.message)
-            recordOperationalDiagnostic('command', `${command}: rejected`, result.message)
-            return false
-          }
-          recordOperationalDiagnostic('command', `${command}: ${result.status}`)
-          return true
-        } catch (err) {
-          const message = err instanceof Error ? err.message : 'Unknown emergency stop error'
-          const result: CommandResult = {
-            command,
-            ok: false,
-            kind: 'failed',
-            message,
-            at: new Date().toISOString(),
-          }
-          lastErrorRef.current = message
-          setError(message)
-          setLastResult(result)
-          recordOperationalDiagnostic('command', `${command}: failed`, message)
-          return false
-        }
+        pendingConfirmationsRef.current.clear()
       }
 
-      if (pendingConfirmationRef.current !== null && !isCoalescedCommand(command)) {
+      if (!isCriticalCommand && pendingConfirmationsRef.current.has(domain) && !isCoalescedCommand(command)) {
         return false
       }
 
-      if (activeCommandRef.current !== null) {
+      if (!isCriticalCommand && activeCommandTokensRef.current.has(domain)) {
         if (isCoalescedCommand(command)) {
           return queueCoalescedCommand()
         }
@@ -251,20 +269,32 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         return false
       }
 
-      activeCommandRef.current = command
-      const emergencyGeneration = emergencyGenerationRef.current
+      const token = commandTokenRef.current + 1
+      commandTokenRef.current = token
+      let shouldClearPendingCommand = true
+
+      if (isCriticalCommand) {
+        supersedeGenerationRef.current += 1
+        activeCommandTokensRef.current.clear()
+        clearPendingConfirmations()
+        clearQueuedCommands()
+        clearPendingCommands()
+      }
+
+      activeCommandTokensRef.current.set(domain, token)
+      const supersedeGeneration = supersedeGenerationRef.current
       if (isCoalescedCommand(command)) {
         lastCoalescedCommandRunAtRef.current.set(command, Date.now())
       }
-      setPendingCommand(command)
+      setPendingCommandForDomain(domain, command, token)
       lastErrorRef.current = ''
       setError('')
 
       try {
         recordOperationalDiagnostic('command', `${command}: dispatched`)
         const result = await client.execute(args)
-        if (emergencyGeneration !== emergencyGenerationRef.current) {
-          recordOperationalDiagnostic('command', `${command}: superseded_by_emergency_stop`)
+        if (!isCriticalCommand && supersedeGeneration !== supersedeGenerationRef.current) {
+          recordOperationalDiagnostic('command', `${command}: superseded_by_critical_command`)
           return false
         }
         setLastResult(result)
@@ -276,9 +306,11 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         }
         recordOperationalDiagnostic('command', `${command}: ${result.status}`)
 
-        const confirmed = result.status === 'confirmed'
+        const confirmed = isCriticalCommand
           ? true
-          : isCommandConfirmed(args, runtimeContextRef.current)
+          : result.status === 'confirmed'
+            ? true
+            : isCommandConfirmed(args, runtimeContextRef.current)
         if (confirmed !== null) {
           if (confirmed) {
             setLastResult({
@@ -287,8 +319,8 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
             })
           } else {
             const timeoutId = window.setTimeout(() => {
-              const pending = pendingConfirmationRef.current
-              if (pending === null || pending.timeoutId !== timeoutId) {
+              const pending = pendingConfirmationsRef.current.get(domain)
+              if (pending === undefined || pending.timeoutId !== timeoutId) {
                 return
               }
 
@@ -300,18 +332,21 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
                 message,
                 at: new Date().toISOString(),
               }
-              pendingConfirmationRef.current = null
+              pendingConfirmationsRef.current.delete(domain)
               lastErrorRef.current = message
               setError(message)
               setLastResult(timeoutResult)
-              setPendingCommand(null)
+              clearPendingCommandForDomain(domain, token)
               recordOperationalDiagnostic('command', `${command}: confirmation_timeout`, message)
             }, getCommandConfirmationTimeoutMs(args))
-            pendingConfirmationRef.current = {
+            pendingConfirmationsRef.current.set(domain, {
               args,
               acceptedResult: result,
+              domain,
+              token,
               timeoutId,
-            }
+            })
+            shouldClearPendingCommand = false
           }
         }
 
@@ -331,45 +366,47 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         recordOperationalDiagnostic('command', `${command}: failed`, message)
         return false
       } finally {
-        activeCommandRef.current = null
-        const pendingConfirmation = pendingConfirmationRef.current
-        if (pendingConfirmation?.args.command !== command) {
-          setPendingCommand(pendingConfirmation?.args.command ?? null)
-          runQueuedCommand()
+        if (activeCommandTokensRef.current.get(domain) === token) {
+          activeCommandTokensRef.current.delete(domain)
         }
+        if (shouldClearPendingCommand && !pendingConfirmationsRef.current.has(domain)) {
+          clearPendingCommandForDomain(domain, token)
+        }
+        runQueuedCommand()
       }
     },
-    [client],
+    [clearPendingCommandForDomain, clearPendingCommands, client, setPendingCommandForDomain],
   )
 
   useEffect(() => {
-    const pending = pendingConfirmationRef.current
-    if (pending === null || isCommandConfirmed(pending.args, runtimeContext) !== true) {
-      return
-    }
+    for (const pending of pendingConfirmationsRef.current.values()) {
+      if (isCommandConfirmed(pending.args, runtimeContext) !== true) {
+        continue
+      }
 
-    window.clearTimeout(pending.timeoutId)
-    pendingConfirmationRef.current = null
-    lastErrorRef.current = ''
-    setError('')
-    setLastResult({
-      ...pending.acceptedResult,
-      status: 'confirmed',
-      at: new Date().toISOString(),
-    })
-    setPendingCommand(null)
-    recordOperationalDiagnostic('command', `${pending.args.command}: confirmed`)
-  }, [runtimeContext])
+      window.clearTimeout(pending.timeoutId)
+      pendingConfirmationsRef.current.delete(pending.domain)
+      lastErrorRef.current = ''
+      setError('')
+      setLastResult({
+        ...pending.acceptedResult,
+        status: 'confirmed',
+        at: new Date().toISOString(),
+      })
+      clearPendingCommandForDomain(pending.domain, pending.token)
+      recordOperationalDiagnostic('command', `${pending.args.command}: confirmed`)
+    }
+  }, [clearPendingCommandForDomain, runtimeContext])
 
   useEffect(() => {
     const coalescedCommandTimers = coalescedCommandTimersRef.current
     const queuedCoalescedCommands = queuedCoalescedCommandsRef.current
 
     return () => {
-      const pendingConfirmation = pendingConfirmationRef.current
-      if (pendingConfirmation !== null) {
+      for (const pendingConfirmation of pendingConfirmationsRef.current.values()) {
         window.clearTimeout(pendingConfirmation.timeoutId)
       }
+      pendingConfirmationsRef.current.clear()
       for (const timerId of coalescedCommandTimers.values()) {
         window.clearTimeout(timerId)
       }
@@ -390,6 +427,7 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
 
   return {
     pendingCommand,
+    pendingCommands,
     error,
     lastResult,
     executeCommand,

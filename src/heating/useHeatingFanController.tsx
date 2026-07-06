@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
+import type { ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
 import type { PrinterConnectionState } from '../core/transport/types'
 import type { PrinterLimits } from '@treed/printer-logic'
 import type {
@@ -39,7 +39,7 @@ const COMMAND_BUSY_REASON = 'Команда уже выполняется.'
 
 type UseHeatingFanControllerArgs = {
   snapshot: HeatingSnapshot
-  isBusy: boolean
+  pendingCommands: PrinterPendingCommands
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   closePrintTuneKeyboard: () => void
@@ -70,7 +70,7 @@ export type UseHeatingFanControllerResult = {
 
 export function useHeatingFanController({
   snapshot,
-  isBusy,
+  pendingCommands,
   executeCommand,
   getCommandBlockReason,
   closePrintTuneKeyboard,
@@ -85,6 +85,8 @@ export function useHeatingFanController({
   const printNozzleTargetTemp = snapshot.thermalTargets.nozzle
   const printBedTargetTemp = snapshot.thermalTargets.bed
   const printFanPercent = Math.round(snapshot.modelFanPercent)
+  const isThermalBusy = (pendingCommands.thermal ?? null) !== null
+  const isFanBusy = (pendingCommands.fan ?? null) !== null
 
   const dashboardTemperatureTargets = useMemo(
     () => ({
@@ -95,15 +97,15 @@ export function useHeatingFanController({
   )
 
   const heatingCommandBlockReasons = useMemo<HeatingCommandBlockReasons>(() => {
-    const busyReason = isBusy ? COMMAND_BUSY_REASON : null
+    const busyReason = isThermalBusy ? COMMAND_BUSY_REASON : null
 
     return {
       nozzleTarget: busyReason ?? getCommandBlockReason('setNozzleTarget'),
       bedTarget: busyReason ?? getCommandBlockReason('setBedTarget'),
       turnOffHeaters: busyReason ?? getCommandBlockReason('turnOffHeaters'),
     }
-  }, [getCommandBlockReason, isBusy])
-  const fanCommandBlockReason = isBusy ? COMMAND_BUSY_REASON : getCommandBlockReason('setFanPercent')
+  }, [getCommandBlockReason, isThermalBusy])
+  const fanCommandBlockReason = isFanBusy ? COMMAND_BUSY_REASON : getCommandBlockReason('setFanPercent')
 
   useEffect(() => {
     latestTemperatureSnapshotRef.current = snapshot
@@ -346,7 +348,7 @@ export function useHeatingFanController({
 
   const fanProps: FanControlPanelProps = {
     printFanPercent,
-    isBusy,
+    isBusy: isFanBusy,
     commandBlockReason: fanCommandBlockReason,
     onFanPercentChange: handleFanPercentChange,
   }

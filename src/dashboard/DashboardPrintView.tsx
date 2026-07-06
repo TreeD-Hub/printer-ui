@@ -25,8 +25,7 @@ export function DashboardPrintView({
   quickMetrics,
   processMetrics,
   isPrintPaused,
-  pendingCommand,
-  isBusy,
+  pendingCommands,
   printPauseBlockReason,
   printCancelBlockReason,
   excludeObjectOpenBlockReason,
@@ -47,7 +46,9 @@ export function DashboardPrintView({
     ? preferredPreview
     : null
   const displayName = displayPrintFileName ?? DASHBOARD_VALUES.fileName
-  const isPrintActionBusy = isBusy && pendingCommand !== 'adjustZOffset'
+  const printPendingCommand = pendingCommands.print ?? null
+  const criticalPendingCommand = pendingCommands.critical ?? null
+  const isPrintActionBusy = printPendingCommand !== null && printPendingCommand !== 'adjustZOffset'
 
   return (
     <>
@@ -159,11 +160,11 @@ export function DashboardPrintView({
 
           <div className="action-stack" role="group" aria-label="действия печати">
             <ActionSquareButton
-              icon={isPrintPaused || pendingCommand === 'resume' ? 'actionResume' : 'actionPause'}
+              icon={isPrintPaused || printPendingCommand === 'resume' ? 'actionResume' : 'actionPause'}
               label={
-                pendingCommand === 'pause'
+                printPendingCommand === 'pause'
                   ? 'Пауза...'
-                  : pendingCommand === 'resume'
+                  : printPendingCommand === 'resume'
                     ? 'Продолжение...'
                     : isPrintPaused
                       ? 'Продолжить'
@@ -175,9 +176,9 @@ export function DashboardPrintView({
             <ActionSquareButton
               icon="actionStopCritical"
               tone="danger"
-              label={pendingCommand === 'cancel' ? 'Стоп...' : 'Стоп'}
+              label={criticalPendingCommand === 'cancel' ? 'Стоп...' : 'Стоп'}
               onClick={onStopRequest}
-              disabled={isPrintActionBusy || printCancelBlockReason !== null}
+              disabled={printCancelBlockReason !== null}
             />
           </div>
         </div>
@@ -238,7 +239,7 @@ export function DashboardPrintView({
                 className="babystep-btn"
                 aria-label={`Babystep минус ${babystepStep}`}
                 onClick={() => onBabystepAdjust(-babystepStep)}
-                disabled={isBusy || babystepBlockReason !== null}
+                disabled={isPrintActionBusy || babystepBlockReason !== null}
               >
                 -
               </button>
@@ -247,7 +248,7 @@ export function DashboardPrintView({
                 className="babystep-btn"
                 aria-label={`Babystep плюс ${babystepStep}`}
                 onClick={() => onBabystepAdjust(babystepStep)}
-                disabled={isBusy || babystepBlockReason !== null}
+                disabled={isPrintActionBusy || babystepBlockReason !== null}
               >
                 +
               </button>

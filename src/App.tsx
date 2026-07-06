@@ -134,7 +134,7 @@ function App() {
     ],
   )
   const {
-    pendingCommand,
+    pendingCommands,
     error: commandError,
     lastResult,
     executeCommand,
@@ -205,7 +205,11 @@ function App() {
     getFileStartNotice,
     createCommandHandlers: createPrintSessionCommandHandlers,
   } = printSessionController
-  const isBusy = pendingCommand !== null
+  const printPendingCommand = pendingCommands.print ?? null
+  const criticalPendingCommand = pendingCommands.critical ?? null
+  const systemPendingCommand = pendingCommands.system ?? null
+  const isPrintBusy = printPendingCommand !== null
+  const isSystemBusy = systemPendingCommand !== null
   const movementTabBlockReason = hasActivePrint
     ? getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: 1 })
     : null
@@ -236,7 +240,7 @@ function App() {
   })
   const heatingController = useHeatingFanController({
     snapshot,
-    isBusy,
+    pendingCommands,
     executeCommand,
     getCommandBlockReason,
     closePrintTuneKeyboard,
@@ -352,7 +356,7 @@ function App() {
     screenShellRef,
     activeScreen,
     currentPrinterNotificationId,
-    isBusy,
+    isBusy: isSystemBusy,
     executeCommand,
     getCommandBlockReason,
     requiresCommandConfirmation,
@@ -727,8 +731,7 @@ function App() {
       displayLayerTotal,
       isPrintPaused,
       printPauseCommand,
-      pendingCommand,
-      isBusy,
+      pendingCommands,
       printCancelBlockReason,
       excludeObjectOpenBlockReason,
     },
@@ -793,8 +796,7 @@ function App() {
                 ? null
                 : (snapshot.filamentSensor.message ?? 'Датчик нити недоступен.'),
             },
-            pendingCommand,
-            isBusy,
+            pendingCommands,
             activeControlFlashKey,
             movementMode,
             moveStepKey,
@@ -832,7 +834,7 @@ function App() {
           }}
           macros={{
             snapshot,
-            pendingCommand,
+            pendingCommand: pendingCommands.motion ?? null,
             executeCommand,
             refreshEddyState,
             getCommandBlockReason,
@@ -891,8 +893,8 @@ function App() {
           <PrintFileModal
             file={selectedPrintFile}
             notice={fileStartNotice}
-            isBusy={isBusy}
-            pendingCommand={pendingCommand}
+            isBusy={isPrintBusy}
+            pendingCommand={printPendingCommand}
             isStartBlocked={printStartBlockReason !== null}
             onClose={closeFileModal}
             onStart={() => void printSessionCommandHandlers.startSelectedFile()}
@@ -903,7 +905,7 @@ function App() {
         <ExcludeObjectModal
           snapshot={snapshot}
           isOpen={isExcludeObjectModalOpen}
-          pendingCommand={pendingCommand}
+          pendingCommand={pendingCommands.print ?? null}
           commandError={commandError}
           lastResult={lastResult}
           executeCommand={executeCommand}
@@ -930,7 +932,6 @@ function App() {
                   className="print-cancel-modal-close"
                   aria-label="Закрыть окно подтверждения отмены печати"
                   onClick={closePrintCancelConfirm}
-                  disabled={isBusy}
                 >
                   ×
                 </button>
@@ -946,7 +947,6 @@ function App() {
                   className="file-modal-action"
                   data-testid="print-cancel-close-button"
                   onClick={closePrintCancelConfirm}
-                  disabled={isBusy}
                 >
                   Отмена
                 </button>
@@ -955,9 +955,8 @@ function App() {
                   className="file-modal-action file-modal-action-danger"
                   data-testid="print-cancel-confirm-button"
                   onClick={() => void printSessionCommandHandlers.confirmStop()}
-                  disabled={isBusy}
                 >
-                  {pendingCommand === 'cancel' ? 'Остановка...' : 'Остановить печать'}
+                  {criticalPendingCommand === 'cancel' ? 'Остановка...' : 'Остановить печать'}
                 </button>
               </div>
             </section>
@@ -978,7 +977,7 @@ function App() {
           currentPrinterNotification={currentPrinterNotification}
           powerMenuActions={topStatusController.powerMenuActions}
           armedPowerCommand={topStatusController.armedPowerCommand}
-          isBusy={isBusy}
+          isBusy={isSystemBusy}
           onClose={closeTopPopup}
           onOpenWifiSettings={openWifiSettings}
           onPowerMenuAction={topStatusController.onPowerMenuAction}

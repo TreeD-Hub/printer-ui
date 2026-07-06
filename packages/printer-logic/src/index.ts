@@ -64,6 +64,29 @@ export type PrinterCommandId =
   | 'restartMoonraker'
   | 'shutdownHost'
 
+export type PrinterCommandPendingDomain =
+  | 'light'
+  | 'fan'
+  | 'thermal'
+  | 'print'
+  | 'motion'
+  | 'filament'
+  | 'system'
+  | 'critical'
+
+export type PrinterPendingCommands = Partial<Record<PrinterCommandPendingDomain, PrinterCommandId | null>>
+
+const PRINTER_PENDING_DOMAIN_ORDER: readonly PrinterCommandPendingDomain[] = [
+  'critical',
+  'print',
+  'motion',
+  'thermal',
+  'fan',
+  'light',
+  'filament',
+  'system',
+]
+
 export type AxisId = 'X' | 'Y' | 'Z'
 export type FilamentSensorMode = 'presence' | 'motion'
 export type FilamentSensorSensitivity = 'low' | 'medium' | 'high'
@@ -561,7 +584,8 @@ export interface ActionAvailability {
 }
 
 export interface PrinterCapabilityContext {
-  pendingCommand: PrinterCommandId | null
+  pendingCommand?: PrinterCommandId | null
+  pendingCommands?: PrinterPendingCommands
   scenarioLocks: string[]
 }
 
@@ -602,6 +626,38 @@ const CAPABILITY_CONNECTION_BLOCKS: Partial<Record<PrinterConnectionState, Actio
   reconnecting: blocked('Идет восстановление связи с принтером', 'reconnecting'),
   offline: blocked('Принтер офлайн', 'offline'),
   shutdown: blocked('Klipper остановлен', 'shutdown'),
+}
+
+function getCapabilityPendingDomain(group: CapabilityGroup): PrinterCommandPendingDomain | null {
+  switch (group) {
+    case 'print':
+      return 'print'
+    case 'parking':
+    case 'motion':
+      return 'motion'
+    case 'thermal':
+      return 'thermal'
+    case 'fan':
+      return 'fan'
+    case 'emergencyStop':
+      return null
+  }
+}
+
+function getCapabilityPendingCommand(
+  group: CapabilityGroup,
+  context: PrinterCapabilityContext,
+): PrinterCommandId | null {
+  const domain = getCapabilityPendingDomain(group)
+  if (domain === null) {
+    return null
+  }
+
+  if (context.pendingCommands !== undefined) {
+    return getPrinterPendingCommand(context.pendingCommands, domain)
+  }
+
+  return context.pendingCommand ?? null
 }
 
 export function normalizeHomedAxes(homedAxes: string): { X: boolean; Y: boolean; Z: boolean } {
@@ -654,7 +710,9 @@ function resolvePrintAction(
   snapshot: PrinterSnapshot,
   context: PrinterCapabilityContext,
 ): ActionAvailability {
-  const baseAvailability = resolveRegularAction('print', snapshot, context)
+  const baseAvailability = action === 'cancel'
+    ? resolvePendingFreeAction('print', snapshot, context)
+    : resolveRegularAction('print', snapshot, context)
 
   if (!baseAvailability.enabled) {
     return baseAvailability
@@ -685,6 +743,24 @@ function resolvePrintAction(
   return blocked('Нет активной печати', 'idle')
 }
 
+function resolvePendingFreeAction(
+  group: CapabilityGroup,
+  snapshot: PrinterSnapshot,
+  context: PrinterCapabilityContext,
+): ActionAvailability {
+  const connectionBlock = CAPABILITY_CONNECTION_BLOCKS[snapshot.connection]
+  if (connectionBlock !== undefined) {
+    return connectionBlock
+  }
+
+  const scenarioLock = findBlockingScenarioLock(group, context.scenarioLocks)
+  if (scenarioLock !== null) {
+    return blocked(SCENARIO_LOCK_REASONS[scenarioLock] ?? 'Сценарий блокирует действие', scenarioLock)
+  }
+
+  return AVAILABLE
+}
+
 function resolveRegularAction(
   group: CapabilityGroup,
   snapshot: PrinterSnapshot,
@@ -695,7 +771,7 @@ function resolveRegularAction(
     return connectionBlock
   }
 
-  if (context.pendingCommand !== null) {
+  if (getCapabilityPendingCommand(group, context) !== null) {
     return blocked('Выполняется команда', 'pendingCommand')
   }
 
@@ -1213,6 +1289,86 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
 
 export function getTreeDCommandCatalogItem(command: PrinterCommandId): TreeDCommandCatalogItem {
   return TREE_D_COMMAND_CATALOG[command]
+}
+
+const TREE_D_COMMAND_PENDING_DOMAINS: Record<PrinterCommandId, PrinterCommandPendingDomain> = {
+  start: 'print',
+  pause: 'print',
+  resume: 'print',
+  cancel: 'critical',
+  emergencyStop: 'critical',
+  home: 'motion',
+  homeAll: 'motion',
+  homeX: 'motion',
+  homeY: 'motion',
+  homeXY: 'motion',
+  homeZ: 'motion',
+  moveAxis: 'motion',
+  setNozzleTarget: 'thermal',
+  setBedTarget: 'thermal',
+  setHeatingTargets: 'thermal',
+  turnOffHeaters: 'thermal',
+  setFanPercent: 'fan',
+  setMainLightEnabled: 'light',
+  setPrintSpeedFactorPercent: 'print',
+  setPrintFlowFactorPercent: 'print',
+  setPrintAccel: 'print',
+  setPressureAdvance: 'print',
+  setRetractionLength: 'print',
+  adjustZOffset: 'print',
+  excludeObject: 'print',
+  loadFilament: 'filament',
+  unloadFilament: 'filament',
+  setFilamentSensorMode: 'filament',
+  setFilamentEncoderSensitivity: 'filament',
+  zParkZeroEddy: 'motion',
+  eddyDriveCurrentCalibrate: 'motion',
+  eddyPrimaryHeightStart: 'motion',
+  eddyPrimaryAcceptSave: 'motion',
+  eddyTemperatureStart: 'motion',
+  eddyTemperatureAcceptSave: 'motion',
+  eddyCheckZ0: 'motion',
+  eddyScrewsTiltStart: 'motion',
+  eddyScrewsTiltDone: 'motion',
+  eddyBedMeshCalibrate: 'motion',
+  eddyAutosaveEnable: 'motion',
+  eddyAutosaveDisable: 'motion',
+  eddyAutosaveStatus: 'motion',
+  eddyTestZ: 'motion',
+  shaperCalibrateLight: 'motion',
+  shaperCalibrateFull: 'motion',
+  xyMotionTest: 'motion',
+  disableMotors: 'motion',
+  consoleGcode: 'system',
+  rebootHost: 'system',
+  restartKlipper: 'system',
+  firmwareRestart: 'system',
+  restartMoonraker: 'system',
+  shutdownHost: 'system',
+}
+
+export function getPrinterCommandPendingDomain(command: PrinterCommandId): PrinterCommandPendingDomain {
+  return TREE_D_COMMAND_PENDING_DOMAINS[command]
+}
+
+export function getPrinterPendingCommand(
+  pendingCommands: PrinterPendingCommands,
+  domain: PrinterCommandPendingDomain,
+): PrinterCommandId | null {
+  return pendingCommands[domain] ?? null
+}
+
+export function getFirstPrinterPendingCommand(
+  pendingCommands: PrinterPendingCommands,
+): PrinterCommandId | null {
+  for (const domain of PRINTER_PENDING_DOMAIN_ORDER) {
+    const command = getPrinterPendingCommand(pendingCommands, domain)
+    if (command !== null) {
+      return command
+    }
+  }
+
+  return null
 }
 
 export function isDangerousTreeDCommand(command: PrinterCommandId): boolean {
