@@ -61,6 +61,7 @@ export type PrinterCommandId =
   | 'rebootHost'
   | 'restartKlipper'
   | 'firmwareRestart'
+  | 'restartUi'
   | 'restartMoonraker'
   | 'shutdownHost'
 
@@ -139,6 +140,7 @@ export type ExecuteCommandArgs =
         | 'rebootHost'
         | 'restartKlipper'
         | 'firmwareRestart'
+        | 'restartUi'
         | 'restartMoonraker'
         | 'shutdownHost'
     }
@@ -1267,7 +1269,14 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
   firmwareRestart: {
     id: 'firmwareRestart',
     risk: 'danger',
-    label: 'Перезапуск прошивки',
+    label: 'Перезапуск прошивки MCU',
+    capability: 'serviceCommands',
+    requiresConfirmation: true,
+  },
+  restartUi: {
+    id: 'restartUi',
+    risk: 'danger',
+    label: 'Перезапуск интерфейса',
     capability: 'serviceCommands',
     requiresConfirmation: true,
   },
@@ -1343,6 +1352,7 @@ const TREE_D_COMMAND_PENDING_DOMAINS: Record<PrinterCommandId, PrinterCommandPen
   rebootHost: 'system',
   restartKlipper: 'system',
   firmwareRestart: 'system',
+  restartUi: 'system',
   restartMoonraker: 'system',
   shutdownHost: 'system',
 }
@@ -1382,6 +1392,7 @@ const DIRECT_MOONRAKER_SYSTEM_COMMANDS = new Set<PrinterCommandId>([
   'shutdownHost',
   'restartKlipper',
   'firmwareRestart',
+  'restartUi',
   'restartMoonraker',
 ])
 const FAILSAFE_COMMANDS = new Set<PrinterCommandId>([

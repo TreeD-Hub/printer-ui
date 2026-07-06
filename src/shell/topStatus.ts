@@ -18,12 +18,15 @@ export const TOP_BAR_POPUP_TITLES: Record<TopStatusButtonId, string> = {
 
 export type PowerMenuCommand = Extract<
   PrinterCommandId,
-  'shutdownHost' | 'rebootHost' | 'restartKlipper' | 'firmwareRestart' | 'restartMoonraker'
+  'shutdownHost' | 'rebootHost' | 'restartKlipper' | 'firmwareRestart' | 'restartUi' | 'restartMoonraker'
 >
 
 export type PowerMenuAction = {
   command: PowerMenuCommand
   label: string
+  description: string
+  confirmationPrompt: string
+  transitionLabel: string
   tone?: 'default' | 'danger'
 }
 
@@ -34,24 +37,46 @@ export type PowerMenuActionState = PowerMenuAction & {
 export const POWER_MENU_ACTIONS: PowerMenuAction[] = [
   {
     command: 'restartKlipper',
-    label: 'Перезапустить Klipper',
+    label: 'Перезапуск Klipper',
+    description: 'Перезапускает Klipper host software без перезагрузки системы.',
+    confirmationPrompt: 'Перезапустить Klipper?',
+    transitionLabel: 'Klipper перезапускается. Восстанавливаем состояние…',
   },
   {
     command: 'firmwareRestart',
-    label: 'Перезапустить прошивку MCU',
+    label: 'Перезапуск прошивки MCU',
+    description: 'Выполняет firmware restart контроллеров через Klipper.',
+    confirmationPrompt: 'Перезапустить прошивку MCU?',
+    transitionLabel: 'Прошивка MCU перезапускается. Восстанавливаем состояние…',
+  },
+  {
+    command: 'restartUi',
+    label: 'Перезапуск интерфейса',
+    description: 'Перезапускает только локальный UI service.',
+    confirmationPrompt: 'Перезапустить интерфейс?',
+    transitionLabel: 'Интерфейс перезапускается…',
   },
   {
     command: 'restartMoonraker',
-    label: 'Перезапустить Moonraker',
+    label: 'Перезапуск Moonraker',
+    description: 'Перезапускает Moonraker service.',
+    confirmationPrompt: 'Перезапустить Moonraker?',
+    transitionLabel: 'Moonraker перезапускается. Восстанавливаем соединение…',
   },
   {
     command: 'rebootHost',
-    label: 'Перезагрузить принтер',
+    label: 'Перезагрузка системы',
+    description: 'Перезагружает Rock Pi и host OS.',
+    confirmationPrompt: 'Перезапустить систему?',
+    transitionLabel: 'Система перезагружается…',
     tone: 'danger',
   },
   {
     command: 'shutdownHost',
-    label: 'Выключить принтер',
+    label: 'Выключение системы',
+    description: 'Корректно выключает Rock Pi и host OS.',
+    confirmationPrompt: 'Выключить систему?',
+    transitionLabel: 'Система выключается…',
     tone: 'danger',
   },
 ]

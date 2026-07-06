@@ -5,6 +5,7 @@ import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   usePrinterCommands,
+  useSystemCommandRecovery,
   type ExecuteCommandArgs,
   type PrinterCommandId,
 } from './core/commands'
@@ -137,9 +138,16 @@ function App() {
     pendingCommands,
     error: commandError,
     lastResult,
-    executeCommand,
+    executeCommand: executePrinterCommand,
     getLastCommandError,
   } = usePrinterCommands(commandRuntimeContext)
+  const {
+    executeCommand,
+    transitionCommand: systemTransitionCommand,
+  } = useSystemCommandRecovery({
+    executeCommand: executePrinterCommand,
+    refresh,
+  })
   const getCommandBlockReason = useCallback(
     (command: PrinterCommandId, args?: ExecuteCommandArgs) => getTreeDCommandBlockReason(
       command,
@@ -296,6 +304,11 @@ function App() {
       ? OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS
       : DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS,
   })
+  useEffect(() => {
+    if (systemTransitionCommand !== null) {
+      systemStatusController.refresh()
+    }
+  }, [systemStatusController.refresh, systemTransitionCommand])
   const dashboardDiagnostic = resolveDashboardDiagnostic({
     source: snapshot.source,
     connection: snapshot.connection,
@@ -360,7 +373,7 @@ function App() {
     executeCommand,
     getCommandBlockReason,
     requiresCommandConfirmation,
-    refresh,
+    transitionPowerCommand: systemTransitionCommand,
   })
   const hasUnreadPrinterNotification = topStatusController.hasUnreadPrinterNotification
   const closeTopPopup = topStatusController.closeTopPopup
@@ -977,6 +990,7 @@ function App() {
           currentPrinterNotification={currentPrinterNotification}
           powerMenuActions={topStatusController.powerMenuActions}
           armedPowerCommand={topStatusController.armedPowerCommand}
+          transitionPowerCommand={systemTransitionCommand}
           isBusy={isSystemBusy}
           onClose={closeTopPopup}
           onOpenWifiSettings={openWifiSettings}

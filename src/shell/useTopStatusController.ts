@@ -18,7 +18,7 @@ type UseTopStatusControllerArgs = {
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
   getCommandBlockReason: (command: PrinterCommandId) => string | null
   requiresCommandConfirmation: (command: PrinterCommandId) => boolean
-  refresh: () => Promise<void>
+  transitionPowerCommand: PowerMenuCommand | null
 }
 
 type UseTopStatusControllerResult = {
@@ -41,7 +41,7 @@ export function useTopStatusController({
   executeCommand,
   getCommandBlockReason,
   requiresCommandConfirmation,
-  refresh,
+  transitionPowerCommand,
 }: UseTopStatusControllerArgs): UseTopStatusControllerResult {
   const topButtonRefs = useRef<Record<TopStatusButtonId, HTMLButtonElement | null>>({
     wifi: null,
@@ -119,13 +119,16 @@ export function useTopStatusController({
       return
     }
 
-    void executeCommand({ command }).then((ok) => {
+    void executeCommand({ command }).then(() => {
       setArmedPowerCommand(null)
-      if (ok) {
-        void refresh()
-      }
     })
-  }, [armedPowerCommand, executeCommand, getCommandBlockReason, refresh, requiresCommandConfirmation])
+  }, [armedPowerCommand, executeCommand, getCommandBlockReason, requiresCommandConfirmation])
+
+  useEffect(() => {
+    if (transitionPowerCommand !== null) {
+      setArmedPowerCommand(null)
+    }
+  }, [transitionPowerCommand])
 
   useEffect(() => {
     if (activeScreen !== 'dashboard' && activeTopPopup !== null) {
@@ -177,6 +180,6 @@ export function useTopStatusController({
     openTopPopup,
     closeTopPopup,
     setTopButtonRef,
-    onPowerMenuAction: isBusy ? () => undefined : onPowerMenuAction,
+    onPowerMenuAction: isBusy || transitionPowerCommand !== null ? () => undefined : onPowerMenuAction,
   }
 }

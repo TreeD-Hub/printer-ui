@@ -25,6 +25,7 @@ type TopStatusPopupsProps = {
   currentPrinterNotification: PrinterDisplayNotification | null
   powerMenuActions: PowerMenuActionState[]
   armedPowerCommand: PrinterCommandId | null
+  transitionPowerCommand: PowerMenuCommand | null
   isBusy: boolean
   onClose: () => void
   onOpenWifiSettings: () => void
@@ -45,6 +46,7 @@ export function TopStatusPopups({
   currentPrinterNotification,
   powerMenuActions,
   armedPowerCommand,
+  transitionPowerCommand,
   isBusy,
   onClose,
   onOpenWifiSettings,
@@ -53,6 +55,9 @@ export function TopStatusPopups({
   if (activeTopPopup === null) {
     return null
   }
+
+  const armedPowerAction = powerMenuActions.find((action) => action.command === armedPowerCommand) ?? null
+  const transitionPowerAction = powerMenuActions.find((action) => action.command === transitionPowerCommand) ?? null
 
   return (
     <div className="top-popup-layer" role="presentation" onClick={onClose}>
@@ -156,9 +161,19 @@ export function TopStatusPopups({
 
         {activeTopPopup === 'power' ? (
           <div className="top-popup-content">
+            {transitionPowerAction !== null ? (
+              <p className="top-popup-warning" role="status" aria-live="polite">
+                {transitionPowerAction.transitionLabel}
+              </p>
+            ) : armedPowerAction !== null ? (
+              <div className="top-popup-power-confirmation" aria-live="polite">
+                <p className="top-popup-warning">{armedPowerAction.confirmationPrompt}</p>
+                <p className="top-popup-secondary">{armedPowerAction.description}</p>
+              </div>
+            ) : null}
             <div className="top-popup-actions top-popup-power-actions">
               {powerMenuActions.map((action) => {
-                const isActionUnavailable = action.blockReason !== null || isBusy
+                const isActionUnavailable = action.blockReason !== null || isBusy || transitionPowerCommand !== null
                 const isArmed = !isActionUnavailable && armedPowerCommand === action.command
                 const buttonLabel = isArmed ? 'Подтвердить' : action.label
 
@@ -174,7 +189,8 @@ export function TopStatusPopups({
                     onClick={() => onPowerMenuAction(action.command)}
                     disabled={isActionUnavailable}
                     aria-disabled={isActionUnavailable}
-                    aria-label={buttonLabel}
+                    aria-label={isArmed ? `Подтвердить: ${action.label}` : buttonLabel}
+                    title={action.description}
                   >
                     {buttonLabel}
                   </button>

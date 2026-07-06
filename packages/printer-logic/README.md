@@ -18,6 +18,8 @@
 
 Контракт датчика нити включает `FilamentSensorSnapshot`, capability `filamentSensorControl` / `filamentEncoderSensitivity` и команды `setFilamentSensorMode` / `setFilamentEncoderSensitivity`. Правила блокируют обе настройки во время активной печати, режим `motion` при недоступном motion-канале и чувствительность при недоступном motion-канале.
 
+Системные команды `restartKlipper`, `firmwareRestart`, `restartUi`, `restartMoonraker`, `rebootHost` и `shutdownHost` относятся к независимому pending-домену `system`. Транспорт и recovery-loop остаются ответственностью UI-приложения.
+
 Пакет не выполняет команды, не вызывает `nmcli`, не ходит в Moonraker и не знает про layout. UI-приложения отвечают за transport, errors, retry, confirmation flow и отображение.
 
 ## Публичный контракт

@@ -127,6 +127,8 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
       return 'Mock: Klipper restart requested'
     case 'firmwareRestart':
       return 'Mock: firmware restart requested'
+    case 'restartUi':
+      return 'Mock: UI restart requested'
     case 'restartMoonraker':
       return 'Mock: Moonraker restart requested'
     case 'shutdownHost':

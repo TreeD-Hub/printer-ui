@@ -25,4 +25,6 @@ export type {
   TreeDCommandRisk,
 } from './catalog'
 export { usePrinterCommands } from './usePrinterCommands'
+export { useSystemCommandRecovery } from './useSystemCommandRecovery'
+export type { SystemTransitionCommand } from './useSystemCommandRecovery'
 export { serializeGcodeStringParameter } from './gcodeString'

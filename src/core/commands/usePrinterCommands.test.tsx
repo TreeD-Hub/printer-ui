@@ -298,6 +298,85 @@ describe('usePrinterCommands', () => {
     expect(api!.pendingCommands.print ?? null).toBeNull()
   })
 
+  it.each([
+    ['light', { command: 'setMainLightEnabled', enabled: true }, { command: 'firmwareRestart' }],
+    ['fan', { command: 'setFanPercent', percent: 35 }, { command: 'restartKlipper' }],
+    ['thermal', { command: 'setNozzleTarget', targetCelsius: 205 }, { command: 'restartUi' }],
+    ['filament', { command: 'setFilamentSensorMode', mode: 'presence' }, { command: 'restartMoonraker' }],
+  ] satisfies Array<[string, ExecuteCommandArgs, ExecuteCommandArgs]>)(
+    'does not let pending %s block a system command',
+    async (_domain, pendingArgs, systemArgs) => {
+      const pendingResult = createDeferred<CommandResult>()
+      runtimeMocks.execute
+        .mockReturnValueOnce(pendingResult.promise)
+        .mockResolvedValueOnce(success(systemArgs.command))
+      let api: PrinterCommandsApi | null = null
+      const idleContext: TreeDCommandRuntimeContext = {
+        ...RUNTIME_CONTEXT,
+        printJob: {
+          filename: '',
+          state: 'standby',
+          isActive: false,
+          isPaused: false,
+        },
+      }
+
+      render(<Harness context={idleContext} onReady={(nextApi) => {
+        api = nextApi
+      }} />)
+
+      await waitFor(() => {
+        expect(api).not.toBeNull()
+      })
+
+      let pendingPromise!: Promise<boolean>
+      let systemPromise!: Promise<boolean>
+      await act(async () => {
+        pendingPromise = api!.executeCommand(pendingArgs)
+        systemPromise = api!.executeCommand(systemArgs)
+        await systemPromise
+      })
+
+      expect(runtimeMocks.execute).toHaveBeenNthCalledWith(1, pendingArgs)
+      expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, systemArgs)
+      await expect(systemPromise).resolves.toBe(true)
+
+      await act(async () => {
+        pendingResult.resolve(success(pendingArgs.command))
+        await pendingPromise
+      })
+    },
+  )
+
+  it('blocks a second system command while the first is in flight', async () => {
+    const firstResult = createDeferred<CommandResult>()
+    runtimeMocks.execute.mockReturnValueOnce(firstResult.promise)
+    let api: PrinterCommandsApi | null = null
+
+    render(<Harness onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    let firstPromise!: Promise<boolean>
+    let secondPromise!: Promise<boolean>
+    await act(async () => {
+      firstPromise = api!.executeCommand({ command: 'restartKlipper' })
+      secondPromise = api!.executeCommand({ command: 'firmwareRestart' })
+    })
+
+    expect(runtimeMocks.execute).toHaveBeenCalledTimes(1)
+    await expect(secondPromise).resolves.toBe(false)
+
+    await act(async () => {
+      firstResult.resolve(success('restartKlipper'))
+      await firstPromise
+    })
+  })
+
   it('dispatches emergency stop even while another command is in flight', async () => {
     const firstResult = createDeferred<CommandResult>()
     runtimeMocks.execute
@@ -316,7 +395,7 @@ describe('usePrinterCommands', () => {
     let regularPromise!: Promise<boolean>
     let emergencyPromise!: Promise<boolean>
     await act(async () => {
-      regularPromise = api!.executeCommand({ command: 'turnOffHeaters' })
+      regularPromise = api!.executeCommand({ command: 'restartMoonraker' })
       emergencyPromise = api!.executeCommand({ command: 'emergencyStop' })
       await emergencyPromise
     })
@@ -326,7 +405,7 @@ describe('usePrinterCommands', () => {
     await expect(emergencyPromise).resolves.toBe(true)
 
     await act(async () => {
-      firstResult.resolve(success('turnOffHeaters'))
+      firstResult.resolve(success('restartMoonraker'))
       await regularPromise
     })
     await expect(regularPromise).resolves.toBe(false)
@@ -350,10 +429,10 @@ describe('usePrinterCommands', () => {
       expect(api).not.toBeNull()
     })
 
-    let lightPromise!: Promise<boolean>
+    let systemPromise!: Promise<boolean>
     let cancelPromise!: Promise<boolean>
     await act(async () => {
-      lightPromise = api!.executeCommand({ command: 'setMainLightEnabled', enabled: true })
+      systemPromise = api!.executeCommand({ command: 'restartUi' })
       cancelPromise = api!.executeCommand({ command: 'cancel' })
       await cancelPromise
     })
@@ -361,14 +440,14 @@ describe('usePrinterCommands', () => {
     expect(runtimeMocks.execute).toHaveBeenCalledTimes(2)
     expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, { command: 'cancel' })
     await expect(cancelPromise).resolves.toBe(true)
-    expect(api!.pendingCommands.light ?? null).toBeNull()
+    expect(api!.pendingCommands.system ?? null).toBeNull()
     expect(api!.pendingCommands.critical ?? null).toBeNull()
 
     await act(async () => {
-      firstResult.resolve(success('setMainLightEnabled'))
-      await lightPromise
+      firstResult.resolve(success('restartUi'))
+      await systemPromise
     })
-    await expect(lightPromise).resolves.toBe(false)
+    await expect(systemPromise).resolves.toBe(false)
   })
 
   it('keeps a stateful command pending until runtime state confirms it', async () => {

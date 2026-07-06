@@ -336,6 +336,11 @@ body {
   gap: var(--space-xs);
 }
 
+.top-popup-power-confirmation {
+  display: grid;
+  gap: var(--space-xxs);
+}
+
 .top-popup-action {
   height: 42px;
   border-radius: 10px;

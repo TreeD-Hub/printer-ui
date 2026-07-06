@@ -498,6 +498,7 @@ describe('createMoonrakerCommandClient', () => {
     await client.execute({ command: 'shutdownHost' })
     await client.execute({ command: 'restartKlipper' })
     await client.execute({ command: 'firmwareRestart' })
+    await client.execute({ command: 'restartUi' })
     await client.execute({ command: 'restartMoonraker' })
 
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -522,6 +523,14 @@ describe('createMoonrakerCommandClient', () => {
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
       5,
+      'http://moonraker.local/machine/services/restart',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ service: 'treed-shell' }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      6,
       'http://moonraker.local/server/restart',
       expect.objectContaining({ method: 'POST' }),
     )

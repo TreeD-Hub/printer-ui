@@ -275,6 +275,8 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'Команда перезапуска Klipper отправлена'
     case 'firmwareRestart':
       return 'Команда перезапуска прошивки отправлена'
+    case 'restartUi':
+      return 'Команда перезапуска интерфейса отправлена'
     case 'restartMoonraker':
       return 'Команда перезапуска Moonraker отправлена'
     case 'shutdownHost':
@@ -439,6 +441,8 @@ function executeMoonrakerCommand(
       return callMoonraker('/printer/restart', undefined, options, args.command)
     case 'firmwareRestart':
       return callMoonraker('/printer/firmware_restart', undefined, options, args.command)
+    case 'restartUi':
+      return callMoonraker('/machine/services/restart', { service: 'treed-shell' }, options, args.command)
     case 'restartMoonraker':
       return callMoonraker('/server/restart', undefined, options, args.command)
     case 'shutdownHost':
