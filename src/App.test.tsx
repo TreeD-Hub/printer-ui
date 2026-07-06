@@ -805,7 +805,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Оси' })).toBeInTheDocument()
     expect(screen.queryByTestId('parking-action-button')).not.toBeInTheDocument()
     expect(screen.getByTestId('service-mode-button')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByRole('button', { name: 'Отключить моторы' })).toBeInTheDocument()
+    expect(screen.getByTestId('motors-disable-button')).toHaveAccessibleName('Release')
     expect(screen.getByRole('button', { name: 'Загрузить филамент' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Выгрузить филамент' })).toBeInTheDocument()
 
@@ -902,7 +902,9 @@ describe('App', () => {
       )
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Отключить моторы' }))
+    fireEvent.click(screen.getByTestId('motors-disable-button'))
+    expect(screen.getByRole('dialog', { name: 'Освободить моторы?' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('motors-release-confirm'))
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()
   }, 20000)
 
