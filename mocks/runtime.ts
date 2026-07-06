@@ -530,6 +530,9 @@ export function createTransportClient(): TransportClient {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
       return mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
     },
+    async fetchRuntimeSnapshot(): Promise<PrinterSnapshot> {
+      return mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
+    },
     async fetchUsage() {
       const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
 

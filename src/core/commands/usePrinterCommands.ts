@@ -214,7 +214,7 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         }
       }
 
-      if (pendingConfirmationRef.current !== null) {
+      if (pendingConfirmationRef.current !== null && !isCoalescedCommand(command)) {
         return false
       }
 
@@ -332,8 +332,9 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         return false
       } finally {
         activeCommandRef.current = null
-        if (pendingConfirmationRef.current?.args.command !== command) {
-          setPendingCommand(null)
+        const pendingConfirmation = pendingConfirmationRef.current
+        if (pendingConfirmation?.args.command !== command) {
+          setPendingCommand(pendingConfirmation?.args.command ?? null)
           runQueuedCommand()
         }
       }

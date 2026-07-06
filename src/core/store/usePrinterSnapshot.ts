@@ -17,22 +17,45 @@ import {
   usePrinterStoreSelector,
 } from './printerStore'
 
-const LIVE_HTTP_FALLBACK_INTERVAL_MS = 30_000
+const LIVE_HTTP_FALLBACK_INTERVAL_MS = 2_000
 
 const selectPrinterSnapshot = (snapshot: PrinterSnapshot) => snapshot
 
-function mergeWebSocketSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
+function mergeRuntimeSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
   return {
     ...next,
     usage: next.usage.state === 'ready' ? next.usage : previous.usage,
     printFiles: next.printFiles.length > 0 ? next.printFiles : previous.printFiles,
     fileList: next.fileList?.state === 'unknown' ? previous.fileList : next.fileList ?? previous.fileList,
+    revisions: {
+      ...next.revisions,
+      files: next.revisions.files ?? previous.revisions.files,
+    },
   }
 }
 
 function hasHttpSupplementalData(next: PrinterSnapshot): boolean {
   return next.usage.state === 'ready'
     || (next.fileList !== undefined && next.fileList.state !== 'unknown')
+}
+
+function isRuntimeSnapshotCurrent(previous: PrinterSnapshot, next: PrinterSnapshot): boolean {
+  const previousEventtime = previous.revisions.printerObjects.eventtime
+  const nextEventtime = next.revisions.printerObjects.eventtime
+
+  if (nextEventtime !== null && previousEventtime !== null) {
+    return nextEventtime >= previousEventtime
+  }
+
+  if (nextEventtime !== null) {
+    return true
+  }
+
+  if (previousEventtime !== null) {
+    return false
+  }
+
+  return next.revisions.printerObjects.receivedAt >= previous.revisions.printerObjects.receivedAt
 }
 
 function mergeHttpSupplementalSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
@@ -85,6 +108,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const lastTransitionRef = useRef<string>('')
   const snapshotRevisionRef = useRef(0)
   const refreshSequenceRef = useRef(0)
+  const runtimeRefreshSequenceRef = useRef(0)
 
   const client = useMemo(() => {
     return createTransportClient()
@@ -115,9 +139,27 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       }
 
       if (snapshotRevision !== snapshotRevisionRef.current) {
-        if (hasHttpSupplementalData(nextSnapshot)) {
+        let didApplyRuntimeSnapshot = false
+        let didUpdateSnapshot = false
+
+        updatePrinterSnapshot((prev) => {
+          const mergedSnapshot = isRuntimeSnapshotCurrent(prev, nextSnapshot)
+            ? nextSnapshot
+            : hasHttpSupplementalData(nextSnapshot)
+              ? mergeHttpSupplementalSnapshot(prev, nextSnapshot)
+              : prev
+
+          didApplyRuntimeSnapshot = Object.is(mergedSnapshot, nextSnapshot)
+          didUpdateSnapshot = !Object.is(mergedSnapshot, prev)
+          return mergedSnapshot
+        })
+
+        if (didUpdateSnapshot) {
           snapshotRevisionRef.current += 1
-          updatePrinterSnapshot((prev) => mergeHttpSupplementalSnapshot(prev, nextSnapshot))
+          setError('')
+        }
+        if (didApplyRuntimeSnapshot) {
+          recordSnapshotTransition(nextSnapshot)
         }
         return
       }
@@ -128,6 +170,55 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       setError('')
     } catch (err) {
       if (refreshSequence !== refreshSequenceRef.current || snapshotRevision !== snapshotRevisionRef.current) {
+        return
+      }
+
+      const message = getErrorMessage(err)
+      recordOperationalDiagnostic('transport-error', message)
+      snapshotRevisionRef.current += 1
+      updatePrinterSnapshot((prev) => ({
+        ...prev,
+        connection: getFailureConnection(prev),
+        transport: {
+          state: getFailureTransportState(prev),
+          message: `Ошибка связи: ${message}`,
+        },
+        message: `Ошибка связи: ${message}`,
+        updatedAt: new Date().toISOString(),
+      }))
+      setError(message)
+    }
+  }, [client, recordSnapshotTransition])
+
+  const refreshRuntime = useCallback(async () => {
+    const refreshSequence = ++runtimeRefreshSequenceRef.current
+    const snapshotRevision = snapshotRevisionRef.current
+
+    try {
+      const nextSnapshot = await client.fetchRuntimeSnapshot()
+      if (refreshSequence !== runtimeRefreshSequenceRef.current) {
+        return
+      }
+
+      let didUpdateSnapshot = false
+
+      updatePrinterSnapshot((prev) => {
+        if (!isRuntimeSnapshotCurrent(prev, nextSnapshot)) {
+          return prev
+        }
+
+        const mergedSnapshot = mergeRuntimeSnapshot(prev, nextSnapshot)
+        didUpdateSnapshot = !Object.is(mergedSnapshot, prev)
+        return mergedSnapshot
+      })
+
+      if (didUpdateSnapshot) {
+        recordSnapshotTransition(nextSnapshot)
+        snapshotRevisionRef.current += 1
+        setError('')
+      }
+    } catch (err) {
+      if (refreshSequence !== runtimeRefreshSequenceRef.current || snapshotRevision !== snapshotRevisionRef.current) {
         return
       }
 
@@ -279,7 +370,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     let isDisposed = false
     const fallbackIntervalMs = client.subscribe === undefined
       ? pollIntervalMs
-      : Math.max(pollIntervalMs, LIVE_HTTP_FALLBACK_INTERVAL_MS)
+      : Math.min(pollIntervalMs, LIVE_HTTP_FALLBACK_INTERVAL_MS)
     const subscription = client.subscribe?.({
       onSnapshot(nextSnapshot) {
         if (isDisposed) {
@@ -288,7 +379,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
 
         snapshotRevisionRef.current += 1
         recordSnapshotTransition(nextSnapshot)
-        updatePrinterSnapshot((prev) => mergeWebSocketSnapshot(prev, nextSnapshot))
+        updatePrinterSnapshot((prev) => mergeRuntimeSnapshot(prev, nextSnapshot))
         setError('')
       },
       onConnectionChange(connection, message) {
@@ -346,7 +437,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     }, 0)
 
     const timer = window.setInterval(() => {
-      void refresh()
+      void refreshRuntime()
     }, fallbackIntervalMs)
 
     return () => {
@@ -355,7 +446,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       window.clearTimeout(firstTick)
       window.clearInterval(timer)
     }
-  }, [client, pollIntervalMs, recordSnapshotTransition, refresh, refreshPrintFiles])
+  }, [client, pollIntervalMs, recordSnapshotTransition, refresh, refreshPrintFiles, refreshRuntime])
 
   const deletePrintFile = useCallback(async (path: string): Promise<void> => {
     if (client.deletePrintFile === undefined) {

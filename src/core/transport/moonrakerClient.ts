@@ -448,6 +448,9 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
         usage,
       })
     },
+    async fetchRuntimeSnapshot(): Promise<PrinterSnapshot> {
+      return fetchObjectsSnapshot(context, MOONRAKER_RUNTIME_OBJECTS)
+    },
     async fetchUsage(): Promise<PrinterUsageSnapshot> {
       return fetchHistoryTotalsBestEffort(context, true)
     },

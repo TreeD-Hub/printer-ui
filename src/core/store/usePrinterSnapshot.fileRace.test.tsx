@@ -6,6 +6,7 @@ import type { PrinterSnapshot, TransportSubscriptionHandlers } from '../transpor
 
 const runtimeMocks = vi.hoisted(() => ({
   fetchSnapshot: vi.fn(),
+  fetchRuntimeSnapshot: vi.fn(),
   fetchUsage: vi.fn(),
   fetchFilamentSensor: vi.fn(),
   fetchEddyState: vi.fn(),
@@ -21,6 +22,7 @@ vi.mock('#runtime', () => ({
   runtimeMode: 'live',
   createTransportClient: () => ({
     fetchSnapshot: runtimeMocks.fetchSnapshot,
+    fetchRuntimeSnapshot: runtimeMocks.fetchRuntimeSnapshot,
     fetchUsage: runtimeMocks.fetchUsage,
     fetchFilamentSensor: runtimeMocks.fetchFilamentSensor,
     fetchEddyState: runtimeMocks.fetchEddyState,

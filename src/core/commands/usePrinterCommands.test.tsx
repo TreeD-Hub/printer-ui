@@ -320,6 +320,72 @@ describe('usePrinterCommands', () => {
     })
   })
 
+  it('confirms main light from updated runtime state', async () => {
+    runtimeMocks.execute.mockResolvedValue(accepted('setMainLightEnabled'))
+    let api: PrinterCommandsApi | null = null
+    const onReady = (nextApi: PrinterCommandsApi) => {
+      api = nextApi
+    }
+    const initialContext: TreeDCommandRuntimeContext = {
+      ...RUNTIME_CONTEXT,
+      mainLightEnabled: false,
+    }
+    const { rerender } = render(<Harness context={initialContext} onReady={onReady} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    await act(async () => {
+      await api!.executeCommand({ command: 'setMainLightEnabled', enabled: true })
+    })
+
+    expect(api!.pendingCommand).toBe('setMainLightEnabled')
+
+    rerender(<Harness context={{
+      ...initialContext,
+      mainLightEnabled: true,
+    }} onReady={onReady} />)
+
+    await waitFor(() => {
+      expect(api!.pendingCommand).toBeNull()
+      expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'confirmed' }))
+    })
+  })
+
+  it('allows fan changes while another command is awaiting runtime confirmation', async () => {
+    runtimeMocks.execute
+      .mockResolvedValueOnce(accepted('setMainLightEnabled'))
+      .mockResolvedValueOnce(success('setFanPercent'))
+    let api: PrinterCommandsApi | null = null
+
+    render(<Harness context={{
+      ...RUNTIME_CONTEXT,
+      mainLightEnabled: false,
+    }} onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => {
+      expect(api).not.toBeNull()
+    })
+
+    await act(async () => {
+      await api!.executeCommand({ command: 'setMainLightEnabled', enabled: true })
+    })
+    expect(api!.pendingCommand).toBe('setMainLightEnabled')
+
+    let fanResult!: boolean
+    await act(async () => {
+      fanResult = await api!.executeCommand({ command: 'setFanPercent', percent: 70 })
+    })
+
+    expect(fanResult).toBe(true)
+    expect(runtimeMocks.execute).toHaveBeenCalledTimes(2)
+    expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, { command: 'setFanPercent', percent: 70 })
+    expect(api!.pendingCommand).toBe('setMainLightEnabled')
+  })
+
   it('confirms filament mode and sensitivity only from updated runtime state', async () => {
     runtimeMocks.execute
       .mockResolvedValueOnce(accepted('setFilamentSensorMode'))

@@ -34,7 +34,15 @@ function runtimeObjects() {
 
 describe('normalizeMoonrakerSnapshot', () => {
   it('requests TreeD V2 runtime objects and macro state from Moonraker', () => {
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('webhooks')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('toolhead')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('print_stats')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('virtual_sdcard')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('display_status')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('pause_resume')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('exclude_object')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('extruder')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('heater_bed')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_GEOMETRY_CFG')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_EDDY_Z_OFFSET_AUTOSAVE_STATE')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_SERVICE_COMMANDS')
@@ -43,6 +51,8 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20LIGHT_OFF')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('firmware_retraction')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('save_variables')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('filament_switch_sensor%20filament_switch')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('filament_motion_sensor%20filament_motion')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20FILAMENT_SENSOR_SET_MODE')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20FILAMENT_SENSOR_STATUS')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_UI_TUNE_STATE')
@@ -414,6 +424,116 @@ describe('createMoonrakerClient', () => {
       state: 'ready',
       message: null,
     })
+  })
+
+  it('refreshes runtime snapshot without fetching files, metadata, or history totals', async () => {
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/query')) {
+        return Promise.resolve(moonrakerResponse({
+          eventtime: 42,
+          status: {
+            webhooks: {
+              state: 'ready',
+              state_message: 'Printer is ready',
+            },
+            extruder: {
+              temperature: 214.6,
+              target: 220,
+            },
+            heater_bed: {
+              temperature: 59.2,
+              target: 60,
+            },
+            fan: {
+              speed: 0.42,
+            },
+            'output_pin chamber_light': {
+              value: 1,
+            },
+            print_stats: {
+              state: 'printing',
+              filename: 'v2_part.gcode',
+            },
+            virtual_sdcard: {
+              progress: 0.37,
+            },
+            display_status: {
+              progress: 0.37,
+            },
+            pause_resume: {
+              is_paused: true,
+            },
+            exclude_object: {
+              current_object: 'part_2',
+              excluded_objects: ['part_1'],
+              objects: [
+                {
+                  name: 'part_1',
+                  center: [40, 40],
+                  polygon: [[20, 20], [60, 20], [60, 60], [20, 60]],
+                },
+                {
+                  name: 'part_2',
+                  center: [105, 40],
+                  polygon: [[85, 20], [125, 20], [125, 60], [85, 60]],
+                },
+              ],
+            },
+            toolhead: {
+              position: [122.5, 65, 12.34, 4.5],
+              homed_axes: 'xyz',
+            },
+            'filament_switch_sensor filament_switch': {
+              enabled: true,
+              filament_detected: true,
+            },
+            'filament_motion_sensor filament_motion': {
+              enabled: true,
+              filament_detected: true,
+            },
+            'gcode_macro FILAMENT_SENSOR_STATUS': {
+              mode: 'motion',
+            },
+            'gcode_macro _FILAMENT_SENSOR_SENSITIVITY_STATE': {
+              sensitivity: 'high',
+            },
+          },
+        }))
+      }
+
+      return Promise.resolve(moonrakerResponse({}))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    const snapshot = await client.fetchRuntimeSnapshot()
+
+    expect(snapshot.extruderTemp).toBe(214.6)
+    expect(snapshot.bedTemp).toBe(59.2)
+    expect(snapshot.thermalTargets).toEqual({ nozzle: 220, bed: 60 })
+    expect(snapshot.modelFanPercent).toBe(42)
+    expect(snapshot.mainLightEnabled).toBe(true)
+    expect(snapshot.printJob.filename).toBe('v2_part.gcode')
+    expect(snapshot.printJob.isPaused).toBe(true)
+    expect(snapshot.printJob.state).toBe('printing')
+    expect(snapshot.files.progress).toBe(0.37)
+    expect(snapshot.toolhead.rawX).toBe(122.5)
+    expect(snapshot.connection).toBe('online')
+    expect(snapshot.klippy.state).toBe('ready')
+    expect(snapshot.excludeObjects.excludedObjectNames).toContain('part_1')
+    expect(snapshot.filamentSensor).toEqual(expect.objectContaining({
+      mode: 'motion',
+      sensitivity: 'high',
+      switchEnabled: true,
+      motionEnabled: true,
+    }))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`http://moonraker.local${MOONRAKER_RUNTIME_OBJECTS_QUERY}`)
+    expect(fetchMock.mock.calls.map((call) => call[0]).join('\n')).not.toContain('/server/files/list')
+    expect(fetchMock.mock.calls.map((call) => call[0]).join('\n')).not.toContain('/server/files/metadata')
+    expect(fetchMock.mock.calls.map((call) => call[0]).join('\n')).not.toContain('/server/history/totals')
   })
 
   it('refreshes usage through history totals without fetching runtime objects or files', async () => {
