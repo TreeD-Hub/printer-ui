@@ -399,14 +399,15 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
   }, [clearPendingCommandForDomain, runtimeContext])
 
   useEffect(() => {
+    const pendingConfirmations = pendingConfirmationsRef.current
     const coalescedCommandTimers = coalescedCommandTimersRef.current
     const queuedCoalescedCommands = queuedCoalescedCommandsRef.current
 
     return () => {
-      for (const pendingConfirmation of pendingConfirmationsRef.current.values()) {
+      for (const pendingConfirmation of pendingConfirmations.values()) {
         window.clearTimeout(pendingConfirmation.timeoutId)
       }
-      pendingConfirmationsRef.current.clear()
+      pendingConfirmations.clear()
       for (const timerId of coalescedCommandTimers.values()) {
         window.clearTimeout(timerId)
       }

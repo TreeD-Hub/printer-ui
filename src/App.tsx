@@ -304,11 +304,13 @@ function App() {
       ? OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS
       : DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS,
   })
+  const systemStatus = systemStatusController.status
+  const refreshSystemStatus = systemStatusController.refresh
   useEffect(() => {
     if (systemTransitionCommand !== null) {
-      systemStatusController.refresh()
+      refreshSystemStatus()
     }
-  }, [systemStatusController.refresh, systemTransitionCommand])
+  }, [refreshSystemStatus, systemTransitionCommand])
   const dashboardDiagnostic = resolveDashboardDiagnostic({
     source: snapshot.source,
     connection: snapshot.connection,
@@ -319,12 +321,12 @@ function App() {
     runtimeMessage: snapshot.message,
     uiContractStatus: snapshot.uiContract.status,
     uiContractMessage: snapshot.uiContract.message,
-    systemStatus: systemStatusController.status,
+    systemStatus,
   })
   const maintenanceController = useMaintenanceController({
     usage: snapshot.usage,
     printJob: snapshot.printJob,
-    systemStatus: systemStatusController.status,
+    systemStatus,
   })
   const handleDashboardDiagnosticAction = useCallback(async (
     action: DashboardDiagnosticAction,
@@ -337,7 +339,7 @@ function App() {
 
     if (action.kind === 'refresh') {
       void refresh()
-      systemStatusController.refresh()
+      refreshSystemStatus()
       return null
     }
 
@@ -347,14 +349,14 @@ function App() {
     }
 
     void refresh()
-    systemStatusController.refresh()
+    refreshSystemStatus()
     return null
   }, [
     executeCommand,
     getLastCommandError,
+    refreshSystemStatus,
     refresh,
     setActiveSettingsGroup,
-    systemStatusController.refresh,
   ])
   const handleKeyboardClose = useCallback(() => {
     setActiveKeyboardTarget(null)
