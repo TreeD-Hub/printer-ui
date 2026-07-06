@@ -65,6 +65,8 @@ function resolveMessageStatus(message: string): Pick<PrinterDisplayStatus, 'labe
     return null
   }
 
+  const diagnosticText = normalized.replace(/\berror-active\b/g, 'active')
+
   if (normalized.includes('mcu') && normalized.includes('shutdown')) {
     return { label: 'Ошибка MCU', severity: 'error' }
   }
@@ -77,21 +79,28 @@ function resolveMessageStatus(message: string): Pick<PrinterDisplayStatus, 'labe
     return { label: 'Нет связи с Klipper', severity: 'error' }
   }
 
-  if (normalized.includes('config') && normalized.includes('error')) {
+  if (diagnosticText.includes('config') && diagnosticText.includes('error')) {
     return { label: 'Ошибка конфигурации Klipper', severity: 'error' }
   }
 
-  if (normalized.includes('heater') || normalized.includes('thermal')) {
-    if (normalized.includes('error') || normalized.includes('shutdown') || normalized.includes('fault')) {
+  if (diagnosticText.includes('heater') || diagnosticText.includes('thermal')) {
+    if (diagnosticText.includes('error') || diagnosticText.includes('shutdown') || diagnosticText.includes('fault')) {
       return { label: 'Ошибка нагрева', severity: 'error' }
     }
   }
 
-  if (normalized.includes('can') && (normalized.includes('error') || normalized.includes('timeout'))) {
+  if (diagnosticText.includes('can') && (
+    diagnosticText.includes('error')
+    || diagnosticText.includes('timeout')
+    || diagnosticText.includes('bus-off')
+    || diagnosticText.includes('bus off')
+    || /\bdown\b/.test(diagnosticText)
+    || /\bmissing\b/.test(diagnosticText)
+  )) {
     return { label: 'Ошибка CAN-шины', severity: 'error' }
   }
 
-  if (normalized.includes('error') || normalized.includes('failed') || normalized.includes('exception')) {
+  if (diagnosticText.includes('error') || diagnosticText.includes('failed') || diagnosticText.includes('exception')) {
     return { label: 'Ошибка принтера', severity: 'error' }
   }
 

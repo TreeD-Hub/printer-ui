@@ -428,9 +428,7 @@ function normalizeServices(systemInfoInput: unknown): SystemServiceStatus[] {
 
 export function isSystemCanDeviceHealthy(device: SystemCanDeviceStatus): boolean {
   const state = device.busState?.toLowerCase()
-  return (state === null || state === 'active')
-    && (device.rxErrors ?? 0) === 0
-    && (device.txErrors ?? 0) === 0
+  return state === undefined || state === 'active' || state === 'error-active'
 }
 
 export function isSystemServiceHealthRelevant(service: SystemServiceStatus): boolean {
