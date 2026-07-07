@@ -296,6 +296,72 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     ])
   })
 
+  it('keeps missing metadata values empty and exposes metadata state', () => {
+    const files = normalizeMoonrakerPrintFiles([
+      {
+        path: 'jobs/no-time.gcode',
+        modified: 1710000000,
+        size: 24_576,
+      },
+      {
+        path: 'jobs/loading.gcode',
+        modified: 1710000100,
+        size: 24_576,
+        metadataStatus: 'loading',
+      },
+    ])
+
+    expect(files[0]).toEqual(expect.objectContaining({
+      path: 'jobs/no-time.gcode',
+      printTime: '—',
+      weight: '—',
+      material: '—',
+      metadataStatus: 'idle',
+    }))
+    expect(files[1]).toEqual(expect.objectContaining({
+      path: 'jobs/loading.gcode',
+      metadataStatus: 'loading',
+    }))
+  })
+
+  it('resolves nested thumbnail paths relative to the G-code directory', () => {
+    const files = normalizeMoonrakerPrintFiles(
+      [
+        {
+          path: 'jobs/benchy.gcode',
+          modified: 1710000000,
+          size: 24_576,
+          metadata: {
+            thumbnails: [
+              {
+                width: 48,
+                height: 48,
+                filename: '.thumbs/benchy-48x48.png',
+              },
+            ],
+            thumbnail_path: '.thumbs/benchy-300x300.png',
+          },
+        },
+      ],
+      { moonrakerUrl: 'http://127.0.0.1:7125' },
+    )
+
+    expect(files[0]?.preview).toEqual({
+      small: {
+        src: 'http://127.0.0.1:7125/server/files/gcodes/jobs/.thumbs/benchy-48x48.png',
+        width: 48,
+        height: 48,
+        format: 'png',
+      },
+      large: {
+        src: 'http://127.0.0.1:7125/server/files/gcodes/jobs/.thumbs/benchy-300x300.png',
+        width: 300,
+        height: 300,
+        format: 'png',
+      },
+    })
+  })
+
   it('normalizes a ready payload into a V2 runtime snapshot', () => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(
       buildPayload({

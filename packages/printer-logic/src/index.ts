@@ -516,8 +516,12 @@ export interface PrinterFileItem {
   weight: string
   material: string
   addedAt: string
+  metadataStatus?: PrinterFileMetadataStatus
+  metadataError?: string | null
   preview?: PrinterFilePreview
 }
+
+export type PrinterFileMetadataStatus = 'idle' | 'queued' | 'loading' | 'ready' | 'error'
 
 export interface PrinterFilePreviewImage {
   src: string

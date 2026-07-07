@@ -17,6 +17,19 @@ type PrintFileModalProps = {
   onDelete: () => void
 }
 
+function formatFileDate(addedAt: string): string {
+  const date = new Date(addedAt)
+  if (Number.isNaN(date.getTime())) {
+    return '—'
+  }
+
+  return date.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  })
+}
+
 export function PrintFileModal({
   file,
   notice,
@@ -32,6 +45,7 @@ export function PrintFileModal({
   const previewImage = preferredPreview !== null && preferredPreview.src !== failedPreviewSrc
     ? preferredPreview
     : null
+  const isMetadataLoading = file.metadataStatus === 'idle' || file.metadataStatus === 'queued' || file.metadataStatus === 'loading'
 
   return (
     <div className="file-modal-layer" role="presentation" onClick={onClose}>
@@ -41,6 +55,7 @@ export function PrintFileModal({
         aria-modal="true"
         aria-labelledby={FILE_MODAL_TITLE_ID}
         data-testid="print-file-modal"
+        aria-busy={isMetadataLoading || undefined}
         onClick={(event) => event.stopPropagation()}
       >
         <header className="file-modal-head">
@@ -76,15 +91,19 @@ export function PrintFileModal({
             <dl className="file-modal-meta">
               <div>
                 <dt>Время печати</dt>
-                <dd>{file.printTime}</dd>
+                <dd>{isMetadataLoading ? <span className="print-file-meta-skeleton" /> : file.printTime}</dd>
               </div>
               <div>
                 <dt>Масса</dt>
-                <dd>{file.weight}</dd>
+                <dd>{isMetadataLoading ? <span className="print-file-meta-skeleton" /> : file.weight}</dd>
               </div>
               <div>
                 <dt>Материал</dt>
-                <dd>{file.material}</dd>
+                <dd>{isMetadataLoading ? <span className="print-file-meta-skeleton" /> : file.material}</dd>
+              </div>
+              <div>
+                <dt>Дата</dt>
+                <dd>{formatFileDate(file.addedAt)}</dd>
               </div>
               {file.directory !== null ? (
                 <div className="file-modal-path">

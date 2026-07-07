@@ -31,6 +31,7 @@ type TestHarnessProps = {
   refreshPrintJob?: RefreshPrintJobMock
   onOpenDashboard?: () => void
   deletePrintFile?: (path: string) => Promise<void>
+  refreshPrintFileMetadata?: (paths: string[]) => Promise<void>
 }
 
 function TestHarness({
@@ -44,8 +45,9 @@ function TestHarness({
   refreshPrintJob = vi.fn<RefreshPrintJobMock>().mockResolvedValue(undefined),
   onOpenDashboard = vi.fn(),
   deletePrintFile,
+  refreshPrintFileMetadata,
 }: TestHarnessProps) {
-  const controller = usePrintSessionController({ snapshot, deletePrintFile })
+  const controller = usePrintSessionController({ snapshot, deletePrintFile, refreshPrintFileMetadata })
   const actions = controller.createCommandHandlers({
     executeCommand,
     getLastCommandError,
@@ -292,5 +294,47 @@ describe('usePrintSessionController', () => {
     })
 
     expect(screen.getByTestId('selected-file')).toHaveTextContent('none')
+  })
+
+  it('requests metadata for selected and active live files', async () => {
+    const refreshPrintFileMetadata = vi.fn<(paths: string[]) => Promise<void>>().mockResolvedValue(undefined)
+    const liveSnapshot: PrinterSnapshot = {
+      ...createMockSnapshot(),
+      source: 'live',
+      state: 'printing',
+      printFiles: [
+        {
+          ...PRINT_FILE_LIBRARY[0],
+          metadataStatus: 'idle',
+        },
+      ],
+      printJob: {
+        ...createMockSnapshot().printJob,
+        filename: PRINT_FILE_LIBRARY[0].name,
+        filePath: PRINT_FILE_LIBRARY[0].path,
+        state: 'printing',
+        isActive: true,
+        isPaused: false,
+      },
+    }
+
+    render(
+      <TestHarness
+        snapshot={liveSnapshot}
+        refreshPrintFileMetadata={refreshPrintFileMetadata}
+      />,
+    )
+
+    await vi.waitFor(() => {
+      expect(refreshPrintFileMetadata).toHaveBeenCalledWith([PRINT_FILE_LIBRARY[0].path])
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'select first' }))
+    })
+
+    await vi.waitFor(() => {
+      expect(refreshPrintFileMetadata).toHaveBeenLastCalledWith([PRINT_FILE_LIBRARY[0].path])
+    })
   })
 })
