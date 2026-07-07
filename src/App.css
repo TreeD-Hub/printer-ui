@@ -4618,6 +4618,12 @@ body {
   align-content: start;
 }
 
+.files-virtual-spacer {
+  grid-column: 1 / -1;
+  display: block;
+  min-height: 1px;
+}
+
 .files-empty {
   margin: 0;
   grid-column: 1 / -1;
@@ -4782,6 +4788,37 @@ body {
   color: var(--color-text-primary);
   text-align: right;
   justify-self: end;
+}
+
+.print-file-meta-skeleton {
+  display: inline-block;
+  width: 54px;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-track),
+    var(--color-border-default),
+    var(--color-surface-track)
+  );
+  background-size: 180% 100%;
+  animation: print-file-meta-skeleton 1.1s ease-in-out infinite;
+}
+
+@keyframes print-file-meta-skeleton {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .print-file-meta-skeleton {
+    animation: none;
+  }
 }
 
 .file-modal-layer {

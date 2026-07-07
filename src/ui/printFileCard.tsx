@@ -1,5 +1,5 @@
 import { type CSSProperties, useState } from 'react'
-import type { PrinterFilePreview } from '@treed/printer-logic'
+import type { PrinterFileMetadataStatus, PrinterFilePreview } from '@treed/printer-logic'
 import { PrintPreviewIcon } from './PrintPreviewIcon'
 import { joinClassNames } from './classNames'
 import { getPreferredPreviewImage, getPreviewSrcSet } from './printFilePreview'
@@ -9,6 +9,9 @@ type PrintFileCardProps = {
   directory?: string | null
   printTime: string
   weight: string
+  material?: string
+  addedAt?: string
+  metadataStatus?: PrinterFileMetadataStatus
   preview?: PrinterFilePreview
   isNameScrollable?: boolean
   onClick?: () => void
@@ -20,6 +23,9 @@ export function PrintFileCard({
   directory = null,
   printTime,
   weight,
+  material = '—',
+  addedAt = '—',
+  metadataStatus,
   preview,
   isNameScrollable = false,
   onClick,
@@ -30,12 +36,14 @@ export function PrintFileCard({
   const previewImage = preferredPreview !== null && preferredPreview.src !== failedPreviewSrc
     ? preferredPreview
     : null
+  const isMetadataLoading = metadataStatus === 'idle' || metadataStatus === 'queued' || metadataStatus === 'loading'
 
   return (
     <button
       type="button"
-      className={joinClassNames('print-file-card', className)}
+      className={joinClassNames('print-file-card', isMetadataLoading && 'is-metadata-loading', className)}
       data-testid="print-file-card"
+      aria-busy={isMetadataLoading || undefined}
       onClick={onClick}
     >
       <div className={joinClassNames('print-file-preview', previewImage !== null && 'has-image')} aria-hidden={previewImage === null ? 'true' : undefined}>
@@ -70,16 +78,33 @@ export function PrintFileCard({
         {directory !== null ? <p className="print-file-directory">{directory}</p> : null}
 
         <dl className="print-file-meta">
-          <div className="print-file-meta-row">
-            <dt>Время печати</dt>
-            <dd>{printTime}</dd>
-          </div>
-          <div className="print-file-meta-row">
-            <dt>Масса</dt>
-            <dd>{weight}</dd>
-          </div>
+          <PrintFileMetaRow label="Время печати" value={printTime} isLoading={isMetadataLoading} />
+          <PrintFileMetaRow label="Масса" value={weight} isLoading={isMetadataLoading} />
+          <PrintFileMetaRow label="Материал" value={material} isLoading={isMetadataLoading} />
+          <PrintFileMetaRow label="Дата" value={addedAt} isLoading={false} />
         </dl>
       </div>
     </button>
+  )
+}
+
+type PrintFileMetaRowProps = {
+  label: string
+  value: string
+  isLoading: boolean
+}
+
+function PrintFileMetaRow({ label, value, isLoading }: PrintFileMetaRowProps) {
+  return (
+    <div className="print-file-meta-row">
+      <dt>{label}</dt>
+      <dd>
+        {isLoading ? (
+          <span className="print-file-meta-skeleton" data-testid="print-file-meta-loading" />
+        ) : (
+          value
+        )}
+      </dd>
+    </div>
   )
 }

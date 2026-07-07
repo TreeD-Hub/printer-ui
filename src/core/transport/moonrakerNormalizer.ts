@@ -31,6 +31,7 @@ import {
   normalizePrinterFileId,
   normalizePrinterFilePath,
   TREED_V2_COREXY_V1_LIMITS,
+  type PrinterFileMetadataStatus,
   type PrinterFilePreview,
   type PrinterFilePreviewImage,
 } from '@treed/printer-logic'
@@ -184,6 +185,8 @@ export interface MoonrakerPrintFileInput {
   modified?: number
   size?: number
   metadata?: MoonrakerPrintFileMetadata
+  metadataStatus?: PrinterFileMetadataStatus
+  metadataError?: string | null
 }
 
 function toFiniteNumber(value: unknown, fallback = 0): number {
@@ -542,7 +545,11 @@ function normalizeWebhooks(webhooks: MoonrakerWebhooksStatus | undefined): Moonr
   }
 }
 
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number | undefined): string {
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds <= 0) {
+    return '—'
+  }
+
   const minutes = Math.max(0, Math.round(seconds / 60))
   const hours = Math.floor(minutes / 60)
   const restMinutes = minutes % 60
@@ -591,7 +598,25 @@ function toMoonrakerUrl(path: string, moonrakerUrl: string | undefined): string 
     : new URL(path, moonrakerUrl).toString()
 }
 
-function normalizePreviewSrc(value: string, moonrakerUrl: string | undefined): string | null {
+function resolveRelativePreviewPath(src: string, filePath: string | undefined): string {
+  if (filePath === undefined) {
+    return src
+  }
+
+  const normalizedSrc = normalizePrinterFilePath(src)
+  if (!normalizedSrc.startsWith('.thumbs/')) {
+    return normalizedSrc
+  }
+
+  const directory = getPrinterFileDirectoryFromPath(filePath)
+  return directory === null ? normalizedSrc : `${directory}/${normalizedSrc}`
+}
+
+function normalizePreviewSrc(
+  value: string,
+  moonrakerUrl: string | undefined,
+  filePath: string | undefined,
+): string | null {
   const src = value.trim()
   if (src.length === 0) {
     return null
@@ -605,7 +630,8 @@ function normalizePreviewSrc(value: string, moonrakerUrl: string | undefined): s
     return toMoonrakerUrl(src, moonrakerUrl)
   }
 
-  return toMoonrakerUrl(`/server/files/gcodes/${encodeMoonrakerFilePath(src)}`, moonrakerUrl)
+  const previewPath = resolveRelativePreviewPath(src, filePath)
+  return toMoonrakerUrl(`/server/files/gcodes/${encodeMoonrakerFilePath(previewPath)}`, moonrakerUrl)
 }
 
 function getThumbnailSource(thumbnail: MoonrakerPrintFileThumbnail | string): string {
@@ -660,9 +686,10 @@ function isPngThumbnail(thumbnail: MoonrakerPrintFileThumbnail | string, src: st
 function normalizePreviewImage(
   thumbnail: MoonrakerPrintFileThumbnail | string,
   moonrakerUrl: string | undefined,
+  filePath: string | undefined,
 ): PrinterFilePreviewImage | null {
   const rawSrc = getThumbnailSource(thumbnail)
-  const src = normalizePreviewSrc(rawSrc, moonrakerUrl)
+  const src = normalizePreviewSrc(rawSrc, moonrakerUrl, filePath)
   if (src === null || !isPngThumbnail(thumbnail, src)) {
     return null
   }
@@ -683,6 +710,7 @@ function normalizePreviewImage(
 function normalizeFilePreview(
   metadata: MoonrakerPrintFileMetadata | undefined,
   moonrakerUrl: string | undefined,
+  filePath: string | undefined,
 ): PrinterFilePreview | undefined {
   if (metadata === undefined) {
     return undefined
@@ -701,7 +729,7 @@ function normalizeFilePreview(
   let small: PrinterFilePreviewImage | undefined
   let large: PrinterFilePreviewImage | undefined
   for (const candidate of candidates) {
-    const preview = normalizePreviewImage(candidate, moonrakerUrl)
+    const preview = normalizePreviewImage(candidate, moonrakerUrl, filePath)
     if (preview === null) {
       continue
     }
@@ -734,17 +762,21 @@ export function normalizeMoonrakerPrintFiles(
         return null
       }
 
-      const preview = normalizeFilePreview(item.metadata, options.moonrakerUrl)
+      const preview = normalizeFilePreview(item.metadata, options.moonrakerUrl, path)
+
+      const metadataStatus = item.metadataStatus ?? (item.metadata === undefined ? 'idle' : undefined)
 
       return {
         id: normalizePrinterFileId(path),
         path,
         name: getPrinterFileNameFromPath(path),
         directory: getPrinterFileDirectoryFromPath(path),
-        printTime: formatDuration(toFiniteNumber(item.metadata?.estimated_time, 0)),
+        printTime: formatDuration(item.metadata?.estimated_time),
         weight: formatFilamentWeight(item.metadata?.filament_weight_total),
         material: normalizeMaterial(item.metadata),
         addedAt: normalizeModifiedDate(item.modified),
+        ...(metadataStatus !== undefined ? { metadataStatus } : {}),
+        ...(item.metadataError != null ? { metadataError: item.metadataError } : {}),
         ...(preview !== undefined ? { preview } : {}),
       }
     })

@@ -260,6 +260,11 @@ export type PrinterPrintFilesStateSnapshot = Pick<
   'fileList' | 'printFiles' | 'revisions'
 >
 
+export type PrinterPrintFilesMetadataSnapshot = Pick<
+  PrinterSnapshot,
+  'printFiles' | 'revisions'
+>
+
 export type PrinterMotionStateSnapshot = Pick<
   PrinterSnapshot,
   'geometry' | 'homedAxes' | 'message' | 'state' | 'toolhead' | 'toolheadX' | 'toolheadY' | 'toolheadZ' | 'updatedAt'
@@ -288,6 +293,7 @@ export interface TransportClient {
   fetchExcludeObjects: () => Promise<PrinterExcludeObjectSnapshot>
   fetchPrintJobState: () => Promise<PrinterPrintJobStateSnapshot>
   fetchPrintFilesState: () => Promise<PrinterPrintFilesStateSnapshot>
+  fetchPrintFileMetadata?: (paths: string[]) => Promise<PrinterPrintFilesMetadataSnapshot>
   fetchMotionState: () => Promise<PrinterMotionStateSnapshot>
   deletePrintFile?: (path: string) => Promise<void>
   subscribe?: (handlers: TransportSubscriptionHandlers) => TransportSubscription

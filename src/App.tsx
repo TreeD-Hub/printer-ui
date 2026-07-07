@@ -83,13 +83,14 @@ function App() {
     refreshExcludeObjects,
     refreshPrintJob,
     refreshMotionState,
+    refreshPrintFileMetadata,
     deletePrintFile,
   } = usePrinterSnapshot()
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
   const [isExcludeObjectModalOpen, setIsExcludeObjectModalOpen] = useState<boolean>(false)
-  const printSessionController = usePrintSessionController({ snapshot, deletePrintFile })
+  const printSessionController = usePrintSessionController({ snapshot, deletePrintFile, refreshPrintFileMetadata })
   const commandRuntimeContext = useMemo(
     () => ({
       source: snapshot.source,
@@ -801,6 +802,7 @@ function App() {
             files: effectiveFilesLibrary,
             fileListStatus: snapshot.fileList,
             onFileSelect: handlePrintFileSelect,
+            onMetadataRequest: refreshPrintFileMetadata,
           }}
           control={{
             activeControlGroup: activeControlGroupForRender,

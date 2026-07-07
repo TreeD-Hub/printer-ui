@@ -382,6 +382,20 @@ describe('createMoonrakerClient', () => {
     await client.fetchSnapshot()
 
     expect(metadataRequestCount).toBe(5)
+
+    files[0] = {
+      ...files[0],
+      size: files[0].size + 1,
+    }
+
+    const secondSnapshot = client.fetchSnapshot()
+    await vi.waitFor(() => {
+      expect(metadataResolvers.length).toBeGreaterThan(0)
+    })
+    metadataResolvers.shift()?.()
+    await secondSnapshot
+
+    expect(metadataRequestCount).toBe(6)
   })
 
   it('loads Moonraker history totals into usage snapshot', async () => {
@@ -613,7 +627,7 @@ describe('createMoonrakerClient', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('http://moonraker.local/server/files/list?root=gcodes')
   })
 
-  it('keeps the full file list but limits metadata lookups per snapshot', async () => {
+  it('sorts the full file list by modified date and loads metadata only for the initial window', async () => {
     const files = Array.from({ length: 30 }, (_item, index) => ({
       path: `queue/part-${index}.gcode`,
       modified: 1_800_000_000 + index,
@@ -651,9 +665,76 @@ describe('createMoonrakerClient', () => {
     const snapshot = await client.fetchSnapshot()
 
     expect(snapshot.printFiles).toHaveLength(30)
+    expect(snapshot.printFiles.slice(0, 3).map((item) => item.path)).toEqual([
+      'queue/part-29.gcode',
+      'queue/part-28.gcode',
+      'queue/part-27.gcode',
+    ])
     expect(metadataUrls).toHaveLength(24)
-    expect(metadataUrls[0]).toContain('queue%2Fpart-0.gcode')
-    expect(metadataUrls.at(-1)).toContain('queue%2Fpart-23.gcode')
+    expect(metadataUrls[0]).toContain('queue%2Fpart-29.gcode')
+    expect(metadataUrls.at(-1)).toContain('queue%2Fpart-6.gcode')
+  })
+
+  it('loads metadata for a requested distant file and reports unavailable metadata without crashing', async () => {
+    const files = Array.from({ length: 30 }, (_item, index) => ({
+      path: `queue/part-${index}.gcode`,
+      modified: 1_800_000_000 + index,
+      size: 1_024 + index,
+    }))
+    const metadataUrls: string[] = []
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/query')) {
+        return Promise.resolve(moonrakerResponse(runtimeObjects()))
+      }
+
+      if (url.includes('/server/files/list')) {
+        return Promise.resolve(moonrakerResponse(files))
+      }
+
+      if (url.includes('/server/history/totals')) {
+        return Promise.resolve(moonrakerResponse({ job_totals: {} }))
+      }
+
+      metadataUrls.push(url)
+      if (url.includes('part-1.gcode')) {
+        return Promise.resolve(moonrakerHttpError(404))
+      }
+
+      return Promise.resolve(moonrakerResponse({
+        estimated_time: 3600,
+        filament_weight_total: 12,
+        filament_type: 'PLA',
+      }))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    await client.fetchSnapshot()
+    const metadataState = await client.fetchPrintFileMetadata?.(['queue/part-0.gcode', 'queue/part-1.gcode'])
+
+    expect(metadataState?.printFiles).toEqual([
+      expect.objectContaining({
+        path: 'queue/part-0.gcode',
+        printTime: '1 ч 00 мин',
+        weight: '12 г',
+        material: 'PLA',
+        metadataStatus: 'ready',
+      }),
+      expect.objectContaining({
+        path: 'queue/part-1.gcode',
+        printTime: '—',
+        metadataStatus: 'error',
+      }),
+    ])
+    expect(metadataUrls.some((url) => url.includes('queue%2Fpart-0.gcode'))).toBe(true)
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[treed-runtime] metadata unavailable for queue/part-1.gcode: Moonraker 404',
+    )
+
+    warnSpy.mockRestore()
   })
 
   it('keeps runtime snapshot usable when Moonraker file list fails', async () => {

@@ -6,6 +6,7 @@ import type {
   PrinterEddyStateSnapshot,
   PrinterExcludeObjectSnapshot,
   PrinterMotionStateSnapshot,
+  PrinterPrintFilesMetadataSnapshot,
   PrinterPrintFilesStateSnapshot,
   PrinterPrintJobStateSnapshot,
   PrinterSnapshot,
@@ -100,6 +101,95 @@ function getFailureTransportState(previous: PrinterSnapshot): PrinterSnapshot['t
 
 function getErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : 'Unknown error'
+}
+
+function normalizeRequestedMetadataPaths(paths: readonly string[]): string[] {
+  const seenPaths = new Set<string>()
+  const nextPaths: string[] = []
+
+  for (const path of paths) {
+    const normalizedPath = path.trim().replace(/\\/g, '/').replace(/^\/+/, '')
+    if (normalizedPath.length === 0 || seenPaths.has(normalizedPath)) {
+      continue
+    }
+
+    seenPaths.add(normalizedPath)
+    nextPaths.push(normalizedPath)
+  }
+
+  return nextPaths
+}
+
+function markPrintFileMetadataLoading(previous: PrinterSnapshot, paths: readonly string[]): PrinterSnapshot {
+  if (paths.length === 0) {
+    return previous
+  }
+
+  const requestedPaths = new Set(paths)
+  let didChange = false
+  const printFiles = previous.printFiles.map((item) => {
+    if (
+      !requestedPaths.has(item.path) ||
+      item.metadataStatus === 'ready' ||
+      item.metadataStatus === 'loading' ||
+      item.metadataStatus === 'queued'
+    ) {
+      return item
+    }
+
+    didChange = true
+    return {
+      ...item,
+      metadataStatus: 'loading' as const,
+      metadataError: null,
+    }
+  })
+
+  return didChange
+    ? {
+        ...previous,
+        printFiles,
+      }
+    : previous
+}
+
+function mergePrintFileMetadata(
+  previous: PrinterSnapshot,
+  printFilesMetadata: PrinterPrintFilesMetadataSnapshot,
+): PrinterSnapshot {
+  if (printFilesMetadata.printFiles.length === 0) {
+    return previous
+  }
+
+  const metadataByPath = new Map(printFilesMetadata.printFiles.map((item) => [item.path, item]))
+  const seenPaths = new Set<string>()
+  const printFiles = previous.printFiles.map((item) => {
+    const nextItem = metadataByPath.get(item.path)
+    if (nextItem === undefined) {
+      return item
+    }
+
+    seenPaths.add(item.path)
+    return {
+      ...item,
+      ...nextItem,
+    }
+  })
+
+  for (const item of printFilesMetadata.printFiles) {
+    if (!seenPaths.has(item.path)) {
+      printFiles.push(item)
+    }
+  }
+
+  return {
+    ...previous,
+    printFiles,
+    revisions: {
+      ...previous.revisions,
+      files: printFilesMetadata.revisions.files ?? previous.revisions.files,
+    },
+  }
 }
 
 export function usePrinterSnapshot(pollIntervalMs = 2_000) {
@@ -340,6 +430,27 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     )
   }, [applyTargetedRefresh, client.fetchPrintFilesState])
 
+  const refreshPrintFileMetadata = useCallback(async (paths: string[]): Promise<void> => {
+    const fetchPrintFileMetadata = client.fetchPrintFileMetadata
+    if (fetchPrintFileMetadata === undefined) {
+      return
+    }
+
+    const requestedPaths = normalizeRequestedMetadataPaths(paths)
+    if (requestedPaths.length === 0) {
+      return
+    }
+
+    snapshotRevisionRef.current += 1
+    updatePrinterSnapshot((prev) => markPrintFileMetadataLoading(prev, requestedPaths))
+
+    await applyTargetedRefresh(
+      'refresh-print-file-metadata',
+      () => fetchPrintFileMetadata(requestedPaths),
+      mergePrintFileMetadata,
+    )
+  }, [applyTargetedRefresh, client])
+
   const refreshMotionState = useCallback(async (): Promise<void> => {
     await applyTargetedRefresh(
       'refresh-motion-state',
@@ -467,6 +578,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     refreshExcludeObjects,
     refreshPrintJob,
     refreshPrintFiles,
+    refreshPrintFileMetadata,
     refreshMotionState,
     deletePrintFile,
   }

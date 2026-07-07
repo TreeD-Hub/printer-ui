@@ -23,6 +23,7 @@ type CommandRuntimePrintJob = {
 type UsePrintSessionControllerArgs = {
   snapshot: PrinterSnapshot
   deletePrintFile?: (path: string) => Promise<void>
+  refreshPrintFileMetadata?: (paths: string[]) => Promise<void>
 }
 
 type CreateCommandHandlersArgs = {
@@ -72,6 +73,7 @@ export type UsePrintSessionControllerResult = {
 export function usePrintSessionController({
   snapshot,
   deletePrintFile,
+  refreshPrintFileMetadata,
 }: UsePrintSessionControllerArgs): UsePrintSessionControllerResult {
   const [filesLibrary, setFilesLibrary] = useState<PrintFileItem[]>(() => [...PRINT_FILE_LIBRARY])
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
@@ -158,7 +160,20 @@ export function usePrintSessionController({
   const selectFile = useCallback((fileId: string): void => {
     setSelectedFileId(fileId)
     setFileModalNotice('')
-  }, [])
+    if (snapshot.source !== 'live' || refreshPrintFileMetadata === undefined) {
+      return
+    }
+
+    const selectedFile = files.find((item) => item.id === fileId)
+    if (
+      selectedFile !== undefined &&
+      selectedFile.metadataStatus !== 'ready' &&
+      selectedFile.metadataStatus !== 'loading' &&
+      selectedFile.metadataStatus !== 'queued'
+    ) {
+      void refreshPrintFileMetadata([selectedFile.path])
+    }
+  }, [files, refreshPrintFileMetadata, snapshot.source])
 
   const closePrintCancelConfirm = useCallback((): void => {
     setIsPrintCancelConfirmOpen(false)
@@ -299,6 +314,32 @@ export function usePrintSessionController({
       setActivePrintUiState(null)
     }
   }, [activePrintUiState, hasActivePrint, snapshot.state])
+
+  useEffect(() => {
+    if (snapshot.source !== 'live' || !snapshot.printJob.isActive || refreshPrintFileMetadata === undefined) {
+      return
+    }
+
+    const metadataPath = activePrintFile?.path ?? snapshot.printJob.filePath ?? snapshot.printJob.filename
+    if (
+      metadataPath.trim().length === 0 ||
+      activePrintFile?.metadataStatus === 'ready' ||
+      activePrintFile?.metadataStatus === 'loading' ||
+      activePrintFile?.metadataStatus === 'queued'
+    ) {
+      return
+    }
+
+    void refreshPrintFileMetadata([metadataPath])
+  }, [
+    activePrintFile?.metadataStatus,
+    activePrintFile?.path,
+    refreshPrintFileMetadata,
+    snapshot.printJob.filePath,
+    snapshot.printJob.filename,
+    snapshot.printJob.isActive,
+    snapshot.source,
+  ])
 
   return {
     files,

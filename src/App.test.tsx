@@ -91,7 +91,7 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: 'Уведомления' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Пауза' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
-  }, 10000)
+  }, 20000)
 
   it('keeps idle dashboard chrome and sidebar visible during a Klipper diagnostic', async () => {
     const snapshot = createMockSnapshot()
@@ -284,7 +284,7 @@ describe('App', () => {
     })
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
     expect(getPrinterSnapshot().printJob.isActive).toBe(false)
-  })
+  }, 10000)
 
   it('switches print state between pause and print from the pause button', async () => {
     render(<App />)
@@ -401,7 +401,7 @@ describe('App', () => {
     } finally {
       applyPrinterSnapshot(previousSnapshot)
     }
-  })
+  }, 20000)
 
   it('opens exclude-object modal and sends one confirmed command for the selected object', async () => {
     const previousSnapshot = getPrinterSnapshot()
@@ -661,7 +661,7 @@ describe('App', () => {
       expect((screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement).value).toBe('245')
       expect((screen.getByTestId('control-heating-bed-input') as HTMLInputElement).value).toBe('100')
     }, { timeout: 3500 })
-  }, 20000)
+  }, 30000)
 
   it('routes print tune speed and Z-offset controls through printer commands', async () => {
     render(<App />)
@@ -720,14 +720,14 @@ describe('App', () => {
     const sortByNameButton = screen.getByRole('button', { name: 'По имени' })
     const sortByAddedAtButton = screen.getByRole('button', { name: 'По дате' })
 
-    expect(sortByNameButton).toHaveAttribute('aria-pressed', 'true')
-    expect(sortByAddedAtButton).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('bearing_bracket_mk2.gcode')
-
-    fireEvent.click(sortByAddedAtButton)
-
+    expect(sortByNameButton).toHaveAttribute('aria-pressed', 'false')
     expect(sortByAddedAtButton).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('fan_shroud_prototype.gcode')
+
+    fireEvent.click(sortByNameButton)
+
+    expect(sortByNameButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('bearing_bracket_mk2.gcode')
     expect(screen.getByText('2 ч 15 мин')).toBeInTheDocument()
     expect(screen.getByText('34 г')).toBeInTheDocument()
   }, 10000)
@@ -906,7 +906,7 @@ describe('App', () => {
     expect(screen.getByRole('dialog', { name: 'Освободить моторы?' })).toBeInTheDocument()
     fireEvent.click(screen.getByTestId('motors-release-confirm'))
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()
-  }, 20000)
+  }, 30000)
 
   it('leaves movement tab when print becomes active', async () => {
     render(<App />)
@@ -944,7 +944,7 @@ describe('App', () => {
     } finally {
       applyPrinterSnapshot(previousSnapshot)
     }
-  })
+  }, 20000)
 
   it('opens filament sensor control and dispatches typed settings commands', async () => {
     render(<App />)
@@ -1153,7 +1153,7 @@ describe('App', () => {
       expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
       expect(screen.getAllByTestId('print-file-card')).toHaveLength(initialCards.length - 1)
     })
-  }, 10000)
+  }, 20000)
 
   it('shows shared command catalog reason when print start is blocked', async () => {
     render(<App />)

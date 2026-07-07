@@ -12,6 +12,7 @@ import type {
   PrinterEddyStateSnapshot,
   PrinterExcludeObjectSnapshot,
   PrinterMotionStateSnapshot,
+  PrinterPrintFilesMetadataSnapshot,
   PrinterPrintFilesStateSnapshot,
   PrinterPrintJobStateSnapshot,
   PrinterSnapshot,
@@ -39,6 +40,8 @@ type MoonrakerClientOptions = {
 
 type MoonrakerFetchContext = Required<MoonrakerClientOptions> & {
   metadataCache: Map<string, MoonrakerPrintFileMetadata>
+  metadataInFlight: Map<string, Promise<MoonrakerPrintFileMetadata>>
+  fileIdentityCache: Map<string, MoonrakerFileListItem>
   usageCache: PrinterUsageSnapshot | null
   usageExpiresAtMs: number
 }
@@ -235,11 +238,89 @@ function getMetadataCacheKey(path: string, item: MoonrakerFileListItem): string 
   return `${path}|${item.modified ?? 'unknown'}|${item.size ?? 'unknown'}`
 }
 
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 function clearFileMetadataCache(path: string, context: MoonrakerFetchContext): void {
   const prefix = `${path}|`
   for (const key of context.metadataCache.keys()) {
     if (key.startsWith(prefix)) {
       context.metadataCache.delete(key)
+    }
+  }
+}
+
+function sortFileListByModifiedDesc(items: MoonrakerFileListItem[]): MoonrakerFileListItem[] {
+  return [...items].sort((left, right) => {
+    const leftModified = typeof left.modified === 'number' && Number.isFinite(left.modified) ? left.modified : 0
+    const rightModified = typeof right.modified === 'number' && Number.isFinite(right.modified) ? right.modified : 0
+
+    return rightModified - leftModified
+  })
+}
+
+function rememberFileListItems(items: readonly MoonrakerFileListItem[], context: MoonrakerFetchContext): void {
+  for (const item of items) {
+    const path = normalizePrinterFilePath(getMoonrakerFilePath(item))
+    if (path.length === 0) {
+      continue
+    }
+
+    context.fileIdentityCache.set(path, {
+      ...item,
+      path,
+    })
+  }
+}
+
+async function loadPrintFileMetadata(
+  item: MoonrakerFileListItem,
+  context: MoonrakerFetchContext,
+): Promise<MoonrakerPrintFileInput> {
+  const path = normalizePrinterFilePath(getMoonrakerFilePath(item))
+  const cacheKey = getMetadataCacheKey(path, item)
+  const cachedMetadata = context.metadataCache.get(cacheKey)
+  if (cachedMetadata !== undefined) {
+    return {
+      ...item,
+      path,
+      metadata: cachedMetadata,
+      metadataStatus: 'ready',
+    }
+  }
+
+  let metadataPromise = context.metadataInFlight.get(cacheKey)
+  if (metadataPromise === undefined) {
+    metadataPromise = fetchMoonraker<MoonrakerPrintFileMetadata>(
+      `/server/files/metadata?filename=${encodeURIComponent(path)}`,
+      context,
+    )
+    context.metadataInFlight.set(cacheKey, metadataPromise)
+  }
+
+  try {
+    const metadata = await metadataPromise
+    context.metadataCache.set(cacheKey, metadata)
+
+    return {
+      ...item,
+      path,
+      metadata,
+      metadataStatus: 'ready',
+    }
+  } catch (error) {
+    const message = getErrorMessage(error)
+    console.warn(`[treed-runtime] metadata unavailable for ${path}: ${message}`)
+    return {
+      ...item,
+      path,
+      metadataStatus: 'error',
+      metadataError: message,
+    }
+  } finally {
+    if (context.metadataInFlight.get(cacheKey) === metadataPromise) {
+      context.metadataInFlight.delete(cacheKey)
     }
   }
 }
@@ -283,43 +364,19 @@ async function fetchPrintFileWithMetadata(
     return {
       ...item,
       path,
+      metadataStatus: 'idle',
     }
   }
 
-  const cacheKey = getMetadataCacheKey(path, item)
-  const cachedMetadata = context.metadataCache.get(cacheKey)
-  if (cachedMetadata !== undefined) {
-    return {
-      ...item,
-      path,
-      metadata: cachedMetadata,
-    }
-  }
-
-  try {
-    const metadata = await fetchMoonraker<MoonrakerPrintFileMetadata>(
-      `/server/files/metadata?filename=${encodeURIComponent(path)}`,
-      context,
-    )
-    context.metadataCache.set(cacheKey, metadata)
-
-    return {
-      ...item,
-      path,
-      metadata,
-    }
-  } catch {
-    return {
-      ...item,
-      path,
-    }
-  }
+  return loadPrintFileMetadata(item, context)
 }
 
 async function fetchPrintFiles(context: MoonrakerFetchContext): Promise<MoonrakerPrintFileInput[]> {
   const items = await fetchMoonraker<MoonrakerFileListItem[]>('/server/files/list?root=gcodes', context)
+  const sortedItems = sortFileListByModifiedDesc(items)
+  rememberFileListItems(sortedItems, context)
   let metadataFileBudget = Math.max(0, context.metadataFileLimit)
-  const plannedItems = items.map((item) => {
+  const plannedItems = sortedItems.map((item) => {
     const path = getMoonrakerFilePath(item)
     const shouldFetchMetadata = path.toLowerCase().endsWith('.gcode') && metadataFileBudget > 0
     if (shouldFetchMetadata) {
@@ -337,6 +394,39 @@ async function fetchPrintFiles(context: MoonrakerFetchContext): Promise<Moonrake
     context.metadataConcurrency,
     ({ item, shouldFetchMetadata }) => fetchPrintFileWithMetadata(item, context, shouldFetchMetadata),
   )
+}
+
+async function fetchPrintFileMetadataState(
+  paths: string[],
+  context: MoonrakerFetchContext,
+): Promise<PrinterPrintFilesMetadataSnapshot> {
+  const seenPaths = new Set<string>()
+  const items: MoonrakerFileListItem[] = []
+  for (const rawPath of paths) {
+    const path = normalizePrinterFilePath(rawPath)
+    if (path.length === 0 || seenPaths.has(path)) {
+      continue
+    }
+
+    seenPaths.add(path)
+    items.push(context.fileIdentityCache.get(path) ?? { path })
+  }
+
+  const files = await mapWithConcurrency(
+    items,
+    context.metadataConcurrency,
+    (item) => fetchPrintFileWithMetadata(item, context, true),
+  )
+  const snapshot = normalizeMoonrakerRuntimeSnapshot({ status: {} }, {
+    moonrakerUrl: context.moonrakerUrl,
+    source: 'live',
+    printFiles: files,
+  })
+
+  return {
+    printFiles: snapshot.printFiles,
+    revisions: snapshot.revisions,
+  }
 }
 
 async function fetchPrintFilesBestEffort(context: MoonrakerFetchContext): Promise<PrintFilesFetchResult> {
@@ -428,6 +518,8 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
     metadataConcurrency: options.metadataConcurrency ?? DEFAULT_METADATA_CONCURRENCY,
     metadataFileLimit: options.metadataFileLimit ?? DEFAULT_METADATA_FILE_LIMIT,
     metadataCache: new Map(),
+    metadataInFlight: new Map(),
+    fileIdentityCache: new Map(),
     usageCache: null,
     usageExpiresAtMs: 0,
   }
@@ -500,6 +592,9 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
         revisions: snapshot.revisions,
       }
     },
+    async fetchPrintFileMetadata(paths: string[]): Promise<PrinterPrintFilesMetadataSnapshot> {
+      return fetchPrintFileMetadataState(paths, context)
+    },
     async fetchMotionState(): Promise<PrinterMotionStateSnapshot> {
       const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_MOTION_STATE_OBJECTS)
 
@@ -527,6 +622,7 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
         method: 'DELETE',
       })
       clearFileMetadataCache(normalizedPath, context)
+      context.fileIdentityCache.delete(normalizedPath)
     },
     subscribe(handlers) {
       return subscribeToMoonrakerStatus(handlers, { moonrakerUrl: context.moonrakerUrl })
