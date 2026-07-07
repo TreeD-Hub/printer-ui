@@ -169,13 +169,14 @@ test('files screen keeps four cards per row and scrolls vertically', async ({ pa
 
   await expect(filesScreen).toBeVisible()
   await expect(fileCards).toHaveCount(12)
-  await expect(sortByNameButton).toHaveAttribute('aria-pressed', 'true')
-  await expect(fileCards.nth(0)).toContainText('bearing_bracket_mk2.gcode')
-
-  await sortByAddedAtButton.click()
-
+  await expect(sortByNameButton).toHaveAttribute('aria-pressed', 'false')
   await expect(sortByAddedAtButton).toHaveAttribute('aria-pressed', 'true')
   await expect(fileCards.nth(0)).toContainText('fan_shroud_prototype.gcode')
+
+  await sortByNameButton.click()
+
+  await expect(sortByNameButton).toHaveAttribute('aria-pressed', 'true')
+  await expect(fileCards.nth(0)).toContainText('bearing_bracket_mk2.gcode')
 
   const [scrollRectRaw, headRaw, firstRaw, secondRaw, thirdRaw, fourthRaw, fifthRaw, lastRaw] = await Promise.all([
     scrollArea.boundingBox(),
