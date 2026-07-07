@@ -720,14 +720,14 @@ describe('App', () => {
     const sortByNameButton = screen.getByRole('button', { name: 'По имени' })
     const sortByAddedAtButton = screen.getByRole('button', { name: 'По дате' })
 
-    expect(sortByNameButton).toHaveAttribute('aria-pressed', 'true')
-    expect(sortByAddedAtButton).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('bearing_bracket_mk2.gcode')
-
-    fireEvent.click(sortByAddedAtButton)
-
+    expect(sortByNameButton).toHaveAttribute('aria-pressed', 'false')
     expect(sortByAddedAtButton).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('fan_shroud_prototype.gcode')
+
+    fireEvent.click(sortByNameButton)
+
+    expect(sortByNameButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('bearing_bracket_mk2.gcode')
     expect(screen.getByText('2 ч 15 мин')).toBeInTheDocument()
     expect(screen.getByText('34 г')).toBeInTheDocument()
   }, 10000)
