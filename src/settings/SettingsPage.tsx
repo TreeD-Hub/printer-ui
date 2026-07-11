@@ -90,6 +90,7 @@ export type SettingsPageProps = {
     releaseResults: UpdateReleaseResult[]
     isCheckingUpdates: boolean
     applyingUpdateTarget: HostUpdateTargetId | null
+    isApplyBlockedByActivePrint: boolean
     isCapabilityAvailable: boolean
     notice: string
     onCheckUpdates: () => void
@@ -514,6 +515,7 @@ export function SettingsPage({
                       disabled={
                         updates.isCheckingUpdates ||
                         updates.applyingUpdateTarget !== null ||
+                        updates.isApplyBlockedByActivePrint ||
                         release.canApply !== true
                       }
                     >

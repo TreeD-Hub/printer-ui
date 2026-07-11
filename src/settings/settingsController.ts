@@ -175,6 +175,9 @@ export function useSettingsController({
   const isNetworkCapabilityAvailable = hostNetworkStatus.available
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const isUpdatesCapabilityAvailable = runtimeMode === 'mock' || typeof fetch === 'function'
+  const isUpdateBlockedByActivePrint = snapshot.printJob.isActive
+    || snapshot.printJob.isPaused
+    || ['printing', 'paused'].includes(snapshot.printJob.state.trim().toLowerCase())
   const wifiIpLabel = hostNetworkStatus.ipAddress ?? '—'
   const networkCapabilityNotice = isNetworkCapabilityAvailable
     ? hostNetworkStatus.message
@@ -505,6 +508,11 @@ export function useSettingsController({
   }
 
   async function handleApplyUpdate(targetId: HostUpdateTargetId): Promise<void> {
+    if (isUpdateBlockedByActivePrint) {
+      setUpdateNotice('Обновление недоступно во время активной печати или паузы.')
+      return
+    }
+
     const release = updateReleaseResults.find((item) => item.id === targetId)
     if (release?.canApply !== true || release.latestTag === null) {
       setUpdateNotice(`Обновление ${release?.label ?? targetId} недоступно.`)
@@ -733,6 +741,7 @@ export function useSettingsController({
       releaseResults: updateReleaseResults,
       isCheckingUpdates,
       applyingUpdateTarget,
+      isApplyBlockedByActivePrint: isUpdateBlockedByActivePrint,
       isCapabilityAvailable: isUpdatesCapabilityAvailable,
       notice: updateCapabilityNotice,
       onCheckUpdates: handleCheckUpdates,

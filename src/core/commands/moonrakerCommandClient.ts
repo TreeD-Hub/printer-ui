@@ -48,6 +48,9 @@ const MOTION_COMMANDS = new Set<ExecuteCommandArgs['command']>([
   'eddyCheckZ0',
   'eddyScrewsTiltStart',
   'eddyBedMeshCalibrate',
+  'shaperCalibrateLight',
+  'shaperCalibrateFull',
+  'xyMotionTest',
 ])
 
 function isAbortError(error: unknown): boolean {

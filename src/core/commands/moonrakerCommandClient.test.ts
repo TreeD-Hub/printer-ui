@@ -114,6 +114,45 @@ describe('createMoonrakerCommandClient', () => {
     vi.useRealTimers()
   })
 
+  it.each([
+    'shaperCalibrateLight',
+    'shaperCalibrateFull',
+    'xyMotionTest',
+  ] as const)('allows long-running %s requests to run past the default timeout', async (command) => {
+    vi.useFakeTimers()
+    const response = createDeferred<Response>()
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      init?.signal?.addEventListener('abort', () => {
+        response.reject(new DOMException('Aborted', 'AbortError'))
+      })
+      return response.promise
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+      fetchTimeoutMs: 25,
+    })
+
+    const promise = client.execute({ command })
+
+    await vi.advanceTimersByTimeAsync(25)
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    expect(init.signal?.aborted).toBe(false)
+
+    response.resolve({
+      ok: true,
+      json: async () => ({ result: 'ok' }),
+    } as Response)
+
+    await expect(promise).resolves.toMatchObject({
+      command,
+      ok: true,
+      status: 'accepted',
+    })
+    vi.useRealTimers()
+  })
+
   it('starts nested print file paths through Moonraker print start endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

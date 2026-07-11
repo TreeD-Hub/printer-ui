@@ -776,6 +776,31 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     })
   })
 
+  it('keeps a paused print active when virtual_sdcard is inactive', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      print_stats: {
+        filename: 'jobs/paused.gcode',
+        state: 'paused',
+      },
+      virtual_sdcard: {
+        file_path: '/gcodes/jobs/paused.gcode',
+        is_active: false,
+      },
+      pause_resume: {
+        is_paused: false,
+      },
+      webhooks: {
+        state: 'ready',
+      },
+    }))
+
+    expect(snapshot.printJob).toMatchObject({
+      state: 'paused',
+      isPaused: true,
+      isActive: true,
+    })
+  })
+
   it('marks exclude_object as unavailable when Moonraker does not publish it', () => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
       webhooks: {

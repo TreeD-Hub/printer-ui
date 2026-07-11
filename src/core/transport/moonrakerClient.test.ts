@@ -32,6 +32,15 @@ function runtimeObjects() {
   }
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((promiseResolve) => {
+    resolve = promiseResolve
+  })
+
+  return { promise, resolve }
+}
+
 describe('normalizeMoonrakerSnapshot', () => {
   it('requests TreeD V2 runtime objects and macro state from Moonraker', () => {
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('webhooks')
@@ -362,7 +371,9 @@ describe('createMoonrakerClient', () => {
       metadataConcurrency: 2,
     })
 
-    const firstSnapshot = client.fetchSnapshot()
+    await client.fetchSnapshot()
+    const requestedPaths = files.map((item) => item.path)
+    const firstMetadata = client.fetchPrintFileMetadata?.(requestedPaths)
     await vi.waitFor(() => {
       expect(metadataResolvers).toHaveLength(2)
     })
@@ -374,12 +385,12 @@ describe('createMoonrakerClient', () => {
       metadataResolvers.shift()?.()
       await Promise.resolve()
     }
-    await firstSnapshot
+    await firstMetadata
 
     expect(maxActiveMetadataRequests).toBeLessThanOrEqual(2)
     expect(metadataRequestCount).toBe(5)
 
-    await client.fetchSnapshot()
+    await client.fetchPrintFileMetadata?.(requestedPaths)
 
     expect(metadataRequestCount).toBe(5)
 
@@ -388,12 +399,13 @@ describe('createMoonrakerClient', () => {
       size: files[0].size + 1,
     }
 
-    const secondSnapshot = client.fetchSnapshot()
+    await client.fetchPrintFilesState()
+    const secondMetadata = client.fetchPrintFileMetadata?.(requestedPaths)
     await vi.waitFor(() => {
       expect(metadataResolvers.length).toBeGreaterThan(0)
     })
     metadataResolvers.shift()?.()
-    await secondSnapshot
+    await secondMetadata
 
     expect(metadataRequestCount).toBe(6)
   })
@@ -627,7 +639,7 @@ describe('createMoonrakerClient', () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe('http://moonraker.local/server/files/list?root=gcodes')
   })
 
-  it('sorts the full file list by modified date and loads metadata only for the initial window', async () => {
+  it('sorts the full file list without eagerly loading metadata', async () => {
     const files = Array.from({ length: 30 }, (_item, index) => ({
       path: `queue/part-${index}.gcode`,
       modified: 1_800_000_000 + index,
@@ -670,9 +682,8 @@ describe('createMoonrakerClient', () => {
       'queue/part-28.gcode',
       'queue/part-27.gcode',
     ])
-    expect(metadataUrls).toHaveLength(24)
-    expect(metadataUrls[0]).toContain('queue%2Fpart-29.gcode')
-    expect(metadataUrls.at(-1)).toContain('queue%2Fpart-6.gcode')
+    expect(snapshot.printFiles.every((item) => item.metadataStatus === 'idle')).toBe(true)
+    expect(metadataUrls).toEqual([])
   })
 
   it('loads metadata for a requested distant file and reports unavailable metadata without crashing', async () => {
@@ -735,6 +746,69 @@ describe('createMoonrakerClient', () => {
     )
 
     warnSpy.mockRestore()
+  })
+
+  it('prunes removed file metadata and identity entries before the path is reused', async () => {
+    let files = [{ path: 'queue/part.gcode', modified: 100, size: 1024 }]
+    let metadataVersion = 0
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/server/files/list')) {
+        return Promise.resolve(moonrakerResponse(files))
+      }
+
+      metadataVersion += 1
+      return Promise.resolve(moonrakerResponse({
+        estimated_time: metadataVersion * 60,
+      }))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    await client.fetchPrintFilesState()
+    const firstMetadata = await client.fetchPrintFileMetadata?.(['queue/part.gcode'])
+    files = []
+    await client.fetchPrintFilesState()
+    expect(await client.fetchPrintFileMetadata?.(['queue/part.gcode'])).toEqual(expect.objectContaining({
+      printFiles: [],
+    }))
+
+    files = [{ path: 'queue/part.gcode', modified: 100, size: 1024 }]
+    await client.fetchPrintFilesState()
+    const secondMetadata = await client.fetchPrintFileMetadata?.(['queue/part.gcode'])
+
+    expect(firstMetadata?.printFiles[0]?.printTime).toBe('1 мин')
+    expect(secondMetadata?.printFiles[0]?.printTime).toBe('2 мин')
+    expect(metadataVersion).toBe(2)
+  })
+
+  it('drops a late metadata response after its file path is removed and reused', async () => {
+    let files = [{ path: 'queue/late.gcode', modified: 100, size: 1024 }]
+    const metadata = createDeferred<Response>()
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/server/files/list')) {
+        return Promise.resolve(moonrakerResponse(files))
+      }
+
+      return metadata.promise
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock as typeof fetch,
+    })
+
+    await client.fetchPrintFilesState()
+    const pendingMetadata = client.fetchPrintFileMetadata?.(['queue/late.gcode'])
+    files = []
+    await client.fetchPrintFilesState()
+    files = [{ path: 'queue/late.gcode', modified: 100, size: 1024 }]
+    await client.fetchPrintFilesState()
+    metadata.resolve(moonrakerResponse({ estimated_time: 60 }))
+
+    await expect(pendingMetadata).resolves.toEqual(expect.objectContaining({
+      printFiles: [],
+    }))
   })
 
   it('keeps runtime snapshot usable when Moonraker file list fails', async () => {

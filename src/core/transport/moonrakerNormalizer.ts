@@ -328,6 +328,7 @@ function normalizePrintStats(
     1,
   )
   const info = printStats?.info
+  const isPaused = state === 'paused' || Boolean(pauseResume?.is_paused)
 
   return {
     filename,
@@ -341,8 +342,8 @@ function normalizePrintStats(
     filamentUsedMm: toFiniteNumber(printStats?.filament_used, 0),
     currentLayer: toNullableNumber(info?.current_layer),
     totalLayer: toNullableNumber(info?.total_layer),
-    isPaused: Boolean(pauseResume?.is_paused),
-    isActive: state === 'printing' || Boolean(virtualSdCard?.is_active),
+    isPaused,
+    isActive: state === 'printing' || isPaused || Boolean(virtualSdCard?.is_active),
   }
 }
 
