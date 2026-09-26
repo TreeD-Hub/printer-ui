@@ -68,6 +68,8 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'shutdownHost',
 ]
 
+const PRINT_COMMAND_IDS: PrinterCommandId[] = ['start', 'pause', 'resume', 'cancel']
+
 const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
   print: true,
   motion: true,
@@ -321,6 +323,24 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     })).toContain('во время печати')
     expect(getTreeDCommandBlockReason('disableMotors', PRINTING_CONTEXT)).toContain('во время печати')
     expect(getTreeDCommandBlockReason('eddyBedMeshCalibrate', PRINTING_CONTEXT)).toContain('во время печати')
+  })
+
+  it('allows only lifecycle-valid print commands in each print state', () => {
+    const cases: Array<{
+      context: TreeDCommandRuntimeContext
+      expected: PrinterCommandId[]
+    }> = [
+      { context: IDLE_CONTEXT, expected: ['start'] },
+      { context: PRINTING_CONTEXT, expected: ['pause', 'cancel'] },
+      { context: PAUSED_CONTEXT, expected: ['resume', 'cancel'] },
+    ]
+
+    for (const { context, expected } of cases) {
+      const available = PRINT_COMMAND_IDS.filter(
+        (command) => getTreeDCommandBlockReason(command, context) === null,
+      )
+      expect(available).toEqual(expected)
+    }
   })
 
   it('gates filament sensor settings by print state and degraded hardware', () => {

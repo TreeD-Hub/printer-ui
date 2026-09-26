@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMoonrakerCommandClient } from './moonrakerCommandClient'
+import type { ExecuteCommandArgs } from './types'
 
 let consoleDebug: ReturnType<typeof vi.spyOn>
 let consoleError: ReturnType<typeof vi.spyOn>
@@ -134,6 +135,63 @@ describe('createMoonrakerCommandClient', () => {
       }),
     )
   })
+
+  it.each([
+    ['pause', { command: 'pause' }, '/printer/print/pause'],
+    ['resume', { command: 'resume' }, '/printer/print/resume'],
+    ['cancel', { command: 'cancel' }, '/printer/print/cancel'],
+    ['emergencyStop', { command: 'emergencyStop' }, '/printer/emergency_stop'],
+  ] satisfies Array<[string, ExecuteCommandArgs, string]>)(
+    'routes %s through Moonraker',
+    async (_name, args, path) => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ result: 'ok' }),
+      })
+      const client = createMoonrakerCommandClient({
+        moonrakerUrl: 'http://moonraker.local',
+        fetchImpl: fetchMock,
+      })
+
+      await client.execute(args)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        `http://moonraker.local${path}`,
+        expect.objectContaining({ method: 'POST' }),
+      )
+    },
+  )
+
+  it.each([
+    ['home', { command: 'home' }, 'G28\nM400'],
+    ['homeAll', { command: 'homeAll' }, 'G28\nM400'],
+    ['unloadFilament', { command: 'unloadFilament', lengthMm: 80, speedMmS: 6 }, 'UNLOAD_FILAMENT LENGTH=80 SPEED=6\nM400'],
+    ['shaperCalibrateLight', { command: 'shaperCalibrateLight' }, 'TREED_SHAPER_CALIBRATE_LIGHT'],
+    ['shaperCalibrateFull', { command: 'shaperCalibrateFull' }, 'TREED_SHAPER_CALIBRATE_FULL'],
+    ['xyMotionTest', { command: 'xyMotionTest' }, 'TREED_XY_MOTION_TEST'],
+  ] satisfies Array<[string, ExecuteCommandArgs, string]>)(
+    'maps %s to its G-code contract',
+    async (_name, args, script) => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ result: 'ok' }),
+      })
+      const client = createMoonrakerCommandClient({
+        moonrakerUrl: 'http://moonraker.local',
+        fetchImpl: fetchMock,
+      })
+
+      await client.execute(args)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://moonraker.local/printer/gcode/script',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ script }),
+        }),
+      )
+    },
+  )
 
   it('routes filament sensor mode through G-code and sensitivity through host API', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
