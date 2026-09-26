@@ -342,7 +342,7 @@ function normalizePrintStats(
     currentLayer: toNullableNumber(info?.current_layer),
     totalLayer: toNullableNumber(info?.total_layer),
     isPaused: Boolean(pauseResume?.is_paused),
-    isActive: state === 'printing' || Boolean(virtualSdCard?.is_active),
+    isActive: state === 'printing' || state === 'paused' || Boolean(virtualSdCard?.is_active),
   }
 }
 

@@ -621,6 +621,28 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     expect(snapshot.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 
+  it('keeps a paused print active when virtual_sdcard is inactive', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      print_stats: {
+        filename: 'jobs/paused.gcode',
+        state: 'paused',
+      },
+      virtual_sdcard: {
+        file_path: '/gcodes/jobs/paused.gcode',
+        is_active: false,
+      },
+      pause_resume: {
+        is_paused: true,
+      },
+    }))
+
+    expect(snapshot.printJob).toMatchObject({
+      state: 'paused',
+      isPaused: true,
+      isActive: true,
+    })
+  })
+
   it('maps shutdown and offline payloads to the expected connection state', () => {
     const shutdownSnapshot = normalizeMoonrakerRuntimeSnapshot(
       buildPayload({
