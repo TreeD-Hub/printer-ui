@@ -1,6 +1,7 @@
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createHostNetworkClient, createHostUpdateClient } from '#runtime'
 import { AppScreenContent } from './app/AppScreenContent'
+import { getScreenSleepTimeoutMs, ScreenSleepGuard } from './app/ScreenSleepGuard'
 import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
@@ -1006,6 +1007,10 @@ function App() {
           onClose={closeTopPopup}
           onOpenWifiSettings={openWifiSettings}
           onPowerMenuAction={topStatusController.onPowerMenuAction}
+        />
+
+        <ScreenSleepGuard
+          timeoutMs={getScreenSleepTimeoutMs(settingsPageProps.interfaceSettings.sleepModeValue)}
         />
       </section>
     </main>
