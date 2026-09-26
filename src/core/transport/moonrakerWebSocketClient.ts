@@ -31,7 +31,6 @@ export type MoonrakerWebSocketSubscription = {
   close: () => void
 }
 
-const SUBSCRIPTION_REQUEST_ID = 1
 const DEFAULT_RECONNECT_DELAY_MS = 2_000
 const DEFAULT_RECONNECT_MAX_DELAY_MS = 30_000
 const DEFAULT_RECONNECT_JITTER_RATIO = 0.2
@@ -137,6 +136,9 @@ export function subscribeToMoonrakerStatus(
   let cachedStatus: MoonrakerPrinterObjectsStatus = {}
   let cachedEventtime: number | undefined
   let reconnectAttempt = 0
+  let nextSubscriptionRequestId = 1
+  let activeSubscriptionRequestId: number | null = null
+  let subscriptionActive = false
 
   function clearReconnectTimer(): void {
     if (reconnectTimer === null) {
@@ -150,6 +152,12 @@ export function subscribeToMoonrakerStatus(
   function resetCachedStatus(): void {
     cachedStatus = {}
     cachedEventtime = undefined
+  }
+
+  function resetKlippySubscription(): void {
+    activeSubscriptionRequestId = null
+    subscriptionActive = false
+    resetCachedStatus()
   }
 
   function emitStatusSnapshot(
@@ -185,17 +193,25 @@ export function subscribeToMoonrakerStatus(
   }
 
   function sendSubscriptionRequest(nextSocket: WebSocket): void {
+    const requestId = nextSubscriptionRequestId
+    nextSubscriptionRequestId += 1
+    activeSubscriptionRequestId = requestId
+    subscriptionActive = false
     nextSocket.send(JSON.stringify({
       jsonrpc: '2.0',
       method: 'printer.objects.subscribe',
       params: {
         objects: MOONRAKER_SUBSCRIPTION_OBJECTS,
       },
-      id: SUBSCRIPTION_REQUEST_ID,
+      id: requestId,
     }))
   }
 
   function handleStatusNotification(params: unknown[] | undefined): void {
+    if (!subscriptionActive) {
+      return
+    }
+
     const nextStatus = params?.[0]
     if (!isRecord(nextStatus)) {
       return
@@ -206,13 +222,19 @@ export function subscribeToMoonrakerStatus(
   }
 
   function handleRpcMessage(message: MoonrakerJsonRpcMessage): void {
+    if (message.id !== undefined && message.id !== activeSubscriptionRequestId) {
+      return
+    }
+
     if (message.error?.message) {
+      subscriptionActive = false
       handlers.onError?.(message.error.message)
       handlers.onConnectionChange('degraded', message.error.message)
       return
     }
 
-    if (message.id === SUBSCRIPTION_REQUEST_ID && message.result?.status) {
+    if (message.id === activeSubscriptionRequestId && message.result?.status) {
+      subscriptionActive = true
       emitStatusSnapshot(message.result.status, message.result.eventtime, 'replace')
       return
     }
@@ -222,13 +244,19 @@ export function subscribeToMoonrakerStatus(
         handleStatusNotification(message.params)
         return
       case 'notify_klippy_ready':
-        emitStatusSnapshot(setWebhooksState(cachedStatus, 'ready', 'Klippy ready'))
+        resetKlippySubscription()
+        emitStatusSnapshot(setWebhooksState({}, 'ready', 'Klippy ready'), undefined, 'replace')
+        if (socket !== null) {
+          sendSubscriptionRequest(socket)
+        }
         return
       case 'notify_klippy_shutdown':
-        emitStatusSnapshot(setWebhooksState(cachedStatus, 'shutdown', 'Klippy shutdown'))
+        resetKlippySubscription()
+        emitStatusSnapshot(setWebhooksState({}, 'shutdown', 'Klippy shutdown'), undefined, 'replace')
         return
       case 'notify_klippy_disconnected':
-        emitStatusSnapshot(setWebhooksState(cachedStatus, 'disconnected', 'Klippy disconnected'))
+        resetKlippySubscription()
+        emitStatusSnapshot(setWebhooksState({}, 'disconnected', 'Klippy disconnected'), undefined, 'replace')
         return
       case 'notify_filelist_changed':
       case 'notify_metadata_update':
@@ -251,6 +279,7 @@ export function subscribeToMoonrakerStatus(
       return
     }
 
+    nextSubscriptionRequestId = 1
     handlers.onConnectionChange('connecting')
 
     try {
@@ -285,7 +314,7 @@ export function subscribeToMoonrakerStatus(
 
     socket.onclose = () => {
       socket = null
-      resetCachedStatus()
+      resetKlippySubscription()
       scheduleReconnect('Moonraker WebSocket closed')
     }
   }
@@ -296,7 +325,7 @@ export function subscribeToMoonrakerStatus(
     close() {
       closedByClient = true
       clearReconnectTimer()
-      resetCachedStatus()
+      resetKlippySubscription()
       if (socket !== null) {
         socket.close()
         socket = null

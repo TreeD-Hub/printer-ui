@@ -61,6 +61,7 @@ export function useMoonrakerSystemStatus(
       })
       .finally(() => {
         if (requestSequence === requestSequenceRef.current) {
+          abortControllerRef.current = null
           setIsRefreshing(false)
         }
       })
@@ -72,7 +73,11 @@ export function useMoonrakerSystemStatus(
     }
 
     refresh()
-    const timer = window.setInterval(refresh, pollIntervalMs)
+    const timer = window.setInterval(() => {
+      if (abortControllerRef.current === null) {
+        refresh()
+      }
+    }, pollIntervalMs)
 
     return () => {
       requestSequenceRef.current += 1

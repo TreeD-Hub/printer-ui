@@ -35,12 +35,12 @@ type MoonrakerClientOptions = {
   fetchImpl?: typeof fetch
   fetchTimeoutMs?: number
   metadataConcurrency?: number
-  metadataFileLimit?: number
 }
 
 type MoonrakerFetchContext = Required<MoonrakerClientOptions> & {
   metadataCache: Map<string, MoonrakerPrintFileMetadata>
   metadataInFlight: Map<string, Promise<MoonrakerPrintFileMetadata>>
+  invalidatedMetadataRequests: WeakSet<Promise<MoonrakerPrintFileMetadata>>
   fileIdentityCache: Map<string, MoonrakerFileListItem>
   usageCache: PrinterUsageSnapshot | null
   usageExpiresAtMs: number
@@ -85,7 +85,6 @@ type MoonrakerHistoryTotalsResponse = {
 
 const DEFAULT_FETCH_TIMEOUT_MS = 8_000
 const DEFAULT_METADATA_CONCURRENCY = 4
-const DEFAULT_METADATA_FILE_LIMIT = 24
 const DEFAULT_USAGE_CACHE_TTL_MS = 5 * 60 * 1000
 
 export class MoonrakerTransportError extends Error {
@@ -249,6 +248,13 @@ function clearFileMetadataCache(path: string, context: MoonrakerFetchContext): v
       context.metadataCache.delete(key)
     }
   }
+
+  for (const [key, request] of context.metadataInFlight) {
+    if (key.startsWith(prefix)) {
+      context.invalidatedMetadataRequests.add(request)
+      context.metadataInFlight.delete(key)
+    }
+  }
 }
 
 function sortFileListByModifiedDesc(items: MoonrakerFileListItem[]): MoonrakerFileListItem[] {
@@ -260,24 +266,47 @@ function sortFileListByModifiedDesc(items: MoonrakerFileListItem[]): MoonrakerFi
   })
 }
 
-function rememberFileListItems(items: readonly MoonrakerFileListItem[], context: MoonrakerFetchContext): void {
+function syncFileListItems(items: readonly MoonrakerFileListItem[], context: MoonrakerFetchContext): void {
+  const nextItems = new Map<string, MoonrakerFileListItem>()
+  const validMetadataKeys = new Set<string>()
+
   for (const item of items) {
     const path = normalizePrinterFilePath(getMoonrakerFilePath(item))
     if (path.length === 0) {
       continue
     }
 
-    context.fileIdentityCache.set(path, {
+    const normalizedItem = {
       ...item,
       path,
-    })
+    }
+    nextItems.set(path, normalizedItem)
+    validMetadataKeys.add(getMetadataCacheKey(path, normalizedItem))
+  }
+
+  context.fileIdentityCache.clear()
+  for (const [path, item] of nextItems) {
+    context.fileIdentityCache.set(path, item)
+  }
+
+  for (const key of context.metadataCache.keys()) {
+    if (!validMetadataKeys.has(key)) {
+      context.metadataCache.delete(key)
+    }
+  }
+
+  for (const [key, request] of context.metadataInFlight) {
+    if (!validMetadataKeys.has(key)) {
+      context.invalidatedMetadataRequests.add(request)
+      context.metadataInFlight.delete(key)
+    }
   }
 }
 
 async function loadPrintFileMetadata(
   item: MoonrakerFileListItem,
   context: MoonrakerFetchContext,
-): Promise<MoonrakerPrintFileInput> {
+): Promise<MoonrakerPrintFileInput | null> {
   const path = normalizePrinterFilePath(getMoonrakerFilePath(item))
   const cacheKey = getMetadataCacheKey(path, item)
   const cachedMetadata = context.metadataCache.get(cacheKey)
@@ -301,7 +330,14 @@ async function loadPrintFileMetadata(
 
   try {
     const metadata = await metadataPromise
-    context.metadataCache.set(cacheKey, metadata)
+    if (context.invalidatedMetadataRequests.has(metadataPromise)) {
+      return null
+    }
+
+    const currentItem = context.fileIdentityCache.get(path)
+    if (currentItem !== undefined && getMetadataCacheKey(path, currentItem) === cacheKey) {
+      context.metadataCache.set(cacheKey, metadata)
+    }
 
     return {
       ...item,
@@ -353,7 +389,7 @@ async function fetchPrintFileWithMetadata(
   item: MoonrakerFileListItem,
   context: MoonrakerFetchContext,
   shouldFetchMetadata = true,
-): Promise<MoonrakerPrintFileInput> {
+): Promise<MoonrakerPrintFileInput | null> {
   const path = getMoonrakerFilePath(item)
 
   if (!path.toLowerCase().endsWith('.gcode')) {
@@ -374,26 +410,14 @@ async function fetchPrintFileWithMetadata(
 async function fetchPrintFiles(context: MoonrakerFetchContext): Promise<MoonrakerPrintFileInput[]> {
   const items = await fetchMoonraker<MoonrakerFileListItem[]>('/server/files/list?root=gcodes', context)
   const sortedItems = sortFileListByModifiedDesc(items)
-  rememberFileListItems(sortedItems, context)
-  let metadataFileBudget = Math.max(0, context.metadataFileLimit)
-  const plannedItems = sortedItems.map((item) => {
+  syncFileListItems(sortedItems, context)
+
+  return sortedItems.map((item) => {
     const path = getMoonrakerFilePath(item)
-    const shouldFetchMetadata = path.toLowerCase().endsWith('.gcode') && metadataFileBudget > 0
-    if (shouldFetchMetadata) {
-      metadataFileBudget -= 1
-    }
-
-    return {
-      item,
-      shouldFetchMetadata,
-    }
+    return path.toLowerCase().endsWith('.gcode')
+      ? { ...item, path, metadataStatus: 'idle' }
+      : item
   })
-
-  return mapWithConcurrency(
-    plannedItems,
-    context.metadataConcurrency,
-    ({ item, shouldFetchMetadata }) => fetchPrintFileWithMetadata(item, context, shouldFetchMetadata),
-  )
 }
 
 async function fetchPrintFileMetadataState(
@@ -408,15 +432,29 @@ async function fetchPrintFileMetadataState(
       continue
     }
 
+    const item = context.fileIdentityCache.get(path)
+    if (item === undefined) {
+      continue
+    }
+
     seenPaths.add(path)
-    items.push(context.fileIdentityCache.get(path) ?? { path })
+    items.push(item)
   }
 
-  const files = await mapWithConcurrency(
+  const loadedFiles = await mapWithConcurrency(
     items,
     context.metadataConcurrency,
     (item) => fetchPrintFileWithMetadata(item, context, true),
   )
+  const files = loadedFiles.filter((item): item is MoonrakerPrintFileInput => {
+    if (item === null) {
+      return false
+    }
+
+    const currentItem = context.fileIdentityCache.get(item.path ?? '')
+    return currentItem !== undefined
+      && getMetadataCacheKey(item.path ?? '', currentItem) === getMetadataCacheKey(item.path ?? '', item)
+  })
   const snapshot = normalizeMoonrakerRuntimeSnapshot({ status: {} }, {
     moonrakerUrl: context.moonrakerUrl,
     source: 'live',
@@ -516,9 +554,9 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
     fetchImpl: options.fetchImpl ?? fetch.bind(globalThis),
     fetchTimeoutMs: options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
     metadataConcurrency: options.metadataConcurrency ?? DEFAULT_METADATA_CONCURRENCY,
-    metadataFileLimit: options.metadataFileLimit ?? DEFAULT_METADATA_FILE_LIMIT,
     metadataCache: new Map(),
     metadataInFlight: new Map(),
+    invalidatedMetadataRequests: new WeakSet(),
     fileIdentityCache: new Map(),
     usageCache: null,
     usageExpiresAtMs: 0,

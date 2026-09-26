@@ -140,6 +140,42 @@ describe('settings controller helpers', () => {
     })
   })
 
+  it('blocks host update apply while a print is paused', async () => {
+    const snapshot = createMockSnapshot()
+    snapshot.printJob.state = 'paused'
+    snapshot.printJob.isActive = false
+    snapshot.printJob.isPaused = true
+    const apply = vi.fn()
+    const updateClient: HostUpdateClient = {
+      getStatus: vi.fn().mockResolvedValue(availableUpdateStatus),
+      check: vi.fn().mockResolvedValue(availableUpdateStatus),
+      apply,
+    }
+    const { result } = renderHook(() => useSettingsController({
+      snapshot,
+      connectionLabel: 'Подключено',
+      networkClient: unavailableNetworkClient,
+      updateClient,
+      executeCommand: vi.fn().mockResolvedValue(true),
+      getCommandBlockReason: () => null,
+      activeKeyboardTarget: null,
+      openKeyboard: () => undefined,
+      closeKeyboard: () => undefined,
+    }))
+
+    await waitFor(() => {
+      expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true)
+    })
+
+    await act(async () => {
+      await result.current.pageProps.updates.onApplyUpdate('printer-ui')
+    })
+
+    expect(result.current.pageProps.updates.isApplyBlockedByActivePrint).toBe(true)
+    expect(result.current.pageProps.updates.notice).toContain('активной печати')
+    expect(apply).not.toHaveBeenCalled()
+  })
+
   it('keeps connected Wi-Fi first and sorts the rest by signal after filtering', () => {
     expect(filterWifiNetworks(wifiNetworks, '5g').map((item) => item.id)).toEqual([
       'connected-home',

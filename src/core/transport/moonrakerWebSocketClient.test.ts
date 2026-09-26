@@ -338,6 +338,75 @@ describe('moonrakerWebSocketClient', () => {
     subscription.close()
   })
 
+  it('re-subscribes after Klippy becomes ready and accepts only the latest subscription ack', () => {
+    const { snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.message({
+      id: 1,
+      result: {
+        eventtime: 10,
+        status: {
+          webhooks: {
+            state: 'ready',
+          },
+          toolhead: {
+            position: [10, 20, 30, 0],
+          },
+        },
+      },
+    })
+    socket?.message({ method: 'notify_klippy_disconnected' })
+    socket?.message({ method: 'notify_klippy_ready' })
+
+    expect(socket?.sentMessages).toHaveLength(2)
+    expect(JSON.parse(socket?.sentMessages[1] ?? '{}')).toMatchObject({
+      method: 'printer.objects.subscribe',
+      id: 2,
+    })
+    expect(snapshots.at(-1)?.connection).toBe('online')
+    expect(snapshots.at(-1)?.toolhead.rawX).toBe(0)
+
+    socket?.message({
+      method: 'notify_status_update',
+      params: [{ toolhead: { position: [99, 99, 99, 0] } }, 11],
+    })
+    socket?.message({
+      id: 1,
+      result: {
+        eventtime: 11,
+        status: {
+          webhooks: { state: 'ready' },
+          toolhead: { position: [88, 88, 88, 0] },
+        },
+      },
+    })
+
+    expect(snapshots.at(-1)?.toolhead.rawX).toBe(0)
+
+    socket?.message({
+      id: 2,
+      result: {
+        eventtime: 12,
+        status: {
+          webhooks: { state: 'ready' },
+          toolhead: { position: [40, 50, 60, 0] },
+        },
+      },
+    })
+    socket?.message({
+      method: 'notify_status_update',
+      params: [{ toolhead: { homed_axes: 'xyz' } }, 13],
+    })
+
+    expect(snapshots.at(-1)?.toolhead.rawX).toBe(40)
+    expect(snapshots.at(-1)?.toolhead.rawY).toBe(50)
+    expect(snapshots.at(-1)?.homedAxes).toBe('xyz')
+
+    subscription.close()
+  })
+
   it('routes file and G-code notifications to typed handlers', () => {
     const { fileListChanges, gcodeResponses, subscription } = subscribeForTest()
     const socket = TestWebSocket.instances[0]

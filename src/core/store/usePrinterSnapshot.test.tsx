@@ -125,6 +125,17 @@ function expectRuntimeFields(snapshot: PrinterSnapshot, seed: number): void {
   expect(snapshot.klippy.state).toBe(seed % 2 === 0 ? 'ready' : 'startup')
 }
 
+function toPrintJobState(snapshot: PrinterSnapshot) {
+  return {
+    excludeObjects: snapshot.excludeObjects,
+    files: snapshot.files,
+    message: snapshot.message,
+    printJob: snapshot.printJob,
+    state: snapshot.state,
+    updatedAt: snapshot.updatedAt,
+  }
+}
+
 describe('usePrinterSnapshot', () => {
   let handlers: TransportSubscriptionHandlers | null = null
 
@@ -330,7 +341,85 @@ describe('usePrinterSnapshot', () => {
     })
   })
 
-  it('caps live HTTP fallback at two seconds when websocket is available', async () => {
+  it('keeps newer websocket print state when a targeted refresh resolves later', async () => {
+    vi.useFakeTimers()
+    const targetedRefresh = createDeferred<ReturnType<typeof toPrintJobState>>()
+    runtimeMocks.fetchSnapshot.mockReturnValue(new Promise<PrinterSnapshot>(() => undefined))
+    runtimeMocks.fetchPrintJobState.mockReturnValue(targetedRefresh.promise)
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+
+    let hook!: {
+      result: { current: ReturnType<typeof usePrinterSnapshot> }
+      unmount: () => void
+    }
+    await act(async () => {
+      hook = renderHook(() => usePrinterSnapshot(60_000))
+      await Promise.resolve()
+    })
+    vi.clearAllTimers()
+
+    const staleTargetedSnapshot = applyRuntimeFields(createSnapshot(10, 190, 5), 10)
+    const websocketSnapshot = applyRuntimeFields(createSnapshot(20, 220, 20), 20)
+    await act(async () => {
+      const refreshPromise = hook.result.current.refreshPrintJob()
+      handlers?.onSnapshot(websocketSnapshot)
+      targetedRefresh.resolve(toPrintJobState(staleTargetedSnapshot))
+      await refreshPromise
+    })
+
+    expectRuntimeFields(hook.result.current.snapshot, 20)
+
+    await act(async () => {
+      hook.unmount()
+    })
+  })
+
+  it('keeps the latest targeted print refresh when responses resolve out of order', async () => {
+    vi.useFakeTimers()
+    const firstRefresh = createDeferred<ReturnType<typeof toPrintJobState>>()
+    const secondRefresh = createDeferred<ReturnType<typeof toPrintJobState>>()
+    runtimeMocks.fetchSnapshot.mockReturnValue(new Promise<PrinterSnapshot>(() => undefined))
+    runtimeMocks.fetchPrintJobState
+      .mockReturnValueOnce(firstRefresh.promise)
+      .mockReturnValueOnce(secondRefresh.promise)
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+
+    let hook!: {
+      result: { current: ReturnType<typeof usePrinterSnapshot> }
+      unmount: () => void
+    }
+    await act(async () => {
+      hook = renderHook(() => usePrinterSnapshot(60_000))
+      await Promise.resolve()
+    })
+    vi.clearAllTimers()
+
+    const firstSnapshot = applyRuntimeFields(createSnapshot(10, 190, 5), 10)
+    const secondSnapshot = applyRuntimeFields(createSnapshot(20, 220, 20), 20)
+    await act(async () => {
+      const firstPromise = hook.result.current.refreshPrintJob()
+      const secondPromise = hook.result.current.refreshPrintJob()
+      secondRefresh.resolve(toPrintJobState(secondSnapshot))
+      await secondPromise
+      firstRefresh.resolve(toPrintJobState(firstSnapshot))
+      await firstPromise
+    })
+
+    expect(hook.result.current.snapshot.printJob).toEqual(secondSnapshot.printJob)
+    expect(hook.result.current.snapshot.files).toEqual(secondSnapshot.files)
+
+    await act(async () => {
+      hook.unmount()
+    })
+  })
+
+  it('backs off HTTP fallback while websocket is healthy and restores fast recovery when it degrades', async () => {
     vi.useFakeTimers()
     runtimeMocks.fetchSnapshot.mockResolvedValue(createSnapshot(1, 180, 3))
     runtimeMocks.fetchRuntimeSnapshot.mockResolvedValue(createSnapshot(2, 181, 4))
@@ -355,7 +444,8 @@ describe('usePrinterSnapshot', () => {
     expect(runtimeMocks.fetchRuntimeSnapshot).not.toHaveBeenCalled()
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1_999)
+      handlers?.onSnapshot(createSnapshot(2, 181, 4))
+      await vi.advanceTimersByTimeAsync(14_999)
     })
     expect(runtimeMocks.fetchSnapshot).toHaveBeenCalledTimes(1)
     expect(runtimeMocks.fetchRuntimeSnapshot).not.toHaveBeenCalled()
@@ -365,6 +455,17 @@ describe('usePrinterSnapshot', () => {
     })
     expect(runtimeMocks.fetchSnapshot).toHaveBeenCalledTimes(1)
     expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      handlers?.onConnectionChange('degraded', 'subscription lost')
+      await vi.advanceTimersByTimeAsync(1_999)
+    })
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1)
+    })
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(2)
 
     await act(async () => {
       hook.unmount()

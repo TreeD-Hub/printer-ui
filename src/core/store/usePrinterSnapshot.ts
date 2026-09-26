@@ -18,7 +18,8 @@ import {
   usePrinterStoreSelector,
 } from './printerStore'
 
-const LIVE_HTTP_FALLBACK_INTERVAL_MS = 2_000
+const DEGRADED_HTTP_FALLBACK_INTERVAL_MS = 2_000
+const HEALTHY_WEBSOCKET_HTTP_FALLBACK_INTERVAL_MS = 15_000
 
 const selectPrinterSnapshot = (snapshot: PrinterSnapshot) => snapshot
 
@@ -162,25 +163,17 @@ function mergePrintFileMetadata(
   }
 
   const metadataByPath = new Map(printFilesMetadata.printFiles.map((item) => [item.path, item]))
-  const seenPaths = new Set<string>()
   const printFiles = previous.printFiles.map((item) => {
     const nextItem = metadataByPath.get(item.path)
     if (nextItem === undefined) {
       return item
     }
 
-    seenPaths.add(item.path)
     return {
       ...item,
       ...nextItem,
     }
   })
-
-  for (const item of printFilesMetadata.printFiles) {
-    if (!seenPaths.has(item.path)) {
-      printFiles.push(item)
-    }
-  }
 
   return {
     ...previous,
@@ -197,8 +190,10 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const [error, setError] = useState<string>('')
   const lastTransitionRef = useRef<string>('')
   const snapshotRevisionRef = useRef(0)
+  const runtimeStateRevisionRef = useRef(0)
   const refreshSequenceRef = useRef(0)
   const runtimeRefreshSequenceRef = useRef(0)
+  const targetedRefreshSequenceRef = useRef(new Map<string, number>())
 
   const client = useMemo(() => {
     return createTransportClient()
@@ -249,6 +244,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           setError('')
         }
         if (didApplyRuntimeSnapshot) {
+          runtimeStateRevisionRef.current += 1
           recordSnapshotTransition(nextSnapshot)
         }
         return
@@ -256,6 +252,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
 
       recordSnapshotTransition(nextSnapshot)
       snapshotRevisionRef.current += 1
+      runtimeStateRevisionRef.current += 1
       setPrinterSnapshot(nextSnapshot)
       setError('')
     } catch (err) {
@@ -305,6 +302,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       if (didUpdateSnapshot) {
         recordSnapshotTransition(nextSnapshot)
         snapshotRevisionRef.current += 1
+        runtimeStateRevisionRef.current += 1
         setError('')
       }
     } catch (err) {
@@ -333,13 +331,33 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     action: string,
     fetchValue: () => Promise<T>,
     mergeValue: (previous: PrinterSnapshot, value: T) => PrinterSnapshot,
+    guardRuntimeRevision = false,
   ): Promise<void> => {
+    const requestSequence = (targetedRefreshSequenceRef.current.get(action) ?? 0) + 1
+    targetedRefreshSequenceRef.current.set(action, requestSequence)
+    const runtimeStateRevision = runtimeStateRevisionRef.current
+    const isRequestCurrent = (): boolean => {
+      return targetedRefreshSequenceRef.current.get(action) === requestSequence
+        && (!guardRuntimeRevision || runtimeStateRevisionRef.current === runtimeStateRevision)
+    }
+
     try {
       const value = await fetchValue()
-      snapshotRevisionRef.current += 1
+      if (!isRequestCurrent()) {
+        return
+      }
+
       updatePrinterSnapshot((prev) => mergeValue(prev, value))
+      snapshotRevisionRef.current += 1
+      if (guardRuntimeRevision) {
+        runtimeStateRevisionRef.current += 1
+      }
       setError('')
     } catch (err) {
+      if (!isRequestCurrent()) {
+        return
+      }
+
       const message = getErrorMessage(err)
       recordOperationalDiagnostic('transport-error', `${action}: ${message}`)
       setError(message)
@@ -365,6 +383,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         ...prev,
         filamentSensor,
       }),
+      true,
     )
   }, [applyTargetedRefresh, client.fetchFilamentSensor])
 
@@ -384,6 +403,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           },
         },
       }),
+      true,
     )
   }, [applyTargetedRefresh, client.fetchEddyState])
 
@@ -395,6 +415,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         ...prev,
         excludeObjects,
       }),
+      true,
     )
   }, [applyTargetedRefresh, client.fetchExcludeObjects])
 
@@ -411,6 +432,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         state: printJobState.state,
         updatedAt: printJobState.updatedAt,
       }),
+      true,
     )
   }, [applyTargetedRefresh, client.fetchPrintJobState])
 
@@ -474,21 +496,56 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           },
         },
       }),
+      true,
     )
   }, [applyTargetedRefresh, client.fetchMotionState])
 
   useEffect(() => {
     let isDisposed = false
-    const fallbackIntervalMs = client.subscribe === undefined
-      ? pollIntervalMs
-      : Math.min(pollIntervalMs, LIVE_HTTP_FALLBACK_INTERVAL_MS)
+    let isSocketHealthy = false
+    let runtimeTimer: number | null = null
+    const getFallbackIntervalMs = (): number => {
+      if (client.subscribe === undefined) {
+        return pollIntervalMs
+      }
+
+      return isSocketHealthy
+        ? HEALTHY_WEBSOCKET_HTTP_FALLBACK_INTERVAL_MS
+        : Math.min(pollIntervalMs, DEGRADED_HTTP_FALLBACK_INTERVAL_MS)
+    }
+    const scheduleRuntimeRefresh = (reset = false): void => {
+      if (reset && runtimeTimer !== null) {
+        window.clearTimeout(runtimeTimer)
+        runtimeTimer = null
+      }
+      if (isDisposed || runtimeTimer !== null) {
+        return
+      }
+
+      runtimeTimer = window.setTimeout(() => {
+        runtimeTimer = null
+        void refreshRuntime().finally(() => {
+          scheduleRuntimeRefresh()
+        })
+      }, getFallbackIntervalMs())
+    }
+    const setSocketHealthy = (nextHealthy: boolean): void => {
+      if (nextHealthy === isSocketHealthy) {
+        return
+      }
+
+      isSocketHealthy = nextHealthy
+      scheduleRuntimeRefresh(true)
+    }
     const subscription = client.subscribe?.({
       onSnapshot(nextSnapshot) {
         if (isDisposed) {
           return
         }
 
+        setSocketHealthy(true)
         snapshotRevisionRef.current += 1
+        runtimeStateRevisionRef.current += 1
         recordSnapshotTransition(nextSnapshot)
         updatePrinterSnapshot((prev) => mergeRuntimeSnapshot(prev, nextSnapshot))
         setError('')
@@ -498,6 +555,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
+        setSocketHealthy(connection === 'online')
         snapshotRevisionRef.current += 1
         recordOperationalDiagnostic('state-transition', `transport -> ${connection}`, message ?? null)
         updatePrinterSnapshot((prev) => ({
@@ -516,6 +574,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
+        setSocketHealthy(false)
         recordOperationalDiagnostic('transport-error', message)
         setError(message)
       },
@@ -546,16 +605,15 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     const firstTick = window.setTimeout(() => {
       void refresh()
     }, 0)
-
-    const timer = window.setInterval(() => {
-      void refreshRuntime()
-    }, fallbackIntervalMs)
+    scheduleRuntimeRefresh()
 
     return () => {
       isDisposed = true
       subscription?.close()
       window.clearTimeout(firstTick)
-      window.clearInterval(timer)
+      if (runtimeTimer !== null) {
+        window.clearTimeout(runtimeTimer)
+      }
     }
   }, [client, pollIntervalMs, recordSnapshotTransition, refresh, refreshPrintFiles, refreshRuntime])
 
