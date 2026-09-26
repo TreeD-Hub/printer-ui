@@ -207,7 +207,7 @@ describe('createMoonrakerCommandClient', () => {
       2,
       'http://moonraker.local/printer/gcode/script',
       expect.objectContaining({
-        body: JSON.stringify({ script: '_TREED_EDDY_HOME_Z\nM400' }),
+        body: JSON.stringify({ script: 'G28 Z\nM400' }),
       }),
     )
     expect(fetchMock).toHaveBeenNthCalledWith(
@@ -317,10 +317,7 @@ describe('createMoonrakerCommandClient', () => {
     )
   })
 
-  it.each([
-    { distanceMm: 100, segmentDistanceMm: 50 },
-    { distanceMm: -100, segmentDistanceMm: -50 },
-  ])('splits a $distanceMm mm axis move into device-safe segments', async ({ distanceMm, segmentDistanceMm }) => {
+  it.each([50, -50])('sends a %d mm axis move as one device command', async (distanceMm) => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ result: 'ok' }),
@@ -337,13 +334,29 @@ describe('createMoonrakerCommandClient', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
-          script: [
-            `TREED_UI_MOVE_AXIS AXIS=X DISTANCE=${segmentDistanceMm}`,
-            'M400',
-            `TREED_UI_MOVE_AXIS AXIS=X DISTANCE=${segmentDistanceMm}`,
-            'M400',
-          ].join('\n'),
+          script: `TREED_UI_MOVE_AXIS AXIS=X DISTANCE=${distanceMm}\nM400`,
         }),
+      }),
+    )
+  })
+
+  it('parks Z at the lower TMC5160 DIAG without auto-remove', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ result: 'ok' }),
+    })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: fetchMock,
+    })
+
+    await client.execute({ command: 'parkZBottom' })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ script: 'TREED_Z_PARK_BOTTOM_MANUAL\nM400' }),
       }),
     )
   })

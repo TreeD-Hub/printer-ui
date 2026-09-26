@@ -37,7 +37,7 @@ export const CONTROL_MOVE_STEP_OPTIONS: MoveStepOption[] = [
   { id: '1', label: '1 мм', valueMm: 1 },
   { id: '10', label: '10 мм', valueMm: 10 },
   { id: '25', label: '25 мм', valueMm: 25 },
-  { id: '100', label: '100 мм', valueMm: 100 },
+  { id: '50', label: '50 мм', valueMm: 50 },
 ]
 
 export const CONTROL_HEATING_PRESET_OPTIONS: HeatingPreset[] = [

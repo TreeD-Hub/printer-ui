@@ -19,6 +19,7 @@ import type {
   MovementMode,
   MoveStepKey,
   ParkingMode,
+  ZParkingSensor,
 } from './types'
 
 const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
@@ -52,7 +53,11 @@ export type ControlContainerProps = {
   onControlGroupChange: (groupId: ControlGroupId) => void
   onControlMenuCompactToggle: () => void
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
-  onParkingTargetSelect: (nextMode: ParkingMode, nextAxis?: AxisId) => Promise<boolean>
+  onParkingTargetSelect: (
+    nextMode: ParkingMode,
+    nextAxis?: AxisId,
+    zSensor?: ZParkingSensor,
+  ) => Promise<boolean>
   onServiceModeToggle: () => void
   onMotorsDisable: () => Promise<boolean>
   onMovementModeChange: (nextMode: MovementMode) => void
@@ -113,6 +118,7 @@ export function ControlContainer({
         Y: getCommandBlockReason('homeY'),
         Z: getCommandBlockReason('homeZ'),
       },
+      zBottom: getCommandBlockReason('parkZBottom'),
     },
     moveAxis: {
       X: {

@@ -9,8 +9,9 @@ import type { AxisId, UiIconName } from '../ui'
 
 export type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'filament' | 'maintenance'
 export type ParkingMode = 'all' | 'axis'
+export type ZParkingSensor = 'upper' | 'lower'
 export type MovementMode = 'buttons' | 'joystick'
-export type MoveStepKey = '1' | '10' | '25' | '100'
+export type MoveStepKey = '1' | '10' | '25' | '50'
 export type TemperatureKeyboardTarget = 'nozzle' | 'bed'
 export type MaintenanceIconName = 'runtime' | 'due' | 'interval' | 'system' | 'wrench'
 
@@ -34,6 +35,7 @@ export type MovementCommandBlockReasons = {
   parking: {
     all: string | null
     axis: Record<AxisId, string | null>
+    zBottom: string | null
   }
   moveAxis: Record<AxisId, {
     negative: string | null
@@ -119,7 +121,11 @@ export type MovementControlPanelProps = {
     min: number
     max: number
   }
-  onParkingTargetSelect: (nextMode: ParkingMode, nextAxis?: AxisId) => Promise<boolean>
+  onParkingTargetSelect: (
+    nextMode: ParkingMode,
+    nextAxis?: AxisId,
+    zSensor?: ZParkingSensor,
+  ) => Promise<boolean>
   onServiceModeToggle: () => void
   onMotorsDisable: () => Promise<boolean>
   onMovementModeChange: (nextMode: MovementMode) => void

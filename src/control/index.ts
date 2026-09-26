@@ -12,6 +12,7 @@ export type {
   MoveStepKey,
   MovementMode,
   ParkingMode,
+  ZParkingSensor,
   PrintHeadPosition,
   TemperatureKeyboardTarget,
 } from './types'

@@ -22,6 +22,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'homeY',
   'homeXY',
   'homeZ',
+  'parkZBottom',
   'moveAxis',
   'setNozzleTarget',
   'setBedTarget',
@@ -272,6 +273,8 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       ...IDLE_CONTEXT,
       eddyStatus: 'requires_xy_home',
     })).toContain('Home XY')
+    expect(getTreeDCommandBlockReason('parkZBottom', IDLE_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('parkZBottom', PRINTING_CONTEXT)).toContain('во время печати')
     expect(getTreeDCommandBlockReason('moveAxis', {
       ...IDLE_CONTEXT,
       homedAxes: 'xy',
@@ -374,12 +377,12 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(getTreeDCommandBlockReason('moveAxis', IDLE_CONTEXT, {
       command: 'moveAxis',
       axis: 'X',
-      distanceMm: 100,
+      distanceMm: 50,
     })).toBeNull()
     expect(getTreeDCommandBlockReason('moveAxis', IDLE_CONTEXT, {
       command: 'moveAxis',
       axis: 'X',
-      distanceMm: 101,
+      distanceMm: 51,
     })).toContain('DISTANCE')
     expect(getTreeDCommandBlockReason('moveAxis', IDLE_CONTEXT, {
       command: 'moveAxis',
