@@ -1,6 +1,7 @@
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createHostNetworkClient, createHostUpdateClient } from '#runtime'
 import { AppScreenContent } from './app/AppScreenContent'
+import { getScreenSleepTimeoutMs, ScreenSleepGuard } from './app/ScreenSleepGuard'
 import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
@@ -27,6 +28,7 @@ import {
   type MoveStepKey,
   type MovementMode,
   type ParkingMode,
+  type ZParkingSensor,
 } from './control'
 import {
   SettingsVirtualKeyboard,
@@ -499,7 +501,11 @@ function App() {
     event.preventDefault()
   }
 
-  async function handleParkingTargetSelect(nextMode: ParkingMode, nextAxis?: AxisId): Promise<boolean> {
+  async function handleParkingTargetSelect(
+    nextMode: ParkingMode,
+    nextAxis?: AxisId,
+    zSensor: ZParkingSensor = 'upper',
+  ): Promise<boolean> {
     const resolvedAxis = nextMode === 'axis' ? (nextAxis ?? parkingAxis) : parkingAxis
 
     setParkingMode(nextMode)
@@ -507,13 +513,15 @@ function App() {
       setParkingAxis(resolvedAxis)
     }
 
-    const command = nextMode === 'all'
+    const command: PrinterCommandId = nextMode === 'all'
       ? 'homeAll'
       : resolvedAxis === 'X'
         ? 'homeX'
         : resolvedAxis === 'Y'
           ? 'homeY'
-          : 'homeZ'
+          : zSensor === 'lower'
+            ? 'parkZBottom'
+            : 'homeZ'
     const ok = await executeCommand({ command })
     if (!ok) {
       return false
@@ -999,6 +1007,10 @@ function App() {
           onClose={closeTopPopup}
           onOpenWifiSettings={openWifiSettings}
           onPowerMenuAction={topStatusController.onPowerMenuAction}
+        />
+
+        <ScreenSleepGuard
+          timeoutMs={getScreenSleepTimeoutMs(settingsPageProps.interfaceSettings.sleepModeValue)}
         />
       </section>
     </main>

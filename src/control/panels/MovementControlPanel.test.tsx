@@ -13,7 +13,7 @@ function createProps(overrides: Partial<MovementControlPanelProps> = {}): Moveme
     isFilamentBusy: false,
     activeControlFlashKey: null,
     movementMode: 'buttons',
-    moveStepKey: '100',
+    moveStepKey: '50',
     commandBlockReasons: {
       parking: {
         all: null,
@@ -22,6 +22,7 @@ function createProps(overrides: Partial<MovementControlPanelProps> = {}): Moveme
           Y: null,
           Z: null,
         },
+        zBottom: null,
       },
       moveAxis: {
         X: {
@@ -70,10 +71,30 @@ describe('MovementControlPanel', () => {
     render(<MovementControlPanel {...createProps({ onAxisMove })} />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Сдвиг Z вниз' }))
-    expect(onAxisMove).toHaveBeenCalledWith('Z', 100)
+    expect(onAxisMove).toHaveBeenCalledWith('Z', 50)
 
     fireEvent.click(screen.getByRole('button', { name: 'Сдвиг Z вверх' }))
-    expect(onAxisMove).toHaveBeenCalledWith('Z', -100)
+    expect(onAxisMove).toHaveBeenCalledWith('Z', -50)
+  })
+
+  it('opens Z parking choice and routes upper and lower sensors separately', async () => {
+    const onParkingTargetSelect = vi.fn().mockResolvedValue(true)
+    render(<MovementControlPanel {...createProps({ onParkingTargetSelect })} />)
+
+    fireEvent.click(screen.getByTestId('parking-axis-Z'))
+    expect(screen.getByTestId('z-parking-dialog')).toBeInTheDocument()
+    expect(onParkingTargetSelect).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('z-parking-upper'))
+    await waitFor(() => {
+      expect(onParkingTargetSelect).toHaveBeenCalledWith('axis', 'Z', 'upper')
+    })
+
+    fireEvent.click(screen.getByTestId('parking-axis-Z'))
+    fireEvent.click(screen.getByTestId('z-parking-lower'))
+    await waitFor(() => {
+      expect(onParkingTargetSelect).toHaveBeenCalledWith('axis', 'Z', 'lower')
+    })
   })
 
   it('shows live nozzle temperature in the coordinate summary', () => {

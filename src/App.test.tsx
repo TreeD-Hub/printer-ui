@@ -831,6 +831,17 @@ describe('App', () => {
       expect(parkingAxisXButton).toHaveAttribute('aria-pressed', 'false')
     }, { timeout: 1500 })
 
+    fireEvent.click(screen.getByTestId('parking-axis-Z'))
+    expect(screen.getByTestId('z-parking-dialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('z-parking-lower'))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'parkZBottom' }),
+        ]),
+      )
+    })
+
     const serviceModeButton = screen.getByTestId('service-mode-button')
     fireEvent.click(serviceModeButton)
     expect(serviceModeButton).toHaveAttribute('aria-pressed', 'true')

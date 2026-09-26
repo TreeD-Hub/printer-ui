@@ -22,6 +22,7 @@ const MAX_JOYSTICK_SPEED_MM_S = 50
 const HOMED_AXIS_IDS: readonly AxisId[] = ['X', 'Y', 'Z']
 const COORDINATE_AXIS_IDS = ['X', 'Y', 'Z', 'E'] as const
 const MOTORS_RELEASE_CONFIRM_TITLE_ID = 'motors-release-confirm-title'
+const Z_PARKING_DIALOG_TITLE_ID = 'z-parking-dialog-title'
 
 type CoordinateAxisId = typeof COORDINATE_AXIS_IDS[number]
 
@@ -208,6 +209,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
 }: MovementControlPanelProps) {
   const parkingLockPopupIdRef = useRef(0)
   const [parkingLockPopup, setParkingLockPopup] = useState<{ id: number; message: string } | null>(null)
+  const [isZParkingDialogOpen, setIsZParkingDialogOpen] = useState(false)
   const [isMotorsReleaseConfirmOpen, setIsMotorsReleaseConfirmOpen] = useState(false)
 
   useEffect(() => {
@@ -240,6 +242,11 @@ export const MovementControlPanel = memo(function MovementControlPanel({
   }
 
   async function handleParkingSelect(nextMode: 'all' | 'axis', nextAxis?: AxisId): Promise<void> {
+    if (nextMode === 'axis' && nextAxis === 'Z') {
+      setIsZParkingDialogOpen(true)
+      return
+    }
+
     const blockReason = getParkingBlockReason(nextMode, nextAxis)
     if (blockReason !== null) {
       showParkingLockPopup(blockReason)
@@ -249,6 +256,22 @@ export const MovementControlPanel = memo(function MovementControlPanel({
     const ok = await onParkingTargetSelect(nextMode, nextAxis)
     if (!ok) {
       showParkingLockPopup(getLastCommandError() || 'Команда парковки не выполнена.')
+    }
+  }
+
+  async function handleZParkingSelect(sensor: 'upper' | 'lower'): Promise<void> {
+    const blockReason = sensor === 'upper'
+      ? commandBlockReasons.parking.axis.Z
+      : commandBlockReasons.parking.zBottom
+    setIsZParkingDialogOpen(false)
+    if (blockReason !== null) {
+      showParkingLockPopup(blockReason)
+      return
+    }
+
+    const ok = await onParkingTargetSelect('axis', 'Z', sensor)
+    if (!ok) {
+      showParkingLockPopup(getLastCommandError() || 'Команда парковки Z не выполнена.')
     }
   }
 
@@ -296,7 +319,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
       <article className="control-card control-card-parking control-subpanel">
         <div className="control-card-head">
           <h3 className="control-card-title">Парковка</h3>
-          {pendingCommand === 'home' || pendingCommand === 'homeAll' || pendingCommand === 'homeX' || pendingCommand === 'homeY' || pendingCommand === 'homeXY' || pendingCommand === 'homeZ' ? (
+          {pendingCommand === 'home' || pendingCommand === 'homeAll' || pendingCommand === 'homeX' || pendingCommand === 'homeY' || pendingCommand === 'homeXY' || pendingCommand === 'homeZ' || pendingCommand === 'parkZBottom' ? (
             <p className="control-card-state">Парковка...</p>
           ) : null}
         </div>
@@ -339,7 +362,9 @@ export const MovementControlPanel = memo(function MovementControlPanel({
               type="button"
               className={`control-target-btn ${activeControlFlashKey === `parking-${option.id}` ? 'is-active' : ''}`}
               aria-pressed={activeControlFlashKey === `parking-${option.id}`}
-              aria-disabled={commandBlockReasons.parking.axis[option.id] !== null || undefined}
+              aria-disabled={(option.id === 'Z'
+                ? commandBlockReasons.parking.axis.Z !== null && commandBlockReasons.parking.zBottom !== null
+                : commandBlockReasons.parking.axis[option.id] !== null) || undefined}
               data-testid={`parking-axis-${option.id}`}
               onClick={() => void handleParkingSelect('axis', option.id)}
               disabled={isMotionBusy}
@@ -369,6 +394,46 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           Release
         </button>
       </article>
+
+      {isZParkingDialogOpen ? (
+        <div
+          className="control-filament-confirm-layer"
+          role="presentation"
+          onClick={() => setIsZParkingDialogOpen(false)}
+        >
+          <section
+            className="control-filament-confirm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={Z_PARKING_DIALOG_TITLE_ID}
+            data-testid="z-parking-dialog"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id={Z_PARKING_DIALOG_TITLE_ID}>Парковка Z</h3>
+            <p>Выберите датчик парковки.</p>
+            <div>
+              <button
+                type="button"
+                data-testid="z-parking-upper"
+                aria-disabled={commandBlockReasons.parking.axis.Z !== null || undefined}
+                onClick={() => void handleZParkingSelect('upper')}
+                disabled={isMotionBusy}
+              >
+                Z по верхнему датчику
+              </button>
+              <button
+                type="button"
+                data-testid="z-parking-lower"
+                aria-disabled={commandBlockReasons.parking.zBottom !== null || undefined}
+                onClick={() => void handleZParkingSelect('lower')}
+                disabled={isMotionBusy}
+              >
+                Z по нижнему датчику
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {isMotorsReleaseConfirmOpen ? (
         <div

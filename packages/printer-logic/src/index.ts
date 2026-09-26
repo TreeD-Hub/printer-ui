@@ -21,6 +21,7 @@ export type PrinterCommandId =
   | 'homeY'
   | 'homeXY'
   | 'homeZ'
+  | 'parkZBottom'
   | 'moveAxis'
   | 'setNozzleTarget'
   | 'setBedTarget'
@@ -119,6 +120,7 @@ export type ExecuteCommandArgs =
         | 'homeY'
         | 'homeXY'
         | 'homeZ'
+        | 'parkZBottom'
         | 'turnOffHeaters'
         | 'disableMotors'
         | 'zParkZeroEddy'
@@ -478,7 +480,7 @@ export const TREED_V2_COREXY_V1_LIMITS: PrinterLimits = {
   axis: {
     X: { min: 0, max: 245 },
     Y: { min: 0, max: 245 },
-    Z: { min: -5, max: 255 },
+    Z: { min: -5, max: 203 },
   },
 }
 
@@ -889,7 +891,7 @@ export interface TreeDCommandRuntimeContext {
 }
 
 const MIN_FILAMENT_EXTRUDE_TEMP_C = 170
-const MAX_UI_MOVE_DISTANCE_MM = 100
+const MAX_UI_MOVE_DISTANCE_MM = 50
 export const Z_OFFSET_BABYSTEP_STEP_OPTIONS = [0.01, 0.025, 0.05] as const
 const MIN_Z_OFFSET_BABYSTEP_DELTA_MM = Z_OFFSET_BABYSTEP_STEP_OPTIONS[0]
 const MAX_Z_OFFSET_BABYSTEP_DELTA_MM = Z_OFFSET_BABYSTEP_STEP_OPTIONS[Z_OFFSET_BABYSTEP_STEP_OPTIONS.length - 1]
@@ -995,6 +997,13 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     risk: 'caution',
     label: 'Home Z через Eddy',
     capability: 'eddy',
+    requiresConfirmation: false,
+  },
+  parkZBottom: {
+    id: 'parkZBottom',
+    risk: 'caution',
+    label: 'Парковка Z по нижнему DIAG',
+    capability: 'motion',
     requiresConfirmation: false,
   },
   moveAxis: {
@@ -1316,6 +1325,7 @@ const TREE_D_COMMAND_PENDING_DOMAINS: Record<PrinterCommandId, PrinterCommandPen
   homeY: 'motion',
   homeXY: 'motion',
   homeZ: 'motion',
+  parkZBottom: 'motion',
   moveAxis: 'motion',
   setNozzleTarget: 'thermal',
   setBedTarget: 'thermal',
@@ -1426,6 +1436,7 @@ const MOTION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'homeY',
   'homeXY',
   'homeZ',
+  'parkZBottom',
   'moveAxis',
   'disableMotors',
   'zParkZeroEddy',

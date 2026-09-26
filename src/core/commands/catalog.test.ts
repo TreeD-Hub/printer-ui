@@ -21,6 +21,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'homeY',
   'homeXY',
   'homeZ',
+  'parkZBottom',
   'moveAxis',
   'setNozzleTarget',
   'setBedTarget',
@@ -198,6 +199,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
 
   it('keeps Eddy Z-home and TreeD calibration commands out of safe tier', () => {
     expect(getTreeDCommandCatalogItem('homeZ').risk).toBe('caution')
+    expect(getTreeDCommandCatalogItem('parkZBottom').risk).toBe('caution')
     expect(getTreeDCommandCatalogItem('zParkZeroEddy').risk).toBe('caution')
     expect(getTreeDCommandCatalogItem('eddyBedMeshCalibrate').risk).toBe('caution')
     expect(getTreeDCommandCatalogItem('eddyTestZ').risk).toBe('caution')
@@ -257,6 +259,8 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       ...IDLE_CONTEXT,
       eddyStatus: 'requires_xy_home',
     })).toContain('Home XY')
+    expect(getTreeDCommandBlockReason('parkZBottom', IDLE_CONTEXT)).toBeNull()
+    expect(getTreeDCommandBlockReason('parkZBottom', PRINTING_CONTEXT)).toContain('во время печати')
     expect(getTreeDCommandBlockReason('moveAxis', {
       ...IDLE_CONTEXT,
       homedAxes: 'xy',

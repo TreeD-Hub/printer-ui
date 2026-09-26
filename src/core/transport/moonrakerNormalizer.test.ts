@@ -621,6 +621,36 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     expect(snapshot.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/)
   })
 
+  it.each([
+    { state: 'printing', pauseResume: false, isActive: true },
+    { state: 'paused', pauseResume: false, isActive: true },
+    { state: 'unknown', pauseResume: true, isActive: true },
+    { state: 'complete', pauseResume: false, isActive: false },
+    { state: 'cancelled', pauseResume: false, isActive: false },
+    { state: 'error', pauseResume: false, isActive: false },
+    { state: 'standby', pauseResume: false, isActive: false },
+  ])('normalizes print activity for state $state and pause=$pauseResume', ({ state, pauseResume, isActive }) => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      print_stats: {
+        filename: 'jobs/state-check.gcode',
+        state,
+      },
+      virtual_sdcard: {
+        file_path: '/gcodes/jobs/state-check.gcode',
+        is_active: false,
+      },
+      pause_resume: {
+        is_paused: pauseResume,
+      },
+    }))
+
+    expect(snapshot.printJob).toMatchObject({
+      state,
+      isPaused: state === 'paused' || pauseResume,
+      isActive,
+    })
+  })
+
   it('maps shutdown and offline payloads to the expected connection state', () => {
     const shutdownSnapshot = normalizeMoonrakerRuntimeSnapshot(
       buildPayload({

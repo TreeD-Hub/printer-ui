@@ -48,6 +48,23 @@ body {
   overflow: hidden;
 }
 
+.screen-sleep-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: #000;
+  border: 0;
+  padding: 0;
+  opacity: 1;
+  cursor: none;
+  touch-action: none;
+  transition: opacity 120ms linear;
+}
+
+.screen-sleep-guard.is-waking {
+  opacity: 0;
+}
+
 .app-root.is-performance-mode *,
 .app-root.is-performance-mode *::before,
 .app-root.is-performance-mode *::after {
