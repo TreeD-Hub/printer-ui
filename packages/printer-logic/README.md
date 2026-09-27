@@ -11,7 +11,7 @@
 - pure helpers для Wi-Fi/host-network статусов и выбора сети;
 - нормализацию homed axes;
 - расчет capabilities для групп действий;
-- каталог TreeD-команд с risk/capability metadata;
+- каталог TreeD-команд с risk/capability metadata и `pendingDomain`; `getPrinterCommandPendingDomain` читает домен из каталога;
 - причины блокировки команд через `getTreeDCommandBlockReason`;
 - базовую валидацию аргументов команд через `getTreeDCommandArgumentError`;
 - температурные потолки профиля `TREED_V2_COREXY_V1_LIMITS`; runtime-границы осей поступают из Klipper.

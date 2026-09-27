@@ -850,6 +850,7 @@ export interface TreeDCommandCatalogItem {
   label: string
   capability: TreeDCommandCapability
   requiresConfirmation: boolean
+  pendingDomain: PrinterCommandPendingDomain
 }
 
 export interface TreeDCommandRuntimeContext {
@@ -920,6 +921,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Старт печати',
     capability: 'print',
     requiresConfirmation: true,
+    pendingDomain: 'print',
   },
   pause: {
     id: 'pause',
@@ -927,6 +929,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Пауза',
     capability: 'print',
     requiresConfirmation: false,
+    pendingDomain: 'print',
   },
   resume: {
     id: 'resume',
@@ -934,6 +937,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Продолжить',
     capability: 'print',
     requiresConfirmation: false,
+    pendingDomain: 'print',
   },
   cancel: {
     id: 'cancel',
@@ -941,6 +945,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Отмена печати',
     capability: 'print',
     requiresConfirmation: true,
+    pendingDomain: 'critical',
   },
   emergencyStop: {
     id: 'emergencyStop',
@@ -948,6 +953,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Аварийная остановка',
     capability: 'motion',
     requiresConfirmation: false,
+    pendingDomain: 'critical',
   },
   home: {
     id: 'home',
@@ -955,6 +961,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Home all',
     capability: 'motion',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   homeAll: {
     id: 'homeAll',
@@ -962,6 +969,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Home all',
     capability: 'motion',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   homeX: {
     id: 'homeX',
@@ -969,6 +977,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Home X',
     capability: 'motion',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   homeY: {
     id: 'homeY',
@@ -976,6 +985,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Home Y',
     capability: 'motion',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   homeXY: {
     id: 'homeXY',
@@ -983,6 +993,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Home XY',
     capability: 'motion',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   homeZ: {
     id: 'homeZ',
@@ -990,6 +1001,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Home Z через Eddy',
     capability: 'eddy',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   parkZBottom: {
     id: 'parkZBottom',
@@ -997,6 +1009,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Парковка Z по нижнему DIAG',
     capability: 'motion',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   moveAxis: {
     id: 'moveAxis',
@@ -1004,6 +1017,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Перемещение оси',
     capability: 'motion',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   setNozzleTarget: {
     id: 'setNozzleTarget',
@@ -1011,6 +1025,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Нагрев сопла',
     capability: 'thermal',
     requiresConfirmation: false,
+    pendingDomain: 'thermal',
   },
   setBedTarget: {
     id: 'setBedTarget',
@@ -1018,6 +1033,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Нагрев стола',
     capability: 'thermal',
     requiresConfirmation: false,
+    pendingDomain: 'thermal',
   },
   setHeatingTargets: {
     id: 'setHeatingTargets',
@@ -1025,6 +1041,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Нагрев сопла и стола',
     capability: 'thermal',
     requiresConfirmation: false,
+    pendingDomain: 'thermal',
   },
   turnOffHeaters: {
     id: 'turnOffHeaters',
@@ -1032,6 +1049,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Выключить нагрев',
     capability: 'thermal',
     requiresConfirmation: false,
+    pendingDomain: 'thermal',
   },
   setFanPercent: {
     id: 'setFanPercent',
@@ -1039,6 +1057,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Обдув модели',
     capability: 'fan',
     requiresConfirmation: false,
+    pendingDomain: 'fan',
   },
   setMainLightEnabled: {
     id: 'setMainLightEnabled',
@@ -1046,6 +1065,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Основной свет',
     capability: 'lighting',
     requiresConfirmation: false,
+    pendingDomain: 'light',
   },
   setPrintSpeedFactorPercent: {
     id: 'setPrintSpeedFactorPercent',
@@ -1053,6 +1073,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Скорость печати',
     capability: 'print',
     requiresConfirmation: false,
+    pendingDomain: 'print',
   },
   setPrintFlowFactorPercent: {
     id: 'setPrintFlowFactorPercent',
@@ -1060,6 +1081,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Поток экструдера',
     capability: 'print',
     requiresConfirmation: false,
+    pendingDomain: 'print',
   },
   setPrintAccel: {
     id: 'setPrintAccel',
@@ -1067,6 +1089,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Ускорение печати',
     capability: 'print',
     requiresConfirmation: false,
+    pendingDomain: 'print',
   },
   setPressureAdvance: {
     id: 'setPressureAdvance',
@@ -1074,6 +1097,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Pressure advance',
     capability: 'print',
     requiresConfirmation: false,
+    pendingDomain: 'print',
   },
   setRetractionLength: {
     id: 'setRetractionLength',
@@ -1081,6 +1105,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Откат',
     capability: 'print',
     requiresConfirmation: false,
+    pendingDomain: 'print',
   },
   adjustZOffset: {
     id: 'adjustZOffset',
@@ -1088,6 +1113,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Z-offset',
     capability: 'print',
     requiresConfirmation: false,
+    pendingDomain: 'print',
   },
   excludeObject: {
     id: 'excludeObject',
@@ -1095,6 +1121,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Исключение объекта',
     capability: 'print',
     requiresConfirmation: true,
+    pendingDomain: 'print',
   },
   loadFilament: {
     id: 'loadFilament',
@@ -1102,6 +1129,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Загрузка филамента',
     capability: 'filament',
     requiresConfirmation: false,
+    pendingDomain: 'filament',
   },
   unloadFilament: {
     id: 'unloadFilament',
@@ -1109,6 +1137,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Выгрузка филамента',
     capability: 'filament',
     requiresConfirmation: false,
+    pendingDomain: 'filament',
   },
   setFilamentSensorMode: {
     id: 'setFilamentSensorMode',
@@ -1116,6 +1145,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Режим датчика филамента',
     capability: 'filamentSensorControl',
     requiresConfirmation: false,
+    pendingDomain: 'filament',
   },
   setFilamentEncoderSensitivity: {
     id: 'setFilamentEncoderSensitivity',
@@ -1123,6 +1153,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Чувствительность энкодера филамента',
     capability: 'filamentEncoderSensitivity',
     requiresConfirmation: true,
+    pendingDomain: 'filament',
   },
   zParkZeroEddy: {
     id: 'zParkZeroEddy',
@@ -1130,6 +1161,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Парковка Z через Eddy',
     capability: 'eddy',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   eddyDriveCurrentCalibrate: {
     id: 'eddyDriveCurrentCalibrate',
@@ -1137,6 +1169,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Калибровка тока Eddy',
     capability: 'eddy',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   eddyPrimaryHeightStart: {
     id: 'eddyPrimaryHeightStart',
@@ -1144,6 +1177,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Первичная высота Eddy',
     capability: 'eddy',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   eddyPrimaryAcceptSave: {
     id: 'eddyPrimaryAcceptSave',
@@ -1151,6 +1185,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Сохранить первичную калибровку Eddy',
     capability: 'eddy',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   eddyTemperatureStart: {
     id: 'eddyTemperatureStart',
@@ -1158,6 +1193,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Температурная калибровка Eddy',
     capability: 'eddy',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   eddyTemperatureAcceptSave: {
     id: 'eddyTemperatureAcceptSave',
@@ -1165,6 +1201,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Сохранить температурную калибровку Eddy',
     capability: 'eddy',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   eddyCheckZ0: {
     id: 'eddyCheckZ0',
@@ -1172,6 +1209,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Поиск Z0 через Eddy',
     capability: 'eddy',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   eddyScrewsTiltStart: {
     id: 'eddyScrewsTiltStart',
@@ -1179,6 +1217,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Выравнивание винтов Eddy',
     capability: 'eddy',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   eddyScrewsTiltDone: {
     id: 'eddyScrewsTiltDone',
@@ -1186,6 +1225,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Винты стола выровнены',
     capability: 'eddy',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   eddyBedMeshCalibrate: {
     id: 'eddyBedMeshCalibrate',
@@ -1193,6 +1233,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Карта стола Eddy',
     capability: 'eddy',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   eddyAutosaveStatus: {
     id: 'eddyAutosaveStatus',
@@ -1200,6 +1241,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Статус автосохранения Z-offset',
     capability: 'eddy',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   eddyTestZ: {
     id: 'eddyTestZ',
@@ -1207,6 +1249,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'TESTZ Eddy',
     capability: 'eddy',
     requiresConfirmation: false,
+    pendingDomain: 'motion',
   },
   shaperCalibrateLight: {
     id: 'shaperCalibrateLight',
@@ -1214,6 +1257,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Input shaper light',
     capability: 'shaper',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   shaperCalibrateFull: {
     id: 'shaperCalibrateFull',
@@ -1221,6 +1265,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Input shaper full',
     capability: 'shaper',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   xyMotionTest: {
     id: 'xyMotionTest',
@@ -1228,6 +1273,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'XY motion test',
     capability: 'motionTest',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   disableMotors: {
     id: 'disableMotors',
@@ -1235,6 +1281,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Отключить моторы',
     capability: 'motion',
     requiresConfirmation: true,
+    pendingDomain: 'motion',
   },
   consoleGcode: {
     id: 'consoleGcode',
@@ -1242,6 +1289,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Console G-code',
     capability: 'console',
     requiresConfirmation: true,
+    pendingDomain: 'system',
   },
   rebootHost: {
     id: 'rebootHost',
@@ -1249,6 +1297,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Перезагрузка хоста',
     capability: 'power',
     requiresConfirmation: true,
+    pendingDomain: 'system',
   },
   restartKlipper: {
     id: 'restartKlipper',
@@ -1256,6 +1305,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Перезапуск Klipper',
     capability: 'serviceCommands',
     requiresConfirmation: true,
+    pendingDomain: 'system',
   },
   firmwareRestart: {
     id: 'firmwareRestart',
@@ -1263,6 +1313,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Перезапуск прошивки MCU',
     capability: 'serviceCommands',
     requiresConfirmation: true,
+    pendingDomain: 'system',
   },
   restartUi: {
     id: 'restartUi',
@@ -1270,6 +1321,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Перезапуск интерфейса',
     capability: 'serviceCommands',
     requiresConfirmation: true,
+    pendingDomain: 'system',
   },
   restartMoonraker: {
     id: 'restartMoonraker',
@@ -1277,6 +1329,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Перезапуск Moonraker',
     capability: 'serviceCommands',
     requiresConfirmation: true,
+    pendingDomain: 'system',
   },
   shutdownHost: {
     id: 'shutdownHost',
@@ -1284,6 +1337,7 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     label: 'Выключение хоста',
     capability: 'power',
     requiresConfirmation: true,
+    pendingDomain: 'system',
   },
 }
 
@@ -1291,64 +1345,8 @@ export function getTreeDCommandCatalogItem(command: PrinterCommandId): TreeDComm
   return TREE_D_COMMAND_CATALOG[command]
 }
 
-const TREE_D_COMMAND_PENDING_DOMAINS: Record<PrinterCommandId, PrinterCommandPendingDomain> = {
-  start: 'print',
-  pause: 'print',
-  resume: 'print',
-  cancel: 'critical',
-  emergencyStop: 'critical',
-  home: 'motion',
-  homeAll: 'motion',
-  homeX: 'motion',
-  homeY: 'motion',
-  homeXY: 'motion',
-  homeZ: 'motion',
-  parkZBottom: 'motion',
-  moveAxis: 'motion',
-  setNozzleTarget: 'thermal',
-  setBedTarget: 'thermal',
-  setHeatingTargets: 'thermal',
-  turnOffHeaters: 'thermal',
-  setFanPercent: 'fan',
-  setMainLightEnabled: 'light',
-  setPrintSpeedFactorPercent: 'print',
-  setPrintFlowFactorPercent: 'print',
-  setPrintAccel: 'print',
-  setPressureAdvance: 'print',
-  setRetractionLength: 'print',
-  adjustZOffset: 'print',
-  excludeObject: 'print',
-  loadFilament: 'filament',
-  unloadFilament: 'filament',
-  setFilamentSensorMode: 'filament',
-  setFilamentEncoderSensitivity: 'filament',
-  zParkZeroEddy: 'motion',
-  eddyDriveCurrentCalibrate: 'motion',
-  eddyPrimaryHeightStart: 'motion',
-  eddyPrimaryAcceptSave: 'motion',
-  eddyTemperatureStart: 'motion',
-  eddyTemperatureAcceptSave: 'motion',
-  eddyCheckZ0: 'motion',
-  eddyScrewsTiltStart: 'motion',
-  eddyScrewsTiltDone: 'motion',
-  eddyBedMeshCalibrate: 'motion',
-  eddyAutosaveStatus: 'motion',
-  eddyTestZ: 'motion',
-  shaperCalibrateLight: 'motion',
-  shaperCalibrateFull: 'motion',
-  xyMotionTest: 'motion',
-  disableMotors: 'motion',
-  consoleGcode: 'system',
-  rebootHost: 'system',
-  restartKlipper: 'system',
-  firmwareRestart: 'system',
-  restartUi: 'system',
-  restartMoonraker: 'system',
-  shutdownHost: 'system',
-}
-
 export function getPrinterCommandPendingDomain(command: PrinterCommandId): PrinterCommandPendingDomain {
-  return TREE_D_COMMAND_PENDING_DOMAINS[command]
+  return TREE_D_COMMAND_CATALOG[command].pendingDomain
 }
 
 export function getPrinterPendingCommand(

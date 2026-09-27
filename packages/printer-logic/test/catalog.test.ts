@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getPrinterCommandPendingDomain,
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   isDangerousTreeDCommand,
@@ -186,9 +187,18 @@ describe('TREE_D_COMMAND_CATALOG', () => {
           label: expect.any(String),
           requiresConfirmation: expect.any(Boolean),
           risk: expect.stringMatching(/^(safe|caution|danger)$/),
+          pendingDomain: expect.stringMatching(/^(critical|print|motion|thermal|fan|light|filament|system)$/),
         }),
       )
     }
+  })
+
+  it('uses catalog pending domains for command scheduling', () => {
+    expect(getPrinterCommandPendingDomain('cancel')).toBe('critical')
+    expect(getPrinterCommandPendingDomain('emergencyStop')).toBe('critical')
+    expect(getPrinterCommandPendingDomain('parkZBottom')).toBe('motion')
+    expect(getPrinterCommandPendingDomain('setMainLightEnabled')).toBe('light')
+    expect(getPrinterCommandPendingDomain('restartKlipper')).toBe('system')
   })
 
   it('marks destructive host and print commands as dangerous', () => {
