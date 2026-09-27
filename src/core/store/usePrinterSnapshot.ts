@@ -481,6 +481,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         ...prev,
         geometry: motionState.geometry,
         homedAxes: motionState.homedAxes,
+        limits: { ...prev.limits, axis: motionState.axisLimits },
         message: motionState.message,
         state: motionState.state,
         toolhead: motionState.toolhead,

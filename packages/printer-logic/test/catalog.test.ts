@@ -118,7 +118,14 @@ const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
     motionEnabled: false,
     message: null,
   },
-  limits: TREED_V2_COREXY_V1_LIMITS,
+  limits: {
+    ...TREED_V2_COREXY_V1_LIMITS,
+    axis: {
+      X: { min: 0, max: 245 },
+      Y: { min: 0, max: 245 },
+      Z: { min: -5, max: 203 },
+    },
+  },
 }
 
 const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {
@@ -426,6 +433,17 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       command: 'eddyTestZ',
       deltaMm: 0.03,
     })).toContain('TESTZ')
+  })
+
+  it('blocks movement when Klipper has not published axis limits', () => {
+    expect(getTreeDCommandBlockReason('moveAxis', {
+      ...IDLE_CONTEXT,
+      limits: TREED_V2_COREXY_V1_LIMITS,
+    }, {
+      command: 'moveAxis',
+      axis: 'Z',
+      distanceMm: 1,
+    })).toContain('не подтверждены Klipper')
   })
 
   it('allows confirmed host power and service commands without capability flags', () => {

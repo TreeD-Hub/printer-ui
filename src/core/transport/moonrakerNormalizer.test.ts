@@ -77,6 +77,10 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
   it('uses a compatible device contract for limits and capabilities', () => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
       webhooks: { state: 'ready' },
+      toolhead: {
+        axis_minimum: [0, 1, -2],
+        axis_maximum: [240, 241, 175],
+      },
       'gcode_macro _TREED_UI_CONTRACT': {
         contract_version: '1.0',
         profile: 'treed_v2_corexy_v1',
@@ -134,7 +138,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       axis: {
         X: { min: 0, max: 240 },
         Y: { min: 1, max: 241 },
-        Z: { min: -2, max: 250 },
+        Z: { min: -2, max: 175 },
       },
     })
     expect(snapshot.capabilities).toMatchObject({
@@ -154,6 +158,26 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       streamUrl: '/webcam/?action=stream',
       snapshotUrl: '/webcam/?action=snapshot',
     })
+  })
+
+  it('uses a changed Klipper Z maximum and rejects missing axis limits', () => {
+    const status = {
+      webhooks: { state: 'ready' },
+      toolhead: {
+        axis_minimum: [0, 0, -5],
+        axis_maximum: [245, 245, 175],
+      },
+    }
+    const measured = normalizeMoonrakerRuntimeSnapshot(buildPayload(status))
+    const updated = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      ...status,
+      toolhead: { ...status.toolhead, axis_maximum: [245, 245, 160] },
+    }))
+    const missing = normalizeMoonrakerRuntimeSnapshot(buildPayload({ webhooks: { state: 'ready' } }))
+
+    expect(measured.limits.axis.Z).toEqual({ min: -5, max: 175 })
+    expect(updated.limits.axis.Z).toEqual({ min: -5, max: 160 })
+    expect(missing.limits.axis.Z).toBeUndefined()
   })
 
   it('fails closed for an explicitly incompatible device contract', () => {

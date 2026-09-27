@@ -15,6 +15,7 @@ Mock-transport живет вне production graph в `mocks/runtime.ts` и по�
 ## Контракт
 
 - Возвращать нормализованный `PrinterSnapshot`.
+- Границы движения читать из текущих `toolhead.axis_minimum/axis_maximum`; при их отсутствии движение блокируется.
 - Не скрывать ошибки HTTP, timeout и invalid result.
 - Сохранять источник ревизии (`mock`, `http`, `websocket`) для printer objects и files.
 - File list/metadata errors допускают degraded snapshot, но не должны ломать основной printer state.

@@ -105,6 +105,15 @@ const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   },
   eddyStatus: 'ready',
   extruderTemp: 210,
+  limits: {
+    nozzleMaxC: 280,
+    bedMaxC: 120,
+    axis: {
+      X: { min: 0, max: 245 },
+      Y: { min: 0, max: 245 },
+      Z: { min: -5, max: 203 },
+    },
+  },
 }
 
 const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {

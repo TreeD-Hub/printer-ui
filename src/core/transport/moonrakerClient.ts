@@ -637,6 +637,7 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
       const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_MOTION_STATE_OBJECTS)
 
       return {
+        axisLimits: snapshot.limits.axis,
         eddyStatus: snapshot.v2.eddy.status,
         geometry: snapshot.geometry,
         homedAxes: snapshot.homedAxes,

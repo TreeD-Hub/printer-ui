@@ -467,17 +467,13 @@ export interface PrinterAxisLimit {
 export interface PrinterLimits {
   nozzleMaxC: number
   bedMaxC: number
-  axis: Record<AxisId, PrinterAxisLimit>
+  axis: Partial<Record<AxisId, PrinterAxisLimit>>
 }
 
 export const TREED_V2_COREXY_V1_LIMITS: PrinterLimits = {
   nozzleMaxC: 280,
   bedMaxC: 120,
-  axis: {
-    X: { min: 0, max: 245 },
-    Y: { min: 0, max: 245 },
-    Z: { min: -5, max: 203 },
-  },
+  axis: {},
 }
 
 export function filterWifiNetworks(networks: readonly WifiNetworkItem[], query: string): WifiNetworkItem[] {
@@ -1635,6 +1631,9 @@ function getCommandSpecificBlockReason(
     const limits = context.limits ?? TREED_V2_COREXY_V1_LIMITS
     const target = current + args.distanceMm
     const axisLimit = limits.axis[args.axis]
+    if (axisLimit === undefined) {
+      return `${item.label}: границы оси ${args.axis} не подтверждены Klipper.`
+    }
     if (!Number.isFinite(target) || target < axisLimit.min || target > axisLimit.max) {
       return `${item.label}: целевая координата вне диапазона ${axisLimit.min}…${axisLimit.max} мм.`
     }

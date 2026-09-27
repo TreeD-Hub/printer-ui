@@ -157,7 +157,7 @@ describe('normalizeMoonrakerSnapshot', () => {
       },
     })
 
-    expect(snapshot.connection).toBe('online')
+    expect(snapshot.connection).toBe('degraded')
     expect(snapshot.hardware.profile).toBe('treed_v2_corexy_v1')
     expect(snapshot.hardware.host).toBe('Rock Pi / Armbian Debian 12')
     expect(snapshot.hardware.mainMcu).toBe('Octopus Pro CAN')
@@ -191,8 +191,8 @@ describe('normalizeMoonrakerSnapshot', () => {
       }),
     ])
     expect(snapshot.capabilities.network).toBe(false)
-    expect(snapshot.capabilities.console).toBe(true)
-    expect(snapshot.capabilities.camera).toBe(true)
+    expect(snapshot.capabilities.console).toBe(false)
+    expect(snapshot.capabilities.camera).toBe(false)
   })
 
   it('marks shutdown state and uncalibrated Eddy errors explicitly', () => {
@@ -546,7 +546,7 @@ describe('createMoonrakerClient', () => {
     expect(snapshot.printJob.state).toBe('printing')
     expect(snapshot.files.progress).toBe(0.37)
     expect(snapshot.toolhead.rawX).toBe(122.5)
-    expect(snapshot.connection).toBe('online')
+    expect(snapshot.connection).toBe('degraded')
     expect(snapshot.klippy.state).toBe('ready')
     expect(snapshot.excludeObjects.excludedObjectNames).toContain('part_1')
     expect(snapshot.filamentSensor).toEqual(expect.objectContaining({
@@ -825,7 +825,7 @@ describe('createMoonrakerClient', () => {
 
     const snapshot = await client.fetchSnapshot()
 
-    expect(snapshot.connection).toBe('online')
+    expect(snapshot.connection).toBe('degraded')
     expect(snapshot.printFiles).toEqual([])
     expect(snapshot.fileList).toEqual({
       state: 'error',

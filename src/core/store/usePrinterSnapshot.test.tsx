@@ -657,4 +657,42 @@ describe('usePrinterSnapshot', () => {
       hook.unmount()
     })
   })
+
+  it('refreshes axis limits without resetting contract temperature ceilings', async () => {
+    vi.useFakeTimers()
+    runtimeMocks.fetchSnapshot.mockReturnValue(new Promise<PrinterSnapshot>(() => undefined))
+    runtimeMocks.subscribe.mockReturnValue({ close: vi.fn() })
+    const initial = createSnapshot(1, 180, 3)
+    initial.limits = {
+      nozzleMaxC: 275,
+      bedMaxC: 115,
+      axis: { Z: { min: -5, max: 203 } },
+    }
+    setPrinterSnapshot(initial)
+    runtimeMocks.fetchMotionState.mockResolvedValue({
+      axisLimits: { Z: { min: -5, max: 175 } },
+      eddyStatus: initial.v2.eddy.status,
+      geometry: initial.geometry,
+      homedAxes: initial.homedAxes,
+      message: initial.message,
+      state: initial.state,
+      toolhead: initial.toolhead,
+      toolheadX: initial.toolheadX,
+      toolheadY: initial.toolheadY,
+      toolheadZ: initial.toolheadZ,
+      updatedAt: initial.updatedAt,
+    })
+
+    const hook = renderHook(() => usePrinterSnapshot(60_000))
+    await act(async () => {
+      await hook.result.current.refreshMotionState()
+    })
+
+    expect(hook.result.current.snapshot.limits).toEqual({
+      nozzleMaxC: 275,
+      bedMaxC: 115,
+      axis: { Z: { min: -5, max: 175 } },
+    })
+    hook.unmount()
+  })
 })

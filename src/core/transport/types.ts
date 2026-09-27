@@ -269,6 +269,7 @@ export type PrinterMotionStateSnapshot = Pick<
   PrinterSnapshot,
   'geometry' | 'homedAxes' | 'message' | 'state' | 'toolhead' | 'toolheadX' | 'toolheadY' | 'toolheadZ' | 'updatedAt'
 > & {
+  axisLimits: PrinterLimits['axis']
   eddyStatus: PrinterV2Snapshot['eddy']['status']
 }
 

@@ -64,6 +64,8 @@ export interface MoonrakerPrinterObjectsStatus {
 export interface MoonrakerToolheadStatus {
   position?: Array<number | null | undefined>
   homed_axes?: string
+  axis_minimum?: Array<number | null | undefined>
+  axis_maximum?: Array<number | null | undefined>
   max_accel?: number
 }
 
@@ -950,30 +952,29 @@ function readContractNumber(
 }
 
 function normalizeLimits(
+  toolhead: MoonrakerToolheadStatus | undefined,
   macros: PrinterMacroStateSnapshot,
   uiContract: PrinterUiContractSnapshot,
 ): typeof TREED_V2_COREXY_V1_LIMITS {
-  if (uiContract.status !== 'compatible') {
-    return TREED_V2_COREXY_V1_LIMITS
+  const axisLimit = (index: number) => {
+    const min = toolhead?.axis_minimum?.[index]
+    const max = toolhead?.axis_maximum?.[index]
+    return typeof min === 'number' && Number.isFinite(min) &&
+      typeof max === 'number' && Number.isFinite(max) && min < max
+      ? { min, max }
+      : undefined
   }
 
-  const contract = readMacro(macros.values, '_TREED_UI_CONTRACT')
+  const contract = uiContract.status === 'compatible'
+    ? readMacro(macros.values, '_TREED_UI_CONTRACT')
+    : undefined
   return {
     nozzleMaxC: readContractNumber(contract, 'nozzle_max_c', TREED_V2_COREXY_V1_LIMITS.nozzleMaxC),
     bedMaxC: readContractNumber(contract, 'bed_max_c', TREED_V2_COREXY_V1_LIMITS.bedMaxC),
     axis: {
-      X: {
-        min: readContractNumber(contract, 'axis_x_min', TREED_V2_COREXY_V1_LIMITS.axis.X.min),
-        max: readContractNumber(contract, 'axis_x_max', TREED_V2_COREXY_V1_LIMITS.axis.X.max),
-      },
-      Y: {
-        min: readContractNumber(contract, 'axis_y_min', TREED_V2_COREXY_V1_LIMITS.axis.Y.min),
-        max: readContractNumber(contract, 'axis_y_max', TREED_V2_COREXY_V1_LIMITS.axis.Y.max),
-      },
-      Z: {
-        min: readContractNumber(contract, 'axis_z_min', TREED_V2_COREXY_V1_LIMITS.axis.Z.min),
-        max: readContractNumber(contract, 'axis_z_max', TREED_V2_COREXY_V1_LIMITS.axis.Z.max),
-      },
+      X: axisLimit(0),
+      Y: axisLimit(1),
+      Z: axisLimit(2),
     },
   }
 }
@@ -1339,7 +1340,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     uiContract,
     capabilities,
     filamentSensor,
-    limits: normalizeLimits(macros, uiContract),
+    limits: normalizeLimits(status.toolhead, macros, uiContract),
     usage: options.usage ?? createUnavailableUsageSnapshot(),
     printJob,
     excludeObjects,

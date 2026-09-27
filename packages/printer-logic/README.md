@@ -14,7 +14,7 @@
 - каталог TreeD-команд с risk/capability metadata;
 - причины блокировки команд через `getTreeDCommandBlockReason`;
 - базовую валидацию аргументов команд через `getTreeDCommandArgumentError`;
-- лимиты профиля `TREED_V2_COREXY_V1_LIMITS`.
+- температурные потолки профиля `TREED_V2_COREXY_V1_LIMITS`; runtime-границы осей поступают из Klipper.
 
 Контракт датчика нити включает `FilamentSensorSnapshot`, capability `filamentSensorControl` / `filamentEncoderSensitivity` и команды `setFilamentSensorMode` / `setFilamentEncoderSensitivity`. Правила блокируют обе настройки во время активной печати, режим `motion` при недоступном motion-канале и чувствительность при недоступном motion-канале.
 

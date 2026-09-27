@@ -431,7 +431,14 @@ export function createMockSnapshot(): PrinterSnapshot {
       motionEnabled: true,
       message: null,
     },
-    limits: TREED_V2_COREXY_V1_LIMITS,
+    limits: {
+      ...TREED_V2_COREXY_V1_LIMITS,
+      axis: {
+        X: { min: 0, max: 245 },
+        Y: { min: 0, max: 245 },
+        Z: { min: -5, max: 203 },
+      },
+    },
     usage: {
       totalPrintTimeSec: 437 * 60 * 60,
       totalJobTimeSec: 462 * 60 * 60,
@@ -595,6 +602,7 @@ export function createTransportClient(): TransportClient {
       const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
 
       return {
+        axisLimits: snapshot.limits.axis,
         eddyStatus: snapshot.v2.eddy.status,
         geometry: snapshot.geometry,
         homedAxes: snapshot.homedAxes,
