@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createMoonrakerWebSocketUrl,
-  MOONRAKER_SUBSCRIPTION_OBJECTS,
   subscribeToMoonrakerStatus,
 } from './moonrakerWebSocketClient'
-import type { PrinterConnectionState, PrinterSnapshot } from './types'
+import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
+import { getPrinterConnectionState, type PrinterConnectionState, type PrinterSnapshot } from './types'
 
 class TestWebSocket {
   static instances: TestWebSocket[] = []
+  static availableObjects: string[] = [...MOONRAKER_RUNTIME_OBJECTS]
+  static requiredMacros = ''
+  static klippyState = 'ready'
 
   readonly url: string
   readonly sentMessages: string[] = []
@@ -23,6 +26,16 @@ class TestWebSocket {
 
   send(message: string): void {
     this.sentMessages.push(message)
+    const request = JSON.parse(message) as { id: number, method: string }
+    if (request.method === 'server.info') {
+      this.message({ id: request.id, result: { klippy_state: TestWebSocket.klippyState } })
+    } else if (request.method === 'printer.objects.list') {
+      this.message({ id: request.id, result: { objects: TestWebSocket.availableObjects } })
+    } else if (request.method === 'printer.objects.query') {
+      this.message({ id: request.id, result: { status: { 'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: TestWebSocket.requiredMacros,
+      } } } })
+    }
   }
 
   close(): void {
@@ -34,6 +47,21 @@ class TestWebSocket {
   }
 
   message(payload: unknown): void {
+    const response = payload as { id?: number, result?: { status?: Record<string, unknown> } }
+    if (response.id !== undefined && response.id > 0 && response.result?.status) {
+      payload = {
+        ...response,
+        result: {
+          ...response.result,
+          status: {
+            'gcode_macro _TREED_UI_CONTRACT': {
+              contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: TestWebSocket.requiredMacros,
+            },
+            ...response.result.status,
+          },
+        },
+      }
+    }
     this.onmessage?.({ data: JSON.stringify(payload) })
   }
 
@@ -43,6 +71,9 @@ class TestWebSocket {
 
   static reset(): void {
     TestWebSocket.instances = []
+    TestWebSocket.availableObjects = [...MOONRAKER_RUNTIME_OBJECTS]
+    TestWebSocket.requiredMacros = ''
+    TestWebSocket.klippyState = 'ready'
   }
 }
 
@@ -99,16 +130,6 @@ describe('moonrakerWebSocketClient', () => {
     expect(createMoonrakerWebSocketUrl('https://printer.local/api')).toBe('wss://printer.local/websocket')
   })
 
-  it('subscribes to TreeD V2 runtime objects with full object payloads', () => {
-    expect(MOONRAKER_SUBSCRIPTION_OBJECTS.webhooks).toBeNull()
-    expect(MOONRAKER_SUBSCRIPTION_OBJECTS.toolhead).toBeNull()
-    expect(MOONRAKER_SUBSCRIPTION_OBJECTS.gcode_move).toBeNull()
-    expect(MOONRAKER_SUBSCRIPTION_OBJECTS.print_stats).toBeNull()
-    expect(MOONRAKER_SUBSCRIPTION_OBJECTS.exclude_object).toBeNull()
-    expect(MOONRAKER_SUBSCRIPTION_OBJECTS.idle_timeout).toBeNull()
-    expect(MOONRAKER_SUBSCRIPTION_OBJECTS['gcode_macro _TREED_GEOMETRY_CFG']).toBeNull()
-  })
-
   it('sends subscription request and normalizes initial status result', () => {
     const { snapshots, subscription } = subscribeForTest()
     const socket = TestWebSocket.instances[0]
@@ -117,12 +138,14 @@ describe('moonrakerWebSocketClient', () => {
 
     socket?.open()
 
-    expect(socket?.sentMessages).toHaveLength(1)
-    expect(JSON.parse(socket?.sentMessages[0] ?? '{}')).toEqual({
+    expect(socket?.sentMessages.map((message) => JSON.parse(message).method)).toEqual([
+      'server.info', 'printer.objects.list', 'printer.objects.query', 'printer.objects.subscribe',
+    ])
+    expect(JSON.parse(socket?.sentMessages.at(-1) ?? '{}')).toEqual({
       jsonrpc: '2.0',
       method: 'printer.objects.subscribe',
       params: {
-        objects: MOONRAKER_SUBSCRIPTION_OBJECTS,
+        objects: Object.fromEntries(MOONRAKER_RUNTIME_OBJECTS.map((name) => [name, null])),
       },
       id: 1,
     })
@@ -145,11 +168,44 @@ describe('moonrakerWebSocketClient', () => {
     })
 
     expect(snapshots).toHaveLength(1)
-    expect(snapshots[0]?.connection).toBe('online')
+    expect(getPrinterConnectionState(snapshots[0]!)).toBe('online')
     expect(snapshots[0]?.toolhead.rawX).toBe(10)
     expect(snapshots[0]?.toolhead.rawY).toBe(20)
     expect(snapshots[0]?.homedAxes).toBe('xy')
 
+    subscription.close()
+  })
+
+  it('waits for Klippy readiness before listing and subscribing', () => {
+    vi.useFakeTimers()
+    TestWebSocket.klippyState = 'startup'
+    const { subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+    socket?.open()
+    expect(socket?.sentMessages.map((message) => JSON.parse(message).method)).toEqual(['server.info'])
+
+    TestWebSocket.klippyState = 'ready'
+    vi.advanceTimersByTime(2_000)
+    expect(socket?.sentMessages.at(-1)).toContain('printer.objects.subscribe')
+    subscription.close()
+  })
+
+  it('keeps an absent required macro incompatible while filtering subscription objects', () => {
+    TestWebSocket.availableObjects = ['webhooks', 'toolhead', 'gcode_macro _TREED_UI_CONTRACT']
+    TestWebSocket.requiredMacros = 'TREED_UI_MOVE_AXIS'
+    const { connectionChanges, snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+    socket?.open()
+
+    const subscribeRequest = JSON.parse(socket?.sentMessages.at(-1) ?? '{}')
+    expect(Object.keys(subscribeRequest.params.objects)).toEqual([
+      'webhooks', 'toolhead', 'gcode_macro _TREED_UI_CONTRACT',
+    ])
+    expect(connectionChanges.at(-1)?.connection).toBe('degraded')
+    socket?.message({ id: 1, result: { status: { webhooks: { state: 'ready' } } } })
+    expect(snapshots.at(-1)?.uiContract).toMatchObject({
+      status: 'incompatible', missingMacros: ['TREED_UI_MOVE_AXIS'],
+    })
     subscription.close()
   })
 
@@ -188,7 +244,7 @@ describe('moonrakerWebSocketClient', () => {
     expect(snapshots[1]?.toolhead.rawX).toBe(10)
     expect(snapshots[1]?.toolhead.rawY).toBe(20)
     expect(snapshots[1]?.homedAxes).toBe('xyz')
-    expect(snapshots[1]?.connection).toBe('online')
+    expect(getPrinterConnectionState(snapshots[1]!)).toBe('online')
 
     subscription.close()
   })
@@ -325,14 +381,14 @@ describe('moonrakerWebSocketClient', () => {
     })
 
     expect(snapshots).toHaveLength(1)
-    expect(snapshots[0]?.connection).toBe('offline')
+    expect(getPrinterConnectionState(snapshots[0]!)).toBe('offline')
     expect(snapshots[0]?.message).toBe('Klippy disconnected')
 
     socket?.message({
       method: 'notify_klippy_shutdown',
     })
 
-    expect(snapshots[1]?.connection).toBe('shutdown')
+    expect(getPrinterConnectionState(snapshots[1]!)).toBe('shutdown')
     expect(snapshots[1]?.message).toBe('Klippy shutdown')
 
     subscription.close()
@@ -360,12 +416,12 @@ describe('moonrakerWebSocketClient', () => {
     socket?.message({ method: 'notify_klippy_disconnected' })
     socket?.message({ method: 'notify_klippy_ready' })
 
-    expect(socket?.sentMessages).toHaveLength(2)
-    expect(JSON.parse(socket?.sentMessages[1] ?? '{}')).toMatchObject({
+    expect(socket?.sentMessages).toHaveLength(7)
+    expect(JSON.parse(socket?.sentMessages.at(-1) ?? '{}')).toMatchObject({
       method: 'printer.objects.subscribe',
       id: 2,
     })
-    expect(snapshots.at(-1)?.connection).toBe('online')
+    expect(getPrinterConnectionState(snapshots.at(-1)!)).toBe('degraded')
     expect(snapshots.at(-1)?.toolhead.rawX).toBe(0)
 
     socket?.message({

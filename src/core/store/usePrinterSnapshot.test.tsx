@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_PRINTER_SNAPSHOT, setPrinterSnapshot } from './printerStore'
 import { usePrinterSnapshot } from './usePrinterSnapshot'
-import type { PrinterSnapshot, TransportSubscriptionHandlers } from '../transport/types'
+import { getPrinterConnectionState, type PrinterSnapshot, type TransportSubscriptionHandlers } from '../transport/types'
 
 const runtimeMocks = vi.hoisted(() => ({
   fetchSnapshot: vi.fn(),
@@ -57,7 +57,8 @@ function createSnapshot(eventtime: number | null, extruderTemp: number, toolhead
 
 function applyRuntimeFields(snapshot: PrinterSnapshot, seed: number): PrinterSnapshot {
   snapshot.revisions.printerObjects.eventtime = seed
-  snapshot.connection = seed % 2 === 0 ? 'online' : 'degraded'
+  snapshot.transport = { state: 'online', message: null }
+  snapshot.uiContract.status = seed % 2 === 0 ? 'compatible' : 'legacy'
   snapshot.klippy = {
     state: seed % 2 === 0 ? 'ready' : 'startup',
     message: `klippy-${seed}`,
@@ -73,17 +74,15 @@ function applyRuntimeFields(snapshot: PrinterSnapshot, seed: number): PrinterSna
   snapshot.printJob = {
     ...snapshot.printJob,
     filename: `job-${seed}.gcode`,
-    state: seed % 2 === 0 ? 'printing' : 'standby',
+    state: seed % 2 === 0 ? 'printing' : 'idle',
     progress: seed / 100,
     progressPercent: seed,
-    isActive: seed % 2 === 0,
   }
   snapshot.files = {
     ...snapshot.files,
     type: 'virtual_sdcard',
     path: `job-${seed}.gcode`,
     progress: seed / 100,
-    isActive: seed % 2 === 0,
   }
   snapshot.toolhead = {
     ...snapshot.toolhead,
@@ -109,7 +108,7 @@ function expectRuntimeFields(snapshot: PrinterSnapshot, seed: number): void {
   expect(snapshot.mainLightEnabled).toBe(seed % 2 === 0)
   expect(snapshot.printJob).toEqual(expect.objectContaining({
     filename: `job-${seed}.gcode`,
-    state: seed % 2 === 0 ? 'printing' : 'standby',
+    state: seed % 2 === 0 ? 'printing' : 'idle',
     progress: seed / 100,
   }))
   expect(snapshot.files).toEqual(expect.objectContaining({
@@ -121,7 +120,7 @@ function expectRuntimeFields(snapshot: PrinterSnapshot, seed: number): void {
     rawY: seed + 1,
     rawZ: seed + 2,
   }))
-  expect(snapshot.connection).toBe(seed % 2 === 0 ? 'online' : 'degraded')
+  expect(getPrinterConnectionState(snapshot)).toBe(seed % 2 === 0 ? 'online' : 'connecting')
   expect(snapshot.klippy.state).toBe(seed % 2 === 0 ? 'ready' : 'startup')
 }
 
@@ -131,7 +130,6 @@ function toPrintJobState(snapshot: PrinterSnapshot) {
     files: snapshot.files,
     message: snapshot.message,
     printJob: snapshot.printJob,
-    state: snapshot.state,
     updatedAt: snapshot.updatedAt,
   }
 }
@@ -300,7 +298,7 @@ describe('usePrinterSnapshot', () => {
     })
   })
 
-  it('applies fresh HTTP runtime fields when a refresh resolves after older websocket state', async () => {
+  it('keeps websocket runtime fields when a later HTTP refresh is newer', async () => {
     vi.useFakeTimers()
     const refresh = createDeferred<PrinterSnapshot>()
 
@@ -333,8 +331,8 @@ describe('usePrinterSnapshot', () => {
       await Promise.resolve()
     })
 
-    expectRuntimeFields(hook.result.current.snapshot, 22)
-    expect(hook.result.current.snapshot.revisions.printerObjects.eventtime).toBe(21)
+    expectRuntimeFields(hook.result.current.snapshot, 20)
+    expect(hook.result.current.snapshot.revisions.printerObjects.eventtime).toBe(20)
 
     await act(async () => {
       hook.unmount()
@@ -470,6 +468,47 @@ describe('usePrinterSnapshot', () => {
     await act(async () => {
       hook.unmount()
     })
+  })
+
+  it('uses polling only after the watchdog finds newer runtime state and returns to websocket on a snapshot', async () => {
+    vi.useFakeTimers()
+    runtimeMocks.fetchSnapshot.mockResolvedValue(createSnapshot(1, 180, 3))
+    runtimeMocks.fetchRuntimeSnapshot.mockResolvedValue(createSnapshot(3, 183, 6))
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+
+    const hook = renderHook(() => usePrinterSnapshot())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+      handlers?.onSnapshot(createSnapshot(2, 182, 5))
+      await vi.advanceTimersByTimeAsync(15_000)
+    })
+    expect(hook.result.current.snapshot.extruderTemp).toBe(183)
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000)
+    })
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      handlers?.onSnapshot(createSnapshot(4, 184, 7))
+      await hook.result.current.refreshPrintJob()
+      await vi.advanceTimersByTimeAsync(2_000)
+    })
+    expect(hook.result.current.snapshot.extruderTemp).toBe(184)
+    expect(runtimeMocks.fetchPrintJobState).not.toHaveBeenCalled()
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(2)
+
+    runtimeMocks.fetchRuntimeSnapshot.mockResolvedValue(createSnapshot(null, 200, 8))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(13_000)
+    })
+    expect(hook.result.current.snapshot.extruderTemp).toBe(184)
+
+    hook.unmount()
   })
 
   it('updates runtime fields through HTTP fallback when websocket is silent', async () => {
@@ -656,5 +695,42 @@ describe('usePrinterSnapshot', () => {
     await act(async () => {
       hook.unmount()
     })
+  })
+
+  it('refreshes axis limits without resetting contract temperature ceilings', async () => {
+    vi.useFakeTimers()
+    runtimeMocks.fetchSnapshot.mockReturnValue(new Promise<PrinterSnapshot>(() => undefined))
+    runtimeMocks.subscribe.mockReturnValue({ close: vi.fn() })
+    const initial = createSnapshot(1, 180, 3)
+    initial.limits = {
+      nozzleMaxC: 275,
+      bedMaxC: 115,
+      axis: { Z: { min: -5, max: 203 } },
+    }
+    setPrinterSnapshot(initial)
+    runtimeMocks.fetchMotionState.mockResolvedValue({
+      axisLimits: { Z: { min: -5, max: 175 } },
+      eddyStatus: initial.v2.eddy.status,
+      geometry: initial.geometry,
+      homedAxes: initial.homedAxes,
+      message: initial.message,
+      toolhead: initial.toolhead,
+      toolheadX: initial.toolheadX,
+      toolheadY: initial.toolheadY,
+      toolheadZ: initial.toolheadZ,
+      updatedAt: initial.updatedAt,
+    })
+
+    const hook = renderHook(() => usePrinterSnapshot(60_000))
+    await act(async () => {
+      await hook.result.current.refreshMotionState()
+    })
+
+    expect(hook.result.current.snapshot.limits).toEqual({
+      nozzleMaxC: 275,
+      bedMaxC: 115,
+      axis: { Z: { min: -5, max: 175 } },
+    })
+    hook.unmount()
   })
 })

@@ -31,7 +31,7 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     connection: 'online',
     wifiSsid: 'Treed Lab',
     ipAddress: '192.168.1.40',
-    state: 'standby',
+    job: { state: 'idle' },
     toolheadX: 120,
     toolheadY: 110,
     toolheadZ: 8,
@@ -47,7 +47,7 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     connection: 'online',
     wifiSsid: 'Treed Lab',
     ipAddress: '192.168.1.40',
-    state: 'printing',
+    job: { state: 'printing' },
     toolheadX: 122.4,
     toolheadY: 98.1,
     toolheadZ: 12.6,
@@ -63,7 +63,7 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     connection: 'online',
     wifiSsid: 'Treed Lab',
     ipAddress: '192.168.1.40',
-    state: 'paused',
+    job: { state: 'paused' },
     toolheadX: 122.4,
     toolheadY: 98.1,
     toolheadZ: 12.6,
@@ -79,7 +79,7 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     connection: 'connecting',
     wifiSsid: 'Не подключено',
     ipAddress: '—',
-    state: 'unknown',
+    job: { state: 'unknown' },
     toolheadX: 0,
     toolheadY: 0,
     toolheadZ: 0,
@@ -95,7 +95,7 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     connection: 'degraded',
     wifiSsid: 'Treed Lab',
     ipAddress: '192.168.1.40',
-    state: 'standby',
+    job: { state: 'idle' },
     toolheadX: 120,
     toolheadY: 110,
     toolheadZ: 8,
@@ -111,7 +111,7 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     connection: 'reconnecting',
     wifiSsid: 'Treed Lab',
     ipAddress: '192.168.1.40',
-    state: 'unknown',
+    job: { state: 'unknown' },
     toolheadX: 120,
     toolheadY: 110,
     toolheadZ: 8,
@@ -127,7 +127,7 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     connection: 'offline',
     wifiSsid: 'Не подключено',
     ipAddress: '—',
-    state: 'unknown',
+    job: { state: 'unknown' },
     toolheadX: 0,
     toolheadY: 0,
     toolheadZ: 0,
@@ -143,7 +143,7 @@ const SNAPSHOTS: Record<SnapshotKey, PrinterSnapshot> = {
     connection: 'shutdown',
     wifiSsid: 'Treed Lab',
     ipAddress: '192.168.1.40',
-    state: 'shutdown',
+    job: { state: 'unknown' },
     toolheadX: 120,
     toolheadY: 110,
     toolheadZ: 8,
@@ -271,7 +271,7 @@ function App() {
         <section className="snapshot-panel" aria-label="Printer snapshot">
           <div className="panel-head">
             <h2>Printer state</h2>
-            <strong>{snapshot.state}</strong>
+            <strong>{snapshot.job.state}</strong>
           </div>
           <dl className="metric-grid">
             <div>

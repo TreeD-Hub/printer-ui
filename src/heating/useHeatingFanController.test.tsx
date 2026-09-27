@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { TREED_V2_COREXY_V1_LIMITS } from '@treed/printer-logic'
+import { FALLBACK_PRINTER_SNAPSHOT } from '../core/store/printerStore'
 
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { useHeatingFanController } from './useHeatingFanController'
@@ -13,6 +14,9 @@ type TestHarnessProps = {
 }
 
 const DEFAULT_SNAPSHOT: Parameters<typeof useHeatingFanController>[0]['snapshot'] = {
+  transport: { state: 'online', message: null },
+  klippy: { state: 'ready', message: '' },
+  uiContract: { ...FALLBACK_PRINTER_SNAPSHOT.uiContract, status: 'compatible' },
   extruderTemp: 201,
   bedTemp: 58,
   modelFanPercent: 43,

@@ -41,13 +41,12 @@ const ALL_CAPABILITIES = {
 const RUNTIME_CONTEXT: TreeDCommandRuntimeContext = {
   source: 'live',
   capabilities: ALL_CAPABILITIES,
+  uiContractStatus: 'compatible',
   connection: 'online',
   transportState: 'online',
   printJob: {
     filename: 'jobs/benchy.gcode',
     state: 'printing',
-    isActive: true,
-    isPaused: false,
   },
   homedAxes: 'xyz',
   toolhead: {
@@ -260,8 +259,6 @@ describe('usePrinterCommands', () => {
       printJob: {
         filename: '',
         state: 'standby',
-        isActive: false,
-        isPaused: false,
       },
       filamentSensor: {
         ...RUNTIME_CONTEXT.filamentSensor!,
@@ -316,8 +313,6 @@ describe('usePrinterCommands', () => {
         printJob: {
           filename: '',
           state: 'standby',
-          isActive: false,
-          isPaused: false,
         },
       }
 
@@ -353,7 +348,7 @@ describe('usePrinterCommands', () => {
     runtimeMocks.execute.mockReturnValueOnce(firstResult.promise)
     let api: PrinterCommandsApi | null = null
 
-    render(<Harness onReady={(nextApi) => {
+    render(<Harness context={{ ...RUNTIME_CONTEXT, printJob: { state: 'idle' } }} onReady={(nextApi) => {
       api = nextApi
     }} />)
 
@@ -384,7 +379,7 @@ describe('usePrinterCommands', () => {
       .mockResolvedValueOnce(success('emergencyStop'))
     let api: PrinterCommandsApi | null = null
 
-    render(<Harness onReady={(nextApi) => {
+    render(<Harness context={{ ...RUNTIME_CONTEXT, printJob: { state: 'idle' } }} onReady={(nextApi) => {
       api = nextApi
     }} />)
 
@@ -476,7 +471,6 @@ describe('usePrinterCommands', () => {
       printJob: {
         ...RUNTIME_CONTEXT.printJob!,
         state: 'paused',
-        isPaused: true,
       },
     }} onReady={onReady} />)
 
@@ -565,8 +559,6 @@ describe('usePrinterCommands', () => {
       printJob: {
         filename: '',
         state: 'standby',
-        isActive: false,
-        isPaused: false,
       },
       filamentSensor: {
         ...RUNTIME_CONTEXT.filamentSensor!,
@@ -644,8 +636,6 @@ describe('usePrinterCommands', () => {
       printJob: {
         filename: '',
         state: 'standby',
-        isActive: false,
-        isPaused: false,
       },
     }
 

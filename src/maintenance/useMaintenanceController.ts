@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runtimeMode } from '#runtime'
 import type { MaintenanceHistoryItem, MaintenanceStatus } from '../control'
-import type { PrinterPrintJobSnapshot, PrinterUsageSnapshot } from '../core/transport/types'
+import { isPrintJobActive, type PrinterPrintJobSnapshot, type PrinterUsageSnapshot } from '../core/transport/types'
 import {
   summarizeMoonrakerSystemStatus,
   type MoonrakerSystemStatus,
@@ -44,7 +44,7 @@ function currentRuntimeSec(usage: PrinterUsageSnapshot, printJob: PrinterPrintJo
     return null
   }
 
-  const activePrintDurationSec = printJob.isActive ? Math.max(0, printJob.printDurationSec) : 0
+  const activePrintDurationSec = isPrintJobActive(printJob) ? Math.max(0, printJob.printDurationSec) : 0
   return Math.max(0, usage.totalPrintTimeSec) + activePrintDurationSec
 }
 
@@ -193,7 +193,7 @@ export function useMaintenanceController(args: UseMaintenanceControllerArgs) {
     ? Math.min(100, Math.max(0, ((calculatedStatus.cycleRuntimeHours ?? 0) / calculatedStatus.intervalHours) * 100))
     : 0
   const totalRuntimeSec = currentRuntimeSec(args.usage, args.printJob)
-  const completionBlockReason = args.printJob.isActive
+  const completionBlockReason = isPrintJobActive(args.printJob)
     ? 'Нельзя фиксировать техническое обслуживание во время печати.'
     : totalRuntimeSec === null
       ? (args.usage.message ?? 'Пробег Moonraker недоступен.')
@@ -212,7 +212,7 @@ export function useMaintenanceController(args: UseMaintenanceControllerArgs) {
 
   const handleMaintenanceComplete = useCallback(async (): Promise<boolean> => {
     const runtimeSec = currentRuntimeSec(args.usage, args.printJob)
-    if (args.printJob.isActive || runtimeSec === null || isCompletingMaintenance) {
+    if (isPrintJobActive(args.printJob) || runtimeSec === null || isCompletingMaintenance) {
       return false
     }
 

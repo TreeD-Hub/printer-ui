@@ -22,6 +22,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout active printer-core protocol
+        uses: actions/checkout@v4
+        with:
+          repository: TreeD-Hub/printer-core
+          ref: treed-v2
+          path: printer-core
+          persist-credentials: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,3 +44,8 @@ jobs:
 
       - name: Run PR quality gate
         run: npm run quality:pr
+
+      - name: Check printer-core protocol compatibility
+        env:
+          CORE_CONTRACT_FIXTURE: printer-core/contracts/printer-protocol.json
+        run: npx vitest run src/core/transport/coreProtocolCompatibility.test.ts --pool=forks

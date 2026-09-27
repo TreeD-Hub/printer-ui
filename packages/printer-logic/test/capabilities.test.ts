@@ -11,7 +11,7 @@ function createSnapshot(overrides: Partial<PrinterSnapshot> = {}): PrinterSnapsh
     connection: 'online',
     wifiSsid: 'Mock Wi-Fi',
     ipAddress: '127.0.0.1',
-    state: 'standby',
+    job: { state: 'idle' },
     toolheadX: 0,
     toolheadY: 0,
     toolheadZ: 0,
@@ -99,7 +99,7 @@ describe('getPrinterCapabilities', () => {
     })
     expect(lightPending.fan.model).toEqual({ enabled: true, reason: null, blockingState: null })
 
-    const printPending = getPrinterCapabilities(createSnapshot({ state: 'printing' }), {
+    const printPending = getPrinterCapabilities(createSnapshot({ job: { state: 'printing' } }), {
       pendingCommands: {
         print: 'pause',
       },
@@ -110,7 +110,7 @@ describe('getPrinterCapabilities', () => {
   })
 
   test('printing blocks motion and parking while allowing pause cancel thermal and fan tune', () => {
-    const capabilities = createCapabilities({ state: 'printing' })
+    const capabilities = createCapabilities({ job: { state: 'printing' } })
 
     expect(capabilities.motion.xy).toMatchObject({ enabled: false, blockingState: 'printing' })
     expect(capabilities.motion.z).toMatchObject({ enabled: false, blockingState: 'printing' })
@@ -122,7 +122,7 @@ describe('getPrinterCapabilities', () => {
   })
 
   test('paused allows resume and cancel while blocking motion and parking', () => {
-    const capabilities = createCapabilities({ state: 'paused' })
+    const capabilities = createCapabilities({ job: { state: 'paused' } })
 
     expect(capabilities.print.resume).toEqual({ enabled: true, reason: null, blockingState: null })
     expect(capabilities.print.cancel).toEqual({ enabled: true, reason: null, blockingState: null })

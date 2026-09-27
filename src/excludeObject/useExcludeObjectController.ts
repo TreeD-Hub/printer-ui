@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { recordOperationalDiagnostic } from '../diagnostics'
+import { isPrintJobActive } from '../core/transport/types'
 import type { ExcludeObjectControllerArgs } from './types'
 
 const REFRESH_AFTER_COMMAND_MS = 10_000
@@ -10,7 +11,6 @@ function createPrintSessionKey(snapshot: ExcludeObjectControllerArgs['snapshot']
     snapshot.printJob.filePath ?? '',
     snapshot.printJob.filename,
     snapshot.printJob.state,
-    snapshot.printJob.isActive ? 'active' : 'idle',
   ].join('|')
 }
 
@@ -186,7 +186,7 @@ export function useExcludeObjectController({
       return
     }
 
-    if (!snapshot.printJob.isActive && !snapshot.printJob.isPaused) {
+    if (!isPrintJobActive({ state: snapshot.printJob.state })) {
       close()
       return
     }
@@ -195,7 +195,7 @@ export function useExcludeObjectController({
       close()
       sessionKeyRef.current = sessionKey
     }
-  }, [clearTimers, close, isOpen, sessionKey, snapshot.printJob.isActive, snapshot.printJob.isPaused])
+  }, [clearTimers, close, isOpen, sessionKey, snapshot.printJob.state])
 
   useEffect(() => {
     if (pendingObjectName === null) {

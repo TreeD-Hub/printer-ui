@@ -1,7 +1,7 @@
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createHostNetworkClient, createHostUpdateClient } from '#runtime'
 import { AppScreenContent } from './app/AppScreenContent'
-import { getScreenSleepTimeoutMs, ScreenSleepGuard } from './app/ScreenSleepGuard'
+import { ScreenSleepGuard } from './app/ScreenSleepGuard'
 import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
@@ -11,6 +11,7 @@ import {
   type PrinterCommandId,
 } from './core/commands'
 import { usePrinterSnapshot } from './core/store/usePrinterSnapshot'
+import { getPrinterConnectionState } from './core/transport/types'
 import type { DashboardContainerProps } from './dashboard/DashboardContainer'
 import { DashboardStatusDock } from './dashboard/DashboardStatusDock'
 import {
@@ -65,6 +66,17 @@ const DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS = 10_000
 const OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS = 5_000
 const MAINTENANCE_USAGE_REFRESH_INTERVAL_MS = 60 * 60 * 1000
 const TOOLHEAD_LIGHT_UNAVAILABLE_REASON = 'Подсветка ПГ: команда пока не подключена к runtime.'
+const DEFAULT_SLEEP_TIMEOUT_MS = 5 * 60 * 1000
+const SLEEP_TIMEOUTS_MS: Record<string, number> = {
+  '30 сек': 30 * 1000,
+  '1 мин': 60 * 1000,
+  '5 мин': DEFAULT_SLEEP_TIMEOUT_MS,
+  '10 мин': 10 * 60 * 1000,
+}
+
+function getScreenSleepTimeoutMs(value: string): number {
+  return SLEEP_TIMEOUTS_MS[value] ?? DEFAULT_SLEEP_TIMEOUT_MS
+}
 type KeyboardTarget = 'idleNotes' | SettingsKeyboardTarget
 const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
   connecting: 'Подключение',
@@ -88,6 +100,7 @@ function App() {
     refreshPrintFileMetadata,
     deletePrintFile,
   } = usePrinterSnapshot()
+  const connection = getPrinterConnectionState(snapshot)
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
@@ -97,7 +110,8 @@ function App() {
     () => ({
       source: snapshot.source,
       capabilities: snapshot.capabilities,
-      connection: snapshot.connection,
+      uiContractStatus: snapshot.uiContract.status,
+      connection,
       transportState: snapshot.transport.state,
       printJob: printSessionController.commandRuntimePrintJob,
       klippyState: snapshot.klippy.state,
@@ -120,7 +134,8 @@ function App() {
       printSessionController.commandRuntimePrintJob,
       snapshot.source,
       snapshot.capabilities,
-      snapshot.connection,
+      snapshot.uiContract.status,
+      connection,
       snapshot.extruderTemp,
       snapshot.homedAxes,
       snapshot.klippy.state,
@@ -275,8 +290,8 @@ function App() {
     }
     return parsed.toLocaleTimeString('ru-RU')
   }, [snapshot.updatedAt])
-  const isRuntimeCurrent = snapshot.connection === 'online' || snapshot.connection === 'degraded'
-  const connectionLabel = CONNECTION_LABELS[snapshot.connection]
+  const isRuntimeCurrent = connection === 'online' || connection === 'degraded'
+  const connectionLabel = CONNECTION_LABELS[connection]
   const snapshotWifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
   const snapshotWifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
@@ -316,7 +331,7 @@ function App() {
   }, [refreshSystemStatus, systemTransitionCommand])
   const dashboardDiagnostic = resolveDashboardDiagnostic({
     source: snapshot.source,
-    connection: snapshot.connection,
+    connection,
     transportState: snapshot.transport.state,
     transportMessage: snapshot.transport.message,
     klippyState: snapshot.klippy.state,
@@ -364,7 +379,7 @@ function App() {
   const handleKeyboardClose = useCallback(() => {
     setActiveKeyboardTarget(null)
   }, [])
-  const cloudStatusLabel = isCloudCapabilityAvailable && snapshot.connection === 'online' ? 'В сети' : 'Недоступно'
+  const cloudStatusLabel = isCloudCapabilityAvailable && connection === 'online' ? 'В сети' : 'Недоступно'
   const cloudCapabilityNotice = settingsPageProps.cloud.notice
   const isMaxPerformanceModeEnabled = settingsPageProps.interfaceSettings.isMaxPerformanceModeEnabled
   const printerDisplayStatus = usePrinterDisplayStatus()
@@ -841,7 +856,7 @@ function App() {
             heating: heatingProps,
             fan: fanProps,
             filamentSensor: snapshot.filamentSensor,
-            isFilamentSensorSnapshotStale: snapshot.connection !== 'online' && snapshot.connection !== 'degraded',
+            isFilamentSensorSnapshotStale: connection !== 'online' && connection !== 'degraded',
             commandError,
             isMainLightEnabled: snapshot.mainLightEnabled,
             isToolheadLightEnabled: false,
@@ -921,6 +936,7 @@ function App() {
             isBusy={isPrintBusy}
             pendingCommand={printPendingCommand}
             isStartBlocked={printStartBlockReason !== null}
+            isDeleteBlocked={snapshot.source === 'live' && snapshot.uiContract.status !== 'compatible'}
             onClose={closeFileModal}
             onStart={() => void printSessionCommandHandlers.startSelectedFile()}
             onDelete={handleDeleteSelectedFile}

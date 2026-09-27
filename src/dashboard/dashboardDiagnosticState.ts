@@ -150,10 +150,10 @@ export function resolveDashboardDiagnostic(
     )
   }
 
-  if (runtime.uiContractStatus === 'incompatible') {
+  if (runtime.uiContractStatus !== 'compatible') {
     return createDiagnostic(
       'error',
-      'Несовместимый UI-контракт',
+      'UI-контракт не подтвержден',
       runtime.uiContractMessage || runtime.runtimeMessage,
       { kind: 'refresh', label: 'Проверить повторно' },
     )

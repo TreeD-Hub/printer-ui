@@ -1,8 +1,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
-import type { PrinterConnectionState } from '../core/transport/types'
-import type { PrinterLimits } from '@treed/printer-logic'
+import { getPrinterConnectionState, type PrinterSnapshot } from '../core/transport/types'
 import type {
   FanControlPanelProps,
   HeatingCommandBlockReasons,
@@ -13,17 +12,8 @@ import type {
 } from '../control/types'
 import type { PrintTuneModalProps, TemperatureChartMode } from '../printTune'
 
-type HeatingSnapshot = {
-  connection?: PrinterConnectionState
-  extruderTemp: number
-  bedTemp: number
-  modelFanPercent: number
-  thermalTargets: {
-    nozzle: number
-    bed: number
-  }
-  limits: PrinterLimits
-}
+type HeatingSnapshot = Pick<PrinterSnapshot,
+  'transport' | 'klippy' | 'uiContract' | 'extruderTemp' | 'bedTemp' | 'modelFanPercent' | 'thermalTargets' | 'limits'>
 
 type TemperatureHistoryPoint = {
   timestamp: number
@@ -394,7 +384,8 @@ function clampHeatingValue(value: number, min: number, max: number): number {
 }
 
 function isTemperatureSnapshotConnected(snapshot: HeatingSnapshot): boolean {
-  return snapshot.connection === undefined || snapshot.connection === 'online' || snapshot.connection === 'degraded'
+  const connection = getPrinterConnectionState(snapshot)
+  return connection === 'online' || connection === 'degraded'
 }
 
 function createTemperatureHistoryPoint(snapshot: HeatingSnapshot): TemperatureHistoryPoint {

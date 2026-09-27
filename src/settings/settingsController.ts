@@ -20,7 +20,7 @@ import {
   type HostUpdateStatus,
   type HostUpdateTargetId,
 } from '../core/hostUpdate'
-import type { PrinterSnapshot } from '../core/transport/types'
+import { isPrintJobActive, type PrinterSnapshot } from '../core/transport/types'
 import {
   DEFAULT_TIMEZONE_OPTION,
   LANGUAGE_OPTIONS,
@@ -175,9 +175,7 @@ export function useSettingsController({
   const isNetworkCapabilityAvailable = hostNetworkStatus.available
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const isUpdatesCapabilityAvailable = runtimeMode === 'mock' || typeof fetch === 'function'
-  const isUpdateBlockedByActivePrint = snapshot.printJob.isActive
-    || snapshot.printJob.isPaused
-    || ['printing', 'paused'].includes(snapshot.printJob.state.trim().toLowerCase())
+  const isUpdateBlockedByActivePrint = isPrintJobActive(snapshot.printJob)
   const wifiIpLabel = hostNetworkStatus.ipAddress ?? '—'
   const networkCapabilityNotice = isNetworkCapabilityAvailable
     ? hostNetworkStatus.message

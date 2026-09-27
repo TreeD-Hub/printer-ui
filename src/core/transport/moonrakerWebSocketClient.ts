@@ -4,14 +4,14 @@ import {
   type MoonrakerObjectsQueryPayload,
   type MoonrakerPrinterObjectsStatus,
 } from './moonrakerNormalizer'
-import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
+import { selectMoonrakerRuntimeObjects } from './moonrakerRuntimeObjects'
 import type { PrinterSnapshot, TransportSubscriptionHandlers } from './types'
 
 type MoonrakerJsonRpcMessage = {
   id?: number
   method?: string
   params?: unknown[]
-  result?: MoonrakerObjectsQueryPayload
+  result?: MoonrakerObjectsQueryPayload & { klippy_state?: string, objects?: string[] }
   error?: {
     message?: string
   }
@@ -34,10 +34,6 @@ export type MoonrakerWebSocketSubscription = {
 const DEFAULT_RECONNECT_DELAY_MS = 2_000
 const DEFAULT_RECONNECT_MAX_DELAY_MS = 30_000
 const DEFAULT_RECONNECT_JITTER_RATIO = 0.2
-
-export const MOONRAKER_SUBSCRIPTION_OBJECTS = Object.fromEntries(
-  MOONRAKER_RUNTIME_OBJECTS.map((objectName) => [objectName, null]),
-) as Record<(typeof MOONRAKER_RUNTIME_OBJECTS)[number], null>
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -82,6 +78,7 @@ function parseMoonrakerMessage(rawMessage: unknown): MoonrakerJsonRpcMessage | n
 function normalizeCachedStatus(
   status: MoonrakerPrinterObjectsStatus,
   runtimeUrl: string,
+  availableObjects: readonly string[],
   eventtime?: number,
 ): PrinterSnapshot {
   return normalizeMoonrakerRuntimeSnapshot(
@@ -94,6 +91,7 @@ function normalizeCachedStatus(
       revisionSource: 'websocket',
       transportState: 'online',
       moonrakerUrl: runtimeUrl,
+      availableObjects,
     },
   )
 }
@@ -132,12 +130,16 @@ export function subscribeToMoonrakerStatus(
   const reconnectJitterRatio = Math.max(0, options.reconnectJitterRatio ?? DEFAULT_RECONNECT_JITTER_RATIO)
   let socket: WebSocket | null = null
   let reconnectTimer: number | null = null
+  let readyCheckTimer: number | null = null
   let closedByClient = false
   let cachedStatus: MoonrakerPrinterObjectsStatus = {}
   let cachedEventtime: number | undefined
   let reconnectAttempt = 0
+  let nextDiscoveryRequestId = -1
   let nextSubscriptionRequestId = 1
-  let activeSubscriptionRequestId: number | null = null
+  let activeRequestId: number | null = null
+  let requestPhase: 'info' | 'list' | 'contract' | 'subscribe' | null = null
+  let availableObjects: string[] = []
   let subscriptionActive = false
 
   function clearReconnectTimer(): void {
@@ -155,7 +157,13 @@ export function subscribeToMoonrakerStatus(
   }
 
   function resetKlippySubscription(): void {
-    activeSubscriptionRequestId = null
+    if (readyCheckTimer !== null) {
+      window.clearTimeout(readyCheckTimer)
+      readyCheckTimer = null
+    }
+    activeRequestId = null
+    requestPhase = null
+    availableObjects = []
     subscriptionActive = false
     resetCachedStatus()
   }
@@ -169,7 +177,7 @@ export function subscribeToMoonrakerStatus(
       ? nextStatus
       : mergePrinterStatus(cachedStatus, nextStatus)
     cachedEventtime = mode === 'replace' ? eventtime : eventtime ?? cachedEventtime
-    const snapshot = normalizeCachedStatus(cachedStatus, runtimeUrl, cachedEventtime)
+    const snapshot = normalizeCachedStatus(cachedStatus, runtimeUrl, availableObjects, cachedEventtime)
     handlers.onSnapshot(snapshot)
   }
 
@@ -192,17 +200,24 @@ export function subscribeToMoonrakerStatus(
     }, nextDelayMs)
   }
 
-  function sendSubscriptionRequest(nextSocket: WebSocket): void {
-    const requestId = nextSubscriptionRequestId
-    nextSubscriptionRequestId += 1
-    activeSubscriptionRequestId = requestId
+  function sendRequest(nextSocket: WebSocket, phase: 'info' | 'list' | 'contract' | 'subscribe'): void {
+    const requestId = phase === 'subscribe' ? nextSubscriptionRequestId++ : nextDiscoveryRequestId--
+    activeRequestId = requestId
+    requestPhase = phase
     subscriptionActive = false
+    const method = {
+      info: 'server.info',
+      list: 'printer.objects.list',
+      contract: 'printer.objects.query',
+      subscribe: 'printer.objects.subscribe',
+    }[phase]
+    const objects = phase === 'contract'
+      ? { 'gcode_macro _TREED_UI_CONTRACT': null }
+      : Object.fromEntries(selectMoonrakerRuntimeObjects(availableObjects).map((name) => [name, null]))
     nextSocket.send(JSON.stringify({
       jsonrpc: '2.0',
-      method: 'printer.objects.subscribe',
-      params: {
-        objects: MOONRAKER_SUBSCRIPTION_OBJECTS,
-      },
+      method,
+      ...(phase === 'contract' || phase === 'subscribe' ? { params: { objects } } : {}),
       id: requestId,
     }))
   }
@@ -222,7 +237,7 @@ export function subscribeToMoonrakerStatus(
   }
 
   function handleRpcMessage(message: MoonrakerJsonRpcMessage): void {
-    if (message.id !== undefined && message.id !== activeSubscriptionRequestId) {
+    if (message.id !== undefined && message.id !== activeRequestId) {
       return
     }
 
@@ -230,12 +245,56 @@ export function subscribeToMoonrakerStatus(
       subscriptionActive = false
       handlers.onError?.(message.error.message)
       handlers.onConnectionChange('degraded', message.error.message)
+      socket?.close()
       return
     }
 
-    if (message.id === activeSubscriptionRequestId && message.result?.status) {
-      subscriptionActive = true
-      emitStatusSnapshot(message.result.status, message.result.eventtime, 'replace')
+    if (message.id === activeRequestId) {
+      if (requestPhase === 'info') {
+        const state = message.result?.klippy_state
+        if (state === 'ready') {
+          if (socket !== null) sendRequest(socket, 'list')
+        } else {
+          emitStatusSnapshot(setWebhooksState({}, state ?? 'disconnected', `Klippy ${state ?? 'disconnected'}`), undefined, 'replace')
+          readyCheckTimer = window.setTimeout(() => {
+            readyCheckTimer = null
+            if (socket !== null) sendRequest(socket, 'info')
+          }, 2_000)
+        }
+        return
+      }
+      if (requestPhase === 'list') {
+        if (!Array.isArray(message.result?.objects)
+          || !message.result.objects.every((name) => typeof name === 'string')) {
+          handlers.onError?.('Некорректный ответ printer.objects.list')
+          socket?.close()
+          return
+        }
+        availableObjects = message.result.objects
+        if (socket !== null) sendRequest(socket, availableObjects.includes('gcode_macro _TREED_UI_CONTRACT') ? 'contract' : 'subscribe')
+        return
+      }
+      if (requestPhase === 'contract') {
+        if (!message.result?.status?.['gcode_macro _TREED_UI_CONTRACT']) {
+          handlers.onError?.('Контракт UI отсутствует в ответе printer.objects.query')
+          socket?.close()
+          return
+        }
+        const contractSnapshot = normalizeCachedStatus(message.result.status, runtimeUrl, availableObjects)
+        if (contractSnapshot.uiContract.status !== 'compatible') {
+          handlers.onConnectionChange('degraded', contractSnapshot.uiContract.message ?? 'Несовместимый контракт UI')
+        }
+        if (socket !== null) sendRequest(socket, 'subscribe')
+        return
+      }
+      if (requestPhase === 'subscribe' && message.result?.status) {
+        subscriptionActive = true
+        reconnectAttempt = 0
+        emitStatusSnapshot(message.result.status, message.result.eventtime, 'replace')
+        return
+      }
+      handlers.onError?.('Некорректный ответ Moonraker')
+      socket?.close()
       return
     }
 
@@ -247,7 +306,7 @@ export function subscribeToMoonrakerStatus(
         resetKlippySubscription()
         emitStatusSnapshot(setWebhooksState({}, 'ready', 'Klippy ready'), undefined, 'replace')
         if (socket !== null) {
-          sendSubscriptionRequest(socket)
+          sendRequest(socket, 'list')
         }
         return
       case 'notify_klippy_shutdown':
@@ -279,6 +338,7 @@ export function subscribeToMoonrakerStatus(
       return
     }
 
+    resetKlippySubscription()
     nextSubscriptionRequestId = 1
     handlers.onConnectionChange('connecting')
 
@@ -290,16 +350,16 @@ export function subscribeToMoonrakerStatus(
       scheduleReconnect(message)
       return
     }
+    const nextSocket = socket
 
-    socket.onopen = () => {
-      reconnectAttempt = 0
+    nextSocket.onopen = () => {
+      if (socket !== nextSocket) return
       handlers.onConnectionChange('connecting')
-      if (socket !== null) {
-        sendSubscriptionRequest(socket)
-      }
+      sendRequest(nextSocket, 'info')
     }
 
-    socket.onmessage = (event) => {
+    nextSocket.onmessage = (event) => {
+      if (socket !== nextSocket) return
       const message = parseMoonrakerMessage(event.data)
       if (message === null) {
         return
@@ -308,11 +368,13 @@ export function subscribeToMoonrakerStatus(
       handleRpcMessage(message)
     }
 
-    socket.onerror = () => {
+    nextSocket.onerror = () => {
+      if (socket !== nextSocket) return
       handlers.onError?.('Moonraker WebSocket error')
     }
 
-    socket.onclose = () => {
+    nextSocket.onclose = () => {
+      if (socket !== nextSocket) return
       socket = null
       resetKlippySubscription()
       scheduleReconnect('Moonraker WebSocket closed')

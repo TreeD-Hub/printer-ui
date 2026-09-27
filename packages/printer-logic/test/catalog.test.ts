@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getPrinterCommandPendingDomain,
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
   isDangerousTreeDCommand,
@@ -51,8 +52,6 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'eddyScrewsTiltStart',
   'eddyScrewsTiltDone',
   'eddyBedMeshCalibrate',
-  'eddyAutosaveEnable',
-  'eddyAutosaveDisable',
   'eddyAutosaveStatus',
   'eddyTestZ',
   'shaperCalibrateLight',
@@ -94,12 +93,11 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
 
 const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   capabilities: ALL_CAPABILITIES,
+  uiContractStatus: 'compatible',
   connection: 'online',
   transportState: 'online',
   printJob: {
     state: 'standby',
-    isActive: false,
-    isPaused: false,
   },
   homedAxes: 'xyz',
   toolhead: {
@@ -119,15 +117,20 @@ const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
     motionEnabled: false,
     message: null,
   },
-  limits: TREED_V2_COREXY_V1_LIMITS,
+  limits: {
+    ...TREED_V2_COREXY_V1_LIMITS,
+    axis: {
+      X: { min: 0, max: 245 },
+      Y: { min: 0, max: 245 },
+      Z: { min: -5, max: 203 },
+    },
+  },
 }
 
 const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {
   ...IDLE_CONTEXT,
   printJob: {
     state: 'printing',
-    isActive: true,
-    isPaused: false,
   },
   klippyState: 'ready',
   excludeObjects: {
@@ -169,8 +172,6 @@ const PAUSED_CONTEXT: TreeDCommandRuntimeContext = {
   ...IDLE_CONTEXT,
   printJob: {
     state: 'paused',
-    isActive: true,
-    isPaused: true,
   },
 }
 
@@ -186,9 +187,18 @@ describe('TREE_D_COMMAND_CATALOG', () => {
           label: expect.any(String),
           requiresConfirmation: expect.any(Boolean),
           risk: expect.stringMatching(/^(safe|caution|danger)$/),
+          pendingDomain: expect.stringMatching(/^(critical|print|motion|thermal|fan|light|filament|system)$/),
         }),
       )
     }
+  })
+
+  it('uses catalog pending domains for command scheduling', () => {
+    expect(getPrinterCommandPendingDomain('cancel')).toBe('critical')
+    expect(getPrinterCommandPendingDomain('emergencyStop')).toBe('critical')
+    expect(getPrinterCommandPendingDomain('parkZBottom')).toBe('motion')
+    expect(getPrinterCommandPendingDomain('setMainLightEnabled')).toBe('light')
+    expect(getPrinterCommandPendingDomain('restartKlipper')).toBe('system')
   })
 
   it('marks destructive host and print commands as dangerous', () => {
@@ -223,8 +233,6 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       'eddyScrewsTiltStart',
       'eddyScrewsTiltDone',
       'eddyBedMeshCalibrate',
-      'eddyAutosaveEnable',
-      'eddyAutosaveDisable',
       'eddyAutosaveStatus',
       'eddyTestZ',
     ] as const) {
@@ -431,23 +439,39 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     })).toContain('TESTZ')
   })
 
-  it('allows confirmed host power and service commands without capability flags', () => {
-    expect(getTreeDCommandBlockReason('rebootHost', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('shutdownHost', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('restartKlipper', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('firmwareRestart', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('restartUi', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('restartMoonraker', PRINTING_CONTEXT)).toBeNull()
+  it('blocks movement when Klipper has not published axis limits', () => {
+    expect(getTreeDCommandBlockReason('moveAxis', {
+      ...IDLE_CONTEXT,
+      limits: TREED_V2_COREXY_V1_LIMITS,
+    }, {
+      command: 'moveAxis',
+      axis: 'Z',
+      distanceMm: 1,
+    })).toContain('не подтверждены Klipper')
+  })
 
+  it('blocks disruptive system commands during active print phases', () => {
+    for (const state of ['printing', 'paused', 'preparing', 'recovery', 'calibration']) {
+      for (const command of ['rebootHost', 'shutdownHost', 'restartKlipper', 'firmwareRestart', 'restartMoonraker'] as const) {
+        expect(getTreeDCommandBlockReason(command, {
+          ...IDLE_CONTEXT,
+          printJob: { state },
+        })).toContain('системное действие недоступно')
+      }
+    }
+    expect(getTreeDCommandBlockReason('restartUi', PRINTING_CONTEXT)).toBeNull()
+  })
+
+  it('allows confirmed host power and service commands without capability flags when idle', () => {
     expect(getTreeDCommandBlockReason('rebootHost', {
-      ...PRINTING_CONTEXT,
+      ...IDLE_CONTEXT,
       capabilities: {
         ...ALL_CAPABILITIES,
         power: false,
       },
     })).toBeNull()
     expect(getTreeDCommandBlockReason('restartKlipper', {
-      ...PRINTING_CONTEXT,
+      ...IDLE_CONTEXT,
       capabilities: {
         ...ALL_CAPABILITIES,
         serviceCommands: false,
@@ -463,15 +487,15 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       'restartMoonraker',
     ] as const) {
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'shutdown',
       })).toBeNull()
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'degraded',
       })).toBeNull()
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'offline',
         transportState: 'offline',
       })).toContain('Moonraker')
@@ -491,6 +515,23 @@ describe('TREE_D_COMMAND_CATALOG', () => {
 
     expect(getTreeDCommandBlockReason('emergencyStop', degradedContext)).toBeNull()
     expect(getTreeDCommandBlockReason('turnOffHeaters', degradedContext)).toBeNull()
+  })
+
+  it('blocks system commands without a compatible UI contract but retains transport-confirmed failsafes', () => {
+    for (const uiContractStatus of ['legacy', 'incompatible'] as const) {
+      const context: TreeDCommandRuntimeContext = {
+        ...PRINTING_CONTEXT,
+        uiContractStatus,
+        connection: 'degraded',
+        capabilities: { ...ALL_CAPABILITIES, motion: false, thermal: false },
+      }
+
+      expect(getTreeDCommandBlockReason('rebootHost', context)).toContain('UI-контракт')
+      expect(getTreeDCommandBlockReason('restartKlipper', context)).toContain('UI-контракт')
+      expect(getTreeDCommandBlockReason('emergencyStop', context)).toBeNull()
+      expect(getTreeDCommandBlockReason('turnOffHeaters', context)).toBeNull()
+      expect(getTreeDCommandBlockReason('emergencyStop', { ...context, transportState: 'offline' })).toContain('Moonraker')
+    }
   })
 
   it('allows runtime tune commands only during active print and requires homed Z for Z-offset', () => {

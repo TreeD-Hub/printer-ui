@@ -143,8 +143,6 @@ describe('settings controller helpers', () => {
   it('blocks host update apply while a print is paused', async () => {
     const snapshot = createMockSnapshot()
     snapshot.printJob.state = 'paused'
-    snapshot.printJob.isActive = false
-    snapshot.printJob.isPaused = true
     const apply = vi.fn()
     const updateClient: HostUpdateClient = {
       getStatus: vi.fn().mockResolvedValue(availableUpdateStatus),

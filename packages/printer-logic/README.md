@@ -11,20 +11,22 @@
 - pure helpers для Wi-Fi/host-network статусов и выбора сети;
 - нормализацию homed axes;
 - расчет capabilities для групп действий;
-- каталог TreeD-команд с risk/capability metadata;
+- каталог TreeD-команд с risk/capability metadata и `pendingDomain`; `getPrinterCommandPendingDomain` читает домен из каталога;
 - причины блокировки команд через `getTreeDCommandBlockReason`;
 - базовую валидацию аргументов команд через `getTreeDCommandArgumentError`;
-- лимиты профиля `TREED_V2_COREXY_V1_LIMITS`.
+- температурные потолки профиля `TREED_V2_COREXY_V1_LIMITS`; runtime-границы осей поступают из Klipper.
 
 Контракт датчика нити включает `FilamentSensorSnapshot`, capability `filamentSensorControl` / `filamentEncoderSensitivity` и команды `setFilamentSensorMode` / `setFilamentEncoderSensitivity`. Правила блокируют обе настройки во время активной печати, режим `motion` при недоступном motion-канале и чувствительность при недоступном motion-канале.
 
-Системные команды `restartKlipper`, `firmwareRestart`, `restartUi`, `restartMoonraker`, `rebootHost` и `shutdownHost` относятся к независимому pending-домену `system`. Транспорт и recovery-loop остаются ответственностью UI-приложения.
+Системные команды `restartKlipper`, `firmwareRestart`, `restartUi`, `restartMoonraker`, `rebootHost` и `shutdownHost` относятся к независимому pending-домену `system`. Все перечисленные команды, кроме `restartUi`, блокируются в состояниях `printing`, `paused`, `preparing`, `recovery`, `calibration` и при активном задании печати. Транспорт и recovery-loop остаются ответственностью UI-приложения.
 
 Команда `disableMotors` снимает удержание осей через `M84`, относится к motion-домену и требует подтверждения в UI.
 
 Команда `moveAxis` принимает одно перемещение от -50 до 50 мм.
 
 Команда `parkZBottom` запускает ручную нижнюю парковку Z через TMC5160/DIAG без цикла автосъёма.
+
+Сохранение Eddy Z-offset работает штатно: каталог предоставляет только диагностическую команду `eddyAutosaveStatus`, без команд включения и выключения.
 
 Пакет не выполняет команды, не вызывает `nmcli`, не ходит в Moonraker и не знает про layout. UI-приложения отвечают за transport, errors, retry, confirmation flow и отображение.
 

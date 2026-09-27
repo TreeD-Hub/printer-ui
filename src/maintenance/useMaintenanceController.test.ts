@@ -24,7 +24,7 @@ function createPrintJob(overrides: Partial<PrinterPrintJobSnapshot> = {}): Print
   return {
     filename: '',
     filePath: null,
-    state: 'ready',
+    state: 'idle',
     message: '',
     progress: 0,
     progressPercent: 0,
@@ -33,8 +33,6 @@ function createPrintJob(overrides: Partial<PrinterPrintJobSnapshot> = {}): Print
     filamentUsedMm: 0,
     currentLayer: null,
     totalLayer: null,
-    isPaused: false,
-    isActive: false,
     ...overrides,
   }
 }
@@ -84,7 +82,7 @@ describe('createMaintenanceStatus', () => {
   it('includes the active print duration in the current cycle', () => {
     const status = createMaintenanceStatus({
       usage: createUsage(100 * HOUR),
-      printJob: createPrintJob({ isActive: true, printDurationSec: HOUR }),
+      printJob: createPrintJob({ state: 'printing', printDurationSec: HOUR }),
       systemStatus: createLoadingMoonrakerSystemStatus(),
     }, readyLedger(50 * HOUR))
 
@@ -141,7 +139,7 @@ describe('useMaintenanceController', () => {
     const repository = createMemoryMaintenanceRepository()
     const { result } = renderHook(() => useMaintenanceController({
       usage: createUsage(150 * HOUR),
-      printJob: createPrintJob({ isActive: true, printDurationSec: HOUR }),
+      printJob: createPrintJob({ state: 'printing', printDurationSec: HOUR }),
       systemStatus: createLoadingMoonrakerSystemStatus(),
       repository,
     }))

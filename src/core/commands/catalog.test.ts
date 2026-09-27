@@ -50,8 +50,6 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'eddyScrewsTiltStart',
   'eddyScrewsTiltDone',
   'eddyBedMeshCalibrate',
-  'eddyAutosaveEnable',
-  'eddyAutosaveDisable',
   'eddyAutosaveStatus',
   'eddyTestZ',
   'shaperCalibrateLight',
@@ -91,12 +89,11 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
 
 const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   capabilities: ALL_CAPABILITIES,
+  uiContractStatus: 'compatible',
   connection: 'online',
   transportState: 'online',
   printJob: {
     state: 'standby',
-    isActive: false,
-    isPaused: false,
   },
   homedAxes: 'xyz',
   toolhead: {
@@ -106,14 +103,21 @@ const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   },
   eddyStatus: 'ready',
   extruderTemp: 210,
+  limits: {
+    nozzleMaxC: 280,
+    bedMaxC: 120,
+    axis: {
+      X: { min: 0, max: 245 },
+      Y: { min: 0, max: 245 },
+      Z: { min: -5, max: 203 },
+    },
+  },
 }
 
 const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {
   ...IDLE_CONTEXT,
   printJob: {
     state: 'printing',
-    isActive: true,
-    isPaused: false,
   },
   klippyState: 'ready',
   excludeObjects: {
@@ -155,8 +159,6 @@ const PAUSED_CONTEXT: TreeDCommandRuntimeContext = {
   ...IDLE_CONTEXT,
   printJob: {
     state: 'paused',
-    isActive: true,
-    isPaused: true,
   },
 }
 
@@ -320,23 +322,28 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     })).toContain('TESTZ')
   })
 
-  it('allows confirmed host power and service commands without capability flags', () => {
-    expect(getTreeDCommandBlockReason('rebootHost', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('shutdownHost', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('restartKlipper', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('firmwareRestart', PRINTING_CONTEXT)).toBeNull()
+  it('blocks disruptive system commands during active print phases', () => {
+    for (const state of ['printing', 'paused', 'preparing', 'recovery', 'calibration']) {
+      for (const command of ['rebootHost', 'shutdownHost', 'restartKlipper', 'firmwareRestart', 'restartMoonraker'] as const) {
+        expect(getTreeDCommandBlockReason(command, {
+          ...IDLE_CONTEXT,
+          printJob: { state },
+        })).toContain('системное действие недоступно')
+      }
+    }
     expect(getTreeDCommandBlockReason('restartUi', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('restartMoonraker', PRINTING_CONTEXT)).toBeNull()
+  })
 
+  it('allows confirmed host power and service commands without capability flags when idle', () => {
     expect(getTreeDCommandBlockReason('rebootHost', {
-      ...PRINTING_CONTEXT,
+      ...IDLE_CONTEXT,
       capabilities: {
         ...ALL_CAPABILITIES,
         power: false,
       },
     })).toBeNull()
     expect(getTreeDCommandBlockReason('restartKlipper', {
-      ...PRINTING_CONTEXT,
+      ...IDLE_CONTEXT,
       capabilities: {
         ...ALL_CAPABILITIES,
         serviceCommands: false,
@@ -352,15 +359,15 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       'restartMoonraker',
     ] as const) {
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'shutdown',
       })).toBeNull()
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'degraded',
       })).toBeNull()
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'offline',
         transportState: 'offline',
       })).toContain('Moonraker')

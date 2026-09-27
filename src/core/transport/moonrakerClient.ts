@@ -6,7 +6,7 @@ import {
   type MoonrakerPrintFileMetadata,
 } from './moonrakerNormalizer'
 import { subscribeToMoonrakerStatus } from './moonrakerWebSocketClient'
-import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
+import { MOONRAKER_RUNTIME_OBJECTS, selectMoonrakerRuntimeObjects } from './moonrakerRuntimeObjects'
 import type {
   FilamentSensorSnapshot,
   PrinterEddyStateSnapshot,
@@ -106,6 +106,19 @@ function buildMoonrakerObjectsQuery(objectNames: readonly string[]): string {
 }
 
 export const MOONRAKER_RUNTIME_OBJECTS_QUERY = buildMoonrakerObjectsQuery(MOONRAKER_RUNTIME_OBJECTS)
+
+async function fetchRuntimeObjects(context: MoonrakerFetchContext) {
+  const { objects: availableObjects } = await fetchMoonraker<{ objects: string[] }>(
+    '/printer/objects/list', context,
+  )
+  if (!Array.isArray(availableObjects) || !availableObjects.every((name) => typeof name === 'string')) {
+    throw new MoonrakerTransportError('invalid-result', 'Некорректный ответ printer.objects.list')
+  }
+  const objects = await fetchMoonraker<MoonrakerObjectsQueryPayload>(
+    buildMoonrakerObjectsQuery(selectMoonrakerRuntimeObjects(availableObjects)), context,
+  )
+  return { objects, availableObjects }
+}
 
 const MOONRAKER_FILAMENT_SENSOR_OBJECTS = [
   'filament_switch_sensor filament_switch',
@@ -565,21 +578,27 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
   return {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
       const [objects, printFilesResult, usage] = await Promise.all([
-        fetchMoonraker<MoonrakerObjectsQueryPayload>(MOONRAKER_RUNTIME_OBJECTS_QUERY, context),
+        fetchRuntimeObjects(context),
         fetchPrintFilesBestEffort(context),
         fetchHistoryTotalsBestEffort(context),
       ])
 
-      return normalizeMoonrakerRuntimeSnapshot(objects, {
+      return normalizeMoonrakerRuntimeSnapshot(objects.objects, {
         moonrakerUrl: context.moonrakerUrl,
         source: 'live',
+        availableObjects: objects.availableObjects,
         printFiles: printFilesResult.files,
         printFilesError: printFilesResult.error,
         usage,
       })
     },
     async fetchRuntimeSnapshot(): Promise<PrinterSnapshot> {
-      return fetchObjectsSnapshot(context, MOONRAKER_RUNTIME_OBJECTS)
+      const { objects, availableObjects } = await fetchRuntimeObjects(context)
+      return normalizeMoonrakerRuntimeSnapshot(objects, {
+        moonrakerUrl: context.moonrakerUrl,
+        source: 'live',
+        availableObjects,
+      })
     },
     async fetchUsage(): Promise<PrinterUsageSnapshot> {
       return fetchHistoryTotalsBestEffort(context, true)
@@ -611,7 +630,6 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
         files: snapshot.files,
         message: snapshot.message,
         printJob: snapshot.printJob,
-        state: snapshot.state,
         updatedAt: snapshot.updatedAt,
       }
     },
@@ -637,11 +655,11 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
       const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_MOTION_STATE_OBJECTS)
 
       return {
+        axisLimits: snapshot.limits.axis,
         eddyStatus: snapshot.v2.eddy.status,
         geometry: snapshot.geometry,
         homedAxes: snapshot.homedAxes,
         message: snapshot.message,
-        state: snapshot.state,
         toolhead: snapshot.toolhead,
         toolheadX: snapshot.toolheadX,
         toolheadY: snapshot.toolheadY,

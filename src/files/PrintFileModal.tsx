@@ -12,6 +12,7 @@ type PrintFileModalProps = {
   isBusy: boolean
   pendingCommand: PrinterCommandId | null
   isStartBlocked: boolean
+  isDeleteBlocked: boolean
   onClose: () => void
   onStart: () => void
   onDelete: () => void
@@ -36,6 +37,7 @@ export function PrintFileModal({
   isBusy,
   pendingCommand,
   isStartBlocked,
+  isDeleteBlocked,
   onClose,
   onStart,
   onDelete,
@@ -125,7 +127,7 @@ export function PrintFileModal({
                 title="Удалить файл"
                 data-testid="print-file-delete-button"
                 onClick={onDelete}
-                disabled={isBusy}
+                disabled={isBusy || isDeleteBlocked}
               >
                 <IconMask name="actionDelete" size={24} />
               </button>

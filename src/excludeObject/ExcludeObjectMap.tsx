@@ -39,10 +39,16 @@ export function ExcludeObjectMap({
   pendingObjectName,
   onSelect,
 }: ExcludeObjectMapProps) {
-  const xMin = limits.axis.X.min
-  const xMax = limits.axis.X.max
-  const yMin = limits.axis.Y.min
-  const yMax = limits.axis.Y.max
+  const xLimit = limits.axis.X
+  const yLimit = limits.axis.Y
+  if (xLimit === undefined || yLimit === undefined) {
+    return <div className="exclude-object-map-panel" role="status">Границы стола пока недоступны.</div>
+  }
+
+  const xMin = xLimit.min
+  const xMax = xLimit.max
+  const yMin = yLimit.min
+  const yMax = yLimit.max
   const width = Math.max(1, xMax - xMin)
   const height = Math.max(1, yMax - yMin)
 

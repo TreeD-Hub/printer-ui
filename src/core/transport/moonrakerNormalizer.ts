@@ -1,7 +1,6 @@
 import type {
   PrinterCapabilitiesSnapshot,
   FilamentSensorSnapshot,
-  PrinterConnectionState,
   PrinterEddyCalibrationSnapshot,
   PrinterEddyCalibrationStep,
   PrinterEddyOperatorPrompt,
@@ -9,6 +8,7 @@ import type {
   PrinterFileItemSnapshot,
   PrinterFilesSnapshot,
   PrinterGeometrySnapshot,
+  PrinterJobState,
   PrinterHardwareSnapshot,
   PrinterCameraSnapshot,
   PrinterMacroStateSnapshot,
@@ -64,6 +64,8 @@ export interface MoonrakerPrinterObjectsStatus {
 export interface MoonrakerToolheadStatus {
   position?: Array<number | null | undefined>
   homed_axes?: string
+  axis_minimum?: Array<number | null | undefined>
+  axis_maximum?: Array<number | null | undefined>
   max_accel?: number
 }
 
@@ -142,6 +144,7 @@ export interface MoonrakerSaveVariablesStatus {
 }
 
 export interface MoonrakerNormalizeOptions {
+  availableObjects?: readonly string[]
   source?: PrinterSource
   revisionSource?: PrinterRevisionSource
   transportState?: PrinterTransportState
@@ -251,29 +254,6 @@ function normalizeKlippyState(webhooks?: MoonrakerWebhooksStatus): PrinterRuntim
   return { state: 'disconnected', message }
 }
 
-function normalizeConnectionState(
-  transportState: PrinterTransportState,
-  klippyState: PrinterRuntimeSnapshot['klippy']['state'],
-): PrinterConnectionState {
-  if (transportState !== 'online') {
-    return transportState
-  }
-
-  if (klippyState === 'ready') {
-    return 'online'
-  }
-
-  if (klippyState === 'startup') {
-    return 'connecting'
-  }
-
-  if (klippyState === 'shutdown') {
-    return 'shutdown'
-  }
-
-  return 'offline'
-}
-
 function normalizeToolhead(
   toolhead: MoonrakerToolheadStatus | undefined,
   gcodeMove: MoonrakerGcodeMoveStatus | undefined,
@@ -301,10 +281,19 @@ function normalizeVirtualSdCard(virtualSdCard: MoonrakerVirtualSdCardStatus | un
     type: hasVirtualSdCard ? 'virtual_sdcard' : 'unknown',
     path: virtualSdCard?.file_path ?? null,
     progress: clamp(toFiniteNumber(virtualSdCard?.progress, 0), 0, 1),
-    isActive: Boolean(virtualSdCard?.is_active),
     filePosition: Math.max(0, Math.trunc(toFiniteNumber(virtualSdCard?.file_position, 0))),
     fileSize: virtualSdCard?.file_size == null ? null : Math.max(0, Math.trunc(toFiniteNumber(virtualSdCard.file_size, 0))),
   }
+}
+
+const PRINT_STATS_STATES: Record<string, PrinterJobState | undefined> = {
+  standby: 'idle',
+  pending: 'preparing',
+  printing: 'printing',
+  paused: 'paused',
+  complete: 'complete',
+  cancelled: 'cancelled',
+  error: 'error',
 }
 
 function normalizePrintStats(
@@ -312,15 +301,13 @@ function normalizePrintStats(
   virtualSdCard: MoonrakerVirtualSdCardStatus | undefined,
   displayStatus: MoonrakerDisplayStatus | undefined,
   pauseResume: MoonrakerPauseResumeStatus | undefined,
-  webhooks: MoonrakerWebhooksStatus | undefined,
 ): PrinterPrintJobSnapshot {
   const filename = firstNonEmpty(printStats?.filename, virtualSdCard?.file_path ?? undefined)
-  const state = firstNonEmpty(
-    printStats?.state,
-    webhooks?.state,
-    virtualSdCard?.is_active ? 'printing' : undefined,
-    'unknown',
-  )
+  const rawState = printStats?.state?.trim().toLowerCase()
+  const mappedState = rawState === undefined ? undefined : PRINT_STATS_STATES[rawState]
+  const state: PrinterJobState = mappedState === 'printing' && pauseResume?.is_paused
+    ? 'paused'
+    : mappedState ?? (pauseResume?.is_paused ? 'paused' : virtualSdCard?.is_active ? 'printing' : 'unknown')
   const message = firstNonEmpty(printStats?.message, displayStatus?.message)
   const progress = clamp(
     toFiniteNumber(displayStatus?.progress, toFiniteNumber(virtualSdCard?.progress, 0)),
@@ -328,7 +315,6 @@ function normalizePrintStats(
     1,
   )
   const info = printStats?.info
-  const isPaused = state === 'paused' || Boolean(pauseResume?.is_paused)
 
   return {
     filename,
@@ -342,8 +328,6 @@ function normalizePrintStats(
     filamentUsedMm: toFiniteNumber(printStats?.filament_used, 0),
     currentLayer: toNullableNumber(info?.current_layer),
     totalLayer: toNullableNumber(info?.total_layer),
-    isPaused,
-    isActive: state === 'printing' || isPaused || Boolean(virtualSdCard?.is_active),
   }
 }
 
@@ -784,8 +768,14 @@ export function normalizeMoonrakerPrintFiles(
     .filter((item): item is PrinterFileItemSnapshot => item !== null)
 }
 
-function normalizeMacroValues(status: MoonrakerPrinterObjectsStatus | undefined): PrinterMacroStateSnapshot {
-  const available: string[] = []
+function normalizeMacroValues(
+  status: MoonrakerPrinterObjectsStatus | undefined,
+  availableObjects?: readonly string[],
+): PrinterMacroStateSnapshot {
+  const available: string[] = availableObjects === undefined
+    ? []
+    : availableObjects.filter((name) => name.toLowerCase().startsWith('gcode_macro '))
+      .map((name) => name.slice('gcode_macro '.length))
   const values: Record<string, Record<string, unknown>> = {}
 
   if (!status) {
@@ -798,7 +788,9 @@ function normalizeMacroValues(status: MoonrakerPrinterObjectsStatus | undefined)
     }
 
     const macroName = key.slice('gcode_macro '.length)
-    available.push(macroName)
+    if (!available.includes(macroName)) {
+      available.push(macroName)
+    }
 
     if (isRecord(value)) {
       const normalizedRecord: Record<string, unknown> = {}
@@ -920,6 +912,9 @@ function normalizeUiContract(macros: PrinterMacroStateSnapshot): PrinterUiContra
   if (profile !== EXPECTED_UI_PROFILE) {
     incompatibilities.push(`профиль ${profile ?? 'не указан'}`)
   }
+  if (typeof contract.required_macros !== 'string') {
+    incompatibilities.push('список обязательных macro не указан')
+  }
   if (missingMacros.length > 0) {
     incompatibilities.push(`нет macro: ${missingMacros.join(', ')}`)
   }
@@ -947,30 +942,32 @@ function readContractNumber(
 }
 
 function normalizeLimits(
+  toolhead: MoonrakerToolheadStatus | undefined,
   macros: PrinterMacroStateSnapshot,
   uiContract: PrinterUiContractSnapshot,
 ): typeof TREED_V2_COREXY_V1_LIMITS {
-  if (uiContract.status !== 'compatible') {
-    return TREED_V2_COREXY_V1_LIMITS
+  const axisLimit = (index: number) => {
+    const min = toolhead?.axis_minimum?.[index]
+    const max = toolhead?.axis_maximum?.[index]
+    return typeof min === 'number' && Number.isFinite(min) &&
+      typeof max === 'number' && Number.isFinite(max) && min < max
+      ? { min, max }
+      : undefined
   }
 
-  const contract = readMacro(macros.values, '_TREED_UI_CONTRACT')
+  const contract = uiContract.status === 'compatible'
+    ? readMacro(macros.values, '_TREED_UI_CONTRACT')
+    : undefined
+  const x = axisLimit(0)
+  const y = axisLimit(1)
+  const z = axisLimit(2)
   return {
     nozzleMaxC: readContractNumber(contract, 'nozzle_max_c', TREED_V2_COREXY_V1_LIMITS.nozzleMaxC),
     bedMaxC: readContractNumber(contract, 'bed_max_c', TREED_V2_COREXY_V1_LIMITS.bedMaxC),
     axis: {
-      X: {
-        min: readContractNumber(contract, 'axis_x_min', TREED_V2_COREXY_V1_LIMITS.axis.X.min),
-        max: readContractNumber(contract, 'axis_x_max', TREED_V2_COREXY_V1_LIMITS.axis.X.max),
-      },
-      Y: {
-        min: readContractNumber(contract, 'axis_y_min', TREED_V2_COREXY_V1_LIMITS.axis.Y.min),
-        max: readContractNumber(contract, 'axis_y_max', TREED_V2_COREXY_V1_LIMITS.axis.Y.max),
-      },
-      Z: {
-        min: readContractNumber(contract, 'axis_z_min', TREED_V2_COREXY_V1_LIMITS.axis.Z.min),
-        max: readContractNumber(contract, 'axis_z_max', TREED_V2_COREXY_V1_LIMITS.axis.Z.max),
-      },
+      ...(x && { X: x }),
+      ...(y && { Y: y }),
+      ...(z && { Z: z }),
     },
   }
 }
@@ -1015,7 +1012,7 @@ function normalizeCapabilities(
   const systemPower = readBooleanMacroFlag(macros.values, '_TREED_SYSTEM_POWER')
   const hasMainLightMacros = macros.available.includes('LIGHT_ON') && macros.available.includes('LIGHT_OFF')
 
-  if (uiContract.status === 'incompatible') {
+  if (uiContract.status !== 'compatible') {
     return {
       print: false,
       motion: false,
@@ -1039,60 +1036,35 @@ function normalizeCapabilities(
     }
   }
 
-  if (uiContract.status === 'compatible') {
-    const contract = readMacro(macros.values, '_TREED_UI_CONTRACT') ?? {}
-    const capability = (name: string): boolean => parseMacroBoolean(contract[`capability_${name}`]) === true
-    const lightingCapability = parseMacroBoolean(contract.capability_lighting)
-    const cameraMacro = readMacro(macros.values, '_TREED_CAMERA')
-    const cameraEnabled = cameraMacro === undefined ? true : readBooleanMacroFlag(macros.values, '_TREED_CAMERA')
-
-    return {
-      print: capability('print'),
-      motion: capability('motion'),
-      thermal: capability('thermal'),
-      fan: capability('fan'),
-      lighting: hasMainLightMacros && lightingCapability !== false,
-      filament: capability('filament'),
-      filamentSensorControl: capability('filament_sensor_control') && filamentSensor.supported,
-      filamentEncoderSensitivity:
-        capability('filament_encoder_sensitivity') &&
-        filamentSensor.motionSupported &&
-        macros.available.includes('_FILAMENT_SENSOR_SENSITIVITY_STATE'),
-      console: capability('console'),
-      eddy: capability('eddy'),
-      shaper: capability('shaper'),
-      motionTest: capability('motion_test'),
-      power: capability('system_power') && systemPower,
-      network: capability('network'),
-      cloud: readBooleanMacroFlag(macros.values, '_TREED_CLOUD'),
-      updates: readBooleanMacroFlag(macros.values, '_TREED_UPDATES'),
-      systemPower: capability('system_power') && systemPower,
-      camera: capability('camera') && cameraEnabled,
-      serviceCommands: capability('service_commands') && readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
-    }
-  }
+  const contract = readMacro(macros.values, '_TREED_UI_CONTRACT') ?? {}
+  const capability = (name: string): boolean => parseMacroBoolean(contract[`capability_${name}`]) === true
+  const lightingCapability = parseMacroBoolean(contract.capability_lighting)
+  const cameraMacro = readMacro(macros.values, '_TREED_CAMERA')
+  const cameraEnabled = cameraMacro === undefined ? true : readBooleanMacroFlag(macros.values, '_TREED_CAMERA')
 
   return {
-    print: true,
-    motion: true,
-    thermal: true,
-    fan: true,
-    lighting: hasMainLightMacros,
-    filament: true,
-    filamentSensorControl: filamentSensor.supported && macros.available.includes('FILAMENT_SENSOR_STATUS'),
+    print: capability('print'),
+    motion: capability('motion'),
+    thermal: capability('thermal'),
+    fan: capability('fan'),
+    lighting: hasMainLightMacros && lightingCapability !== false,
+    filament: capability('filament'),
+    filamentSensorControl: capability('filament_sensor_control') && filamentSensor.supported,
     filamentEncoderSensitivity:
-      filamentSensor.motionSupported && macros.available.includes('_FILAMENT_SENSOR_SENSITIVITY_STATE'),
-    console: true,
-    eddy: true,
-    shaper: true,
-    motionTest: true,
-    power: systemPower,
-    network: false,
+      capability('filament_encoder_sensitivity') &&
+      filamentSensor.motionSupported &&
+      macros.available.includes('_FILAMENT_SENSOR_SENSITIVITY_STATE'),
+    console: capability('console'),
+    eddy: capability('eddy'),
+    shaper: capability('shaper'),
+    motionTest: capability('motion_test'),
+    power: capability('system_power') && systemPower,
+    network: capability('network'),
     cloud: readBooleanMacroFlag(macros.values, '_TREED_CLOUD'),
     updates: readBooleanMacroFlag(macros.values, '_TREED_UPDATES'),
-    systemPower,
-    camera: readBooleanMacroFlag(macros.values, '_TREED_CAMERA') || readBooleanMacroFlag(macros.values, '_TREED_CAM_STATE'),
-    serviceCommands: readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
+    systemPower: capability('system_power') && systemPower,
+    camera: capability('camera') && cameraEnabled,
+    serviceCommands: capability('service_commands') && readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
   }
 }
 
@@ -1259,7 +1231,7 @@ function normalizeV2Snapshot(
     profile: 'treed_v2_corexy_v1',
     eddy: {
       status: normalizeEddyStatus(webhooks, homedAxes),
-      autosaveEnabled: Boolean(eddyAutosave?.enabled),
+      autosaveEnabled: Boolean(eddyAutosave),
       autosavePending: Boolean(eddyAutosave?.has_pending),
       calibration: normalizeEddyCalibration(status),
     },
@@ -1301,9 +1273,9 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const virtualSdCard = normalizeVirtualSdCard(status.virtual_sdcard)
   const displayStatus = normalizeDisplayStatus(status.display_status)
   const webhooks = normalizeWebhooks(status.webhooks)
-  const printJob = normalizePrintStats(status.print_stats, status.virtual_sdcard, status.display_status, status.pause_resume, status.webhooks)
+  const printJob = normalizePrintStats(status.print_stats, status.virtual_sdcard, status.display_status, status.pause_resume)
   const excludeObjects = normalizeExcludeObjects(status.exclude_object, printJob)
-  const macros = normalizeMacroValues(status)
+  const macros = normalizeMacroValues(status, options.availableObjects)
   const uiContract = normalizeUiContract(macros)
   const filamentSensor = normalizeFilamentSensor(status, macros)
   const capabilities = normalizeCapabilities(macros, uiContract, filamentSensor)
@@ -1313,6 +1285,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const receivedAt = options.receivedAt ?? Date.now()
   const transportState = options.transportState ?? 'online'
   const klippy = normalizeKlippyState(status.webhooks)
+  const isReady = transportState === 'online' && klippy.state === 'ready'
 
   return {
     source,
@@ -1335,12 +1308,8 @@ export function normalizeMoonrakerRuntimeSnapshot(
       message: null,
     },
     klippy,
-    connection: uiContract.status === 'incompatible'
-      ? 'degraded'
-      : normalizeConnectionState(transportState, klippy.state),
     wifiSsid: options.wifiSsid ?? 'Moonraker Network',
     ipAddress: normalizeIpAddress(options.moonrakerUrl),
-    state: firstNonEmpty(printJob.state, webhooks.state, 'unknown'),
     toolheadX: toolhead.x,
     toolheadY: toolhead.y,
     toolheadZ: toolhead.z,
@@ -1351,7 +1320,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     mainLightEnabled: normalizeMainLight(status),
     updatedAt: options.nowIso ?? new Date().toISOString(),
     message: firstNonEmpty(
-      uiContract.status === 'incompatible' ? uiContract.message : null,
+      isReady && uiContract.status === 'incompatible' ? uiContract.message : null,
       printJob.message,
       displayStatus.message,
       webhooks.state_message,
@@ -1360,7 +1329,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     uiContract,
     capabilities,
     filamentSensor,
-    limits: normalizeLimits(macros, uiContract),
+    limits: normalizeLimits(status.toolhead, macros, uiContract),
     usage: options.usage ?? createUnavailableUsageSnapshot(),
     printJob,
     excludeObjects,
@@ -1370,7 +1339,6 @@ export function normalizeMoonrakerRuntimeSnapshot(
           type: 'unknown',
           path: null,
           progress: 0,
-          isActive: false,
           filePosition: 0,
           fileSize: null,
         },
@@ -1400,7 +1368,6 @@ export function normalizeMoonrakerRuntimeSnapshot(
 
 export {
   normalizeCapabilities,
-  normalizeConnectionState,
   normalizeKlippyState,
   normalizeUiContract,
   normalizeDisplayStatus,

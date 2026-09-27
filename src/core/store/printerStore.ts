@@ -23,10 +23,8 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     state: 'disconnected',
     message: 'Запуск системы...',
   },
-  connection: 'connecting',
   wifiSsid: 'Не подключено',
   ipAddress: '—',
-  state: 'unknown',
   toolheadX: 0,
   toolheadY: 0,
   toolheadZ: 0,
@@ -110,8 +108,6 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     filamentUsedMm: 0,
     currentLayer: null,
     totalLayer: null,
-    isPaused: false,
-    isActive: false,
   },
   excludeObjects: {
     supported: false,
@@ -125,7 +121,6 @@ export const FALLBACK_PRINTER_SNAPSHOT: PrinterSnapshot = {
     type: 'unknown',
     path: null,
     progress: 0,
-    isActive: false,
     filePosition: 0,
     fileSize: null,
   },
@@ -218,53 +213,12 @@ export function getPrinterSnapshot(): PrinterSnapshot {
 }
 
 export function setPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
-  const reconciledSnapshot = reconcilePrinterSnapshot(currentPrinterSnapshot, nextSnapshot)
-  if (Object.is(currentPrinterSnapshot, reconciledSnapshot)) {
+  if (Object.is(currentPrinterSnapshot, nextSnapshot)) {
     return
   }
 
-  currentPrinterSnapshot = reconciledSnapshot
+  currentPrinterSnapshot = nextSnapshot
   emitPrinterStoreChange()
-}
-
-export function reconcilePrinterSnapshot(
-  previous: PrinterSnapshot,
-  next: PrinterSnapshot,
-): PrinterSnapshot {
-  const previousEventtime = previous.revisions.printerObjects.eventtime
-  const nextEventtime = next.revisions.printerObjects.eventtime
-  const hasStalePrinterObjects = (
-    previous.transport.state === 'online' &&
-    previousEventtime !== null &&
-    nextEventtime !== null &&
-    nextEventtime < previousEventtime
-  )
-
-  if (!hasStalePrinterObjects) {
-    return next
-  }
-
-  const previousFilesRevision = previous.revisions.files
-  const nextFilesRevision = next.revisions.files
-  const shouldApplyFiles = (
-    nextFilesRevision !== null &&
-    (previousFilesRevision === null || nextFilesRevision.receivedAt >= previousFilesRevision.receivedAt)
-  )
-
-  if (!shouldApplyFiles) {
-    return previous
-  }
-
-  return {
-    ...previous,
-    usage: next.usage.state === 'ready' ? next.usage : previous.usage,
-    printFiles: next.printFiles,
-    fileList: next.fileList,
-    revisions: {
-      ...previous.revisions,
-      files: nextFilesRevision,
-    },
-  }
 }
 
 export function updatePrinterSnapshot(updater: (previous: PrinterSnapshot) => PrinterSnapshot): void {

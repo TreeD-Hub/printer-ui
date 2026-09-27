@@ -1,8 +1,9 @@
-import type { PrinterSnapshot } from '../core/transport/types'
+import type { PrinterConnectionState, PrinterSnapshot } from '../core/transport/types'
 
 export type PrinterDisplaySeverity = 'normal' | 'info' | 'warning' | 'error'
 
-export type PrinterDisplayStatusInput = Pick<PrinterSnapshot, 'connection' | 'message' | 'state'> & {
+export type PrinterDisplayStatusInput = Pick<PrinterSnapshot, 'message'> & {
+  connection: PrinterConnectionState
   printJob: Pick<PrinterSnapshot['printJob'], 'message' | 'state'>
 }
 
@@ -21,18 +22,13 @@ export type PrinterDisplayStatus = {
 }
 
 const PRINT_STATE_LABELS: Record<string, { label: string; severity: PrinterDisplaySeverity; notify?: boolean }> = {
-  standby: { label: 'Ожидание печати', severity: 'normal' },
-  ready: { label: 'Ожидание печати', severity: 'normal' },
   idle: { label: 'Ожидание печати', severity: 'normal' },
-  startup: { label: 'Запуск системы', severity: 'info' },
-  starting: { label: 'Запуск системы', severity: 'info' },
+  preparing: { label: 'Подготовка печати', severity: 'info' },
   printing: { label: 'Печать', severity: 'info' },
   paused: { label: 'Пауза', severity: 'warning' },
   complete: { label: 'Печать завершена', severity: 'info', notify: true },
   cancelled: { label: 'Печать отменена', severity: 'warning', notify: true },
-  canceled: { label: 'Печать отменена', severity: 'warning', notify: true },
   error: { label: 'Ошибка печати', severity: 'error', notify: true },
-  shutdown: { label: 'Аварийная остановка Klipper', severity: 'error', notify: true },
 }
 
 function normalizeRuntimeText(value: string | undefined): string {
@@ -174,8 +170,7 @@ export function resolvePrinterDisplayStatus(snapshot: PrinterDisplayStatusInput)
   }
 
   const printState = normalizeRuntimeText(snapshot.printJob.state)
-  const runtimeState = normalizeRuntimeText(snapshot.state)
-  const stateMeta = PRINT_STATE_LABELS[printState] ?? PRINT_STATE_LABELS[runtimeState]
+  const stateMeta = PRINT_STATE_LABELS[printState]
 
   if (stateMeta !== undefined) {
     const notificationSeverity = stateMeta.notify === true && stateMeta.severity !== 'normal'
@@ -196,6 +191,6 @@ export function resolvePrinterDisplayStatus(snapshot: PrinterDisplayStatusInput)
     label: 'Состояние неизвестно',
     details: message,
     severity: 'warning',
-    notification: buildNotification('Состояние неизвестно', message || snapshot.state || 'Нет данных о состоянии.', 'warning'),
+    notification: buildNotification('Состояние неизвестно', message || 'Нет данных о состоянии.', 'warning'),
   }
 }
