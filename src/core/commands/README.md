@@ -33,6 +33,6 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 - Runtime block reasons берутся из `getTreeDCommandBlockReason`.
 - Аргументы команд валидируются через `getTreeDCommandArgumentError`; границы движения берутся из `toolhead.axis_minimum/axis_maximum`, а температурные потолки — из совместимого UI-контракта.
 - Риск команды и требование confirmation хранятся в общем `TREE_D_COMMAND_CATALOG`, а не выводятся из текста кнопки.
-- Стандартные Moonraker system actions требуют совместимого UI-контракта, online-транспорта Moonraker и повторного подтверждения.
+- Стандартные Moonraker system actions требуют совместимого UI-контракта, online-транспорта Moonraker и повторного подтверждения. Перезапуск Klipper/Moonraker и питание host дополнительно блокируются во время печати, подготовки, восстановления и калибровки.
 - Ошибка Moonraker или timeout возвращается как явный failed result/error, без silent-fail.
 - Новые общие command types/rules сначала добавляются в `packages/printer-logic`, затем подключаются здесь.

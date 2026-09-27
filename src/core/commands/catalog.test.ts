@@ -328,23 +328,32 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     })).toContain('TESTZ')
   })
 
-  it('allows confirmed host power and service commands without capability flags', () => {
-    expect(getTreeDCommandBlockReason('rebootHost', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('shutdownHost', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('restartKlipper', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('firmwareRestart', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('restartUi', PRINTING_CONTEXT)).toBeNull()
-    expect(getTreeDCommandBlockReason('restartMoonraker', PRINTING_CONTEXT)).toBeNull()
-
+  it('blocks disruptive system commands during active print phases', () => {
+    for (const state of ['printing', 'paused', 'preparing', 'recovery', 'calibration']) {
+      for (const command of ['rebootHost', 'shutdownHost', 'restartKlipper', 'firmwareRestart', 'restartMoonraker'] as const) {
+        expect(getTreeDCommandBlockReason(command, {
+          ...IDLE_CONTEXT,
+          printJob: { state, isActive: false, isPaused: false },
+        })).toContain('системное действие недоступно')
+      }
+    }
     expect(getTreeDCommandBlockReason('rebootHost', {
-      ...PRINTING_CONTEXT,
+      ...IDLE_CONTEXT,
+      printJob: { state: 'standby', isActive: true, isPaused: false },
+    })).toContain('системное действие недоступно')
+    expect(getTreeDCommandBlockReason('restartUi', PRINTING_CONTEXT)).toBeNull()
+  })
+
+  it('allows confirmed host power and service commands without capability flags when idle', () => {
+    expect(getTreeDCommandBlockReason('rebootHost', {
+      ...IDLE_CONTEXT,
       capabilities: {
         ...ALL_CAPABILITIES,
         power: false,
       },
     })).toBeNull()
     expect(getTreeDCommandBlockReason('restartKlipper', {
-      ...PRINTING_CONTEXT,
+      ...IDLE_CONTEXT,
       capabilities: {
         ...ALL_CAPABILITIES,
         serviceCommands: false,
@@ -360,15 +369,15 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       'restartMoonraker',
     ] as const) {
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'shutdown',
       })).toBeNull()
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'degraded',
       })).toBeNull()
       expect(getTreeDCommandBlockReason(command, {
-        ...PRINTING_CONTEXT,
+        ...IDLE_CONTEXT,
         connection: 'offline',
         transportState: 'offline',
       })).toContain('Moonraker')

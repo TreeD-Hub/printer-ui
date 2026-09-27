@@ -1386,6 +1386,14 @@ const DIRECT_MOONRAKER_SYSTEM_COMMANDS = new Set<PrinterCommandId>([
   'restartUi',
   'restartMoonraker',
 ])
+const SYSTEM_DISRUPTIVE_COMMANDS = new Set<PrinterCommandId>([
+  'rebootHost',
+  'shutdownHost',
+  'restartKlipper',
+  'firmwareRestart',
+  'restartMoonraker',
+])
+const SYSTEM_DISRUPTIVE_STATES = new Set(['printing', 'paused', 'preparing', 'recovery', 'calibration'])
 const FAILSAFE_COMMANDS = new Set<PrinterCommandId>([
   'emergencyStop',
   'turnOffHeaters',
@@ -1524,6 +1532,13 @@ function getCommandSpecificBlockReason(
   }
   const activePrint = hasActivePrint(context)
   const pausedPrint = hasPausedPrint(context)
+
+  if (
+    SYSTEM_DISRUPTIVE_COMMANDS.has(command) &&
+    (activePrint || SYSTEM_DISRUPTIVE_STATES.has(normalizeState(context.printJob?.state)))
+  ) {
+    return `${item.label}: системное действие недоступно во время печати, подготовки, восстановления или калибровки.`
+  }
 
   if (command === 'excludeObject' || args?.command === 'excludeObject') {
     return getExcludeObjectBlockReason(context, args)
