@@ -1,18 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from 'react'
 
-const DEFAULT_SLEEP_TIMEOUT_MS = 5 * 60 * 1000
 const WAKE_GUARD_MS = 250
-
-const SLEEP_TIMEOUTS_MS: Record<string, number> = {
-  '30 сек': 30 * 1000,
-  '1 мин': 60 * 1000,
-  '5 мин': DEFAULT_SLEEP_TIMEOUT_MS,
-  '10 мин': 10 * 60 * 1000,
-}
-
-export function getScreenSleepTimeoutMs(value: string): number {
-  return SLEEP_TIMEOUTS_MS[value] ?? DEFAULT_SLEEP_TIMEOUT_MS
-}
 
 type ScreenSleepGuardProps = {
   timeoutMs: number

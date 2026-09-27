@@ -186,7 +186,7 @@ export function useExcludeObjectController({
       return
     }
 
-    if (!isPrintJobActive(snapshot.printJob)) {
+    if (!isPrintJobActive({ state: snapshot.printJob.state })) {
       close()
       return
     }

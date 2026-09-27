@@ -1,7 +1,7 @@
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createHostNetworkClient, createHostUpdateClient } from '#runtime'
 import { AppScreenContent } from './app/AppScreenContent'
-import { getScreenSleepTimeoutMs, ScreenSleepGuard } from './app/ScreenSleepGuard'
+import { ScreenSleepGuard } from './app/ScreenSleepGuard'
 import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
@@ -66,6 +66,17 @@ const DEFAULT_SYSTEM_STATUS_POLL_INTERVAL_MS = 10_000
 const OPEN_SETTINGS_SYSTEM_STATUS_POLL_INTERVAL_MS = 5_000
 const MAINTENANCE_USAGE_REFRESH_INTERVAL_MS = 60 * 60 * 1000
 const TOOLHEAD_LIGHT_UNAVAILABLE_REASON = 'Подсветка ПГ: команда пока не подключена к runtime.'
+const DEFAULT_SLEEP_TIMEOUT_MS = 5 * 60 * 1000
+const SLEEP_TIMEOUTS_MS: Record<string, number> = {
+  '30 сек': 30 * 1000,
+  '1 мин': 60 * 1000,
+  '5 мин': DEFAULT_SLEEP_TIMEOUT_MS,
+  '10 мин': 10 * 60 * 1000,
+}
+
+function getScreenSleepTimeoutMs(value: string): number {
+  return SLEEP_TIMEOUTS_MS[value] ?? DEFAULT_SLEEP_TIMEOUT_MS
+}
 type KeyboardTarget = 'idleNotes' | SettingsKeyboardTarget
 const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
   connecting: 'Подключение',
