@@ -153,32 +153,26 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
   switch (args.command) {
     case 'start':
       updateMockSnapshot((snapshot) => {
-        snapshot.state = 'printing'
         snapshot.printJob = {
           ...snapshot.printJob,
           filename: args.filename,
           filePath: args.filename,
           state: 'printing',
           message: 'Mock print active',
-          isActive: true,
-          isPaused: false,
         }
         snapshot.excludeObjects = createMockExcludeObjects()
       })
       return
     case 'cancel':
       updateMockSnapshot((snapshot) => {
-        snapshot.state = 'ready'
         snapshot.printJob = {
           ...snapshot.printJob,
           filename: '',
           filePath: null,
-          state: 'ready',
+          state: 'idle',
           message: 'Ready for local mock print',
           progress: 0,
           progressPercent: 0,
-          isActive: false,
-          isPaused: false,
         }
         snapshot.excludeObjects = createUnavailableMockExcludeObjects()
       })
@@ -367,10 +361,8 @@ export function createMockSnapshot(): PrinterSnapshot {
       state: 'ready',
       message: 'TreeD V2 runtime mock',
     },
-    connection: 'online',
     wifiSsid: 'TreeD-Lab',
     ipAddress: '192.168.0.21',
-    state: 'ready',
     toolheadX: 125,
     toolheadY: 125,
     toolheadZ: 12.4,
@@ -452,7 +444,7 @@ export function createMockSnapshot(): PrinterSnapshot {
     printJob: {
       filename: '',
       filePath: null,
-      state: 'ready',
+      state: 'idle',
       message: 'Ready for local mock print',
       progress: 0,
       progressPercent: 0,
@@ -461,15 +453,12 @@ export function createMockSnapshot(): PrinterSnapshot {
       filamentUsedMm: 0,
       currentLayer: null,
       totalLayer: null,
-      isPaused: false,
-      isActive: false,
     },
     excludeObjects: createUnavailableMockExcludeObjects(),
     files: {
       type: 'virtual_sdcard',
       path: null,
       progress: 0,
-      isActive: false,
       filePosition: 0,
       fileSize: null,
     },
@@ -585,7 +574,6 @@ export function createTransportClient(): TransportClient {
         files: snapshot.files,
         message: snapshot.message,
         printJob: snapshot.printJob,
-        state: snapshot.state,
         updatedAt: snapshot.updatedAt,
       }
     },
@@ -607,7 +595,6 @@ export function createTransportClient(): TransportClient {
         geometry: snapshot.geometry,
         homedAxes: snapshot.homedAxes,
         message: snapshot.message,
-        state: snapshot.state,
         toolhead: snapshot.toolhead,
         toolheadX: snapshot.toolheadX,
         toolheadY: snapshot.toolheadY,

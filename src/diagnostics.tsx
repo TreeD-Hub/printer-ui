@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import type { PrinterSnapshot } from './core/transport/types'
+import { isPrintJobActive, type PrinterSnapshot } from './core/transport/types'
 
 export type RuntimeDiagnosticKind = 'react-render' | 'window-error' | 'unhandled-rejection'
 
@@ -144,8 +144,8 @@ export function createDiagnosticReport(snapshot: PrinterSnapshot, uiVersion: str
     job: {
       filename: snapshot.printJob.filename,
       state: snapshot.printJob.state,
-      isActive: snapshot.printJob.isActive,
-      isPaused: snapshot.printJob.isPaused,
+      isActive: isPrintJobActive(snapshot.printJob),
+      isPaused: snapshot.printJob.state === 'paused',
     },
     revisions: snapshot.revisions,
     lastSnapshotAt: snapshot.updatedAt,

@@ -32,7 +32,7 @@ describe('useMaintenanceController', () => {
   it('calculates runtime from Moonraker usage and active print duration', async () => {
     const printJob = {
       ...createMockSnapshot().printJob,
-      isActive: true,
+      state: 'printing' as const,
       printDurationSec: 30 * 60,
     }
     const { result } = renderHook(() => useMaintenanceController({

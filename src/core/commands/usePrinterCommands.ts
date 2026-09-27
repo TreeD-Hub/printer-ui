@@ -70,11 +70,11 @@ function isCommandConfirmed(
       return context.printJob?.state.toLowerCase() === 'printing' && currentFilename === expectedFilename
     }
     case 'pause':
-      return context.printJob?.isPaused === true || context.printJob?.state.toLowerCase() === 'paused'
+      return context.printJob?.state.toLowerCase() === 'paused'
     case 'resume':
-      return context.printJob?.isActive === true && context.printJob.isPaused === false && context.printJob.state.toLowerCase() === 'printing'
+      return context.printJob?.state.toLowerCase() === 'printing'
     case 'cancel':
-      return context.printJob?.isActive === false && !['printing', 'paused'].includes(context.printJob.state.toLowerCase())
+      return context.printJob !== undefined && !['preparing', 'printing', 'paused'].includes(context.printJob.state.toLowerCase())
     case 'turnOffHeaters':
       return isNear(context.thermalTargets?.nozzle, 0) && isNear(context.thermalTargets?.bed, 0)
     case 'setNozzleTarget':

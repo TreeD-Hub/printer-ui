@@ -13,7 +13,7 @@ import {
   setMockNetworkStatus,
   setMockTransportSnapshot,
 } from '../mocks/runtime'
-import type { PrinterSnapshot } from './core/transport/types'
+import { getPrinterConnectionState, isPrintJobActive, type PrinterSnapshot } from './core/transport/types'
 import { createLoadingMoonrakerSystemStatus, type MoonrakerSystemStatus } from './settings/systemStatus'
 
 const systemStatusMock = vi.hoisted(() => ({
@@ -98,7 +98,6 @@ describe('App', () => {
     applyPrinterSnapshot({
       ...snapshot,
       source: 'live',
-      connection: 'shutdown',
       transport: {
         ...snapshot.transport,
         state: 'online',
@@ -129,8 +128,6 @@ describe('App', () => {
     applyPrinterSnapshot({
       ...snapshot,
       source: 'live',
-      connection: 'shutdown',
-      state: 'printing',
       transport: {
         ...snapshot.transport,
         state: 'online',
@@ -146,8 +143,6 @@ describe('App', () => {
         state: 'printing',
         progress: 0.4,
         progressPercent: 40,
-        isActive: true,
-        isPaused: false,
       },
     })
 
@@ -162,7 +157,6 @@ describe('App', () => {
     applyPrinterSnapshot({
       ...snapshot,
       source: 'live',
-      connection: 'shutdown',
       transport: {
         ...snapshot.transport,
         state: 'online',
@@ -238,7 +232,6 @@ describe('App', () => {
     const diagnostic = await screen.findByTestId('dashboard-diagnostic')
     const shutdownSnapshot: PrinterSnapshot = {
       ...liveSnapshot,
-      connection: 'shutdown',
       klippy: {
         state: 'shutdown',
         message: 'MCU shutdown',
@@ -273,7 +266,7 @@ describe('App', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Стоп' })).toBeInTheDocument()
     })
-    expect(getPrinterSnapshot().printJob.isActive).toBe(true)
+    expect(isPrintJobActive(getPrinterSnapshot().printJob)).toBe(true)
 
     fireEvent.click(screen.getByRole('button', { name: 'Стоп' }))
     expect(screen.getByTestId('print-cancel-modal')).toBeInTheDocument()
@@ -283,7 +276,7 @@ describe('App', () => {
       expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
     })
     expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
-    expect(getPrinterSnapshot().printJob.isActive).toBe(false)
+    expect(isPrintJobActive(getPrinterSnapshot().printJob)).toBe(false)
   }, 10000)
 
   it('switches print state between pause and print from the pause button', async () => {
@@ -336,7 +329,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('online')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
     })
 
     const previousSnapshot = getPrinterSnapshot()
@@ -346,7 +339,6 @@ describe('App', () => {
         ...previousSnapshot,
         source: 'live',
         updatedAt: '2026-06-25T09:15:00',
-        state: 'printing',
         printJob: {
           ...previousSnapshot.printJob,
           filename: 'queue/very_long_calibration_tower_for_scroll.gcode',
@@ -356,8 +348,6 @@ describe('App', () => {
           progressPercent: 25,
           currentLayer: 12,
           totalLayer: 48,
-          isActive: true,
-          isPaused: false,
         },
         printFiles: [
           {
@@ -410,8 +400,6 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        connection: 'online',
-        state: 'printing',
         printJob: {
           ...previousSnapshot.printJob,
           filename: 'queue/object_plate.gcode',
@@ -419,8 +407,6 @@ describe('App', () => {
           state: 'printing',
           progress: 0.35,
           progressPercent: 35,
-          isActive: true,
-          isPaused: false,
         },
         excludeObjects: {
           supported: true,
@@ -525,8 +511,6 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        connection: 'online',
-        state: 'printing',
         extruderTemp: 193.4,
         bedTemp: 52.7,
         modelFanPercent: 37,
@@ -545,8 +529,6 @@ describe('App', () => {
           state: 'printing',
           progress: 0.42,
           progressPercent: 42,
-          isActive: true,
-          isPaused: false,
         },
       })
 
@@ -575,8 +557,6 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        connection: 'online',
-        state: 'printing',
         runtimeTune: {
           ...previousSnapshot.runtimeTune,
           speedFactorPercent: 123,
@@ -591,8 +571,6 @@ describe('App', () => {
           state: 'printing',
           progress: 0.42,
           progressPercent: 42,
-          isActive: true,
-          isPaused: false,
         },
       })
 
@@ -736,7 +714,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('online')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
     })
 
     const previousSnapshot = getPrinterSnapshot()
@@ -748,13 +726,10 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        state: 'printing',
         printJob: {
           ...previousSnapshot.printJob,
           filename: 'bearing_bracket_mk2.gcode',
           state: 'printing',
-          isActive: true,
-          isPaused: false,
         },
       })
 
@@ -766,13 +741,10 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        state: 'complete',
         printJob: {
           ...previousSnapshot.printJob,
           filename: 'bearing_bracket_mk2.gcode',
           state: 'complete',
-          isActive: false,
-          isPaused: false,
         },
       })
 
@@ -923,7 +895,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('online')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
     })
 
     const previousSnapshot = getPrinterSnapshot()
@@ -936,13 +908,10 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        state: 'printing',
         printJob: {
           ...previousSnapshot.printJob,
           filename: 'bearing_bracket_mk2.gcode',
           state: 'printing',
-          isActive: true,
-          isPaused: false,
         },
       })
 
@@ -988,7 +957,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('online')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
     })
 
     const previousSnapshot = getPrinterSnapshot()
@@ -997,13 +966,10 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        state: 'printing',
         printJob: {
           ...previousSnapshot.printJob,
           filename: 'bearing_bracket_mk2.gcode',
           state: 'printing',
-          isActive: true,
-          isPaused: false,
         },
       })
 
@@ -1030,7 +996,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('online')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
     })
 
     const previousSnapshot = getPrinterSnapshot()
@@ -1064,7 +1030,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('online')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
     })
 
     const previousSnapshot = getPrinterSnapshot()
@@ -1376,17 +1342,20 @@ describe('App', () => {
     const snapshot = createMockSnapshot()
     applyPrinterSnapshot({
       ...snapshot,
-      connection: 'shutdown',
       transport: {
         ...snapshot.transport,
         state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: 'Klipper shutdown',
       },
     })
 
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('shutdown')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('shutdown')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
@@ -1406,7 +1375,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('online')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
@@ -1441,7 +1410,7 @@ describe('App', () => {
     render(<App />)
 
     await waitFor(() => {
-      expect(getPrinterSnapshot().connection).toBe('online')
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Питание' }))

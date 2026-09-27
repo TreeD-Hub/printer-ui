@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_PRINTER_SNAPSHOT, setPrinterSnapshot } from './printerStore'
 import { usePrinterSnapshot } from './usePrinterSnapshot'
-import type { PrinterSnapshot, TransportSubscriptionHandlers } from '../transport/types'
+import { getPrinterConnectionState, type PrinterSnapshot, type TransportSubscriptionHandlers } from '../transport/types'
 
 const runtimeMocks = vi.hoisted(() => ({
   fetchSnapshot: vi.fn(),
@@ -57,7 +57,8 @@ function createSnapshot(eventtime: number | null, extruderTemp: number, toolhead
 
 function applyRuntimeFields(snapshot: PrinterSnapshot, seed: number): PrinterSnapshot {
   snapshot.revisions.printerObjects.eventtime = seed
-  snapshot.connection = seed % 2 === 0 ? 'online' : 'degraded'
+  snapshot.transport = { state: 'online', message: null }
+  snapshot.uiContract.status = seed % 2 === 0 ? 'compatible' : 'legacy'
   snapshot.klippy = {
     state: seed % 2 === 0 ? 'ready' : 'startup',
     message: `klippy-${seed}`,
@@ -73,17 +74,15 @@ function applyRuntimeFields(snapshot: PrinterSnapshot, seed: number): PrinterSna
   snapshot.printJob = {
     ...snapshot.printJob,
     filename: `job-${seed}.gcode`,
-    state: seed % 2 === 0 ? 'printing' : 'standby',
+    state: seed % 2 === 0 ? 'printing' : 'idle',
     progress: seed / 100,
     progressPercent: seed,
-    isActive: seed % 2 === 0,
   }
   snapshot.files = {
     ...snapshot.files,
     type: 'virtual_sdcard',
     path: `job-${seed}.gcode`,
     progress: seed / 100,
-    isActive: seed % 2 === 0,
   }
   snapshot.toolhead = {
     ...snapshot.toolhead,
@@ -109,7 +108,7 @@ function expectRuntimeFields(snapshot: PrinterSnapshot, seed: number): void {
   expect(snapshot.mainLightEnabled).toBe(seed % 2 === 0)
   expect(snapshot.printJob).toEqual(expect.objectContaining({
     filename: `job-${seed}.gcode`,
-    state: seed % 2 === 0 ? 'printing' : 'standby',
+    state: seed % 2 === 0 ? 'printing' : 'idle',
     progress: seed / 100,
   }))
   expect(snapshot.files).toEqual(expect.objectContaining({
@@ -121,7 +120,7 @@ function expectRuntimeFields(snapshot: PrinterSnapshot, seed: number): void {
     rawY: seed + 1,
     rawZ: seed + 2,
   }))
-  expect(snapshot.connection).toBe(seed % 2 === 0 ? 'online' : 'degraded')
+  expect(getPrinterConnectionState(snapshot)).toBe(seed % 2 === 0 ? 'online' : 'connecting')
   expect(snapshot.klippy.state).toBe(seed % 2 === 0 ? 'ready' : 'startup')
 }
 
@@ -131,7 +130,6 @@ function toPrintJobState(snapshot: PrinterSnapshot) {
     files: snapshot.files,
     message: snapshot.message,
     printJob: snapshot.printJob,
-    state: snapshot.state,
     updatedAt: snapshot.updatedAt,
   }
 }
@@ -675,7 +673,6 @@ describe('usePrinterSnapshot', () => {
       geometry: initial.geometry,
       homedAxes: initial.homedAxes,
       message: initial.message,
-      state: initial.state,
       toolhead: initial.toolhead,
       toolheadX: initial.toolheadX,
       toolheadY: initial.toolheadY,

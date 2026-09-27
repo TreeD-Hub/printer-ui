@@ -5,6 +5,7 @@ import {
   type MoonrakerObjectsQueryPayload,
 } from './moonrakerNormalizer'
 import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
+import { getPrinterConnectionState } from './types'
 
 function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']>): MoonrakerObjectsQueryPayload {
   return {
@@ -209,7 +210,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     }))
 
     expect(snapshot.uiContract.status).toBe('incompatible')
-    expect(snapshot.connection).toBe('degraded')
+    expect(getPrinterConnectionState(snapshot)).toBe('degraded')
     expect(Object.values(snapshot.capabilities).every((enabled) => enabled === false)).toBe(true)
   })
 
@@ -523,7 +524,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     )
 
     expect(snapshot.source).toBe('live')
-    expect(snapshot.connection).toBe('degraded')
+    expect(getPrinterConnectionState(snapshot)).toBe('degraded')
     expect(snapshot.hardware).toEqual({
       marker: 'treed-v2',
       profile: 'treed_v2_corexy_v1',
@@ -536,7 +537,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     })
     expect(snapshot.uiContract.status).toBe('legacy')
     expect(Object.values(snapshot.capabilities).every((enabled) => enabled === false)).toBe(true)
-    expect(snapshot.state).toBe('printing')
+    expect(snapshot.printJob.state).toBe('printing')
     expect(snapshot.message).toBe('Printing benchy')
     expect(snapshot.toolheadX).toBe(120.5)
     expect(snapshot.toolheadY).toBe(95.25)
@@ -560,8 +561,6 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       filamentUsedMm: 512.4,
       currentLayer: 24,
       totalLayer: 96,
-      isPaused: false,
-      isActive: true,
     })
     expect(snapshot.excludeObjects).toEqual({
       supported: true,
@@ -608,7 +607,6 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       type: 'virtual_sdcard',
       path: '/gcodes/jobs/benchy.gcode',
       progress: 0.48,
-      isActive: true,
       filePosition: 153600,
       fileSize: 320000,
     })
@@ -642,14 +640,15 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
   })
 
   it.each([
-    { state: 'printing', pauseResume: false, isActive: true },
-    { state: 'paused', pauseResume: false, isActive: true },
-    { state: 'unknown', pauseResume: true, isActive: true },
-    { state: 'complete', pauseResume: false, isActive: false },
-    { state: 'cancelled', pauseResume: false, isActive: false },
-    { state: 'error', pauseResume: false, isActive: false },
-    { state: 'standby', pauseResume: false, isActive: false },
-  ])('normalizes print activity for state $state and pause=$pauseResume', ({ state, pauseResume, isActive }) => {
+    { state: 'printing', pauseResume: false, expected: 'printing' },
+    { state: 'paused', pauseResume: false, expected: 'paused' },
+    { state: 'unknown', pauseResume: true, expected: 'paused' },
+    { state: 'complete', pauseResume: false, expected: 'complete' },
+    { state: 'cancelled', pauseResume: false, expected: 'cancelled' },
+    { state: 'error', pauseResume: false, expected: 'error' },
+    { state: 'standby', pauseResume: false, expected: 'idle' },
+    { state: 'pending', pauseResume: false, expected: 'preparing' },
+  ])('normalizes print activity for state $state and pause=$pauseResume', ({ state, pauseResume, expected }) => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
       print_stats: {
         filename: 'jobs/state-check.gcode',
@@ -664,11 +663,17 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       },
     }))
 
-    expect(snapshot.printJob).toMatchObject({
-      state,
-      isPaused: state === 'paused' || pauseResume,
-      isActive,
-    })
+    expect(snapshot.printJob.state).toBe(expected)
+  })
+
+  it('keeps a completed job terminal when auxiliary activity flags are stale', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      print_stats: { state: 'complete' },
+      virtual_sdcard: { is_active: true },
+      pause_resume: { is_paused: true },
+    }))
+
+    expect(snapshot.printJob.state).toBe('complete')
   })
 
   it('maps shutdown and offline payloads to the expected connection state', () => {
@@ -690,11 +695,9 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       }),
     )
 
-    expect(shutdownSnapshot.connection).toBe('shutdown')
-    expect(shutdownSnapshot.state).toBe('shutdown')
+    expect(getPrinterConnectionState(shutdownSnapshot)).toBe('shutdown')
     expect(shutdownSnapshot.message).toBe('Klipper is shutting down')
-    expect(offlineSnapshot.connection).toBe('offline')
-    expect(offlineSnapshot.state).toBe('error')
+    expect(getPrinterConnectionState(offlineSnapshot)).toBe('offline')
     expect(offlineSnapshot.message).toBe('Klippy disconnected')
   })
 
@@ -717,7 +720,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       }),
     )
 
-    expect(snapshot.connection).toBe('degraded')
+    expect(getPrinterConnectionState(snapshot)).toBe('degraded')
     expect(snapshot.hardware.profile).toBe('treed_v2_corexy_v1')
     expect(snapshot.hardware.marker).toBe('treed-v2')
     expect(snapshot.hardware.model).toBe('TreeD V2')
@@ -777,12 +780,11 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       model: 'TreeD V2',
       revision: null,
     })
-    expect(snapshot.connection).toBe('degraded')
+    expect(getPrinterConnectionState(snapshot)).toBe('degraded')
     expect(snapshot.files).toEqual({
       type: 'unknown',
       path: null,
       progress: 0,
-      isActive: false,
       filePosition: 0,
       fileSize: null,
     })
@@ -812,7 +814,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     expect(snapshot.printJob).toEqual({
       filename: '',
       filePath: null,
-      state: 'ready',
+      state: 'unknown',
       message: '',
       progress: 0,
       progressPercent: 0,
@@ -821,8 +823,6 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       filamentUsedMm: 0,
       currentLayer: null,
       totalLayer: null,
-      isPaused: false,
-      isActive: false,
     })
   })
 
@@ -844,11 +844,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       },
     }))
 
-    expect(snapshot.printJob).toMatchObject({
-      state: 'paused',
-      isPaused: true,
-      isActive: true,
-    })
+    expect(snapshot.printJob.state).toBe('paused')
   })
 
   it('marks exclude_object as unavailable when Moonraker does not publish it', () => {

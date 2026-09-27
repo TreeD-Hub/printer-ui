@@ -5,7 +5,7 @@ import {
 } from '@treed/printer-logic'
 
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
-import type { PrinterSnapshot } from '../core/transport/types'
+import { isPrintJobActive, type PrinterSnapshot } from '../core/transport/types'
 import { DASHBOARD_VALUES } from '../dashboard/config'
 import { statusLabel } from '../dashboard/helpers'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from '../printFiles'
@@ -16,8 +16,6 @@ const DASHBOARD_FILE_NAME_VISIBLE_CHARS = 20
 type CommandRuntimePrintJob = {
   filename?: string
   state: string
-  isActive: boolean
-  isPaused: boolean
 }
 
 type UsePrintSessionControllerArgs = {
@@ -84,6 +82,7 @@ export function usePrintSessionController({
   const [isPrintCancelConfirmOpen, setIsPrintCancelConfirmOpen] = useState<boolean>(false)
 
   const files = snapshot.source === 'live' ? snapshot.printFiles : filesLibrary
+  const jobActive = isPrintJobActive(snapshot.printJob)
   const selectedPrintFile = useMemo(() => {
     if (selectedFileId === null) {
       return null
@@ -93,14 +92,14 @@ export function usePrintSessionController({
   }, [files, selectedFileId])
 
   const liveActivePrintFile = useMemo(() => {
-    if (snapshot.source !== 'live' || !snapshot.printJob.isActive) {
+    if (snapshot.source !== 'live' || !jobActive) {
       return null
     }
 
     return findActivePrintFile(files, snapshot.printJob.filePath, snapshot.printJob.filename)
-  }, [files, snapshot.printJob.filePath, snapshot.printJob.filename, snapshot.printJob.isActive, snapshot.source])
+  }, [files, jobActive, snapshot.printJob.filePath, snapshot.printJob.filename, snapshot.source])
   const activePrintFile = snapshot.source === 'live' ? liveActivePrintFile : mockActivePrintFile
-  const displayPrintFileName = snapshot.source === 'live' && snapshot.printJob.isActive
+  const displayPrintFileName = snapshot.source === 'live' && jobActive
     ? (activePrintFile?.name ?? getPrinterFileNameFromPath(snapshot.printJob.filePath ?? snapshot.printJob.filename))
     : activePrintFileName
   const hasActivePrint = displayPrintFileName !== null
@@ -122,8 +121,8 @@ export function usePrintSessionController({
   const effectiveActivePrintState = snapshot.source === 'live'
     ? snapshot.printJob.state
     : hasActivePrint
-      ? (activePrintUiState ?? snapshot.state)
-      : snapshot.state
+      ? (activePrintUiState ?? snapshot.printJob.state)
+      : snapshot.printJob.state
   const isPrintPaused = hasActivePrint && statusLabel(effectiveActivePrintState) === 'Пауза'
   const printPauseCommand: Extract<PrinterCommandId, 'pause' | 'resume'> = isPrintPaused ? 'resume' : 'pause'
 
@@ -132,22 +131,16 @@ export function usePrintSessionController({
       ? {
           state: snapshot.printJob.state,
           filename: snapshot.printJob.filename,
-          isActive: snapshot.printJob.isActive,
-          isPaused: snapshot.printJob.isPaused,
         }
       : {
           state: activePrintUiState ??
             (activePrintFileName === null ? snapshot.printJob.state : 'printing'),
           filename: activePrintFileName ?? snapshot.printJob.filename,
-          isActive: activePrintFileName !== null,
-          isPaused: activePrintUiState === 'paused',
         }
   ), [
     activePrintFileName,
     activePrintUiState,
-    snapshot.printJob.isActive,
     snapshot.printJob.filename,
-    snapshot.printJob.isPaused,
     snapshot.printJob.state,
     snapshot.source,
   ])
@@ -314,13 +307,13 @@ export function usePrintSessionController({
       return
     }
 
-    if (snapshot.state.toLowerCase() === activePrintUiState) {
+    if (snapshot.printJob.state === activePrintUiState) {
       setActivePrintUiState(null)
     }
-  }, [activePrintUiState, hasActivePrint, snapshot.state])
+  }, [activePrintUiState, hasActivePrint, snapshot.printJob.state])
 
   useEffect(() => {
-    if (snapshot.source !== 'live' || !snapshot.printJob.isActive || refreshPrintFileMetadata === undefined) {
+    if (snapshot.source !== 'live' || !jobActive || refreshPrintFileMetadata === undefined) {
       return
     }
 
@@ -341,7 +334,7 @@ export function usePrintSessionController({
     refreshPrintFileMetadata,
     snapshot.printJob.filePath,
     snapshot.printJob.filename,
-    snapshot.printJob.isActive,
+    jobActive,
     snapshot.source,
   ])
 

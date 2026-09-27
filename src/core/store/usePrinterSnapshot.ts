@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createTransportClient } from '#runtime'
 import { recordOperationalDiagnostic } from '../../diagnostics'
+import { getPrinterConnectionState } from '../transport/types'
 import type {
   FilamentSensorSnapshot,
   PrinterEddyStateSnapshot,
@@ -9,6 +10,7 @@ import type {
   PrinterPrintFilesMetadataSnapshot,
   PrinterPrintFilesStateSnapshot,
   PrinterPrintJobStateSnapshot,
+  PrinterConnectionState,
   PrinterSnapshot,
   PrinterUsageSnapshot,
 } from '../transport/types'
@@ -80,15 +82,7 @@ function mergeHttpSupplementalSnapshot(previous: PrinterSnapshot, next: PrinterS
   }
 }
 
-function getFailureConnection(previous: PrinterSnapshot): PrinterSnapshot['connection'] {
-  if (previous.connection === 'shutdown') {
-    return 'shutdown'
-  }
-
-  return previous.connection === 'offline' ? 'offline' : 'reconnecting'
-}
-
-function getTransportState(connection: PrinterSnapshot['connection']): PrinterSnapshot['transport']['state'] {
+function getTransportState(connection: PrinterConnectionState): PrinterSnapshot['transport']['state'] {
   if (connection === 'reconnecting' || connection === 'offline' || connection === 'connecting') {
     return connection
   }
@@ -265,7 +259,6 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       snapshotRevisionRef.current += 1
       updatePrinterSnapshot((prev) => ({
         ...prev,
-        connection: getFailureConnection(prev),
         transport: {
           state: getFailureTransportState(prev),
           message: `Ошибка связи: ${message}`,
@@ -315,7 +308,6 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       snapshotRevisionRef.current += 1
       updatePrinterSnapshot((prev) => ({
         ...prev,
-        connection: getFailureConnection(prev),
         transport: {
           state: getFailureTransportState(prev),
           message: `Ошибка связи: ${message}`,
@@ -429,7 +421,6 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         files: printJobState.files,
         message: printJobState.message,
         printJob: printJobState.printJob,
-        state: printJobState.state,
         updatedAt: printJobState.updatedAt,
       }),
       true,
@@ -483,7 +474,6 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         homedAxes: motionState.homedAxes,
         limits: { ...prev.limits, axis: motionState.axisLimits },
         message: motionState.message,
-        state: motionState.state,
         toolhead: motionState.toolhead,
         toolheadX: motionState.toolheadX,
         toolheadY: motionState.toolheadY,
@@ -561,7 +551,6 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         recordOperationalDiagnostic('state-transition', `transport -> ${connection}`, message ?? null)
         updatePrinterSnapshot((prev) => ({
           ...prev,
-          connection,
           transport: {
             state: getTransportState(connection),
             message: message ?? null,
@@ -594,9 +583,8 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     if (client.subscribe !== undefined) {
       updatePrinterSnapshot((prev) => ({
         ...prev,
-        connection: prev.connection === 'online' ? prev.connection : 'connecting',
         transport: {
-          state: prev.transport.state === 'online' ? 'online' : 'connecting',
+          state: getPrinterConnectionState(prev) === 'online' ? 'online' : 'connecting',
           message: null,
         },
         updatedAt: new Date().toISOString(),

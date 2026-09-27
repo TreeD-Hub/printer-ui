@@ -5,15 +5,24 @@ function createInput(message: string): PrinterDisplayStatusInput {
   return {
     connection: 'online',
     message,
-    state: 'ready',
     printJob: {
       message: '',
-      state: 'standby',
+      state: 'idle',
     },
   }
 }
 
 describe('resolvePrinterDisplayStatus', () => {
+  it('keeps cancellation visible as a job outcome', () => {
+    const input = createInput('')
+    input.printJob.state = 'cancelled'
+
+    expect(resolvePrinterDisplayStatus(input)).toMatchObject({
+      label: 'Печать отменена',
+      severity: 'warning',
+    })
+  })
+
   it('keeps active CAN diagnostics out of the error state', () => {
     expect(resolvePrinterDisplayStatus(
       createInput('CAN active, EBB CAN active, can0 ERROR-ACTIVE'),

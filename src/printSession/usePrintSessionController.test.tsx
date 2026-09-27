@@ -67,9 +67,7 @@ function TestHarness({
       <span data-testid="active-state">{controller.effectiveActivePrintState}</span>
       <span data-testid="has-active-print">{String(controller.hasActivePrint)}</span>
       <span data-testid="is-paused">{String(controller.isPrintPaused)}</span>
-      <span data-testid="runtime-active">{String(controller.commandRuntimePrintJob.isActive)}</span>
       <span data-testid="runtime-state">{controller.commandRuntimePrintJob.state}</span>
-      <span data-testid="runtime-paused">{String(controller.commandRuntimePrintJob.isPaused)}</span>
       <span data-testid="notice">{controller.getFileStartNotice(printStartBlockReason) || 'none'}</span>
       <span data-testid="cancel-confirm">{String(controller.isPrintCancelConfirmOpen)}</span>
 
@@ -125,7 +123,6 @@ describe('usePrintSessionController', () => {
     expect(screen.getByTestId('selected-file')).toHaveTextContent('none')
     expect(screen.getByTestId('active-file')).toHaveTextContent(PRINT_FILE_LIBRARY[0].name)
     expect(screen.getByTestId('has-active-print')).toHaveTextContent('true')
-    expect(screen.getByTestId('runtime-active')).toHaveTextContent('true')
     expect(screen.getByTestId('runtime-state')).toHaveTextContent('printing')
   })
 
@@ -171,7 +168,7 @@ describe('usePrintSessionController', () => {
 
     expect(screen.getByTestId('active-state')).toHaveTextContent('paused')
     expect(screen.getByTestId('is-paused')).toHaveTextContent('true')
-    expect(screen.getByTestId('runtime-paused')).toHaveTextContent('true')
+    expect(screen.getByTestId('runtime-state')).toHaveTextContent('paused')
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'request stop' }))
@@ -186,7 +183,6 @@ describe('usePrintSessionController', () => {
     expect(screen.getByTestId('cancel-confirm')).toHaveTextContent('false')
     expect(screen.getByTestId('active-file')).toHaveTextContent('none')
     expect(screen.getByTestId('has-active-print')).toHaveTextContent('false')
-    expect(screen.getByTestId('runtime-active')).toHaveTextContent('false')
   })
 
   it('does not wait for print job refresh after confirmed cancel', async () => {
@@ -233,21 +229,18 @@ describe('usePrintSessionController', () => {
     const liveSnapshot: PrinterSnapshot = {
       ...createMockSnapshot(),
       source: 'live',
-      state: 'printing',
       printJob: {
         ...createMockSnapshot().printJob,
         filename: PRINT_FILE_LIBRARY[0].name,
         filePath: PRINT_FILE_LIBRARY[0].path,
         state: 'printing',
-        isActive: true,
-        isPaused: false,
       },
     }
 
     render(<TestHarness snapshot={liveSnapshot} />)
 
     expect(screen.getByTestId('active-file')).toHaveTextContent(PRINT_FILE_LIBRARY[0].name)
-    expect(screen.getByTestId('runtime-active')).toHaveTextContent('true')
+    expect(screen.getByTestId('runtime-state')).toHaveTextContent('printing')
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'toggle pause' }))
@@ -255,7 +248,7 @@ describe('usePrintSessionController', () => {
 
     expect(screen.getByTestId('active-state')).toHaveTextContent('printing')
     expect(screen.getByTestId('is-paused')).toHaveTextContent('false')
-    expect(screen.getByTestId('runtime-paused')).toHaveTextContent('false')
+    expect(screen.getByTestId('runtime-state')).toHaveTextContent('printing')
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'confirm stop' }))
@@ -263,7 +256,7 @@ describe('usePrintSessionController', () => {
 
     expect(screen.getByTestId('active-file')).toHaveTextContent(PRINT_FILE_LIBRARY[0].name)
     expect(screen.getByTestId('has-active-print')).toHaveTextContent('true')
-    expect(screen.getByTestId('runtime-active')).toHaveTextContent('true')
+    expect(screen.getByTestId('runtime-state')).toHaveTextContent('printing')
   })
 
   it('deletes a live file through runtime and keeps the modal open on failure', async () => {
@@ -322,7 +315,6 @@ describe('usePrintSessionController', () => {
     const liveSnapshot: PrinterSnapshot = {
       ...createMockSnapshot(),
       source: 'live',
-      state: 'printing',
       printFiles: [
         {
           ...PRINT_FILE_LIBRARY[0],
@@ -334,8 +326,6 @@ describe('usePrintSessionController', () => {
         filename: PRINT_FILE_LIBRARY[0].name,
         filePath: PRINT_FILE_LIBRARY[0].path,
         state: 'printing',
-        isActive: true,
-        isPaused: false,
       },
     }
 

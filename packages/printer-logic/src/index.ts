@@ -8,6 +8,7 @@ export type PrinterConnectionState =
   | 'shutdown'
 export type PrinterConnection = PrinterConnectionState
 export type PrinterTransportState = 'connecting' | 'online' | 'reconnecting' | 'offline'
+export type PrinterJobState = 'idle' | 'preparing' | 'printing' | 'paused' | 'complete' | 'cancelled' | 'error' | 'unknown'
 
 export type PrinterCommandId =
   | 'start'
@@ -447,7 +448,7 @@ export interface PrinterSnapshot {
   connection: PrinterConnection
   wifiSsid: string
   ipAddress: string
-  state: string
+  job: { state: PrinterJobState }
   toolheadX: number
   toolheadY: number
   toolheadZ: number
@@ -718,7 +719,7 @@ function resolvePrintAction(
     return baseAvailability
   }
 
-  const printerState = normalizePrinterState(snapshot.state)
+  const printerState = normalizePrinterState(snapshot.job.state)
 
   if (printerState === 'printing') {
     if (action === 'pause' || action === 'cancel') {
@@ -780,7 +781,7 @@ function resolveRegularAction(
     return blocked(SCENARIO_LOCK_REASONS[scenarioLock] ?? 'Сценарий блокирует действие', scenarioLock)
   }
 
-  const printerState = normalizePrinterState(snapshot.state)
+  const printerState = normalizePrinterState(snapshot.job.state)
   if ((group === 'motion' || group === 'parking') && printerState === 'printing') {
     return blocked('Идет печать', 'printing')
   }
@@ -860,8 +861,6 @@ export interface TreeDCommandRuntimeContext {
   printJob?: {
     filename?: string
     state: string
-    isActive: boolean
-    isPaused: boolean
   }
   klippyState?: string
   excludeObjects?: PrinterExcludeObjectSnapshot
@@ -1376,8 +1375,7 @@ export function isDangerousTreeDCommand(command: PrinterCommandId): boolean {
   return TREE_D_COMMAND_CATALOG[command].risk === 'danger'
 }
 
-const ACTIVE_PRINT_STATES = new Set(['printing', 'paused'])
-const PAUSED_PRINT_STATES = new Set(['paused'])
+const ACTIVE_PRINT_STATES = new Set(['preparing', 'printing', 'paused'])
 const DIRECT_MOONRAKER_SYSTEM_COMMANDS = new Set<PrinterCommandId>([
   'rebootHost',
   'shutdownHost',
@@ -1447,19 +1445,11 @@ function normalizeState(value: string | undefined): string {
 }
 
 function hasActivePrint(context: TreeDCommandRuntimeContext): boolean {
-  const state = normalizeState(context.printJob?.state)
-
-  return Boolean(
-    context.printJob?.isActive ||
-    context.printJob?.isPaused ||
-    ACTIVE_PRINT_STATES.has(state),
-  )
+  return ACTIVE_PRINT_STATES.has(normalizeState(context.printJob?.state))
 }
 
 function hasPausedPrint(context: TreeDCommandRuntimeContext): boolean {
-  const state = normalizeState(context.printJob?.state)
-
-  return Boolean(context.printJob?.isPaused || PAUSED_PRINT_STATES.has(state))
+  return normalizeState(context.printJob?.state) === 'paused'
 }
 
 function getExcludeObjectBlockReason(

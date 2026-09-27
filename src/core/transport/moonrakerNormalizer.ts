@@ -1,7 +1,6 @@
 import type {
   PrinterCapabilitiesSnapshot,
   FilamentSensorSnapshot,
-  PrinterConnectionState,
   PrinterEddyCalibrationSnapshot,
   PrinterEddyCalibrationStep,
   PrinterEddyOperatorPrompt,
@@ -9,6 +8,7 @@ import type {
   PrinterFileItemSnapshot,
   PrinterFilesSnapshot,
   PrinterGeometrySnapshot,
+  PrinterJobState,
   PrinterHardwareSnapshot,
   PrinterCameraSnapshot,
   PrinterMacroStateSnapshot,
@@ -144,6 +144,7 @@ export interface MoonrakerSaveVariablesStatus {
 }
 
 export interface MoonrakerNormalizeOptions {
+  availableObjects?: readonly string[]
   source?: PrinterSource
   revisionSource?: PrinterRevisionSource
   transportState?: PrinterTransportState
@@ -253,29 +254,6 @@ function normalizeKlippyState(webhooks?: MoonrakerWebhooksStatus): PrinterRuntim
   return { state: 'disconnected', message }
 }
 
-function normalizeConnectionState(
-  transportState: PrinterTransportState,
-  klippyState: PrinterRuntimeSnapshot['klippy']['state'],
-): PrinterConnectionState {
-  if (transportState !== 'online') {
-    return transportState
-  }
-
-  if (klippyState === 'ready') {
-    return 'online'
-  }
-
-  if (klippyState === 'startup') {
-    return 'connecting'
-  }
-
-  if (klippyState === 'shutdown') {
-    return 'shutdown'
-  }
-
-  return 'offline'
-}
-
 function normalizeToolhead(
   toolhead: MoonrakerToolheadStatus | undefined,
   gcodeMove: MoonrakerGcodeMoveStatus | undefined,
@@ -303,10 +281,19 @@ function normalizeVirtualSdCard(virtualSdCard: MoonrakerVirtualSdCardStatus | un
     type: hasVirtualSdCard ? 'virtual_sdcard' : 'unknown',
     path: virtualSdCard?.file_path ?? null,
     progress: clamp(toFiniteNumber(virtualSdCard?.progress, 0), 0, 1),
-    isActive: Boolean(virtualSdCard?.is_active),
     filePosition: Math.max(0, Math.trunc(toFiniteNumber(virtualSdCard?.file_position, 0))),
     fileSize: virtualSdCard?.file_size == null ? null : Math.max(0, Math.trunc(toFiniteNumber(virtualSdCard.file_size, 0))),
   }
+}
+
+const PRINT_STATS_STATES: Record<string, PrinterJobState | undefined> = {
+  standby: 'idle',
+  pending: 'preparing',
+  printing: 'printing',
+  paused: 'paused',
+  complete: 'complete',
+  cancelled: 'cancelled',
+  error: 'error',
 }
 
 function normalizePrintStats(
@@ -314,15 +301,13 @@ function normalizePrintStats(
   virtualSdCard: MoonrakerVirtualSdCardStatus | undefined,
   displayStatus: MoonrakerDisplayStatus | undefined,
   pauseResume: MoonrakerPauseResumeStatus | undefined,
-  webhooks: MoonrakerWebhooksStatus | undefined,
 ): PrinterPrintJobSnapshot {
   const filename = firstNonEmpty(printStats?.filename, virtualSdCard?.file_path ?? undefined)
-  const state = firstNonEmpty(
-    printStats?.state,
-    webhooks?.state,
-    virtualSdCard?.is_active ? 'printing' : undefined,
-    'unknown',
-  )
+  const rawState = printStats?.state?.trim().toLowerCase()
+  const mappedState = rawState === undefined ? undefined : PRINT_STATS_STATES[rawState]
+  const state: PrinterJobState = mappedState === 'printing' && pauseResume?.is_paused
+    ? 'paused'
+    : mappedState ?? (pauseResume?.is_paused ? 'paused' : virtualSdCard?.is_active ? 'printing' : 'unknown')
   const message = firstNonEmpty(printStats?.message, displayStatus?.message)
   const progress = clamp(
     toFiniteNumber(displayStatus?.progress, toFiniteNumber(virtualSdCard?.progress, 0)),
@@ -330,7 +315,6 @@ function normalizePrintStats(
     1,
   )
   const info = printStats?.info
-  const isPaused = state === 'paused' || Boolean(pauseResume?.is_paused)
 
   return {
     filename,
@@ -344,8 +328,6 @@ function normalizePrintStats(
     filamentUsedMm: toFiniteNumber(printStats?.filament_used, 0),
     currentLayer: toNullableNumber(info?.current_layer),
     totalLayer: toNullableNumber(info?.total_layer),
-    isPaused,
-    isActive: state === 'printing' || isPaused || Boolean(virtualSdCard?.is_active),
   }
 }
 
@@ -786,8 +768,14 @@ export function normalizeMoonrakerPrintFiles(
     .filter((item): item is PrinterFileItemSnapshot => item !== null)
 }
 
-function normalizeMacroValues(status: MoonrakerPrinterObjectsStatus | undefined): PrinterMacroStateSnapshot {
-  const available: string[] = []
+function normalizeMacroValues(
+  status: MoonrakerPrinterObjectsStatus | undefined,
+  availableObjects?: readonly string[],
+): PrinterMacroStateSnapshot {
+  const available: string[] = availableObjects === undefined
+    ? []
+    : availableObjects.filter((name) => name.toLowerCase().startsWith('gcode_macro '))
+      .map((name) => name.slice('gcode_macro '.length))
   const values: Record<string, Record<string, unknown>> = {}
 
   if (!status) {
@@ -800,7 +788,9 @@ function normalizeMacroValues(status: MoonrakerPrinterObjectsStatus | undefined)
     }
 
     const macroName = key.slice('gcode_macro '.length)
-    available.push(macroName)
+    if (!available.includes(macroName)) {
+      available.push(macroName)
+    }
 
     if (isRecord(value)) {
       const normalizedRecord: Record<string, unknown> = {}
@@ -968,13 +958,16 @@ function normalizeLimits(
   const contract = uiContract.status === 'compatible'
     ? readMacro(macros.values, '_TREED_UI_CONTRACT')
     : undefined
+  const x = axisLimit(0)
+  const y = axisLimit(1)
+  const z = axisLimit(2)
   return {
     nozzleMaxC: readContractNumber(contract, 'nozzle_max_c', TREED_V2_COREXY_V1_LIMITS.nozzleMaxC),
     bedMaxC: readContractNumber(contract, 'bed_max_c', TREED_V2_COREXY_V1_LIMITS.bedMaxC),
     axis: {
-      X: axisLimit(0),
-      Y: axisLimit(1),
-      Z: axisLimit(2),
+      ...(x && { X: x }),
+      ...(y && { Y: y }),
+      ...(z && { Z: z }),
     },
   }
 }
@@ -1280,9 +1273,9 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const virtualSdCard = normalizeVirtualSdCard(status.virtual_sdcard)
   const displayStatus = normalizeDisplayStatus(status.display_status)
   const webhooks = normalizeWebhooks(status.webhooks)
-  const printJob = normalizePrintStats(status.print_stats, status.virtual_sdcard, status.display_status, status.pause_resume, status.webhooks)
+  const printJob = normalizePrintStats(status.print_stats, status.virtual_sdcard, status.display_status, status.pause_resume)
   const excludeObjects = normalizeExcludeObjects(status.exclude_object, printJob)
-  const macros = normalizeMacroValues(status)
+  const macros = normalizeMacroValues(status, options.availableObjects)
   const uiContract = normalizeUiContract(macros)
   const filamentSensor = normalizeFilamentSensor(status, macros)
   const capabilities = normalizeCapabilities(macros, uiContract, filamentSensor)
@@ -1292,7 +1285,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const receivedAt = options.receivedAt ?? Date.now()
   const transportState = options.transportState ?? 'online'
   const klippy = normalizeKlippyState(status.webhooks)
-  const connection = normalizeConnectionState(transportState, klippy.state)
+  const isReady = transportState === 'online' && klippy.state === 'ready'
 
   return {
     source,
@@ -1315,12 +1308,8 @@ export function normalizeMoonrakerRuntimeSnapshot(
       message: null,
     },
     klippy,
-    connection: connection === 'online' && uiContract.status !== 'compatible'
-      ? 'degraded'
-      : connection,
     wifiSsid: options.wifiSsid ?? 'Moonraker Network',
     ipAddress: normalizeIpAddress(options.moonrakerUrl),
-    state: firstNonEmpty(printJob.state, webhooks.state, 'unknown'),
     toolheadX: toolhead.x,
     toolheadY: toolhead.y,
     toolheadZ: toolhead.z,
@@ -1331,7 +1320,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     mainLightEnabled: normalizeMainLight(status),
     updatedAt: options.nowIso ?? new Date().toISOString(),
     message: firstNonEmpty(
-      connection === 'online' && uiContract.status === 'incompatible' ? uiContract.message : null,
+      isReady && uiContract.status === 'incompatible' ? uiContract.message : null,
       printJob.message,
       displayStatus.message,
       webhooks.state_message,
@@ -1350,7 +1339,6 @@ export function normalizeMoonrakerRuntimeSnapshot(
           type: 'unknown',
           path: null,
           progress: 0,
-          isActive: false,
           filePosition: 0,
           fileSize: null,
         },
@@ -1380,7 +1368,6 @@ export function normalizeMoonrakerRuntimeSnapshot(
 
 export {
   normalizeCapabilities,
-  normalizeConnectionState,
   normalizeKlippyState,
   normalizeUiContract,
   normalizeDisplayStatus,

@@ -6,6 +6,7 @@ import type {
   PrinterExcludeObjectSnapshot,
   FilamentSensorSnapshot,
   PrinterLimits,
+  PrinterJobState,
   PrinterTransportState,
 } from '@treed/printer-logic'
 
@@ -17,6 +18,7 @@ export type {
   PrinterExcludeObjectSnapshot,
   FilamentSensorSnapshot,
   PrinterLimits,
+  PrinterJobState,
   PrinterTransportState,
 } from '@treed/printer-logic'
 
@@ -103,7 +105,6 @@ export interface PrinterFilesSnapshot {
   type: 'virtual_sdcard' | 'unknown'
   path: string | null
   progress: number
-  isActive: boolean
   filePosition: number
   fileSize: number | null
 }
@@ -127,7 +128,7 @@ export interface PrinterUsageSnapshot {
 export interface PrinterPrintJobSnapshot {
   filename: string
   filePath: string | null
-  state: string
+  state: PrinterJobState
   message: string
   progress: number
   progressPercent: number
@@ -136,8 +137,10 @@ export interface PrinterPrintJobSnapshot {
   filamentUsedMm: number
   currentLayer: number | null
   totalLayer: number | null
-  isPaused: boolean
-  isActive: boolean
+}
+
+export function isPrintJobActive(job: Pick<PrinterPrintJobSnapshot, 'state'>): boolean {
+  return job.state === 'preparing' || job.state === 'printing' || job.state === 'paused'
 }
 
 export interface PrinterMacroStateSnapshot {
@@ -209,10 +212,8 @@ export interface PrinterRuntimeSnapshot {
   revisions: PrinterRuntimeRevisions
   transport: PrinterTransportSnapshot
   klippy: PrinterKlippySnapshot
-  connection: PrinterConnectionState
   wifiSsid: string
   ipAddress: string
-  state: string
   toolheadX: number
   toolheadY: number
   toolheadZ: number
@@ -245,6 +246,18 @@ export interface PrinterRuntimeSnapshot {
 
 export type PrinterSnapshot = PrinterRuntimeSnapshot
 
+export function getPrinterConnectionState(
+  snapshot: Pick<PrinterSnapshot, 'transport' | 'klippy' | 'uiContract'>,
+): PrinterConnectionState {
+  if (snapshot.transport.state !== 'online') return snapshot.transport.state
+  if (snapshot.klippy.state === 'startup') return 'connecting'
+  if (snapshot.klippy.state === 'shutdown') return 'shutdown'
+  if (snapshot.klippy.state !== 'ready') return 'offline'
+  return snapshot.uiContract.status === 'compatible' && snapshot.transport.message === null
+    ? 'online'
+    : 'degraded'
+}
+
 export type PrinterEddyStateSnapshot = Pick<
   PrinterV2Snapshot['eddy'],
   'autosaveEnabled' | 'autosavePending' | 'calibration'
@@ -252,7 +265,7 @@ export type PrinterEddyStateSnapshot = Pick<
 
 export type PrinterPrintJobStateSnapshot = Pick<
   PrinterSnapshot,
-  'excludeObjects' | 'files' | 'message' | 'printJob' | 'state' | 'updatedAt'
+  'excludeObjects' | 'files' | 'message' | 'printJob' | 'updatedAt'
 >
 
 export type PrinterPrintFilesStateSnapshot = Pick<
@@ -267,7 +280,7 @@ export type PrinterPrintFilesMetadataSnapshot = Pick<
 
 export type PrinterMotionStateSnapshot = Pick<
   PrinterSnapshot,
-  'geometry' | 'homedAxes' | 'message' | 'state' | 'toolhead' | 'toolheadX' | 'toolheadY' | 'toolheadZ' | 'updatedAt'
+  'geometry' | 'homedAxes' | 'message' | 'toolhead' | 'toolheadX' | 'toolheadY' | 'toolheadZ' | 'updatedAt'
 > & {
   axisLimits: PrinterLimits['axis']
   eddyStatus: PrinterV2Snapshot['eddy']['status']

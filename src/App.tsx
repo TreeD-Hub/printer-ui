@@ -11,6 +11,7 @@ import {
   type PrinterCommandId,
 } from './core/commands'
 import { usePrinterSnapshot } from './core/store/usePrinterSnapshot'
+import { getPrinterConnectionState } from './core/transport/types'
 import type { DashboardContainerProps } from './dashboard/DashboardContainer'
 import { DashboardStatusDock } from './dashboard/DashboardStatusDock'
 import {
@@ -88,6 +89,7 @@ function App() {
     refreshPrintFileMetadata,
     deletePrintFile,
   } = usePrinterSnapshot()
+  const connection = getPrinterConnectionState(snapshot)
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
@@ -98,7 +100,7 @@ function App() {
       source: snapshot.source,
       capabilities: snapshot.capabilities,
       uiContractStatus: snapshot.uiContract.status,
-      connection: snapshot.connection,
+      connection,
       transportState: snapshot.transport.state,
       printJob: printSessionController.commandRuntimePrintJob,
       klippyState: snapshot.klippy.state,
@@ -122,7 +124,7 @@ function App() {
       snapshot.source,
       snapshot.capabilities,
       snapshot.uiContract.status,
-      snapshot.connection,
+      connection,
       snapshot.extruderTemp,
       snapshot.homedAxes,
       snapshot.klippy.state,
@@ -277,8 +279,8 @@ function App() {
     }
     return parsed.toLocaleTimeString('ru-RU')
   }, [snapshot.updatedAt])
-  const isRuntimeCurrent = snapshot.connection === 'online' || snapshot.connection === 'degraded'
-  const connectionLabel = CONNECTION_LABELS[snapshot.connection]
+  const isRuntimeCurrent = connection === 'online' || connection === 'degraded'
+  const connectionLabel = CONNECTION_LABELS[connection]
   const snapshotWifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
   const snapshotWifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
@@ -318,7 +320,7 @@ function App() {
   }, [refreshSystemStatus, systemTransitionCommand])
   const dashboardDiagnostic = resolveDashboardDiagnostic({
     source: snapshot.source,
-    connection: snapshot.connection,
+    connection,
     transportState: snapshot.transport.state,
     transportMessage: snapshot.transport.message,
     klippyState: snapshot.klippy.state,
@@ -366,7 +368,7 @@ function App() {
   const handleKeyboardClose = useCallback(() => {
     setActiveKeyboardTarget(null)
   }, [])
-  const cloudStatusLabel = isCloudCapabilityAvailable && snapshot.connection === 'online' ? 'В сети' : 'Недоступно'
+  const cloudStatusLabel = isCloudCapabilityAvailable && connection === 'online' ? 'В сети' : 'Недоступно'
   const cloudCapabilityNotice = settingsPageProps.cloud.notice
   const isMaxPerformanceModeEnabled = settingsPageProps.interfaceSettings.isMaxPerformanceModeEnabled
   const printerDisplayStatus = usePrinterDisplayStatus()
@@ -843,7 +845,7 @@ function App() {
             heating: heatingProps,
             fan: fanProps,
             filamentSensor: snapshot.filamentSensor,
-            isFilamentSensorSnapshotStale: snapshot.connection !== 'online' && snapshot.connection !== 'degraded',
+            isFilamentSensorSnapshotStale: connection !== 'online' && connection !== 'degraded',
             commandError,
             isMainLightEnabled: snapshot.mainLightEnabled,
             isToolheadLightEnabled: false,

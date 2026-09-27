@@ -5,6 +5,8 @@ import {
   MoonrakerTransportError,
   normalizeMoonrakerSnapshot,
 } from './moonrakerClient'
+import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
+import { getPrinterConnectionState } from './types'
 
 function moonrakerResponse(result: unknown): Response {
   return {
@@ -32,6 +34,10 @@ function runtimeObjects() {
   }
 }
 
+function runtimeObjectList() {
+  return moonrakerResponse({ objects: MOONRAKER_RUNTIME_OBJECTS })
+}
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((promiseResolve) => {
@@ -56,19 +62,19 @@ describe('normalizeMoonrakerSnapshot', () => {
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_EDDY_Z_OFFSET_AUTOSAVE_STATE')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_SERVICE_COMMANDS')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('output_pin%20chamber_light')
-    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20LIGHT_ON')
-    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20LIGHT_OFF')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).not.toContain('gcode_macro%20LIGHT_ON')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).not.toContain('gcode_macro%20LIGHT_OFF')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('firmware_retraction')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('save_variables')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('filament_switch_sensor%20filament_switch')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('filament_motion_sensor%20filament_motion')
-    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20FILAMENT_SENSOR_SET_MODE')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).not.toContain('gcode_macro%20FILAMENT_SENSOR_SET_MODE')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20FILAMENT_SENSOR_STATUS')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_UI_TUNE_STATE')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_UI_CONTRACT')
     expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_CAMERA')
-    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20_TREED_EDDY_CALIBRATION_STATE')
-    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).toContain('gcode_macro%20TREED_UI_MOVE_AXIS')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).not.toContain('gcode_macro%20_TREED_EDDY_CALIBRATION_STATE')
+    expect(MOONRAKER_RUNTIME_OBJECTS_QUERY).not.toContain('gcode_macro%20TREED_UI_MOVE_AXIS')
   })
 
   it('normalizes TreeD V2 Moonraker objects into a runtime snapshot', () => {
@@ -157,7 +163,7 @@ describe('normalizeMoonrakerSnapshot', () => {
       },
     })
 
-    expect(snapshot.connection).toBe('degraded')
+    expect(getPrinterConnectionState(snapshot)).toBe('degraded')
     expect(snapshot.hardware.profile).toBe('treed_v2_corexy_v1')
     expect(snapshot.hardware.host).toBe('Rock Pi / Armbian Debian 12')
     expect(snapshot.hardware.mainMcu).toBe('Octopus Pro CAN')
@@ -216,7 +222,7 @@ describe('normalizeMoonrakerSnapshot', () => {
       fileMetadata: {},
     })
 
-    expect(snapshot.connection).toBe('shutdown')
+    expect(getPrinterConnectionState(snapshot)).toBe('shutdown')
     expect(snapshot.v2.eddy.status).toBe('uncalibrated')
     expect(snapshot.message).toContain('Must calibrate probe_eddy_current first')
   })
@@ -292,7 +298,7 @@ describe('createMoonrakerClient', () => {
     await vi.advanceTimersByTimeAsync(25)
     await timeoutExpectation
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining(MOONRAKER_RUNTIME_OBJECTS_QUERY),
+      expect.stringContaining('/printer/objects/list'),
       expect.objectContaining({
         signal: expect.any(AbortSignal),
       }),
@@ -302,6 +308,7 @@ describe('createMoonrakerClient', () => {
 
   it('throws typed transport errors for Moonraker HTTP failures', async () => {
     const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/list')) return Promise.resolve(runtimeObjectList())
       if (url.includes('/printer/objects/query')) {
         return Promise.resolve(moonrakerHttpError(500))
       }
@@ -332,6 +339,7 @@ describe('createMoonrakerClient', () => {
     let metadataRequestCount = 0
     const metadataResolvers: Array<() => void> = []
     const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/list')) return Promise.resolve(runtimeObjectList())
       if (url.includes('/printer/objects/query')) {
         return Promise.resolve(moonrakerResponse(runtimeObjects()))
       }
@@ -411,6 +419,7 @@ describe('createMoonrakerClient', () => {
 
   it('loads Moonraker history totals into usage snapshot', async () => {
     const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/list')) return Promise.resolve(runtimeObjectList())
       if (url.includes('/printer/objects/query')) {
         return Promise.resolve(moonrakerResponse(runtimeObjects()))
       }
@@ -454,6 +463,7 @@ describe('createMoonrakerClient', () => {
 
   it('refreshes runtime snapshot without fetching files, metadata, or history totals', async () => {
     const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/list')) return Promise.resolve(runtimeObjectList())
       if (url.includes('/printer/objects/query')) {
         return Promise.resolve(moonrakerResponse({
           eventtime: 42,
@@ -542,11 +552,10 @@ describe('createMoonrakerClient', () => {
     expect(snapshot.modelFanPercent).toBe(42)
     expect(snapshot.mainLightEnabled).toBe(true)
     expect(snapshot.printJob.filename).toBe('v2_part.gcode')
-    expect(snapshot.printJob.isPaused).toBe(true)
-    expect(snapshot.printJob.state).toBe('printing')
+    expect(snapshot.printJob.state).toBe('paused')
     expect(snapshot.files.progress).toBe(0.37)
     expect(snapshot.toolhead.rawX).toBe(122.5)
-    expect(snapshot.connection).toBe('degraded')
+    expect(getPrinterConnectionState(snapshot)).toBe('degraded')
     expect(snapshot.klippy.state).toBe('ready')
     expect(snapshot.excludeObjects.excludedObjectNames).toContain('part_1')
     expect(snapshot.filamentSensor).toEqual(expect.objectContaining({
@@ -555,11 +564,40 @@ describe('createMoonrakerClient', () => {
       switchEnabled: true,
       motionEnabled: true,
     }))
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls[0]?.[0]).toBe(`http://moonraker.local${MOONRAKER_RUNTIME_OBJECTS_QUERY}`)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock.mock.calls[0]?.[0]).toBe('http://moonraker.local/printer/objects/list')
+    expect(fetchMock.mock.calls[1]?.[0]).toBe(`http://moonraker.local${MOONRAKER_RUNTIME_OBJECTS_QUERY}`)
     expect(fetchMock.mock.calls.map((call) => call[0]).join('\n')).not.toContain('/server/files/list')
     expect(fetchMock.mock.calls.map((call) => call[0]).join('\n')).not.toContain('/server/files/metadata')
     expect(fetchMock.mock.calls.map((call) => call[0]).join('\n')).not.toContain('/server/history/totals')
+  })
+
+  it('uses discovered objects for HTTP snapshot and checks required macros from the full list', async () => {
+    const requested: string[] = []
+    const fetchMock = vi.fn((url: string) => {
+      requested.push(url)
+      if (url.includes('/printer/objects/list')) {
+        return Promise.resolve(moonrakerResponse({
+          objects: ['webhooks', 'toolhead', 'gcode_macro _TREED_UI_CONTRACT'],
+        }))
+      }
+      return Promise.resolve(moonrakerResponse({ status: {
+        webhooks: { state: 'ready' },
+        'gcode_macro _TREED_UI_CONTRACT': {
+          contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: 'TREED_UI_MOVE_AXIS',
+        },
+      } }))
+    })
+    const client = createMoonrakerClient({
+      moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock as typeof fetch,
+    })
+
+    const snapshot = await client.fetchRuntimeSnapshot()
+    expect(requested[1]).toContain('/printer/objects/query?webhooks&toolhead&gcode_macro%20_TREED_UI_CONTRACT')
+    expect(requested[1]).not.toContain('heater_bed')
+    expect(snapshot.uiContract).toMatchObject({
+      status: 'incompatible', missingMacros: ['TREED_UI_MOVE_AXIS'],
+    })
   })
 
   it('refreshes usage through history totals without fetching runtime objects or files', async () => {
@@ -646,6 +684,7 @@ describe('createMoonrakerClient', () => {
     }))
     const metadataUrls: string[] = []
     const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/list')) return Promise.resolve(runtimeObjectList())
       if (url.includes('/printer/objects/query')) {
         return Promise.resolve(moonrakerResponse(runtimeObjects()))
       }
@@ -694,6 +733,7 @@ describe('createMoonrakerClient', () => {
     const metadataUrls: string[] = []
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/list')) return Promise.resolve(runtimeObjectList())
       if (url.includes('/printer/objects/query')) {
         return Promise.resolve(moonrakerResponse(runtimeObjects()))
       }
@@ -812,6 +852,7 @@ describe('createMoonrakerClient', () => {
 
   it('keeps runtime snapshot usable when Moonraker file list fails', async () => {
     const fetchMock = vi.fn((url: string) => {
+      if (url.includes('/printer/objects/list')) return Promise.resolve(runtimeObjectList())
       if (url.includes('/printer/objects/query')) {
         return Promise.resolve(moonrakerResponse(runtimeObjects()))
       }
@@ -825,7 +866,7 @@ describe('createMoonrakerClient', () => {
 
     const snapshot = await client.fetchSnapshot()
 
-    expect(snapshot.connection).toBe('degraded')
+    expect(getPrinterConnectionState(snapshot)).toBe('degraded')
     expect(snapshot.printFiles).toEqual([])
     expect(snapshot.fileList).toEqual({
       state: 'error',

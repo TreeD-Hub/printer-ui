@@ -94,8 +94,6 @@ const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   transportState: 'online',
   printJob: {
     state: 'standby',
-    isActive: false,
-    isPaused: false,
   },
   homedAxes: 'xyz',
   toolhead: {
@@ -120,8 +118,6 @@ const PRINTING_CONTEXT: TreeDCommandRuntimeContext = {
   ...IDLE_CONTEXT,
   printJob: {
     state: 'printing',
-    isActive: true,
-    isPaused: false,
   },
   klippyState: 'ready',
   excludeObjects: {
@@ -163,8 +159,6 @@ const PAUSED_CONTEXT: TreeDCommandRuntimeContext = {
   ...IDLE_CONTEXT,
   printJob: {
     state: 'paused',
-    isActive: true,
-    isPaused: true,
   },
 }
 
@@ -333,14 +327,10 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       for (const command of ['rebootHost', 'shutdownHost', 'restartKlipper', 'firmwareRestart', 'restartMoonraker'] as const) {
         expect(getTreeDCommandBlockReason(command, {
           ...IDLE_CONTEXT,
-          printJob: { state, isActive: false, isPaused: false },
+          printJob: { state },
         })).toContain('системное действие недоступно')
       }
     }
-    expect(getTreeDCommandBlockReason('rebootHost', {
-      ...IDLE_CONTEXT,
-      printJob: { state: 'standby', isActive: true, isPaused: false },
-    })).toContain('системное действие недоступно')
     expect(getTreeDCommandBlockReason('restartUi', PRINTING_CONTEXT)).toBeNull()
   })
 
