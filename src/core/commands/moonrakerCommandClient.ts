@@ -257,10 +257,6 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'TREED_EDDY_SCREWS_TILT_DONE sent'
     case 'eddyBedMeshCalibrate':
       return 'TREED_EDDY_BED_MESH_CALIBRATE sent'
-    case 'eddyAutosaveEnable':
-      return 'TREED_EDDY_Z_OFFSET_AUTOSAVE_ENABLE sent'
-    case 'eddyAutosaveDisable':
-      return 'TREED_EDDY_Z_OFFSET_AUTOSAVE_DISABLE sent'
     case 'eddyAutosaveStatus':
       return 'TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS sent'
     case 'eddyTestZ':
@@ -425,10 +421,6 @@ function executeMoonrakerCommand(
       return sendScript('TREED_EDDY_SCREWS_TILT_DONE', options, args.command)
     case 'eddyBedMeshCalibrate':
       return sendScript('TREED_EDDY_BED_MESH_CALIBRATE', options, args.command)
-    case 'eddyAutosaveEnable':
-      return sendScript('TREED_EDDY_Z_OFFSET_AUTOSAVE_ENABLE', options, args.command)
-    case 'eddyAutosaveDisable':
-      return sendScript('TREED_EDDY_Z_OFFSET_AUTOSAVE_DISABLE', options, args.command)
     case 'eddyAutosaveStatus':
       return sendScript('TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS', options, args.command)
     case 'eddyTestZ':

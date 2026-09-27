@@ -50,8 +50,6 @@ export type PrinterCommandId =
   | 'eddyScrewsTiltStart'
   | 'eddyScrewsTiltDone'
   | 'eddyBedMeshCalibrate'
-  | 'eddyAutosaveEnable'
-  | 'eddyAutosaveDisable'
   | 'eddyAutosaveStatus'
   | 'eddyTestZ'
   | 'shaperCalibrateLight'
@@ -133,8 +131,6 @@ export type ExecuteCommandArgs =
         | 'eddyScrewsTiltStart'
         | 'eddyScrewsTiltDone'
         | 'eddyBedMeshCalibrate'
-        | 'eddyAutosaveEnable'
-        | 'eddyAutosaveDisable'
         | 'eddyAutosaveStatus'
         | 'shaperCalibrateLight'
         | 'shaperCalibrateFull'
@@ -862,6 +858,7 @@ export interface TreeDCommandCatalogItem {
 export interface TreeDCommandRuntimeContext {
   source?: PrinterDataMode
   capabilities: PrinterCapabilitiesSnapshot
+  uiContractStatus: 'legacy' | 'compatible' | 'incompatible'
   connection: PrinterConnectionState
   transportState: PrinterTransportState
   printJob?: {
@@ -1202,20 +1199,6 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'eddy',
     requiresConfirmation: true,
   },
-  eddyAutosaveEnable: {
-    id: 'eddyAutosaveEnable',
-    risk: 'caution',
-    label: 'Включить автосохранение Z-offset',
-    capability: 'eddy',
-    requiresConfirmation: true,
-  },
-  eddyAutosaveDisable: {
-    id: 'eddyAutosaveDisable',
-    risk: 'caution',
-    label: 'Отключить автосохранение Z-offset',
-    capability: 'eddy',
-    requiresConfirmation: false,
-  },
   eddyAutosaveStatus: {
     id: 'eddyAutosaveStatus',
     risk: 'caution',
@@ -1354,8 +1337,6 @@ const TREE_D_COMMAND_PENDING_DOMAINS: Record<PrinterCommandId, PrinterCommandPen
   eddyScrewsTiltStart: 'motion',
   eddyScrewsTiltDone: 'motion',
   eddyBedMeshCalibrate: 'motion',
-  eddyAutosaveEnable: 'motion',
-  eddyAutosaveDisable: 'motion',
   eddyAutosaveStatus: 'motion',
   eddyTestZ: 'motion',
   shaperCalibrateLight: 'motion',
@@ -1772,6 +1753,9 @@ export function getTreeDCommandBlockReason(
   if (DIRECT_MOONRAKER_SYSTEM_COMMANDS.has(command)) {
     if (context.transportState !== 'online') {
       return `${item.label}: Moonraker недоступен.`
+    }
+    if (context.uiContractStatus !== 'compatible') {
+      return `${item.label}: UI-контракт не подтвержден.`
     }
 
     return getCommandSpecificBlockReason(command, context, args)

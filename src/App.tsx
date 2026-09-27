@@ -97,6 +97,7 @@ function App() {
     () => ({
       source: snapshot.source,
       capabilities: snapshot.capabilities,
+      uiContractStatus: snapshot.uiContract.status,
       connection: snapshot.connection,
       transportState: snapshot.transport.state,
       printJob: printSessionController.commandRuntimePrintJob,
@@ -120,6 +121,7 @@ function App() {
       printSessionController.commandRuntimePrintJob,
       snapshot.source,
       snapshot.capabilities,
+      snapshot.uiContract.status,
       snapshot.connection,
       snapshot.extruderTemp,
       snapshot.homedAxes,
@@ -921,6 +923,7 @@ function App() {
             isBusy={isPrintBusy}
             pendingCommand={printPendingCommand}
             isStartBlocked={printStartBlockReason !== null}
+            isDeleteBlocked={snapshot.source === 'live' && snapshot.uiContract.status !== 'compatible'}
             onClose={closeFileModal}
             onStart={() => void printSessionCommandHandlers.startSelectedFile()}
             onDelete={handleDeleteSelectedFile}

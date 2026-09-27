@@ -185,6 +185,10 @@ export function usePrintSessionController({
     }
 
     if (snapshot.source === 'live') {
+      if (snapshot.uiContract.status !== 'compatible') {
+        setFileModalNotice('Удаление файлов недоступно без совместимого UI-контракта.')
+        return false
+      }
       if (deletePrintFile === undefined) {
         setFileModalNotice('Удаление файлов недоступно в текущем runtime.')
         return false
@@ -206,7 +210,7 @@ export function usePrintSessionController({
     }
     closeFileModal()
     return true
-  }, [closeFileModal, deletePrintFile, displayPrintFileName, selectedPrintFile, snapshot.source])
+  }, [closeFileModal, deletePrintFile, displayPrintFileName, selectedPrintFile, snapshot.source, snapshot.uiContract.status])
 
   const getFileStartNotice = useCallback((printStartBlockReason: string | null): string => (
     fileModalNotice || printStartBlockReason || ''

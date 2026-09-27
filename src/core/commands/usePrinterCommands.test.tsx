@@ -41,6 +41,7 @@ const ALL_CAPABILITIES = {
 const RUNTIME_CONTEXT: TreeDCommandRuntimeContext = {
   source: 'live',
   capabilities: ALL_CAPABILITIES,
+  uiContractStatus: 'compatible',
   connection: 'online',
   transportState: 'online',
   printJob: {

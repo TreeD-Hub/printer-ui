@@ -51,8 +51,6 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'eddyScrewsTiltStart',
   'eddyScrewsTiltDone',
   'eddyBedMeshCalibrate',
-  'eddyAutosaveEnable',
-  'eddyAutosaveDisable',
   'eddyAutosaveStatus',
   'eddyTestZ',
   'shaperCalibrateLight',
@@ -94,6 +92,7 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
 
 const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   capabilities: ALL_CAPABILITIES,
+  uiContractStatus: 'compatible',
   connection: 'online',
   transportState: 'online',
   printJob: {
@@ -223,8 +222,6 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       'eddyScrewsTiltStart',
       'eddyScrewsTiltDone',
       'eddyBedMeshCalibrate',
-      'eddyAutosaveEnable',
-      'eddyAutosaveDisable',
       'eddyAutosaveStatus',
       'eddyTestZ',
     ] as const) {
@@ -491,6 +488,23 @@ describe('TREE_D_COMMAND_CATALOG', () => {
 
     expect(getTreeDCommandBlockReason('emergencyStop', degradedContext)).toBeNull()
     expect(getTreeDCommandBlockReason('turnOffHeaters', degradedContext)).toBeNull()
+  })
+
+  it('blocks system commands without a compatible UI contract but retains transport-confirmed failsafes', () => {
+    for (const uiContractStatus of ['legacy', 'incompatible'] as const) {
+      const context: TreeDCommandRuntimeContext = {
+        ...PRINTING_CONTEXT,
+        uiContractStatus,
+        connection: 'degraded',
+        capabilities: { ...ALL_CAPABILITIES, motion: false, thermal: false },
+      }
+
+      expect(getTreeDCommandBlockReason('rebootHost', context)).toContain('UI-контракт')
+      expect(getTreeDCommandBlockReason('restartKlipper', context)).toContain('UI-контракт')
+      expect(getTreeDCommandBlockReason('emergencyStop', context)).toBeNull()
+      expect(getTreeDCommandBlockReason('turnOffHeaters', context)).toBeNull()
+      expect(getTreeDCommandBlockReason('emergencyStop', { ...context, transportState: 'offline' })).toContain('Moonraker')
+    }
   })
 
   it('allows runtime tune commands only during active print and requires homed Z for Z-offset', () => {

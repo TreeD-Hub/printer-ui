@@ -50,8 +50,6 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'eddyScrewsTiltStart',
   'eddyScrewsTiltDone',
   'eddyBedMeshCalibrate',
-  'eddyAutosaveEnable',
-  'eddyAutosaveDisable',
   'eddyAutosaveStatus',
   'eddyTestZ',
   'shaperCalibrateLight',
@@ -91,6 +89,7 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
 
 const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
   capabilities: ALL_CAPABILITIES,
+  uiContractStatus: 'compatible',
   connection: 'online',
   transportState: 'online',
   printJob: {

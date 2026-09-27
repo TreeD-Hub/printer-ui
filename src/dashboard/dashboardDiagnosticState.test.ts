@@ -31,6 +31,18 @@ function createSystemStatus(overrides: Partial<MoonrakerSystemStatus> = {}): Moo
 }
 
 describe('resolveDashboardDiagnostic', () => {
+  it('reports a missing UI contract as a restricted diagnostic', () => {
+    expect(resolveDashboardDiagnostic(createRuntime({
+      connection: 'degraded',
+      uiContractStatus: 'legacy',
+      uiContractMessage: 'Device contract еще не опубликован.',
+    }))).toMatchObject({
+      severity: 'error',
+      title: 'UI-контракт не подтвержден',
+      action: { kind: 'refresh' },
+    })
+  })
+
   it('classifies a Klipper shutdown as fatal and keeps firmware recovery', () => {
     expect(resolveDashboardDiagnostic(createRuntime({
       connection: 'shutdown',

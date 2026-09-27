@@ -174,6 +174,21 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     expect(snapshot.capabilities.motion).toBe(false)
   })
 
+  it('restricts a malformed contract even when its version and profile match', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: { state: 'ready' },
+      'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '1.0',
+        profile: 'treed_v2_corexy_v1',
+        capability_motion: 1,
+      },
+    }))
+
+    expect(snapshot.uiContract.status).toBe('incompatible')
+    expect(snapshot.connection).toBe('degraded')
+    expect(Object.values(snapshot.capabilities).every((enabled) => enabled === false)).toBe(true)
+  })
+
   it('uses _TREED_CAMERA as the compatible runtime camera switch', () => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
       webhooks: { state: 'ready' },
@@ -484,7 +499,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     )
 
     expect(snapshot.source).toBe('live')
-    expect(snapshot.connection).toBe('online')
+    expect(snapshot.connection).toBe('degraded')
     expect(snapshot.hardware).toEqual({
       marker: 'treed-v2',
       profile: 'treed_v2_corexy_v1',
@@ -495,27 +510,8 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       model: 'TreeD V2 Pro',
       revision: 'rev-b',
     })
-    expect(snapshot.capabilities).toEqual({
-      print: true,
-      motion: true,
-      thermal: true,
-      fan: true,
-      lighting: true,
-      filament: true,
-      filamentSensorControl: false,
-      filamentEncoderSensitivity: false,
-      console: true,
-      eddy: true,
-      shaper: true,
-      motionTest: true,
-      power: false,
-      network: false,
-      cloud: false,
-      updates: false,
-      systemPower: false,
-      camera: false,
-      serviceCommands: true,
-    })
+    expect(snapshot.uiContract.status).toBe('legacy')
+    expect(Object.values(snapshot.capabilities).every((enabled) => enabled === false)).toBe(true)
     expect(snapshot.state).toBe('printing')
     expect(snapshot.message).toBe('Printing benchy')
     expect(snapshot.toolheadX).toBe(120.5)
@@ -697,19 +693,19 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       }),
     )
 
-    expect(snapshot.connection).toBe('online')
+    expect(snapshot.connection).toBe('degraded')
     expect(snapshot.hardware.profile).toBe('treed_v2_corexy_v1')
     expect(snapshot.hardware.marker).toBe('treed-v2')
     expect(snapshot.hardware.model).toBe('TreeD V2')
     expect(snapshot.capabilities.serviceCommands).toBe(false)
     expect(snapshot.capabilities.cloud).toBe(false)
     expect(snapshot.capabilities.network).toBe(false)
-    expect(snapshot.capabilities.console).toBe(true)
+    expect(snapshot.capabilities.console).toBe(false)
     expect(snapshot.macros.available).toEqual([])
     expect(snapshot.macros.values).toEqual({})
   })
 
-  it('normalizes numeric and string V2 macro capability flags', () => {
+  it('does not trust V2 macro flags without a UI contract', () => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(
       buildPayload({
         webhooks: {
@@ -732,9 +728,9 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     )
 
     expect(snapshot.capabilities.serviceCommands).toBe(false)
-    expect(snapshot.capabilities.camera).toBe(true)
+    expect(snapshot.capabilities.camera).toBe(false)
     expect(snapshot.capabilities.cloud).toBe(false)
-    expect(snapshot.capabilities.updates).toBe(true)
+    expect(snapshot.capabilities.updates).toBe(false)
   })
 
   it('defaults the V2 hardware marker and runtime fields from a minimal ready payload', () => {
@@ -757,7 +753,7 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
       model: 'TreeD V2',
       revision: null,
     })
-    expect(snapshot.connection).toBe('online')
+    expect(snapshot.connection).toBe('degraded')
     expect(snapshot.files).toEqual({
       type: 'unknown',
       path: null,

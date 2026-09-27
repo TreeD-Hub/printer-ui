@@ -133,7 +133,6 @@ describe('normalizeMoonrakerSnapshot', () => {
             enabled: 1,
           },
           'gcode_macro _TREED_EDDY_Z_OFFSET_AUTOSAVE_STATE': {
-            enabled: 1,
             has_pending: 0,
           },
           'gcode_macro _TREED_UI_TUNE_STATE': {

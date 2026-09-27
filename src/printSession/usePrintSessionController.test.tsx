@@ -296,6 +296,27 @@ describe('usePrintSessionController', () => {
     expect(screen.getByTestId('selected-file')).toHaveTextContent('none')
   })
 
+  it('blocks live file deletion without a compatible UI contract', async () => {
+    const deletePrintFile = vi.fn<(path: string) => Promise<void>>()
+    const mockSnapshot = createMockSnapshot()
+    const snapshot: PrinterSnapshot = {
+      ...mockSnapshot,
+      source: 'live',
+      uiContract: { ...mockSnapshot.uiContract, status: 'legacy' },
+      printFiles: [PRINT_FILE_LIBRARY[0]],
+    }
+
+    render(<TestHarness snapshot={snapshot} deletePrintFile={deletePrintFile} />)
+    fireEvent.click(screen.getByRole('button', { name: 'select first' }))
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'delete selected' }))
+    })
+
+    expect(deletePrintFile).not.toHaveBeenCalled()
+    expect(screen.getByTestId('selected-file')).toHaveTextContent(PRINT_FILE_LIBRARY[0].name)
+    expect(screen.getByTestId('notice')).toHaveTextContent('UI-контракта')
+  })
+
   it('requests metadata for selected and active live files', async () => {
     const refreshPrintFileMetadata = vi.fn<(paths: string[]) => Promise<void>>().mockResolvedValue(undefined)
     const liveSnapshot: PrinterSnapshot = {

@@ -542,8 +542,6 @@ describe('createMoonrakerCommandClient', () => {
     await client.execute({ command: 'eddyScrewsTiltStart' })
     await client.execute({ command: 'eddyScrewsTiltDone' })
     await client.execute({ command: 'eddyBedMeshCalibrate' })
-    await client.execute({ command: 'eddyAutosaveEnable' })
-    await client.execute({ command: 'eddyAutosaveDisable' })
     await client.execute({ command: 'eddyAutosaveStatus' })
 
     const scripts = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)).script)
@@ -559,8 +557,6 @@ describe('createMoonrakerCommandClient', () => {
       'TREED_EDDY_SCREWS_TILT_START',
       'TREED_EDDY_SCREWS_TILT_DONE',
       'TREED_EDDY_BED_MESH_CALIBRATE',
-      'TREED_EDDY_Z_OFFSET_AUTOSAVE_ENABLE',
-      'TREED_EDDY_Z_OFFSET_AUTOSAVE_DISABLE',
       'TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS',
     ])
   })

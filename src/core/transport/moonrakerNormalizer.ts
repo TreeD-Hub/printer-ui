@@ -920,6 +920,9 @@ function normalizeUiContract(macros: PrinterMacroStateSnapshot): PrinterUiContra
   if (profile !== EXPECTED_UI_PROFILE) {
     incompatibilities.push(`профиль ${profile ?? 'не указан'}`)
   }
+  if (typeof contract.required_macros !== 'string') {
+    incompatibilities.push('список обязательных macro не указан')
+  }
   if (missingMacros.length > 0) {
     incompatibilities.push(`нет macro: ${missingMacros.join(', ')}`)
   }
@@ -1015,7 +1018,7 @@ function normalizeCapabilities(
   const systemPower = readBooleanMacroFlag(macros.values, '_TREED_SYSTEM_POWER')
   const hasMainLightMacros = macros.available.includes('LIGHT_ON') && macros.available.includes('LIGHT_OFF')
 
-  if (uiContract.status === 'incompatible') {
+  if (uiContract.status !== 'compatible') {
     return {
       print: false,
       motion: false,
@@ -1039,60 +1042,35 @@ function normalizeCapabilities(
     }
   }
 
-  if (uiContract.status === 'compatible') {
-    const contract = readMacro(macros.values, '_TREED_UI_CONTRACT') ?? {}
-    const capability = (name: string): boolean => parseMacroBoolean(contract[`capability_${name}`]) === true
-    const lightingCapability = parseMacroBoolean(contract.capability_lighting)
-    const cameraMacro = readMacro(macros.values, '_TREED_CAMERA')
-    const cameraEnabled = cameraMacro === undefined ? true : readBooleanMacroFlag(macros.values, '_TREED_CAMERA')
-
-    return {
-      print: capability('print'),
-      motion: capability('motion'),
-      thermal: capability('thermal'),
-      fan: capability('fan'),
-      lighting: hasMainLightMacros && lightingCapability !== false,
-      filament: capability('filament'),
-      filamentSensorControl: capability('filament_sensor_control') && filamentSensor.supported,
-      filamentEncoderSensitivity:
-        capability('filament_encoder_sensitivity') &&
-        filamentSensor.motionSupported &&
-        macros.available.includes('_FILAMENT_SENSOR_SENSITIVITY_STATE'),
-      console: capability('console'),
-      eddy: capability('eddy'),
-      shaper: capability('shaper'),
-      motionTest: capability('motion_test'),
-      power: capability('system_power') && systemPower,
-      network: capability('network'),
-      cloud: readBooleanMacroFlag(macros.values, '_TREED_CLOUD'),
-      updates: readBooleanMacroFlag(macros.values, '_TREED_UPDATES'),
-      systemPower: capability('system_power') && systemPower,
-      camera: capability('camera') && cameraEnabled,
-      serviceCommands: capability('service_commands') && readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
-    }
-  }
+  const contract = readMacro(macros.values, '_TREED_UI_CONTRACT') ?? {}
+  const capability = (name: string): boolean => parseMacroBoolean(contract[`capability_${name}`]) === true
+  const lightingCapability = parseMacroBoolean(contract.capability_lighting)
+  const cameraMacro = readMacro(macros.values, '_TREED_CAMERA')
+  const cameraEnabled = cameraMacro === undefined ? true : readBooleanMacroFlag(macros.values, '_TREED_CAMERA')
 
   return {
-    print: true,
-    motion: true,
-    thermal: true,
-    fan: true,
-    lighting: hasMainLightMacros,
-    filament: true,
-    filamentSensorControl: filamentSensor.supported && macros.available.includes('FILAMENT_SENSOR_STATUS'),
+    print: capability('print'),
+    motion: capability('motion'),
+    thermal: capability('thermal'),
+    fan: capability('fan'),
+    lighting: hasMainLightMacros && lightingCapability !== false,
+    filament: capability('filament'),
+    filamentSensorControl: capability('filament_sensor_control') && filamentSensor.supported,
     filamentEncoderSensitivity:
-      filamentSensor.motionSupported && macros.available.includes('_FILAMENT_SENSOR_SENSITIVITY_STATE'),
-    console: true,
-    eddy: true,
-    shaper: true,
-    motionTest: true,
-    power: systemPower,
-    network: false,
+      capability('filament_encoder_sensitivity') &&
+      filamentSensor.motionSupported &&
+      macros.available.includes('_FILAMENT_SENSOR_SENSITIVITY_STATE'),
+    console: capability('console'),
+    eddy: capability('eddy'),
+    shaper: capability('shaper'),
+    motionTest: capability('motion_test'),
+    power: capability('system_power') && systemPower,
+    network: capability('network'),
     cloud: readBooleanMacroFlag(macros.values, '_TREED_CLOUD'),
     updates: readBooleanMacroFlag(macros.values, '_TREED_UPDATES'),
-    systemPower,
-    camera: readBooleanMacroFlag(macros.values, '_TREED_CAMERA') || readBooleanMacroFlag(macros.values, '_TREED_CAM_STATE'),
-    serviceCommands: readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
+    systemPower: capability('system_power') && systemPower,
+    camera: capability('camera') && cameraEnabled,
+    serviceCommands: capability('service_commands') && readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
   }
 }
 
@@ -1259,7 +1237,7 @@ function normalizeV2Snapshot(
     profile: 'treed_v2_corexy_v1',
     eddy: {
       status: normalizeEddyStatus(webhooks, homedAxes),
-      autosaveEnabled: Boolean(eddyAutosave?.enabled),
+      autosaveEnabled: Boolean(eddyAutosave),
       autosavePending: Boolean(eddyAutosave?.has_pending),
       calibration: normalizeEddyCalibration(status),
     },
@@ -1313,6 +1291,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const receivedAt = options.receivedAt ?? Date.now()
   const transportState = options.transportState ?? 'online'
   const klippy = normalizeKlippyState(status.webhooks)
+  const connection = normalizeConnectionState(transportState, klippy.state)
 
   return {
     source,
@@ -1335,9 +1314,9 @@ export function normalizeMoonrakerRuntimeSnapshot(
       message: null,
     },
     klippy,
-    connection: uiContract.status === 'incompatible'
+    connection: connection === 'online' && uiContract.status !== 'compatible'
       ? 'degraded'
-      : normalizeConnectionState(transportState, klippy.state),
+      : connection,
     wifiSsid: options.wifiSsid ?? 'Moonraker Network',
     ipAddress: normalizeIpAddress(options.moonrakerUrl),
     state: firstNonEmpty(printJob.state, webhooks.state, 'unknown'),
@@ -1351,7 +1330,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     mainLightEnabled: normalizeMainLight(status),
     updatedAt: options.nowIso ?? new Date().toISOString(),
     message: firstNonEmpty(
-      uiContract.status === 'incompatible' ? uiContract.message : null,
+      connection === 'online' && uiContract.status === 'incompatible' ? uiContract.message : null,
       printJob.message,
       displayStatus.message,
       webhooks.state_message,

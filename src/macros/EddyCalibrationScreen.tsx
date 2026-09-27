@@ -186,16 +186,8 @@ export function EddyCalibrationScreen({
           </div>
         )
       case 'autosave': {
-        const toggleArgs: ExecuteCommandArgs = {
-          command: snapshot.v2.eddy.autosaveEnabled ? 'eddyAutosaveDisable' : 'eddyAutosaveEnable',
-        }
-
         return (
           <div className="macros-eddy-action-row">
-            {renderCommandButton(
-              snapshot.v2.eddy.autosaveEnabled ? 'Отключить автосохранение' : 'Включить автосохранение',
-              toggleArgs,
-            )}
             {renderCommandButton('Проверить статус', { command: 'eddyAutosaveStatus' }, 'secondary')}
           </div>
         )
