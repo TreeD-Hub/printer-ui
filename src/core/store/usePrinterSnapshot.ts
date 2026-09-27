@@ -20,8 +20,8 @@ import {
   usePrinterStoreSelector,
 } from './printerStore'
 
-const DEGRADED_HTTP_FALLBACK_INTERVAL_MS = 2_000
-const HEALTHY_WEBSOCKET_HTTP_FALLBACK_INTERVAL_MS = 15_000
+const POLLING_INTERVAL_MS = 2_000
+const WEBSOCKET_WATCHDOG_INTERVAL_MS = 15_000
 
 const selectPrinterSnapshot = (snapshot: PrinterSnapshot) => snapshot
 
@@ -43,12 +43,12 @@ function hasHttpSupplementalData(next: PrinterSnapshot): boolean {
     || (next.fileList !== undefined && next.fileList.state !== 'unknown')
 }
 
-function isRuntimeSnapshotCurrent(previous: PrinterSnapshot, next: PrinterSnapshot): boolean {
+function hasNewerRuntimeSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): boolean {
   const previousEventtime = previous.revisions.printerObjects.eventtime
   const nextEventtime = next.revisions.printerObjects.eventtime
 
   if (nextEventtime !== null && previousEventtime !== null) {
-    return nextEventtime >= previousEventtime
+    return nextEventtime > previousEventtime
   }
 
   if (nextEventtime !== null) {
@@ -59,7 +59,7 @@ function isRuntimeSnapshotCurrent(previous: PrinterSnapshot, next: PrinterSnapsh
     return false
   }
 
-  return next.revisions.printerObjects.receivedAt >= previous.revisions.printerObjects.receivedAt
+  return false
 }
 
 function mergeHttpSupplementalSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
@@ -183,10 +183,9 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const snapshot = usePrinterStoreSelector(selectPrinterSnapshot)
   const [error, setError] = useState<string>('')
   const lastTransitionRef = useRef<string>('')
-  const snapshotRevisionRef = useRef(0)
-  const runtimeStateRevisionRef = useRef(0)
+  const runtimeSourceRef = useRef<'websocket' | 'polling'>('polling')
+  const runtimeEpochRef = useRef(0)
   const refreshSequenceRef = useRef(0)
-  const runtimeRefreshSequenceRef = useRef(0)
   const targetedRefreshSequenceRef = useRef(new Map<string, number>())
 
   const client = useMemo(() => {
@@ -209,7 +208,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
 
   const refresh = useCallback(async () => {
     const refreshSequence = ++refreshSequenceRef.current
-    const snapshotRevision = snapshotRevisionRef.current
+    const runtimeEpoch = runtimeEpochRef.current
 
     try {
       const nextSnapshot = await client.fetchSnapshot()
@@ -217,46 +216,25 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         return
       }
 
-      if (snapshotRevision !== snapshotRevisionRef.current) {
-        let didApplyRuntimeSnapshot = false
-        let didUpdateSnapshot = false
-
-        updatePrinterSnapshot((prev) => {
-          const mergedSnapshot = isRuntimeSnapshotCurrent(prev, nextSnapshot)
-            ? nextSnapshot
-            : hasHttpSupplementalData(nextSnapshot)
-              ? mergeHttpSupplementalSnapshot(prev, nextSnapshot)
-              : prev
-
-          didApplyRuntimeSnapshot = Object.is(mergedSnapshot, nextSnapshot)
-          didUpdateSnapshot = !Object.is(mergedSnapshot, prev)
-          return mergedSnapshot
-        })
-
-        if (didUpdateSnapshot) {
-          snapshotRevisionRef.current += 1
+      if (runtimeSourceRef.current === 'websocket' || runtimeEpoch !== runtimeEpochRef.current) {
+        if (hasHttpSupplementalData(nextSnapshot)) {
+          updatePrinterSnapshot((prev) => mergeHttpSupplementalSnapshot(prev, nextSnapshot))
           setError('')
-        }
-        if (didApplyRuntimeSnapshot) {
-          runtimeStateRevisionRef.current += 1
-          recordSnapshotTransition(nextSnapshot)
         }
         return
       }
 
       recordSnapshotTransition(nextSnapshot)
-      snapshotRevisionRef.current += 1
-      runtimeStateRevisionRef.current += 1
+      runtimeEpochRef.current += 1
       setPrinterSnapshot(nextSnapshot)
       setError('')
     } catch (err) {
-      if (refreshSequence !== refreshSequenceRef.current || snapshotRevision !== snapshotRevisionRef.current) {
+      if (refreshSequence !== refreshSequenceRef.current || runtimeSourceRef.current === 'websocket' || runtimeEpoch !== runtimeEpochRef.current) {
         return
       }
 
       const message = getErrorMessage(err)
       recordOperationalDiagnostic('transport-error', message)
-      snapshotRevisionRef.current += 1
       updatePrinterSnapshot((prev) => ({
         ...prev,
         transport: {
@@ -271,41 +249,37 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   }, [client, recordSnapshotTransition])
 
   const refreshRuntime = useCallback(async () => {
-    const refreshSequence = ++runtimeRefreshSequenceRef.current
-    const snapshotRevision = snapshotRevisionRef.current
+    const runtimeEpoch = runtimeEpochRef.current
 
     try {
       const nextSnapshot = await client.fetchRuntimeSnapshot()
-      if (refreshSequence !== runtimeRefreshSequenceRef.current) {
+      if (runtimeEpoch !== runtimeEpochRef.current) {
         return
       }
 
-      let didUpdateSnapshot = false
-
-      updatePrinterSnapshot((prev) => {
-        if (!isRuntimeSnapshotCurrent(prev, nextSnapshot)) {
-          return prev
+      if (runtimeSourceRef.current === 'websocket') {
+        let isWebsocketStale = false
+        updatePrinterSnapshot((prev) => {
+          isWebsocketStale = hasNewerRuntimeSnapshot(prev, nextSnapshot)
+          return isWebsocketStale ? mergeRuntimeSnapshot(prev, nextSnapshot) : prev
+        })
+        if (!isWebsocketStale) {
+          return
         }
-
-        const mergedSnapshot = mergeRuntimeSnapshot(prev, nextSnapshot)
-        didUpdateSnapshot = !Object.is(mergedSnapshot, prev)
-        return mergedSnapshot
-      })
-
-      if (didUpdateSnapshot) {
-        recordSnapshotTransition(nextSnapshot)
-        snapshotRevisionRef.current += 1
-        runtimeStateRevisionRef.current += 1
-        setError('')
+        runtimeSourceRef.current = 'polling'
+      } else {
+        updatePrinterSnapshot((prev) => mergeRuntimeSnapshot(prev, nextSnapshot))
       }
+      recordSnapshotTransition(nextSnapshot)
+      runtimeEpochRef.current += 1
+      setError('')
     } catch (err) {
-      if (refreshSequence !== runtimeRefreshSequenceRef.current || snapshotRevision !== snapshotRevisionRef.current) {
+      if (runtimeEpoch !== runtimeEpochRef.current || runtimeSourceRef.current === 'websocket') {
         return
       }
 
       const message = getErrorMessage(err)
       recordOperationalDiagnostic('transport-error', message)
-      snapshotRevisionRef.current += 1
       updatePrinterSnapshot((prev) => ({
         ...prev,
         transport: {
@@ -325,12 +299,15 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     mergeValue: (previous: PrinterSnapshot, value: T) => PrinterSnapshot,
     guardRuntimeRevision = false,
   ): Promise<void> => {
+    if (guardRuntimeRevision && runtimeSourceRef.current === 'websocket') {
+      return
+    }
     const requestSequence = (targetedRefreshSequenceRef.current.get(action) ?? 0) + 1
     targetedRefreshSequenceRef.current.set(action, requestSequence)
-    const runtimeStateRevision = runtimeStateRevisionRef.current
+    const runtimeEpoch = runtimeEpochRef.current
     const isRequestCurrent = (): boolean => {
       return targetedRefreshSequenceRef.current.get(action) === requestSequence
-        && (!guardRuntimeRevision || runtimeStateRevisionRef.current === runtimeStateRevision)
+        && (!guardRuntimeRevision || (runtimeSourceRef.current !== 'websocket' && runtimeEpochRef.current === runtimeEpoch))
     }
 
     try {
@@ -340,9 +317,8 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       }
 
       updatePrinterSnapshot((prev) => mergeValue(prev, value))
-      snapshotRevisionRef.current += 1
       if (guardRuntimeRevision) {
-        runtimeStateRevisionRef.current += 1
+        runtimeEpochRef.current += 1
       }
       setError('')
     } catch (err) {
@@ -454,7 +430,6 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       return
     }
 
-    snapshotRevisionRef.current += 1
     updatePrinterSnapshot((prev) => markPrintFileMetadataLoading(prev, requestedPaths))
 
     await applyTargetedRefresh(
@@ -493,16 +468,16 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
 
   useEffect(() => {
     let isDisposed = false
-    let isSocketHealthy = false
     let runtimeTimer: number | null = null
-    const getFallbackIntervalMs = (): number => {
+    runtimeSourceRef.current = 'polling'
+    const getRuntimeIntervalMs = (): number => {
       if (client.subscribe === undefined) {
         return pollIntervalMs
       }
 
-      return isSocketHealthy
-        ? HEALTHY_WEBSOCKET_HTTP_FALLBACK_INTERVAL_MS
-        : Math.min(pollIntervalMs, DEGRADED_HTTP_FALLBACK_INTERVAL_MS)
+      return runtimeSourceRef.current === 'websocket'
+        ? WEBSOCKET_WATCHDOG_INTERVAL_MS
+        : Math.min(pollIntervalMs, POLLING_INTERVAL_MS)
     }
     const scheduleRuntimeRefresh = (reset = false): void => {
       if (reset && runtimeTimer !== null) {
@@ -518,14 +493,15 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         void refreshRuntime().finally(() => {
           scheduleRuntimeRefresh()
         })
-      }, getFallbackIntervalMs())
+      }, getRuntimeIntervalMs())
     }
-    const setSocketHealthy = (nextHealthy: boolean): void => {
-      if (nextHealthy === isSocketHealthy) {
+    const setRuntimeSource = (nextSource: 'websocket' | 'polling'): void => {
+      if (nextSource === runtimeSourceRef.current) {
         return
       }
 
-      isSocketHealthy = nextHealthy
+      runtimeSourceRef.current = nextSource
+      runtimeEpochRef.current += 1
       scheduleRuntimeRefresh(true)
     }
     const subscription = client.subscribe?.({
@@ -534,9 +510,8 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
-        setSocketHealthy(true)
-        snapshotRevisionRef.current += 1
-        runtimeStateRevisionRef.current += 1
+        setRuntimeSource('websocket')
+        runtimeEpochRef.current += 1
         recordSnapshotTransition(nextSnapshot)
         updatePrinterSnapshot((prev) => mergeRuntimeSnapshot(prev, nextSnapshot))
         setError('')
@@ -546,8 +521,9 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
-        setSocketHealthy(connection === 'online')
-        snapshotRevisionRef.current += 1
+        if (connection !== 'online') {
+          setRuntimeSource('polling')
+        }
         recordOperationalDiagnostic('state-transition', `transport -> ${connection}`, message ?? null)
         updatePrinterSnapshot((prev) => ({
           ...prev,
@@ -564,7 +540,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
-        setSocketHealthy(false)
+        setRuntimeSource('polling')
         recordOperationalDiagnostic('transport-error', message)
         setError(message)
       },

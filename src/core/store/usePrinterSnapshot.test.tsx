@@ -298,7 +298,7 @@ describe('usePrinterSnapshot', () => {
     })
   })
 
-  it('applies fresh HTTP runtime fields when a refresh resolves after older websocket state', async () => {
+  it('keeps websocket runtime fields when a later HTTP refresh is newer', async () => {
     vi.useFakeTimers()
     const refresh = createDeferred<PrinterSnapshot>()
 
@@ -331,8 +331,8 @@ describe('usePrinterSnapshot', () => {
       await Promise.resolve()
     })
 
-    expectRuntimeFields(hook.result.current.snapshot, 22)
-    expect(hook.result.current.snapshot.revisions.printerObjects.eventtime).toBe(21)
+    expectRuntimeFields(hook.result.current.snapshot, 20)
+    expect(hook.result.current.snapshot.revisions.printerObjects.eventtime).toBe(20)
 
     await act(async () => {
       hook.unmount()
@@ -468,6 +468,47 @@ describe('usePrinterSnapshot', () => {
     await act(async () => {
       hook.unmount()
     })
+  })
+
+  it('uses polling only after the watchdog finds newer runtime state and returns to websocket on a snapshot', async () => {
+    vi.useFakeTimers()
+    runtimeMocks.fetchSnapshot.mockResolvedValue(createSnapshot(1, 180, 3))
+    runtimeMocks.fetchRuntimeSnapshot.mockResolvedValue(createSnapshot(3, 183, 6))
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+
+    const hook = renderHook(() => usePrinterSnapshot())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+      handlers?.onSnapshot(createSnapshot(2, 182, 5))
+      await vi.advanceTimersByTimeAsync(15_000)
+    })
+    expect(hook.result.current.snapshot.extruderTemp).toBe(183)
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000)
+    })
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(2)
+
+    await act(async () => {
+      handlers?.onSnapshot(createSnapshot(4, 184, 7))
+      await hook.result.current.refreshPrintJob()
+      await vi.advanceTimersByTimeAsync(2_000)
+    })
+    expect(hook.result.current.snapshot.extruderTemp).toBe(184)
+    expect(runtimeMocks.fetchPrintJobState).not.toHaveBeenCalled()
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(2)
+
+    runtimeMocks.fetchRuntimeSnapshot.mockResolvedValue(createSnapshot(null, 200, 8))
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(13_000)
+    })
+    expect(hook.result.current.snapshot.extruderTemp).toBe(184)
+
+    hook.unmount()
   })
 
   it('updates runtime fields through HTTP fallback when websocket is silent', async () => {
