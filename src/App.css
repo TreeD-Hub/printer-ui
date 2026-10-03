@@ -2153,7 +2153,7 @@ body {
   min-height: 0;
   overflow: hidden;
   display: grid;
-  grid-template-rows: 38px minmax(0, 1fr);
+  grid-template-rows: calc(var(--control-height) + var(--space-xs)) minmax(0, 1fr);
   gap: 0;
   padding: 0;
   transition:
@@ -2166,15 +2166,11 @@ body {
 }
 
 .control-menu-collapse-btn {
-  background: rgba(244, 244, 240, 0.035);
-  width: 100%;
-  height: 100%;
-  min-height: 38px;
+  width: calc(100% - var(--space-xs));
+  height: var(--control-height);
+  margin: var(--space-xxs);
   border: none;
-  border-bottom: 1px solid var(--color-border-default);
   color: var(--color-text-primary);
-  display: grid;
-  place-items: center;
   cursor: pointer;
   transition:
     background-color 0.2s ease,
@@ -2188,6 +2184,7 @@ body {
   display: grid;
   align-content: start;
   gap: 4px;
+  border-top: var(--border-width) solid var(--color-border-subtle);
 }
 
 .control-menu-collapse-icon {
@@ -2196,6 +2193,18 @@ body {
 
 .control-menu-shell.is-compact .control-menu-collapse-icon {
   transform: rotate(180deg);
+}
+
+.control-view-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.control-view-header .control-maintenance-header {
+  flex: 1;
+  min-width: 0;
 }
 
 .control-menu-shell .settings-sidebar-item {
@@ -2395,8 +2404,8 @@ body {
 .control-card-parking {
   min-height: 0;
   height: 100%;
-  padding: 10px;
-  gap: 10px;
+  padding: var(--space-xs);
+  gap: var(--space-xs);
   grid-template-rows: auto minmax(0, 1fr) 54px 54px;
   align-content: stretch;
   overflow: hidden;
@@ -2421,7 +2430,7 @@ body {
   padding: 0;
   display: grid;
   grid-template-rows: auto minmax(122px, 1fr) auto minmax(56px, auto);
-  gap: 10px;
+  gap: var(--space-xs);
   overflow: hidden;
 }
 
@@ -2454,7 +2463,6 @@ body {
 
 .control-fan-summary-copy h4 {
   margin: 0;
-  overflow: hidden;
   color: var(--color-text-primary);
   font-family: var(--font-family-accent);
   font-size: 22px;
@@ -2496,7 +2504,7 @@ body {
 .control-fan-slider-panel {
   position: relative;
   min-height: 122px;
-  padding: 16px;
+  padding: 12px 16px;
   display: grid;
   grid-template-columns: 58px minmax(0, 1fr) 58px;
   align-items: center;
@@ -2657,9 +2665,9 @@ body {
 }
 
 .control-fan-presets {
-  min-height: 64px;
+  min-height: var(--control-height);
   display: grid;
-  gap: 8px;
+  gap: 0;
 }
 
 .control-fan-presets > p {
@@ -2794,7 +2802,20 @@ body {
 .control-light-preferences {
   display: grid;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 0;
+}
+
+.control-card-lighting .settings-toggle-row {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.control-card-lighting .settings-toggle-label {
+  font-size: var(--font-size-body);
+}
+
+.control-light-preferences p {
+  margin: 0;
+  font-size: var(--font-size-small);
 }
 
 .control-light-preference {
@@ -2832,23 +2853,11 @@ body {
 
 .printer-event-popup {
   position: absolute;
-  right: 18px;
-  bottom: 18px;
-  z-index: 130;
-  width: 360px;
-  max-height: 210px;
+  z-index: 19;
+  max-height: 320px;
   overflow-y: auto;
-  padding: 18px 48px 18px 18px;
-  border: 2px solid #efab40;
-  border-radius: 16px;
-  background: var(--color-block-surface);
-  color: var(--color-text-primary);
-  box-shadow: 0 8px 32px #0008;
 }
-.printer-event-popup.is-error { border-color: #fa6d65; }
-.printer-event-popup.is-info { border-color: #73b8ec; }
-.printer-event-popup p { margin: 10px 0 0; line-height: 1.4; }
-.printer-event-close { position: absolute; right: 4px; top: 4px; width: 40px; height: 40px; border: 0; background: transparent; color: inherit; font-size: 28px; }
+.printer-event-popup p { margin: 0; line-height: 1.4; }
 
 .control-lighting-row {
   min-width: 0;
@@ -3647,7 +3656,7 @@ body {
   min-height: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(64px, 1fr));
+  grid-template-rows: repeat(2, minmax(var(--control-height), 1fr));
   gap: 8px;
 }
 
@@ -4055,7 +4064,7 @@ body {
   padding: 10px;
   display: grid;
   height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 8px;
   align-content: stretch;
   overflow: hidden;
@@ -5257,27 +5266,39 @@ body {
   animation: top-popup-dialog-enter 0.24s cubic-bezier(0.2, 0.9, 0.18, 1);
 }
 
-.print-tune-modal-dialog.is-temperature {
-  width: min(560px, 100%);
-  max-height: min(500px, calc(100% - (var(--space-sm) * 2)));
+.print-tune-modal-dialog.is-numeric-tune {
+  width: min(640px, 100%);
+  max-height: 100%;
   padding: 0;
   gap: 0;
   grid-template-rows: auto minmax(0, 1fr);
   align-content: stretch;
 }
 
-.print-tune-modal-dialog.is-temperature.is-temperature-keyboard-open {
-  width: min(560px, 100%);
+.print-tune-modal-dialog.is-numeric-tune.is-keyboard-open {
+  width: 100%;
+  height: 100%;
 }
 
-.print-tune-modal-dialog.is-temperature .print-cancel-modal-head {
-  min-height: 48px;
+.print-tune-modal-dialog.is-numeric-tune .print-cancel-modal-head {
+  min-height: 72px;
   align-items: center;
-  padding: 10px 12px 9px;
+  padding: var(--space-xs) var(--space-sm);
   border-bottom: 1px solid color-mix(in srgb, var(--color-border-default) 88%, transparent);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--color-primary-surface-soft) 22%, transparent), transparent 80%),
     color-mix(in srgb, var(--color-surface-elevated) 72%, var(--color-block-surface));
+}
+
+.print-tune-modal-dialog.is-numeric-tune .print-tune-modal-head-save {
+  min-width: 112px;
+  min-height: var(--control-height);
+  font-size: var(--font-size-body);
+}
+
+.print-tune-modal-dialog.is-numeric-tune .print-cancel-modal-close {
+  width: var(--control-height);
+  height: var(--control-height);
 }
 
 .print-tune-modal-dialog.is-compact {
@@ -5902,14 +5923,6 @@ body {
   gap: 8px;
 }
 
-.print-tune-compact-stepper-main {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-}
-
 .print-tune-compact-stepper-btn {
   height: 42px;
   width: 42px;
@@ -5927,6 +5940,7 @@ body {
   display: flex;
   align-items: center;
   padding: 0 12px;
+  gap: 8px;
 }
 
 .print-tune-compact-stepper-input {
@@ -7103,8 +7117,7 @@ select {
 .print-temp-table,
 .print-temp-chart,
 .print-tune-number-control,
-.print-tune-compact-editor,
-.print-tune-compact-stepper {
+.print-tune-compact-editor {
   border-radius: 8px;
   border-color: var(--color-border-default);
   background:
@@ -7429,8 +7442,21 @@ select {
 .screen-shell > .print-tune-modal-layer,
 .screen-shell > .exclude-object-modal-layer,
 .screen-shell > .app-virtual-keyboard-layer,
+.screen-shell > .printer-event-popup,
 .top-popup-layer .top-popup-dialog {
   position: absolute;
+}
+
+.screen-shell > .printer-event-popup {
+  z-index: 19;
+}
+
+.printer-event-popup.is-error {
+  border-color: var(--color-error);
+}
+
+.printer-event-popup.is-warning {
+  border-color: var(--color-warning);
 }
 
 .job-card,

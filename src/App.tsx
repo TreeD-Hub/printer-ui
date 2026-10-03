@@ -952,6 +952,7 @@ function App() {
 
         <PrintTuneModal
           activeGroup={activePrintTuneGroup}
+          onTemperatureTargetChange={handlePrintTuneGroupOpen}
           onClose={handlePrintTuneGroupClose}
           onApply={handlePrintTuneApply}
           temperature={printTuneTemperatureProps}
@@ -1057,7 +1058,11 @@ function App() {
           onPowerMenuAction={topStatusController.onPowerMenuAction}
         />
 
-        <PrinterNotificationPopup enabled={settingsPageProps.notifications.isNotificationsEnabled} />
+        <PrinterNotificationPopup
+          enabled={settingsPageProps.notifications.isNotificationsEnabled && topStatusController.activeTopPopup === null}
+          activeScreen={activeScreen}
+          readTopPopupPosition={topStatusController.readTopPopupPosition}
+        />
         <ScreenSleepGuard
           timeoutMs={getScreenSleepTimeoutMs(settingsPageProps.interfaceSettings.sleepModeValue)}
         />

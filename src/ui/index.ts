@@ -15,6 +15,7 @@ export {
 export { PlainMetric, TemperatureMetric } from './metrics'
 export { TemperatureTrendChart, TuneCompactStepperInput, TuneModeToggle, TuneNumberControl } from './printTuneWidgets'
 export { PrintFileCard } from './printFileCard'
+export { NumericKeypad, TuneValueEditor } from './numericTuneWidgets'
 export {
   SettingsInfoCard,
   SettingsSelectField,

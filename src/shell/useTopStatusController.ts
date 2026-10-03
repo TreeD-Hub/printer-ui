@@ -1,6 +1,7 @@
 import { type RefObject, useCallback, useEffect, useRef, useState } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import type { TopStatusButtonId } from '../dashboard/config'
+import { dismissPrinterNotification } from '../core/store/printerNotifications'
 import {
   FALLBACK_SCREEN_WIDTH,
   POWER_MENU_ACTIONS,
@@ -29,6 +30,7 @@ type UseTopStatusControllerResult = {
   hasUnreadPrinterNotification: boolean
   openTopPopup: (id: TopStatusButtonId) => void
   closeTopPopup: () => void
+  readTopPopupPosition: (id: TopStatusButtonId) => TopPopupPosition
   setTopButtonRef: (id: TopStatusButtonId, node: HTMLButtonElement | null) => void
   onPowerMenuAction: (command: PowerMenuCommand) => void
 }
@@ -96,6 +98,7 @@ export function useTopStatusController({
         return
       }
       setArmedPowerCommand(null)
+      if (id === 'notifications') dismissPrinterNotification()
       setTopPopupPosition(readTopPopupPosition(id))
       setActiveTopPopup(id)
     },
@@ -179,6 +182,7 @@ export function useTopStatusController({
     hasUnreadPrinterNotification,
     openTopPopup,
     closeTopPopup,
+    readTopPopupPosition,
     setTopButtonRef,
     onPowerMenuAction: isBusy || transitionPowerCommand !== null ? () => undefined : onPowerMenuAction,
   }

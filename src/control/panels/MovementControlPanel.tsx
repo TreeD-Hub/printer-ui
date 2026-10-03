@@ -589,10 +589,7 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
       ) : null}
 
       {movementMode === 'buttons' ? (
-        <section className="control-axis-controls control-subpanel">
-          <div className="control-card-head">
-            <h3 className="control-card-title">Оси</h3>
-          </div>
+        <section className="control-axis-controls control-subpanel" aria-label="Перемещение осей">
           <div className="control-step-row">
             <p className="control-step-label">Шаг перемещения</p>
             <SegmentedToggle

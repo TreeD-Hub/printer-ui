@@ -102,7 +102,7 @@ export function DriverModeControlPanel({ controls, kind }: {
     {status?.supported && <section className="control-card driver-mode-card" aria-label={title}>
     <div><strong>{title}</strong><p>Режим: {status.mode === 'quiet' ? 'тихий' : status.mode === 'normal' ? 'громкий' : 'неизвестен'}</p></div>
     <div className="driver-mode-actions">
-      {(['quiet', 'normal'] as const).map(mode => <button key={mode} type="button"
+      {(['quiet', 'normal'] as const).map(mode => <button key={mode} type="button" className="control-driver-mode-btn"
         aria-pressed={status.mode === mode} disabled={busy || status.mode === mode}
         onClick={event => { triggerRef.current = event.currentTarget; dialogStatusRef.current = status; setTarget(mode); setError('') }}>
         {mode === 'quiet' ? 'Тихий' : 'Громкий'}

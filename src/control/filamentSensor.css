@@ -125,7 +125,8 @@
 
 .control-filament-choice.control-filament-choice--compact strong {
   min-width: 0;
-  font-size: var(--font-size-body-large);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
   line-height: 1.15;
 }
 
@@ -172,7 +173,8 @@
   display: block;
   margin-bottom: 6px;
   color: var(--color-text-primary);
-  font-size: var(--font-size-body-large);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
   line-height: 1.1;
 }
 
@@ -235,13 +237,14 @@
 }
 
 .control-filament-sensitivity-copy strong {
-  font-size: var(--font-size-body-large);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-regular);
   line-height: 1;
 }
 
 .control-filament-sensitivity-copy small {
   color: var(--color-text-secondary);
-  font-size: var(--font-size-body);
+  font-size: var(--font-size-small);
   line-height: 1;
 }
 

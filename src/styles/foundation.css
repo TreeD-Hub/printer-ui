@@ -80,6 +80,8 @@
   --color-control-surface: rgba(244, 244, 240, 0.025);
   --color-control-active-surface: rgba(244, 244, 240, 0.06);
   --color-control-active-text: var(--color-text-primary);
+  --color-selection: var(--color-primary);
+  --color-selection-surface: var(--color-primary-surface-soft);
   --color-focus-ring: var(--color-text-primary);
   --control-min-width: 48px;
   --control-height: 56px;

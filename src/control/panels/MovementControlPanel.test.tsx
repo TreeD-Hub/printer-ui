@@ -123,7 +123,7 @@ describe('MovementControlPanel', () => {
       <MovementControlPanel {...createProps({ onMotorsDisable })} />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Release' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Отключить моторы' }))
 
     expect(onMotorsDisable).not.toHaveBeenCalled()
     expect(screen.getByRole('dialog', { name: 'Освободить моторы?' })).toHaveTextContent(
@@ -137,7 +137,7 @@ describe('MovementControlPanel', () => {
     })
 
     rerender(<MovementControlPanel {...createProps({ isMotionBusy: true, onMotorsDisable })} />)
-    expect(screen.getByRole('button', { name: 'Release' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Отключить моторы' })).toBeDisabled()
   })
 
   it('shows the block reason instead of opening Release confirmation', () => {
@@ -146,7 +146,7 @@ describe('MovementControlPanel', () => {
     props.commandBlockReasons.disableMotors = 'Идет парковка осей'
 
     render(<MovementControlPanel {...props} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Release' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Отключить моторы' }))
 
     expect(screen.queryByTestId('motors-release-confirm-dialog')).not.toBeInTheDocument()
     expect(screen.getByTestId('movement-lock-popup')).toHaveTextContent('Идет парковка осей')

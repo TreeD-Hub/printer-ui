@@ -23,7 +23,7 @@
   font-family: var(--font-family-ui);
 }
 
-.screen-shell :is(button, input, select, textarea, a, [tabindex]):focus-visible,
+.screen-shell :is(button, input, select, textarea, a, [tabindex]):focus-visible:not(.print-tune-compact-stepper-input),
 .screen-shell .print-tune-compact-stepper-input-wrap:focus-within {
   outline: var(--focus-width) solid var(--color-focus-ring);
   outline-offset: var(--focus-offset);
@@ -32,7 +32,7 @@
 
 /* Базовый primitive и его состояния принадлежат этому слою. */
 .screen-shell :is(
-  .segmented-toggle-btn, .files-sort-btn, .step-btn, .settings-sidebar-item,
+  .segmented-toggle-btn, .files-sort-btn, .step-btn,
   .settings-network-btn, .settings-network-item, .settings-console-chip,
   .settings-console-key, .settings-toggle-row, .control-action-btn,
   .control-target-btn, .control-service-btn, .macros-eddy-back-btn,
@@ -47,13 +47,19 @@
   box-shadow: none;
 }
 
-/* Выбор, включение и обычная команда используют нейтральную роль. */
+/* Красный отмечает выбор и включение; обычная команда сохраняет нейтральную роль. */
 .screen-shell :is(
-  .segmented-toggle-btn, .files-sort-btn, .step-btn, .settings-sidebar-item,
+  .segmented-toggle-btn, .files-sort-btn, .step-btn,
   .settings-network-item, .control-service-btn, .control-target-btn,
   .control-fan-preset-btn, .control-heating-preset-btn, .control-filament-choice,
   .control-filament-sensitivity, .virtual-keyboard-key
-).is-active,
+).is-active {
+  border-color: var(--color-selection);
+  background: var(--color-selection-surface);
+  color: var(--color-text-primary);
+  box-shadow: none;
+}
+
 .screen-shell .settings-network-btn-primary,
 .screen-shell .file-modal-action-start,
 .screen-shell .macros-eddy-command-btn:not(.is-secondary) {
@@ -65,8 +71,8 @@
 
 .screen-shell .settings-toggle-switch.is-active,
 .screen-shell .control-lighting-row.is-active .control-lighting-switch {
-  border-color: var(--color-control-active-border);
-  background: var(--color-control-active-surface);
+  border-color: var(--color-selection);
+  background: var(--color-selection-surface);
 }
 
 .screen-shell .settings-toggle-switch.is-active::after,
@@ -76,8 +82,8 @@
 .screen-shell .control-filament-sensitivity.is-active .control-filament-radio,
 .screen-shell .settings-sidebar-item.is-active::before,
 .screen-shell .nav-item.is-active::after {
-  background: var(--color-control-active-text);
-  border-color: var(--color-control-active-border);
+  background: var(--color-selection);
+  border-color: var(--color-selection);
   box-shadow: none;
 }
 
@@ -89,8 +95,8 @@
 }
 
 .screen-shell .control-light-preference input:checked {
-  background: var(--color-control-active-surface);
-  border-color: var(--color-control-active-border);
+  background: var(--color-selection-surface);
+  border-color: var(--color-selection);
 }
 
 .screen-shell .virtual-keyboard-key:active {
@@ -120,6 +126,13 @@
   cursor: not-allowed;
 }
 
+/* Текущий режим отключён для повторного выбора, но остаётся различимым. */
+.screen-shell button.control-driver-mode-btn[aria-pressed='true'] {
+  border-color: var(--color-selection);
+  background: var(--color-selection-surface);
+  color: var(--color-text-primary);
+}
+
 /* Геометрия shared-контролов вместо размеров, разбросанных по экранам. */
 .screen-shell :is(
   .segmented-toggle-btn, .files-sort-btn, .step-btn, .settings-network-btn,
@@ -135,7 +148,7 @@
   height: var(--control-height);
 }
 
-.screen-shell :is(.file-modal-close, .top-popup-close, .print-cancel-modal-close, .control-menu-collapse-btn, .control-lock-popup-close) {
+.screen-shell :is(.file-modal-close, .top-popup-close, .print-cancel-modal-close, .control-lock-popup-close) {
   width: var(--control-height);
   height: var(--control-height);
   flex-shrink: 0;
@@ -158,18 +171,42 @@
   height: var(--control-height);
 }
 
-.screen-shell .control-menu-shell {
-  grid-template-rows: var(--control-height) minmax(0, 1fr);
+.screen-shell .control-menu-shell .settings-sidebar-menu {
+  overflow-x: hidden;
+  overflow-y: auto;
+  grid-auto-rows: var(--control-height);
+  overscroll-behavior-y: contain;
 }
 
-/* Профиль драйверов занимает собственную строку, не сжимается поверх координат. */
-.screen-shell .control-scroll-area.has-driver-profile {
-  grid-template-rows: minmax(88px, max-content) minmax(440px, 1fr);
+.screen-shell .settings-sidebar-item.is-active {
+  background: var(--color-control-active-surface);
+  color: var(--color-text-primary);
 }
 
-.screen-shell .driver-mode-card {
-  display: flex;
-  min-height: 88px;
+.screen-shell .segmented-toggle-indicator {
+  display: none;
+}
+
+.screen-shell .settings-toggle-copy {
+  display: grid;
+  gap: var(--space-xxs);
+  min-width: 0;
+  text-align: left;
+}
+
+.screen-shell .settings-toggle-description {
+  font-size: var(--font-size-small);
+  color: var(--color-text-secondary);
+}
+
+.screen-shell .settings-toggle-row {
+  font-weight: var(--font-weight-regular);
+}
+
+.screen-shell .settings-toggle-switch {
+  width: 52px;
+  height: 30px;
+  border-radius: 999px;
 }
 
 .screen-shell .control-block-reason {
@@ -180,7 +217,7 @@
 }
 
 .screen-shell .control-card-parking:has(.control-block-reason) {
-  grid-template-rows: auto auto minmax(112px, 1fr) auto auto;
+  grid-template-rows: auto auto minmax(calc(2 * var(--control-height) + var(--space-xs)), 1fr) auto auto;
 }
 
 .screen-shell .settings-sidebar-menu {

@@ -15,6 +15,23 @@ function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']
 }
 
 describe('normalizeMoonrakerRuntimeSnapshot', () => {
+  it.each([
+    [null, null, null, null],
+    [undefined, undefined, null, null],
+    [0, 218, 0, 218],
+    [145, 218, 145, 218],
+    [-1, -1, null, null],
+    [1.5, 218.5, null, null],
+    [NaN, Infinity, null, null],
+    [null, 0, null, null],
+  ])('нормализует реальные слои %s / %s без подстановки нуля', (current, total, expectedCurrent, expectedTotal) => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      print_stats: { state: 'printing', info: { current_layer: current, total_layer: total } },
+    }))
+    expect(snapshot.printJob.currentLayer).toBe(expectedCurrent)
+    expect(snapshot.printJob.totalLayer).toBe(expectedTotal)
+  })
+
   it('читает сохранённый свет и состояние прочистки; применяет дефолты', () => {
     expect(normalizeMoonrakerRuntimeSnapshot(buildPayload({})).lightPreferences).toEqual({ onStartup: false, onPrintStart: true })
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({

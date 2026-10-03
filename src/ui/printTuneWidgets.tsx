@@ -280,26 +280,25 @@ export function TuneCompactStepperInput({
 
   return (
     <div className="print-tune-compact-stepper">
-      <div className="print-tune-compact-stepper-main">
-        <label className="print-tune-compact-stepper-input-wrap">
-          <input
-            type="number"
-            className="print-tune-compact-stepper-input"
-            aria-label={inputAriaLabel}
-            value={displayValue ?? formatNumericValue(value, fractionDigits)}
-            min={min}
-            max={max}
-            step={step}
-            readOnly={readOnly}
-            aria-disabled={disabled || undefined}
-            onChange={handleInputChange}
-            onFocus={handleInputActivation}
-            onClick={handleInputActivation}
-            data-testid={testIdPrefix ? `${testIdPrefix}-input` : undefined}
-          />
-        </label>
+      <label className="print-tune-compact-stepper-input-wrap">
+        <input
+          type={readOnly ? 'text' : 'number'}
+          inputMode={fractionDigits > 0 ? 'decimal' : 'numeric'}
+          className="print-tune-compact-stepper-input"
+          aria-label={inputAriaLabel}
+          value={displayValue ?? formatNumericValue(value, fractionDigits)}
+          min={min}
+          max={max}
+          step={step}
+          readOnly={readOnly}
+          aria-disabled={disabled || undefined}
+          onChange={handleInputChange}
+          onFocus={handleInputActivation}
+          onClick={handleInputActivation}
+          data-testid={testIdPrefix ? `${testIdPrefix}-input` : undefined}
+        />
         {unit ? <span className="print-tune-compact-stepper-unit">{unit}</span> : null}
-      </div>
+      </label>
       <div className="print-tune-compact-stepper-controls" role="group" aria-label={`Кнопки шага: ${inputAriaLabel}`}>
         <button
           type="button"

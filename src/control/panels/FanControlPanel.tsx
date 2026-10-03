@@ -188,8 +188,7 @@ export const FanControlPanel = memo(function FanControlPanel({
           </button>
         </section>
 
-        <section className="control-fan-presets" aria-labelledby="control-fan-presets-title">
-          <p id="control-fan-presets-title">Предустановки</p>
+        <section className="control-fan-presets" aria-label="Предустановки вентилятора">
           <div className="control-fan-preset-row" role="group" aria-label="Предустановки вентилятора">
             {CONTROL_FAN_PRESET_OPTIONS.map((preset) => {
               const isActive = activeFanPresetId === preset.id

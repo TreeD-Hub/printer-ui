@@ -1,8 +1,16 @@
 import { render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
-import { TemperatureTrendChart } from './printTuneWidgets'
+import { TemperatureTrendChart, TuneCompactStepperInput } from './printTuneWidgets'
+
+it('keeps a trailing decimal point visible while typing with the keypad', () => {
+  render(<TuneCompactStepperInput value={0.08} min={0} max={0.2} step={0.005}
+    fractionDigits={3} onChange={vi.fn()} inputAriaLabel="K-factor"
+    readOnly displayValue="0." />)
+
+  expect(screen.getByLabelText('K-factor')).toHaveValue('0.')
+})
 
 function formatTime(timestamp: number): string {
   const date = new Date(timestamp)

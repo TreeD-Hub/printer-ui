@@ -1,0 +1,235 @@
+.tune-value-workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  padding: var(--space-md);
+}
+
+.tune-value-workspace.is-keyboard-open {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  padding: var(--space-sm);
+}
+
+.tune-value-editor {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-content: center;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.tune-value-editor h3 {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-heading-medium);
+  font-weight: var(--font-weight-regular);
+}
+
+.tune-value-current {
+  margin: 0;
+  display: grid;
+  justify-items: end;
+  gap: var(--space-xxs);
+}
+
+.tune-temperature-targets {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.screen-shell .tune-temperature-targets .tune-heater-choice {
+  position: relative;
+  min-width: 0;
+  height: 104px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  padding: var(--space-sm);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-soft);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--motion-control), background-color var(--motion-control), color var(--motion-control);
+}
+
+.screen-shell .tune-temperature-targets .tune-heater-choice.is-active {
+  border-color: var(--terminal-border-active);
+  background: var(--color-control-active-surface);
+  color: var(--color-text-primary);
+}
+
+.tune-heater-choice::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: var(--space-sm);
+  right: var(--space-sm);
+  height: 2px;
+  background: transparent;
+}
+
+.tune-heater-choice.is-active::after {
+  background: var(--color-selection);
+}
+
+.tune-heater-name {
+  font-size: var(--font-size-body);
+}
+
+.tune-heater-reading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  font-size: var(--font-size-metric);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.tune-heater-reading > span {
+  font-size: var(--font-size-small);
+  color: var(--color-text-soft);
+}
+
+.tune-heater-state {
+  justify-self: end;
+  align-self: end;
+  padding-bottom: var(--space-xxs);
+  font-size: var(--font-size-tiny);
+}
+
+.tune-value-workspace.is-keyboard-open .tune-heater-choice {
+  height: 136px;
+  grid-template-rows: auto 1fr auto;
+}
+
+.tune-value-workspace.is-keyboard-open .tune-heater-reading {
+  grid-column: 1 / -1;
+  font-size: var(--font-size-heading-large);
+}
+
+.tune-value-workspace.is-keyboard-open .tune-heater-state {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.tune-value-current span,
+.tune-value-target-label {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-body);
+}
+
+.tune-value-current strong {
+  font-size: var(--font-size-metric);
+  font-weight: var(--font-weight-regular);
+}
+
+.tune-value-target-label,
+.tune-value-editor .print-tune-compact-stepper {
+  grid-column: 1 / -1;
+}
+
+.tune-value-editor .print-tune-compact-stepper {
+  gap: var(--space-sm);
+}
+
+.tune-value-editor .print-tune-compact-stepper-input-wrap {
+  height: 64px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-control);
+}
+
+.tune-value-editor .print-tune-compact-stepper-input {
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--font-size-metric);
+}
+
+.tune-value-editor .print-tune-compact-stepper-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.tune-value-editor .print-tune-compact-stepper-input-wrap:focus-within {
+  outline: var(--border-width) solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.tune-value-editor .print-tune-compact-stepper-unit {
+  font-size: var(--font-size-body-large);
+}
+
+.tune-value-editor .print-tune-compact-stepper-controls {
+  grid-template-columns: repeat(2, 64px);
+  gap: var(--space-xs);
+}
+
+.screen-shell .tune-value-editor .print-tune-compact-stepper-btn {
+  width: 64px;
+  height: 64px;
+  min-height: 64px;
+  font-size: var(--font-size-metric);
+  border-radius: var(--radius-control);
+}
+
+.tune-value-workspace.is-keyboard-open .tune-value-editor {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tune-value-workspace.is-keyboard-open .tune-value-current {
+  justify-items: start;
+}
+
+.tune-value-workspace.is-keyboard-open .print-tune-compact-stepper {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tune-value-workspace.is-keyboard-open .print-tune-compact-stepper-controls {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tune-value-workspace.is-keyboard-open .print-tune-compact-stepper-btn {
+  width: 100%;
+  height: 64px;
+}
+
+.tune-value-workspace .numeric-keypad {
+  min-height: 0;
+  padding: 0 0 0 var(--space-sm);
+  border: 0;
+  border-left: var(--border-width) solid var(--color-border-default);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  grid-template-rows: minmax(0, 1fr) 64px;
+  gap: var(--space-xs);
+  animation: none;
+}
+
+.tune-value-workspace .print-temp-keyboard-label {
+  font-size: var(--font-size-body-large);
+}
+
+.tune-value-workspace .print-temp-keyboard-grid {
+  grid-template-rows: repeat(4, minmax(var(--control-height), 1fr));
+  gap: var(--space-xs);
+}
+
+.screen-shell .tune-value-workspace .print-temp-keyboard-key,
+.screen-shell .tune-value-workspace .print-temp-keyboard-submit {
+  height: 100%;
+  font-size: var(--font-size-metric);
+  border-radius: var(--radius-control);
+}

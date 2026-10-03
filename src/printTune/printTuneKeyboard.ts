@@ -22,11 +22,11 @@ export type PrintTuneKeyboardMeta = {
 
 export const PRINT_TUNE_GROUP_META: Record<PrintTuneGroupId, { label: string; note: string }> = {
   nozzle: {
-    label: 'Температуры',
+    label: 'Температура сопла',
     note: '',
   },
   bed: {
-    label: 'Температуры',
+    label: 'Температура стола',
     note: '',
   },
   fan: {

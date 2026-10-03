@@ -95,6 +95,18 @@ function TestHarness({
 }
 
 describe('usePrintSessionController', () => {
+  it.each(['live', 'mock'] as const)('обновляет слой из snapshot в режиме %s', (source) => {
+    const snapshot = createMockSnapshot()
+    snapshot.source = source
+    snapshot.printJob = { ...snapshot.printJob, state: 'printing', currentLayer: 1, totalLayer: 218 }
+    const { rerender } = render(<TestHarness snapshot={snapshot} />)
+    expect(screen.getByTestId('layers')).toHaveTextContent('1 / 218')
+    rerender(<TestHarness snapshot={{ ...snapshot, printJob: { ...snapshot.printJob, state: 'paused', currentLayer: 2 } }} />)
+    expect(screen.getByTestId('layers')).toHaveTextContent('2 / 218')
+    rerender(<TestHarness snapshot={{ ...snapshot, printJob: { ...snapshot.printJob, currentLayer: null, totalLayer: null } }} />)
+    expect(screen.getByTestId('layers')).toHaveTextContent('— / —')
+  })
+
   it.each([
     [null, null, '— / —'],
     [4, null, '4 / —'],

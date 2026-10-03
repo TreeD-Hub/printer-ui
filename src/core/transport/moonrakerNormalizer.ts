@@ -207,6 +207,10 @@ function toNullableNumber(value: unknown): number | null {
   return Number.isFinite(numericValue) ? numericValue : null
 }
 
+function toLayerNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -329,8 +333,8 @@ function normalizePrintStats(
     totalDurationSec: toFiniteNumber(printStats?.total_duration, 0),
     printDurationSec: toFiniteNumber(printStats?.print_duration, 0),
     filamentUsedMm: toFiniteNumber(printStats?.filament_used, 0),
-    currentLayer: toNullableNumber(info?.current_layer),
-    totalLayer: toNullableNumber(info?.total_layer),
+    currentLayer: toLayerNumber(info?.current_layer),
+    totalLayer: toLayerNumber(info?.total_layer) || null,
   }
 }
 

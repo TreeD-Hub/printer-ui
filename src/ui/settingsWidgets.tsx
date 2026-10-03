@@ -103,6 +103,8 @@ export function SettingsInfoCard({
 
 type SettingsToggleRowProps = {
   label: string
+  description?: string
+  title?: string
   checked: boolean
   onChange: (nextValue: boolean) => void
   testId?: string
@@ -111,6 +113,8 @@ type SettingsToggleRowProps = {
 
 export function SettingsToggleRow({
   label,
+  description,
+  title,
   checked,
   onChange,
   testId,
@@ -120,12 +124,18 @@ export function SettingsToggleRow({
     <button
       type="button"
       className="settings-toggle-row"
-      aria-pressed={checked}
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
       data-testid={testId}
+      title={title}
       disabled={disabled}
       onClick={() => onChange(!checked)}
     >
-      <span className="settings-toggle-label">{label}</span>
+      <span className="settings-toggle-copy">
+        <span className="settings-toggle-label">{label}</span>
+        {description ? <span className="settings-toggle-description">{description}</span> : null}
+      </span>
       <span className={joinClassNames('settings-toggle-switch', checked && 'is-active')} aria-hidden="true" />
     </button>
   )
