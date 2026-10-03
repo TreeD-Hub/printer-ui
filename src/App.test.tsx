@@ -1306,7 +1306,9 @@ describe('App', () => {
     expect(screen.getByTestId('settings-check-updates-button')).toBeEnabled()
     expect(screen.getByText('Интерфейс TreeD')).toBeInTheDocument()
     expect(screen.getByText('Система TreeD')).toBeInTheDocument()
-    expect(screen.getByText('Симуляция')).toBeInTheDocument()
+    expect(screen.getByText('Доступно обновление')).toBeInTheDocument()
+    expect(screen.getByText('Обновление недоступно')).toBeInTheDocument()
+    expect(screen.queryByText('Симуляция')).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-apply-printer-ui-button')).toBeEnabled()
     expect(screen.getByTestId('settings-apply-printer-core-button')).toBeDisabled()
 

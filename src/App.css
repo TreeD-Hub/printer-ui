@@ -7023,7 +7023,7 @@ body {
 
 .nav-item {
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: transparent;
   color: var(--color-text-secondary);
   display: grid;
