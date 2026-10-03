@@ -168,6 +168,9 @@ export type FilamentSensorControlPanelProps = {
 }
 
 export type LightingControlPanelProps = {
+  lightPreferences?: import('@treed/printer-logic').LightPreferences
+  lightPreferencesBlockReason?: string | null
+  onLightPreferenceChange?: (setting: 'onStartup' | 'onPrintStart', enabled: boolean) => void
   isMainLightEnabled: boolean
   isToolheadLightEnabled: boolean
   isBusy: boolean

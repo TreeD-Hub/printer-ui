@@ -215,6 +215,8 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return `Fan set to ${args.percent}%`
     case 'setMainLightEnabled':
       return args.enabled ? 'Main light on sent' : 'Main light off sent'
+    case 'setLightPreference':
+      return 'Настройка света сохранена'
     case 'setPrintSpeedFactorPercent':
       return `Print speed factor set to ${args.percent}%`
     case 'setPrintFlowFactorPercent':
@@ -371,6 +373,8 @@ function executeMoonrakerCommand(
       return sendScript(`M106 S${mapFanPercentToM106(args.percent)}`, options, args.command)
     case 'setMainLightEnabled':
       return sendScript(args.enabled ? 'LIGHT_ON' : 'LIGHT_OFF', options, args.command)
+    case 'setLightPreference':
+      return sendScript(`TREED_LIGHT_SETTINGS ${args.setting === 'onStartup' ? 'STARTUP' : 'PRINT_START'}=${args.enabled ? 1 : 0}`, options, args.command)
     case 'setPrintSpeedFactorPercent':
       return sendScript(`TREED_UI_SET_SPEED_FACTOR PERCENT=${args.percent}`, options, args.command)
     case 'setPrintFlowFactorPercent':

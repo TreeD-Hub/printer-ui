@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import type { PrinterCommandId } from '../core/commands'
 import type { TopStatusButtonId } from '../dashboard/config'
 import type { PrinterDisplayNotification } from '../dashboard/printerStatusState'
+import { usePrinterNotifications } from '../core/store/printerNotifications'
 import {
   CLOUD_LINK_URL,
   CLOUD_QR_IMAGE_URL,
@@ -52,6 +53,7 @@ export function TopStatusPopups({
   onOpenWifiSettings,
   onPowerMenuAction,
 }: TopStatusPopupsProps) {
+  const { history } = usePrinterNotifications()
   if (activeTopPopup === null) {
     return null
   }
@@ -145,17 +147,23 @@ export function TopStatusPopups({
         {activeTopPopup === 'notifications' ? (
           <div className="top-popup-content">
             <p className="top-popup-note">Уведомления принтера:</p>
-            <ul className="top-popup-list">
+            <ul className="top-popup-list printer-notification-history">
               {commandError ? <li>{commandError}</li> : null}
-              {currentPrinterNotification !== null ? (
+              {history.length === 0 && currentPrinterNotification !== null ? (
                 <li>
                   <strong>{currentPrinterNotification.title}</strong>
                   {currentPrinterNotification.details ? `: ${currentPrinterNotification.details}` : ''}
                 </li>
               ) : null}
-              {commandError || currentPrinterNotification !== null ? null : <li>Новых уведомлений нет.</li>}
+              {history.map((entry) => (
+                <li key={entry.id}>
+                  <strong>{entry.title}</strong> — {entry.details}
+                  <small> {new Date(entry.receivedAt).toLocaleTimeString('ru-RU')}</small>
+                </li>
+              ))}
+              {commandError || currentPrinterNotification !== null || history.length > 0 ? null : <li>Новых уведомлений нет.</li>}
             </ul>
-            <p className="top-popup-secondary">Новые системные уведомления будут добавляться в этот список.</p>
+            <p className="top-popup-secondary">Последние 50 событий текущего сеанса интерфейса.</p>
           </div>
         ) : null}
 

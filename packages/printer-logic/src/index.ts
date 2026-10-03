@@ -30,6 +30,7 @@ export type PrinterCommandId =
   | 'turnOffHeaters'
   | 'setFanPercent'
   | 'setMainLightEnabled'
+  | 'setLightPreference'
   | 'setPrintSpeedFactorPercent'
   | 'setPrintFlowFactorPercent'
   | 'setPrintAccel'
@@ -166,6 +167,11 @@ export type ExecuteCommandArgs =
     }
   | {
       command: 'setMainLightEnabled'
+      enabled: boolean
+    }
+  | {
+      command: 'setLightPreference'
+      setting: 'onStartup' | 'onPrintStart'
       enabled: boolean
     }
   | {
@@ -396,7 +402,12 @@ export function getHostNetworkErrorMessage(error: unknown, fallback: string): st
   return fallback
 }
 
+export type LightPreferences = { onStartup: boolean; onPrintStart: boolean }
+export { parsePrinterEvent, readPrinterEvent, describePrinterEvent } from './printerEvents'
+export type { PrinterEvent, PrinterNotification } from './printerEvents'
+
 export interface PrinterCapabilitiesSnapshot {
+  lightingPreferences?: boolean
   print: boolean
   motion: boolean
   thermal: boolean
@@ -854,6 +865,9 @@ export interface TreeDCommandCatalogItem {
 }
 
 export interface TreeDCommandRuntimeContext {
+  lightPreferences?: LightPreferences
+  clogRecoveryActive?: boolean
+  operationPhase?: string
   source?: PrinterDataMode
   capabilities: PrinterCapabilitiesSnapshot
   uiContractStatus: 'legacy' | 'compatible' | 'incompatible'
@@ -1063,6 +1077,14 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     id: 'setMainLightEnabled',
     risk: 'safe',
     label: 'Основной свет',
+    capability: 'lighting',
+    requiresConfirmation: false,
+    pendingDomain: 'light',
+  },
+  setLightPreference: {
+    id: 'setLightPreference',
+    risk: 'safe',
+    label: 'Автовключение света',
     capability: 'lighting',
     requiresConfirmation: false,
     pendingDomain: 'light',
@@ -1572,8 +1594,18 @@ function getCommandSpecificBlockReason(
     return `${item.label}: калибровка Eddy недоступна во время печати.`
   }
 
-  if (activePrint && !pausedPrint && FILAMENT_COMMANDS.has(command)) {
-    return `${item.label}: перемещение филамента недоступно во время печати.`
+  if (FILAMENT_COMMANDS.has(command)) {
+    if (context.clogRecoveryActive) return `${item.label}: выполняется автоматическая прочистка.`
+    if (['preparing', 'calibrating', 'auto_remove'].includes(context.operationPhase ?? '') || context.printJob?.state === 'preparing') {
+      return `${item.label}: дождитесь завершения текущей операции.`
+    }
+    if (activePrint && !pausedPrint) {
+      return `${item.label}: перемещение филамента недоступно во время печати. Сначала поставьте печать на паузу.`
+    }
+  }
+
+  if (command === 'setLightPreference' && !context.capabilities.lightingPreferences) {
+    return `${item.label}: требуется обновление core принтера.`
   }
 
   if (activePrint && FILAMENT_SENSOR_SETTING_COMMANDS.has(command)) {

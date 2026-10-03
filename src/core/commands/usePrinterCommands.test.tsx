@@ -513,6 +513,28 @@ describe('usePrinterCommands', () => {
     })
   })
 
+  it('confirms light preference only after saved runtime state arrives', async () => {
+    runtimeMocks.execute.mockResolvedValue(accepted('setLightPreference'))
+    let api: PrinterCommandsApi | null = null
+    const onReady = (nextApi: PrinterCommandsApi) => { api = nextApi }
+    const initialContext: TreeDCommandRuntimeContext = {
+      ...RUNTIME_CONTEXT,
+      capabilities: { ...RUNTIME_CONTEXT.capabilities, lightingPreferences: true },
+      lightPreferences: { onStartup: false, onPrintStart: true },
+    }
+    const { rerender } = render(<Harness context={initialContext} onReady={onReady} />)
+    await waitFor(() => { expect(api).not.toBeNull() })
+    await act(async () => {
+      await api!.executeCommand({ command: 'setLightPreference', setting: 'onStartup', enabled: true })
+    })
+    expect(api!.pendingCommand).toBe('setLightPreference')
+    rerender(<Harness context={{ ...initialContext, lightPreferences: { onStartup: true, onPrintStart: true } }} onReady={onReady} />)
+    await waitFor(() => {
+      expect(api!.pendingCommand).toBeNull()
+      expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'confirmed' }))
+    })
+  })
+
   it('allows fan changes while another command is awaiting runtime confirmation', async () => {
     runtimeMocks.execute
       .mockResolvedValueOnce(accepted('setMainLightEnabled'))

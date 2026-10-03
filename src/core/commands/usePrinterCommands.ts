@@ -85,6 +85,8 @@ function isCommandConfirmed(
       return isNear(context.thermalTargets?.nozzle, args.nozzleCelsius) && isNear(context.thermalTargets?.bed, args.bedCelsius)
     case 'setMainLightEnabled':
       return context.mainLightEnabled === args.enabled
+    case 'setLightPreference':
+      return context.lightPreferences?.[args.setting] === args.enabled
     case 'excludeObject':
       return context.excludeObjects?.excludedObjectNames.includes(args.objectName) === true
     case 'setFilamentSensorMode':

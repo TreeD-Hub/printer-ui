@@ -16,6 +16,14 @@ function createDeferred<T>() {
 }
 
 describe('createMoonrakerCommandClient', () => {
+  it('сохраняет только выбранный флаг света на принтере', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ result: 'ok' }) })
+    const client = createMoonrakerCommandClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock })
+    await client.execute({ command: 'setLightPreference', setting: 'onStartup', enabled: true })
+    await client.execute({ command: 'setLightPreference', setting: 'onPrintStart', enabled: false })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).script).toBe('TREED_LIGHT_SETTINGS STARTUP=1')
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).script).toBe('TREED_LIGHT_SETTINGS PRINT_START=0')
+  })
   beforeEach(() => {
     consoleDebug = vi.spyOn(console, 'debug').mockImplementation(() => undefined)
     consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)

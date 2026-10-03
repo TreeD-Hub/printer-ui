@@ -2,6 +2,7 @@ import { useMemo, useSyncExternalStore } from 'react'
 import { runtimeMode } from '#runtime'
 import { TREED_V2_COREXY_V1_LIMITS } from '@treed/printer-logic'
 import type { PrinterSnapshot } from '../transport/types'
+import { receivePrinterNotificationSnapshot } from './printerNotifications'
 
 type PrinterStoreListener = () => void
 
@@ -218,6 +219,7 @@ export function setPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
   }
 
   currentPrinterSnapshot = nextSnapshot
+  receivePrinterNotificationSnapshot(nextSnapshot)
   emitPrinterStoreChange()
 }
 

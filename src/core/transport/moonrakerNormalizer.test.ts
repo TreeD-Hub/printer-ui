@@ -15,6 +15,19 @@ function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']
 }
 
 describe('normalizeMoonrakerRuntimeSnapshot', () => {
+  it('читает сохранённый свет и состояние прочистки; применяет дефолты', () => {
+    expect(normalizeMoonrakerRuntimeSnapshot(buildPayload({})).lightPreferences).toEqual({ onStartup: false, onPrintStart: true })
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      save_variables: { variables: { light_on_startup: 1, light_on_print_start: 0 } },
+      'gcode_macro _TREED_CLOG_RECOVERY_STATE': { active: 1 },
+      'gcode_macro _TREED_OPERATION_STATE': { phase: 'paused' },
+      'gcode_macro _TREED_EVENT': { sequence: 2, code: 'clog_attempt', detail: '1/5' },
+    }))
+    expect(snapshot.lightPreferences).toEqual({ onStartup: true, onPrintStart: false })
+    expect(snapshot.clogRecoveryActive).toBe(true)
+    expect(snapshot.printerEvent?.code).toBe('clog_attempt')
+    expect(snapshot.operationPhase).toBe('paused')
+  })
   it('normalizes both filament sensor channels and selected settings', () => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
       webhooks: { state: 'ready' },

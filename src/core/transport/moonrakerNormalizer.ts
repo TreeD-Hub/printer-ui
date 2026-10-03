@@ -26,6 +26,7 @@ import type {
   PrinterV2Snapshot,
 } from './types'
 import {
+  readPrinterEvent,
   getPrinterFileDirectoryFromPath,
   getPrinterFileNameFromPath,
   normalizePrinterFileId,
@@ -1048,6 +1049,7 @@ function normalizeCapabilities(
     thermal: capability('thermal'),
     fan: capability('fan'),
     lighting: hasMainLightMacros && lightingCapability !== false,
+    lightingPreferences: hasMainLightMacros && macros.available.includes('TREED_LIGHT_SETTINGS'),
     filament: capability('filament'),
     filamentSensorControl: capability('filament_sensor_control') && filamentSensor.supported,
     filamentEncoderSensitivity:
@@ -1318,6 +1320,13 @@ export function normalizeMoonrakerRuntimeSnapshot(
     bedTemp: normalizeHeater(status.heater_bed),
     modelFanPercent: normalizeFan(status.fan),
     mainLightEnabled: normalizeMainLight(status),
+    lightPreferences: {
+      onStartup: parseMacroBoolean(status.save_variables?.variables?.light_on_startup) === true,
+      onPrintStart: parseMacroBoolean(status.save_variables?.variables?.light_on_print_start) !== false,
+    },
+    printerEvent: readPrinterEvent(status['gcode_macro _TREED_EVENT']),
+    clogRecoveryActive: parseMacroBoolean(readMacro(macros.values, '_TREED_CLOG_RECOVERY_STATE')?.active) === true,
+    operationPhase: readMacroString(readMacro(macros.values, '_TREED_OPERATION_STATE'), 'phase') ?? undefined,
     updatedAt: options.nowIso ?? new Date().toISOString(),
     message: firstNonEmpty(
       isReady && uiContract.status === 'incompatible' ? uiContract.message : null,

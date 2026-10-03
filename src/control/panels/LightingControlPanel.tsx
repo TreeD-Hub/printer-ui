@@ -2,6 +2,9 @@ import { memo } from 'react'
 import type { LightingControlPanelProps } from '../types'
 
 export const LightingControlPanel = memo(function LightingControlPanel({
+  lightPreferences = { onStartup: false, onPrintStart: true },
+  lightPreferencesBlockReason,
+  onLightPreferenceChange,
   isMainLightEnabled,
   isToolheadLightEnabled,
   isBusy,
@@ -31,6 +34,25 @@ export const LightingControlPanel = memo(function LightingControlPanel({
     <article className="control-card-lighting">
       <div className="control-card-head">
         <h3 className="control-card-title">Подсветка</h3>
+      </div>
+      <div className="control-light-preferences" role="group" aria-label="Автовключение света">
+        {([
+          ['onStartup', 'Свет при запуске принтера'],
+          ['onPrintStart', 'Свет при начале печати'],
+        ] as const).map(([setting, label]) => (
+          <label key={setting} className="control-light-preference control-subpanel">
+            <span>{label}</span>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label={label}
+              checked={lightPreferences[setting]}
+              disabled={isBusy || lightPreferencesBlockReason != null || !onLightPreferenceChange}
+              onChange={(event) => onLightPreferenceChange?.(setting, event.target.checked)}
+            />
+          </label>
+        ))}
+        {lightPreferencesBlockReason ? <p role="status">{lightPreferencesBlockReason}</p> : null}
       </div>
       <div className="control-lighting-list" role="group" aria-label="Управление подсветкой">
         <button

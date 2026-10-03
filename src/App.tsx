@@ -44,6 +44,8 @@ import {
 } from './settings'
 import { useMoonrakerSystemStatus } from './settings/useMoonrakerSystemStatus'
 import { TopStatusPopups, useTopStatusController } from './shell'
+import { PrinterNotificationPopup } from './shell/PrinterNotificationPopup'
+import { usePrinterNotifications } from './core/store/printerNotifications'
 import {
   PrintTuneModal,
   usePrintTuneController,
@@ -128,6 +130,9 @@ function App() {
       thermalTargets: snapshot.thermalTargets,
       modelFanPercent: snapshot.modelFanPercent,
       mainLightEnabled: snapshot.mainLightEnabled,
+      lightPreferences: snapshot.lightPreferences,
+      clogRecoveryActive: snapshot.clogRecoveryActive,
+      operationPhase: snapshot.operationPhase,
       filamentSensor: snapshot.filamentSensor,
     }),
     [
@@ -141,6 +146,9 @@ function App() {
       snapshot.klippy.state,
       snapshot.limits,
       snapshot.mainLightEnabled,
+      snapshot.lightPreferences,
+      snapshot.clogRecoveryActive,
+      snapshot.operationPhase,
       snapshot.modelFanPercent,
       snapshot.excludeObjects,
       snapshot.filamentSensor,
@@ -236,11 +244,7 @@ function App() {
   const systemPendingCommand = pendingCommands.system ?? null
   const isPrintBusy = printPendingCommand !== null
   const isSystemBusy = systemPendingCommand !== null
-  const movementTabBlockReason = hasActivePrint
-    ? getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: 1 })
-    : null
-  const activeControlGroupForRender =
-    activeControlGroup === 'movement' && movementTabBlockReason !== null ? 'heating' : activeControlGroup
+  const activeControlGroupForRender = activeControlGroup
   const isMaintenanceUsageSurfaceActive = activeScreen === 'dashboard' || (
     activeScreen === 'control' && activeControlGroupForRender === 'maintenance'
   )
@@ -383,7 +387,8 @@ function App() {
   const cloudCapabilityNotice = settingsPageProps.cloud.notice
   const isMaxPerformanceModeEnabled = settingsPageProps.interfaceSettings.isMaxPerformanceModeEnabled
   const printerDisplayStatus = usePrinterDisplayStatus()
-  const currentPrinterNotification = printerDisplayStatus.notification
+  const printerNotifications = usePrinterNotifications()
+  const currentPrinterNotification = printerNotifications.history[0] ?? printerDisplayStatus.notification
   const currentPrinterNotificationId = currentPrinterNotification?.id ?? null
   const topStatusController = useTopStatusController({
     screenShellRef,
@@ -505,10 +510,6 @@ function App() {
   }
 
   function handleControlGroupChange(nextGroup: ControlGroupId): void {
-    if (nextGroup === 'movement' && movementTabBlockReason !== null) {
-      return
-    }
-
     setActiveControlGroup(nextGroup)
   }
 
@@ -831,7 +832,7 @@ function App() {
             activeControlGroup: activeControlGroupForRender,
             isControlMenuCompact,
             controlGroupBlockReasons: {
-              movement: movementTabBlockReason,
+              movement: null,
               filament: snapshot.filamentSensor.supported
                 ? null
                 : (snapshot.filamentSensor.message ?? 'Датчик нити недоступен.'),
@@ -859,6 +860,9 @@ function App() {
             isFilamentSensorSnapshotStale: connection !== 'online' && connection !== 'degraded',
             commandError,
             isMainLightEnabled: snapshot.mainLightEnabled,
+            lightPreferences: snapshot.lightPreferences ?? { onStartup: false, onPrintStart: true },
+            lightPreferencesBlockReason: getCommandBlockReason('setLightPreference'),
+            onLightPreferenceChange: (setting, enabled) => { void executeCommand({ command: 'setLightPreference', setting, enabled }) },
             isToolheadLightEnabled: false,
             mainLightCommandBlockReason,
             toolheadLightCommandBlockReason: TOOLHEAD_LIGHT_UNAVAILABLE_REASON,
@@ -1025,6 +1029,7 @@ function App() {
           onPowerMenuAction={topStatusController.onPowerMenuAction}
         />
 
+        <PrinterNotificationPopup enabled={settingsPageProps.notifications.isNotificationsEnabled} />
         <ScreenSleepGuard
           timeoutMs={getScreenSleepTimeoutMs(settingsPageProps.interfaceSettings.sleepModeValue)}
         />
