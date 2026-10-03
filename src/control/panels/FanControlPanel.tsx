@@ -108,7 +108,7 @@ export const FanControlPanel = memo(function FanControlPanel({
   }
 
   return (
-    <article className="control-card control-card-fan">
+    <article className="control-card-fan">
       {lockPopup !== null ? (
         <div
           key={lockPopup.id}
@@ -129,95 +129,90 @@ export const FanControlPanel = memo(function FanControlPanel({
           </button>
         </div>
       ) : null}
-      <div className="control-fan-body">
-        <section className="control-fan-summary" aria-label="Текущее состояние вентилятора">
-          <div className="control-fan-summary-copy">
-            <h4>Обдув модели</h4>
-            <p>Охлаждение / воздушный поток</p>
-          </div>
-          <div className="control-fan-summary-value">
-            <strong>{displayFanPercent}%</strong>
-            <span>Скорость вентилятора</span>
-          </div>
-        </section>
+      <section className="control-fan-summary" aria-label="Текущее состояние вентилятора">
+        <div className="control-fan-summary-copy">
+          <h4><IconMask name="metricFan" size={24} />Обдув модели</h4>
+          <p>Охлаждение / воздушный поток</p>
+        </div>
+        <div className="control-fan-summary-value">
+          <strong>{displayFanPercent}%</strong>
+          <span>Скорость вентилятора</span>
+        </div>
+      </section>
 
-        <section className="control-fan-slider-panel control-subpanel" aria-label="Регулировка скорости вентилятора">
-          <button
-            type="button"
-            className="control-fan-step-btn"
-            aria-label="Уменьшить скорость вентилятора на 5 процентов"
-            aria-disabled={commandBlockReason !== null || undefined}
-            onClick={() => commitFanPercent(displayFanPercent - 5)}
-            disabled={isBusy || displayFanPercent <= 0}
-          >
-            -
-          </button>
-          <div
-            className="control-fan-slider-core"
-            onPointerUpCapture={handleFanSliderCommit}
-            onPointerCancelCapture={handleFanSliderCancel}
-          >
-            <HorizontalSteppedSlider
-              className="control-fan-design-slider"
-              value={displayFanPercent}
-              min={0}
-              max={100}
-              step={5}
-              onChange={handleFanSliderPreview}
-              disabled={isBusy || commandBlockReason !== null}
-              onBlocked={showLockPopup}
-              testId="control-fan-slider"
-            />
-            <div className="control-fan-slider-labels" aria-hidden="true">
-              <span>0</span>
-              <span>25</span>
-              <span>50</span>
-              <span>75</span>
-              <span>100%</span>
-            </div>
+      <section className="control-fan-slider-panel" aria-label="Регулировка скорости вентилятора">
+        <button
+          type="button"
+          className="control-fan-step-btn"
+          aria-label="Уменьшить скорость вентилятора на 5 процентов"
+          aria-disabled={commandBlockReason !== null || undefined}
+          onClick={() => commitFanPercent(displayFanPercent - 5)}
+          disabled={isBusy || displayFanPercent <= 0}
+        >
+          -
+        </button>
+        <div
+          className="control-fan-slider-core"
+          onPointerUpCapture={handleFanSliderCommit}
+          onPointerCancelCapture={handleFanSliderCancel}
+        >
+          <HorizontalSteppedSlider
+            className="control-fan-design-slider"
+            value={displayFanPercent}
+            min={0}
+            max={100}
+            step={5}
+            onChange={handleFanSliderPreview}
+            disabled={isBusy || commandBlockReason !== null}
+            onBlocked={showLockPopup}
+            testId="control-fan-slider"
+          />
+          <div className="control-fan-slider-labels" aria-hidden="true">
+            <span>0</span>
+            <span>25</span>
+            <span>50</span>
+            <span>75</span>
+            <span>100%</span>
           </div>
-          <button
-            type="button"
-            className="control-fan-step-btn"
-            aria-label="Увеличить скорость вентилятора на 5 процентов"
-            aria-disabled={commandBlockReason !== null || undefined}
-            onClick={() => commitFanPercent(displayFanPercent + 5)}
-            disabled={isBusy || displayFanPercent >= 100}
-          >
-            +
-          </button>
-        </section>
+        </div>
+        <button
+          type="button"
+          className="control-fan-step-btn"
+          aria-label="Увеличить скорость вентилятора на 5 процентов"
+          aria-disabled={commandBlockReason !== null || undefined}
+          onClick={() => commitFanPercent(displayFanPercent + 5)}
+          disabled={isBusy || displayFanPercent >= 100}
+        >
+          +
+        </button>
+      </section>
 
-        <section className="control-fan-presets" aria-label="Предустановки вентилятора">
-          <div className="control-fan-preset-row" role="group" aria-label="Предустановки вентилятора">
-            {CONTROL_FAN_PRESET_OPTIONS.map((preset) => {
-              const isActive = activeFanPresetId === preset.id
+      <section className="control-fan-presets control-fan-preset-row" role="group" aria-label="Предустановки вентилятора">
+        {CONTROL_FAN_PRESET_OPTIONS.map((preset) => {
+          const isActive = activeFanPresetId === preset.id
 
-              return (
-                <button
-                  key={preset.id}
-                  type="button"
-                  className={`control-fan-preset-btn${isActive ? ' is-active' : ''}`}
-                  aria-pressed={isActive}
-                  aria-disabled={commandBlockReason !== null || undefined}
-                  data-testid={`control-fan-preset-${preset.id}`}
-                  onClick={() => commitFanPercent(preset.value)}
-                  disabled={isBusy}
-                >
-                  <span className="control-fan-preset-dot" aria-hidden="true" />
-                  <span>{preset.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </section>
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              className={`control-fan-preset-btn${isActive ? ' is-active' : ''}`}
+              aria-pressed={isActive}
+              aria-disabled={commandBlockReason !== null || undefined}
+              data-testid={`control-fan-preset-${preset.id}`}
+              onClick={() => commitFanPercent(preset.value)}
+              disabled={isBusy}
+            >
+              <span className="control-fan-preset-dot" aria-hidden="true" />
+              <span>{preset.label}</span>
+            </button>
+          )
+        })}
+      </section>
 
-        <section className="control-fan-note control-subpanel">
-          <span className="control-fan-info-icon" aria-hidden="true">i</span>
-          <p>Регулирует интенсивность обдува модели для улучшения качества печати.</p>
-          <IconMask name="metricFan" size={44} className="control-fan-note-icon" />
-        </section>
-      </div>
+      <section className="control-fan-note">
+        <span className="control-fan-info-icon" aria-hidden="true">i</span>
+        <p>Интенсивность охлаждения модели во время печати.</p>
+      </section>
     </article>
   )
 })

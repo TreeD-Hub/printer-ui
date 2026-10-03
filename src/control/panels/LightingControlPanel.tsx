@@ -33,10 +33,31 @@ export const LightingControlPanel = memo(function LightingControlPanel({
 
   return (
     <article className="control-card-lighting">
-      <div className="control-card-head">
-        <h3 className="control-card-title">Подсветка</h3>
+      <div className="control-lighting-list" role="group" aria-label="Управление подсветкой">
+        <SettingsToggleRow
+          label="Основной свет"
+          icon="metricLight"
+          description={mainLightStateLabel}
+          checked={isMainLightEnabled}
+          testId="control-light-main"
+          title={mainLightCommandBlockReason ?? undefined}
+          onChange={onMainLightToggle}
+          disabled={isMainLightDisabled}
+        />
+
+        <SettingsToggleRow
+          label="Подсветка ПГ"
+          icon="metricNozzle"
+          description={toolheadLightStateLabel}
+          checked={isToolheadLightEnabled}
+          testId="control-light-toolhead"
+          title={toolheadLightCommandBlockReason ?? undefined}
+          onChange={onToolheadLightToggle}
+          disabled={isToolheadLightDisabled}
+        />
       </div>
-      <div className="control-light-preferences" role="group" aria-label="Автовключение света">
+      <section className="control-light-preferences" aria-label="Автовключение света">
+        <h3>Автовключение</h3>
         {([
           ['onStartup', 'Свет при запуске принтера'],
           ['onPrintStart', 'Свет при начале печати'],
@@ -50,28 +71,7 @@ export const LightingControlPanel = memo(function LightingControlPanel({
           />
         ))}
         {lightPreferencesBlockReason ? <p role="status">{lightPreferencesBlockReason}</p> : null}
-      </div>
-      <div className="control-lighting-list" role="group" aria-label="Управление подсветкой">
-        <SettingsToggleRow
-          label="Основной свет"
-          description={mainLightStateLabel}
-          checked={isMainLightEnabled}
-          testId="control-light-main"
-          title={mainLightCommandBlockReason ?? undefined}
-          onChange={onMainLightToggle}
-          disabled={isMainLightDisabled}
-        />
-
-        <SettingsToggleRow
-          label="Подсветка ПГ"
-          description={toolheadLightStateLabel}
-          checked={isToolheadLightEnabled}
-          testId="control-light-toolhead"
-          title={toolheadLightCommandBlockReason ?? undefined}
-          onChange={onToolheadLightToggle}
-          disabled={isToolheadLightDisabled}
-        />
-      </div>
+      </section>
     </article>
   )
 })

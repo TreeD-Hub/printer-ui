@@ -262,6 +262,7 @@ export function useHeatingFanController({
       <NumericKeypad label="Температура" value={temperatureKeyboardValue} unit="°C" className={className}
         showValue={className !== 'is-tune-workspace'} ariaLabel="Цифровая клавиатура температуры"
         showHeader={className !== 'is-tune-workspace'}
+        showLabel={className !== 'is-control'}
         closeLabel="Закрыть клавиатуру температуры" clearLabel="Очистить температуру"
         onClose={closeTemperatureKeyboard} onDigit={handleTemperatureKeyboardDigit}
         onClear={handleTemperatureKeyboardClear} onBackspace={handleTemperatureKeyboardBackspace}

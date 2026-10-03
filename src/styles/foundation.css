@@ -27,6 +27,8 @@
   --color-primary-dark: #b91414; /* Тёмный красный для нажатых состояний. */
   --color-success: #d9f7e5; /* Светлый терминальный success без зелёного доминирования. */
   --color-warning: #fff0b8; /* Тёплый warning, читаемый на чёрном фоне. */
+  --color-temperature-nozzle: var(--color-primary); /* Сопло: линия графика и её легенда. */
+  --color-temperature-bed: var(--color-warning); /* Стол: линия графика и её легенда. */
   --color-error: #ff2a2a; /* Критичные действия и ошибки. */
   --color-text-primary: #cccccc; /* Основной светлый dot-matrix текст. */
   --color-text-secondary: #c0c0c0; /* Подписи и вторичный текст. */

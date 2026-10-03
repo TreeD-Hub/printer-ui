@@ -103,6 +103,7 @@ export function SettingsInfoCard({
 
 type SettingsToggleRowProps = {
   label: string
+  icon?: UiIconName
   description?: string
   title?: string
   checked: boolean
@@ -113,6 +114,7 @@ type SettingsToggleRowProps = {
 
 export function SettingsToggleRow({
   label,
+  icon,
   description,
   title,
   checked,
@@ -132,6 +134,7 @@ export function SettingsToggleRow({
       disabled={disabled}
       onClick={() => onChange(!checked)}
     >
+      {icon ? <IconMask name={icon} size={32} className="settings-toggle-icon" /> : null}
       <span className="settings-toggle-copy">
         <span className="settings-toggle-label">{label}</span>
         {description ? <span className="settings-toggle-description">{description}</span> : null}

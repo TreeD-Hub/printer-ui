@@ -31,6 +31,7 @@ type NumericKeypadProps = {
   className?: string
   showValue?: boolean
   showHeader?: boolean
+  showLabel?: boolean
   onDigit: (digit: string) => void
   onClear?: () => void
   clearLabel?: string
@@ -42,14 +43,14 @@ type NumericKeypadProps = {
 }
 
 export function NumericKeypad({
-  label, ariaLabel, closeLabel, value, unit, className = '', showValue = true, showHeader = true,
+  label, ariaLabel, closeLabel, value, unit, className = '', showValue = true, showHeader = true, showLabel = true,
   onDigit, onClear, clearLabel = 'Очистить значение', onBackspace, onDecimal,
   onSubmit, onClose, testIdPrefix,
 }: NumericKeypadProps) {
   return (
     <aside className={`print-temp-keyboard-side numeric-keypad ${className}`} aria-label={ariaLabel}>
       {showHeader ? <div className="print-temp-keyboard-head">
-        <p className="print-temp-keyboard-label">{label}</p>
+        {showLabel ? <p className="print-temp-keyboard-label">{label}</p> : null}
         <button type="button" className="print-cancel-modal-close print-temp-keyboard-close"
           aria-label={closeLabel} onClick={onClose}>×</button>
       </div> : null}
