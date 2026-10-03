@@ -9,6 +9,7 @@
 - `host-network-runtime-contract.md` - контракт Wi-Fi/host-network между UI и `treed-mainshellOS`.
 - `system-power-runtime-contract.md` - контракт reboot/shutdown/service commands и confirmation-only wiring.
 - `ui-runtime-delivery/README.md` - production delivery printer UI через release artifact и loader.
+- `update-display-lifecycle.md` - целевое разделение постоянного системного экрана обновления и заменяемого UI bundle.
 
 ## Инварианты
 

@@ -10,7 +10,7 @@
 - `dashboard/` - главный экран, idle/print views, status dock, temperature widgets.
 - `control/` - экран управления движением, нагревом, обдувом, светом и maintenance-группами.
 - `files/` - библиотека G-code файлов, выбор, старт и удаление файла.
-- `settings/` - настройки устройства, интерфейса, Wi-Fi, cloud/updates placeholders и виртуальная клавиатура.
+- `settings/` - настройки устройства, интерфейса, Wi-Fi, облака, операция обновления и виртуальная клавиатура.
 - `shell/` - top-status popups, notification/power/network status wiring.
 - `printSession/` - controller активной печати и файловой сессии.
 - `printTune/` - runtime-tune modal, numeric controls и keyboard helpers.

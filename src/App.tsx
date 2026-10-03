@@ -1,7 +1,8 @@
 import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createHostNetworkClient, createHostUpdateClient } from '#runtime'
+import { createHostNetworkClient, createHostUpdateClient, runtimeMode } from '#runtime'
 import { AppScreenContent } from './app/AppScreenContent'
 import { ScreenSleepGuard } from './app/ScreenSleepGuard'
+import { UpdateOperationScreen } from './settings/UpdateOperationScreen'
 import {
   getTreeDCommandBlockReason,
   getTreeDCommandCatalogItem,
@@ -308,11 +309,19 @@ function App() {
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const hostNetworkClient = useMemo(() => createHostNetworkClient(), [])
   const hostUpdateClient = useMemo(() => createHostUpdateClient(), [])
+  const handleUpdateApplied = useCallback(() => {
+    if (runtimeMode === 'mock') {
+      setActiveScreen('dashboard')
+    } else {
+      window.location.reload()
+    }
+  }, [])
   const settingsController = useSettingsController({
     snapshot,
     connectionLabel,
     networkClient: hostNetworkClient,
     updateClient: hostUpdateClient,
+    onUpdateApplied: handleUpdateApplied,
     executeCommand,
     getCommandBlockReason,
     activeKeyboardTarget: isSettingsKeyboardTarget(activeKeyboardTarget) ? activeKeyboardTarget : null,
@@ -1063,9 +1072,21 @@ function App() {
           activeScreen={activeScreen}
           readTopPopupPosition={topStatusController.readTopPopupPosition}
         />
-        <ScreenSleepGuard
-          timeoutMs={getScreenSleepTimeoutMs(settingsPageProps.interfaceSettings.sleepModeValue)}
-        />
+        {settingsPageProps.updates.operation !== null ? (
+          <UpdateOperationScreen
+            operation={settingsPageProps.updates.operation}
+            isReconnectPending={settingsPageProps.updates.isReconnectPending}
+            onDismiss={() => {
+              settingsPageProps.updates.onDismissOperation()
+              setActiveSettingsGroup('updates')
+              setActiveScreen('settings')
+            }}
+          />
+        ) : (
+          <ScreenSleepGuard
+            timeoutMs={getScreenSleepTimeoutMs(settingsPageProps.interfaceSettings.sleepModeValue)}
+          />
+        )}
       </section>
     </main>
   )

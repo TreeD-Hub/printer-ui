@@ -82,7 +82,12 @@ describe('App', () => {
     expect(idleNotesInput.value.length).toBeGreaterThan(0)
     fireEvent.focus(idleNotesInput)
     expect(screen.getByTestId('idle-notes-keyboard')).toBeInTheDocument()
-    idleNotesInput.setSelectionRange(idleNotesInput.value.length, idleNotesInput.value.length)
+    const idleNotesKeyboardPreview = screen.getByTestId('idle-notes-keyboard-preview') as HTMLTextAreaElement
+    fireEvent.focus(idleNotesKeyboardPreview)
+    idleNotesKeyboardPreview.setSelectionRange(
+      idleNotesKeyboardPreview.value.length,
+      idleNotesKeyboardPreview.value.length,
+    )
     fireEvent.click(screen.getByRole('button', { name: /Символ о/i }))
     expect(idleNotesInput.value.endsWith('о')).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: 'Скрыть клавиатуру' }))
@@ -774,10 +779,10 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Парковка' })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Сервисный режим' })).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Подсветка' })).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Оси' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Перемещение осей' })).toBeInTheDocument()
     expect(screen.queryByTestId('parking-action-button')).not.toBeInTheDocument()
     expect(screen.getByTestId('service-mode-button')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByTestId('motors-disable-button')).toHaveAccessibleName('Release')
+    expect(screen.getByTestId('motors-disable-button')).toHaveAccessibleName('Отключить моторы')
     expect(screen.getByRole('button', { name: 'Загрузить филамент' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Выгрузить филамент' })).toBeInTheDocument()
 
@@ -835,9 +840,9 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('control-group-lighting'))
     expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Освещение')
-    expect(screen.getByRole('heading', { name: 'Подсветка' })).toBeInTheDocument()
-    expect(screen.getByTestId('control-light-main')).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.getByTestId('control-light-toolhead')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('group', { name: 'Управление подсветкой' })).toBeInTheDocument()
+    expect(screen.getByTestId('control-light-main')).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByTestId('control-light-toolhead')).toHaveAttribute('aria-checked', 'false')
     const mainLightButton = screen.getByTestId('control-light-main')
     fireEvent.click(mainLightButton)
     await waitFor(() => {
@@ -1071,7 +1076,7 @@ describe('App', () => {
     expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
     expect(screen.getByTestId('macros-manager')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('heading', { name: 'Выберите проход' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Выберите калибровку' })).toBeInTheDocument()
     expect(within(screen.getByTestId('macros-manager-workflows')).getAllByRole('button')).toHaveLength(1)
 
     fireEvent.click(
@@ -1085,9 +1090,9 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Первичная калибровка датчика' })).toBeInTheDocument()
     expect(screen.queryByTestId('eddy-step-list')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Калибровать ток' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Начать paper test' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Проверить высоту по бумаге' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'TESTZ -0.05 мм' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'ACCEPT и сохранить' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Принять и сохранить' })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
 
@@ -1210,7 +1215,9 @@ describe('App', () => {
     expect(screen.queryByTestId('settings-network-connect-button')).not.toBeInTheDocument()
     expect(screen.queryByTestId('settings-network-forget-button')).not.toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByTestId('settings-network-notice')).toHaveTextContent('network bridge недоступен')
+      expect(screen.getByTestId('settings-network-notice')).toHaveTextContent(
+        'Управление Wi-Fi пока недоступно на этом принтере.',
+      )
     })
     expect(screen.queryByText('Текущая сеть')).not.toBeInTheDocument()
     expect(screen.queryByTestId('top-popup-wifi')).not.toBeInTheDocument()
@@ -1269,8 +1276,8 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('settings-group-interface'))
     expect(screen.getByRole('heading', { name: 'Интерфейс' })).toBeInTheDocument()
-    expect(screen.getByTestId('settings-dark-theme-toggle')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByTestId('settings-max-performance-toggle')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('settings-dark-theme-toggle')).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('settings-max-performance-toggle')).toHaveAttribute('aria-checked', 'false')
     expect((screen.getByRole('combobox', { name: 'Спящий режим' }) as HTMLSelectElement).value).toBe('5 мин')
     expect(
       within(screen.getByRole('combobox', { name: 'Временная зона UTC' })).getAllByRole('option').length,
@@ -1281,13 +1288,13 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('settings-group-notifications'))
     expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument()
-    expect(screen.getByTestId('settings-notifications-enabled-toggle')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('settings-notifications-enabled-toggle')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByText('Печать завершена')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('settings-group-cloud'))
     expect(screen.getByTestId('settings-cloud-connect-toggle')).toBeDisabled()
     expect(screen.getByTestId('settings-cloud-ai-toggle')).toBeDisabled()
-    expect(screen.getByText(/cloud capability не подтвержден/i)).toBeInTheDocument()
+    expect(screen.getByText('Облачный сервис пока недоступен на этом принтере.')).toBeInTheDocument()
     expect(screen.getByText('Выключен')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('settings-group-device'))
@@ -1297,10 +1304,10 @@ describe('App', () => {
 
     fireEvent.click(screen.getByTestId('settings-group-updates'))
     expect(screen.getByTestId('settings-check-updates-button')).toBeEnabled()
-    expect(screen.getByText('TreeD Printer UI')).toBeInTheDocument()
-    expect(screen.getByText('TreeD Printer Core')).toBeInTheDocument()
-    expect(screen.getAllByText('Mock')).toHaveLength(2)
-    expect(screen.getByTestId('settings-apply-printer-ui-button')).toBeDisabled()
+    expect(screen.getByText('Интерфейс TreeD')).toBeInTheDocument()
+    expect(screen.getByText('Система TreeD')).toBeInTheDocument()
+    expect(screen.getByText('Симуляция')).toBeInTheDocument()
+    expect(screen.getByTestId('settings-apply-printer-ui-button')).toBeEnabled()
     expect(screen.getByTestId('settings-apply-printer-core-button')).toBeDisabled()
 
     fireEvent.click(screen.getByTestId('settings-group-console'))
@@ -1336,7 +1343,7 @@ describe('App', () => {
     expect(screen.getByRole('dialog', { name: 'Состояние облака' })).toBeInTheDocument()
     expect(cloudButton).toHaveClass('is-active')
     expect(screen.getByText('Недоступно')).toBeInTheDocument()
-    expect(screen.getByText(/cloud capability не подтвержден/i)).toBeInTheDocument()
+    expect(screen.getByText('Облачный сервис пока недоступен на этом принтере.')).toBeInTheDocument()
 
     expect(screen.queryByRole('link', { name: 'Открыть treed.pro для добавления устройства' })).not.toBeInTheDocument()
   })

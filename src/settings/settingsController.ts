@@ -17,7 +17,9 @@ import {
 } from '../core/hostNetwork'
 import {
   isMoonrakerHostUpdateEndpointUnavailable,
+  getHostUpdateErrorMessage,
   type HostUpdateClient,
+  type HostUpdateOperation,
   type HostUpdateStatus,
   type HostUpdateTargetId,
 } from '../core/hostUpdate'
@@ -55,6 +57,7 @@ type UseSettingsControllerArgs = {
   connectionLabel: string
   networkClient: HostNetworkClient
   updateClient: HostUpdateClient
+  onUpdateApplied?: () => void
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   activeKeyboardTarget: SettingsKeyboardTarget | null
@@ -121,6 +124,7 @@ export function useSettingsController({
   connectionLabel,
   networkClient,
   updateClient,
+  onUpdateApplied,
   executeCommand,
   getCommandBlockReason,
   activeKeyboardTarget,
@@ -147,16 +151,19 @@ export function useSettingsController({
   const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Сервис облака не подключен.')
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
   const [applyingUpdateTarget, setApplyingUpdateTarget] = useState<HostUpdateTargetId | null>(null)
+  const [updateOperation, setUpdateOperation] = useState<HostUpdateOperation | null>(null)
+  const pendingUpdateRef = useRef<Pick<HostUpdateOperation, 'operationId' | 'requestId' | 'targetId' | 'targetTag'> | null>(null)
+  const [updateOperationHistory, setUpdateOperationHistory] = useState<HostUpdateOperation[]>([])
+  const isUpdateOperationActive = updateOperation !== null &&
+    !['applied', 'error', 'rolled_back', 'rejected'].includes(updateOperation.status)
+  const [isUpdateReconnectPending, setIsUpdateReconnectPending] = useState(false)
+  const [dismissedUpdateOperationId, setDismissedUpdateOperationId] = useState<string | null>(null)
   const [updateReleaseResults, setUpdateReleaseResults] = useState(() =>
     runtimeMode === 'mock'
       ? createMockUpdateReleaseResults(UPDATE_RELEASE_TARGETS)
       : createUnknownUpdateReleaseResults(UPDATE_RELEASE_TARGETS),
   )
-  const [updateNotice, setUpdateNotice] = useState<string>(
-    runtimeMode === 'mock'
-      ? 'Mock: GitHub Releases не проверяются.'
-      : 'Проверьте наличие новых версий.',
-  )
+  const [updateNotice, setUpdateNotice] = useState<string>('')
   const [consoleCommandValue, setConsoleCommandValue] = useState<string>('')
   const [pendingConsoleCommand, setPendingConsoleCommand] = useState<string | null>(null)
   const [consoleHistory, setConsoleHistory] = useState<Array<{ id: string; command: string; createdAt: string }>>([])
@@ -283,6 +290,47 @@ export function useSettingsController({
       })
   }, [applyHostNetworkError, applyHostNetworkStatus, networkClient])
 
+  const consumeUpdateStatus = useCallback((status: HostUpdateStatus): void => {
+    applyHostUpdateStatus(status)
+    const activeOperation = status.operation ?? (status.busy ? {
+      operationId: null,
+      requestId: null,
+      status: 'running' as const,
+      phase: 'unknown' as const,
+      progress: null,
+      resultCode: null,
+      message: status.message || 'Операция обновления продолжается.',
+      targetId: status.targetId,
+      targetTag: status.targetTag,
+      startedAt: null,
+      updatedAt: null,
+      finishedAt: null,
+    } : null)
+    const nextOperation = activeOperation ?? status.latestOperation ?? null
+    const isApplied = !status.busy && nextOperation?.status === 'applied'
+    const pending = pendingUpdateRef.current
+    const isSameOperation = pending !== null && nextOperation !== null && (
+      pending.operationId && nextOperation.operationId
+        ? pending.operationId === nextOperation.operationId
+        : pending.requestId && nextOperation.requestId
+          ? pending.requestId === nextOperation.requestId
+          : pending.targetId === nextOperation.targetId && pending.targetTag === nextOperation.targetTag
+    )
+    if (nextOperation && !['applied', 'error', 'rolled_back', 'rejected'].includes(nextOperation.status)) {
+      pendingUpdateRef.current = nextOperation
+    } else if (nextOperation) {
+      pendingUpdateRef.current = null
+    }
+    // Исторический успех после загрузки страницы не открывает заставку и не создаёт цикл reload.
+    setUpdateOperation(isApplied ? null : nextOperation)
+    setUpdateOperationHistory(status.history ?? [])
+    setIsUpdateReconnectPending(false)
+    if (nextOperation && !isApplied) {
+      setUpdateNotice(nextOperation.message)
+    }
+    if (isApplied && isSameOperation) onUpdateApplied?.()
+  }, [onUpdateApplied])
+
   useEffect(() => {
     let isDisposed = false
 
@@ -306,19 +354,49 @@ export function useSettingsController({
     void updateClient.getStatus()
       .then((status) => {
         if (!isDisposed) {
-          applyHostUpdateStatus(status)
+          consumeUpdateStatus(status)
         }
       })
       .catch((error: unknown) => {
         if (!isDisposed && !isMoonrakerHostUpdateEndpointUnavailable(error)) {
-          setUpdateNotice(error instanceof Error ? error.message : 'Не удалось получить статус обновлений.')
+          setUpdateNotice(getHostUpdateErrorMessage(error, 'Не удалось получить состояние обновлений.'))
         }
       })
 
     return () => {
       isDisposed = true
     }
-  }, [updateClient])
+  }, [consumeUpdateStatus, updateClient])
+
+  useEffect(() => {
+    if (!isUpdateOperationActive) {
+      return
+    }
+    let isDisposed = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const poll = async (): Promise<void> => {
+      try {
+        const status = await updateClient.getStatus()
+        if (isDisposed) return
+        consumeUpdateStatus(status)
+      } catch {
+        if (isDisposed) return
+        setIsUpdateReconnectPending(true)
+      }
+      if (!isDisposed) timer = setTimeout(() => void poll(), 1800)
+    }
+    timer = setTimeout(() => void poll(), 900)
+    return () => {
+      isDisposed = true
+      if (timer !== undefined) clearTimeout(timer)
+    }
+  }, [consumeUpdateStatus, updateClient, isUpdateOperationActive])
+
+  useEffect(() => {
+    if (updateOperation?.operationId !== dismissedUpdateOperationId) {
+      setDismissedUpdateOperationId(null)
+    }
+  }, [dismissedUpdateOperationId, updateOperation?.operationId])
 
   function handleWifiSearchQueryChange(event: ChangeEvent<HTMLInputElement>): void {
     setWifiSearchQuery(event.target.value)
@@ -465,6 +543,10 @@ export function useSettingsController({
   }
 
   async function handleCheckUpdates(): Promise<void> {
+    if (isUpdateOperationActive) {
+      setUpdateNotice('Проверка версий недоступна, пока выполняется обновление.')
+      return
+    }
     if (!isUpdatesCapabilityAvailable) {
       setUpdateNotice(updateCapabilityNotice)
       return
@@ -472,7 +554,7 @@ export function useSettingsController({
 
     if (runtimeMode === 'mock') {
       setUpdateReleaseResults(createMockUpdateReleaseResults(UPDATE_RELEASE_TARGETS))
-      setUpdateNotice('Mock: GitHub Releases не проверяются.')
+      setUpdateNotice('')
       return
     }
 
@@ -483,7 +565,7 @@ export function useSettingsController({
       return
     } catch (error) {
       if (!isMoonrakerHostUpdateEndpointUnavailable(error)) {
-        setUpdateNotice(error instanceof Error ? error.message : 'Не удалось проверить host update endpoint.')
+        setUpdateNotice(getHostUpdateErrorMessage(error, 'Не удалось проверить наличие обновлений.'))
         return
       }
     } finally {
@@ -498,18 +580,27 @@ export function useSettingsController({
     setUpdateReleaseResults(results)
     setUpdateNotice(
       errorCount > 0
-        ? `Проверка завершена с ошибками: ${errorCount}.`
-        : `Host update endpoint недоступен. Read-only проверка: доступно обновлений ${availableCount}.`,
+      ? `Проверка завершена с ошибками: ${errorCount}.`
+      : `Служба обновлений недоступна. Найдено доступных обновлений: ${availableCount}.`,
     )
     setIsCheckingUpdates(false)
   }
 
   function applyHostUpdateStatus(status: HostUpdateStatus): void {
     setUpdateReleaseResults(status.releaseResults)
-    setUpdateNotice(status.message)
+    setUpdateNotice(
+      !status.available
+        ? 'Служба обновлений недоступна. Повторите проверку позже.'
+        : status.releaseResults.some((release) => release.status === 'error')
+          ? 'Не удалось проверить обновления. Повторите попытку.'
+          : '',
+    )
   }
 
   async function handleApplyUpdate(targetId: HostUpdateTargetId): Promise<void> {
+    if (updateOperation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updateOperation.status)) {
+      return
+    }
     if (isUpdateBlockedByActivePrint) {
       setUpdateNotice('Обновление недоступно во время активной печати или паузы.')
       return
@@ -522,11 +613,32 @@ export function useSettingsController({
     }
 
     setApplyingUpdateTarget(targetId)
+    const requestId = globalThis.crypto.randomUUID()
+    pendingUpdateRef.current = { operationId: null, requestId, targetId, targetTag: release.latestTag }
     try {
-      const status = await updateClient.apply({ targetId, targetTag: release.latestTag })
-      applyHostUpdateStatus(status)
+      const status = await updateClient.apply({ targetId, targetTag: release.latestTag, requestId })
+      consumeUpdateStatus(status)
+      if (!status.busy && status.operation === null) {
+        setUpdateNotice(status.message || 'Служба не подтвердила запуск операции.')
+      }
     } catch (error) {
-      setUpdateNotice(error instanceof Error ? error.message : `Не удалось запустить обновление ${release.label}.`)
+      setUpdateOperation({
+        operationId: null,
+        requestId,
+        status: 'queued',
+        phase: 'queued',
+        progress: null,
+        resultCode: null,
+        message: 'Проверяем, приняла ли служба запрос. Операция могла начаться, даже если ответ не дошёл.',
+        targetId,
+        targetTag: release.latestTag,
+        startedAt: null,
+        updatedAt: null,
+        finishedAt: null,
+      })
+      setIsUpdateReconnectPending(true)
+      setUpdateNotice(getHostUpdateErrorMessage(error, 'Не удалось подтвердить запуск. Проверяем состояние операции.'))
+      void updateClient.getStatus().then(consumeUpdateStatus).catch(() => undefined)
     } finally {
       setApplyingUpdateTarget(null)
     }
@@ -746,6 +858,10 @@ export function useSettingsController({
       isApplyBlockedByActivePrint: isUpdateBlockedByActivePrint,
       isCapabilityAvailable: isUpdatesCapabilityAvailable,
       notice: updateCapabilityNotice,
+      operation: updateOperation?.operationId === dismissedUpdateOperationId ? null : updateOperation,
+      operationHistory: updateOperationHistory,
+      isReconnectPending: isUpdateReconnectPending,
+      onDismissOperation: () => setDismissedUpdateOperationId(updateOperation?.operationId ?? null),
       onCheckUpdates: handleCheckUpdates,
       onApplyUpdate: handleApplyUpdate,
     },

@@ -15,6 +15,7 @@
 :root {
   /* 00_Foundation: colors */
   --color-window-background: #11161c; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
+  --color-update-background: #000000; /* Чисто чёрная полноэкранная заставка обновления. */
   --color-background: #101213; /* Основной почти чёрный фон интерфейса. */
   --color-surface: #101213; /* Фон системных баров и крупных зон. */
   --color-block-surface: #131517; /* Карточки и панели в Nothing terminal стиле. */

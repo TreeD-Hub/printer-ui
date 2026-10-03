@@ -1468,6 +1468,22 @@ body {
   text-align: right;
 }
 
+.settings-updates-summary p {
+  gap: var(--space-xs);
+}
+
+.settings-updates-summary .settings-updates-leader {
+  flex: 1;
+  min-width: var(--space-md);
+  align-self: flex-end;
+  margin-bottom: 0.25em;
+  border-bottom: 1px dotted var(--color-text-soft);
+}
+
+.settings-description-card.settings-updates-summary::after {
+  content: none;
+}
+
 .settings-group-stack-network {
   grid-template-rows: auto auto;
 }

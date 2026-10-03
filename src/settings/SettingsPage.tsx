@@ -17,8 +17,8 @@ import {
   type WifiNetworkItem,
   type WifiNetworkSecurity,
 } from './config'
-import type { UpdateReleaseResult, UpdateReleaseStatus } from './updateReleaseClient'
-import type { HostUpdateTargetId } from '../core/hostUpdate'
+import type { UpdateReleaseResult } from './updateReleaseClient'
+import type { HostUpdateOperation, HostUpdateTargetId } from '../core/hostUpdate'
 
 export type ConsoleHistoryItem = {
   id: string
@@ -93,6 +93,10 @@ export type SettingsPageProps = {
     isApplyBlockedByActivePrint: boolean
     isCapabilityAvailable: boolean
     notice: string
+    operation: HostUpdateOperation | null
+    operationHistory: HostUpdateOperation[]
+    isReconnectPending: boolean
+    onDismissOperation: () => void
     onCheckUpdates: () => void
     onApplyUpdate: (targetId: HostUpdateTargetId) => void
   }
@@ -122,24 +126,24 @@ function wifiSecurityLabel(security: WifiNetworkSecurity): string {
   return security.toUpperCase()
 }
 
-function updateReleaseStatusLabel(status: UpdateReleaseStatus): string {
-  if (status === 'available') {
-    return 'Доступно'
+function updateReleaseStatusLabel(release: UpdateReleaseResult): string {
+  if (release.status === 'error') {
+    return 'Не удалось проверить'
   }
 
-  if (status === 'latest') {
-    return 'Актуально'
+  if (release.status === 'latest') {
+    return 'Установлена последняя версия'
   }
 
-  if (status === 'error') {
-    return 'Ошибка'
+  if (release.canApply === true) {
+    return 'Доступно обновление'
   }
 
-  if (status === 'mock') {
-    return 'Mock'
+  if (release.canApply === false) {
+    return 'Обновление недоступно'
   }
 
-  return 'Нет данных'
+  return 'Нужно проверить обновления'
 }
 
 export function SettingsPage({
@@ -476,29 +480,35 @@ export function SettingsPage({
                 <h3>Обновления</h3>
                 <p>Проверка актуальности версии и доступных обновлений.</p>
               </header>
-              <article className="settings-description-card">
+              <article className="settings-description-card settings-updates-summary">
                 {updates.releaseResults.map((release) => (
                   <p key={release.id}>
                     <span>{release.label}</span>
+                    <span className="settings-updates-leader" aria-hidden="true" />
                     <strong>
-                      {release.currentVersion} / {release.latestVersion ?? release.latestTag ?? 'Нет данных'}
+                      {updates.isCheckingUpdates ? 'Проверяем обновления...' : updateReleaseStatusLabel(release)}
                     </strong>
                   </p>
                 ))}
-                {updates.releaseResults.map((release) => (
-                  <p key={`${release.id}-status`}>
-                    <span>{release.label} статус</span>
-                    <strong>{updateReleaseStatusLabel(release.status)}</strong>
-                  </p>
-                ))}
               </article>
+              {updates.operationHistory.length > 0 && (
+                <article className="settings-description-card" aria-label="Последние операции обновления">
+                  <p><strong>Последние операции</strong></p>
+                  {updates.operationHistory.slice(-3).reverse().map((item) => (
+                    <p key={item.operationId ?? item.requestId ?? `${item.status}-${item.updatedAt}`}>
+                      <span>{item.targetId === 'printer-ui' ? 'Интерфейс TreeD' : 'Система TreeD'}</span>
+                      <strong>{item.message}</strong>
+                    </p>
+                  ))}
+                </article>
+              )}
               <div className="settings-cloud-actions">
                 <button
                   type="button"
                   className="settings-network-btn settings-network-btn-primary"
                   onClick={updates.onCheckUpdates}
                   data-testid="settings-check-updates-button"
-                  disabled={updates.isCheckingUpdates || !updates.isCapabilityAvailable}
+                  disabled={updates.isCheckingUpdates || updates.applyingUpdateTarget !== null || !updates.isCapabilityAvailable}
                 >
                   {updates.isCheckingUpdates ? 'Проверка...' : 'Проверить обновления'}
                 </button>
@@ -516,11 +526,14 @@ export function SettingsPage({
                       disabled={
                         updates.isCheckingUpdates ||
                         updates.applyingUpdateTarget !== null ||
+                        (updates.operation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updates.operation.status)) ||
                         updates.isApplyBlockedByActivePrint ||
                         release.canApply !== true
                       }
                     >
-                      {updates.applyingUpdateTarget === release.id
+                      {updates.operation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updates.operation.status)
+                        ? 'Выполняется...'
+                        : updates.applyingUpdateTarget === release.id
                         ? 'Запуск...'
                         : release.id === 'printer-ui'
                           ? 'Обновить интерфейс'
@@ -528,7 +541,7 @@ export function SettingsPage({
                     </button>
                   ))}
               </div>
-              <p className="settings-cloud-notice">{updates.notice}</p>
+              {updates.notice && <p className="settings-cloud-notice">{updates.notice}</p>}
             </div>
           ) : activeSettingsGroup === 'language' ? (
             <div className="settings-group-stack">
