@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { PrinterCommandId } from '../core/commands'
 import type { PrintFileItem } from '../printFiles'
-import { IconMask, PrintPreviewIcon, joinClassNames } from '../ui'
+import { IconMask, PrintPreviewIcon, joinClassNames, useModalFocus } from '../ui'
 import { getPreferredPreviewImage, getPreviewSrcSet } from '../ui/printFilePreview'
 
 const FILE_MODAL_TITLE_ID = 'print-file-modal-title'
@@ -42,6 +42,7 @@ export function PrintFileModal({
   onStart,
   onDelete,
 }: PrintFileModalProps) {
+  const dialogRef = useModalFocus<HTMLElement>(true, onClose)
   const preferredPreview = getPreferredPreviewImage(file.preview)
   const [failedPreviewSrc, setFailedPreviewSrc] = useState<string | null>(null)
   const previewImage = preferredPreview !== null && preferredPreview.src !== failedPreviewSrc
@@ -52,6 +53,7 @@ export function PrintFileModal({
   return (
     <div className="file-modal-layer" role="presentation" onClick={onClose}>
       <section
+        ref={dialogRef}
         className="file-modal-dialog"
         role="dialog"
         aria-modal="true"

@@ -30,6 +30,8 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'setHeatingTargets',
   'turnOffHeaters',
   'setFanPercent',
+  'setDriverMode',
+  'setDriverFanMode',
   'setMainLightEnabled',
   'setLightPreference',
   'setPrintSpeedFactorPercent',
@@ -461,6 +463,20 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       }
     }
     expect(getTreeDCommandBlockReason('restartUi', PRINTING_CONTEXT)).toBeNull()
+  })
+
+  it('блокирует системные действия по фазе core и состоянию прочистки при неактивной печати', () => {
+    for (const operationPhase of ['preparing', 'calibrating', 'auto_remove']) {
+      const context = { ...IDLE_CONTEXT, operationPhase }
+      for (const command of ['rebootHost', 'shutdownHost', 'restartKlipper', 'firmwareRestart', 'restartMoonraker'] as const) {
+        expect(getTreeDCommandBlockReason(command, context)).toContain('системное действие недоступно')
+      }
+      expect(getTreeDCommandBlockReason('restartUi', context)).toBeNull()
+      expect(getTreeDCommandBlockReason('emergencyStop', context)).toBeNull()
+      expect(getTreeDCommandBlockReason('turnOffHeaters', context)).toBeNull()
+    }
+    expect(getTreeDCommandBlockReason('rebootHost', { ...IDLE_CONTEXT, clogRecoveryActive: true })).not.toBeNull()
+    expect(getTreeDCommandBlockReason('rebootHost', { ...IDLE_CONTEXT, operationPhase: 'idle' })).toBeNull()
   })
 
   it('allows confirmed host power and service commands without capability flags when idle', () => {

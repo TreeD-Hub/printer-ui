@@ -33,6 +33,7 @@ import {
 } from './control'
 import {
   SettingsVirtualKeyboard,
+  useModalFocus,
   type VirtualKeyboardLanguage,
   type AxisId,
 } from './ui'
@@ -60,6 +61,7 @@ import type { PrinterConnectionState } from './core/transport/types'
 import type { FilamentSensorMode, FilamentSensorSensitivity } from '@treed/printer-logic'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
+import './styles/ui-kit.css'
 
 const DEFAULT_SCREEN: ScreenId = 'dashboard'
 const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
@@ -94,6 +96,7 @@ function App() {
     snapshot,
     refresh,
     refreshUsage,
+    refreshRuntime,
     refreshFilamentSensor,
     refreshEddyState,
     refreshExcludeObjects,
@@ -131,6 +134,8 @@ function App() {
       modelFanPercent: snapshot.modelFanPercent,
       mainLightEnabled: snapshot.mainLightEnabled,
       lightPreferences: snapshot.lightPreferences,
+      driverMode: snapshot.driverMode,
+      driverFanMode: snapshot.driverFanMode,
       clogRecoveryActive: snapshot.clogRecoveryActive,
       operationPhase: snapshot.operationPhase,
       filamentSensor: snapshot.filamentSensor,
@@ -147,6 +152,8 @@ function App() {
       snapshot.limits,
       snapshot.mainLightEnabled,
       snapshot.lightPreferences,
+      snapshot.driverMode,
+      snapshot.driverFanMode,
       snapshot.clogRecoveryActive,
       snapshot.operationPhase,
       snapshot.modelFanPercent,
@@ -744,6 +751,8 @@ function App() {
     closeTemperatureKeyboard()
   }, [closePrintTuneGroup, closeTemperatureKeyboard, setTemperatureChartMode])
 
+  const keyboardFocusRef = useModalFocus<HTMLDivElement>(activeKeyboardTarget !== null, handleKeyboardClose)
+  const cancelFocusRef = useModalFocus<HTMLElement>(isPrintCancelConfirmOpen, closePrintCancelConfirm)
   const handlePrintTuneApply = handlePrintTuneGroupClose
 
   const dashboardStatusDock = (
@@ -856,6 +865,23 @@ function App() {
             getLastCommandError,
             heating: heatingProps,
             fan: fanProps,
+            driverControls: {
+              mode: snapshot.capabilities.driverMode ? snapshot.driverMode : undefined,
+              fanMode: snapshot.capabilities.driverFanMode ? snapshot.driverFanMode : undefined,
+              pendingCommands,
+              isRestarting: systemTransitionCommand !== null,
+              getCommandBlockReason,
+              getLastCommandError,
+              onApply: async (command, mode) => {
+                try {
+                  return await executeCommand({ command, mode })
+                } finally {
+                  // После отказа обновление возвращает fault/needs_restart, потерянные в shutdown snapshot.
+                  await refreshRuntime()
+                }
+              },
+              onRestart: () => executeCommand({ command: 'firmwareRestart' }),
+            },
             filamentSensor: snapshot.filamentSensor,
             isFilamentSensorSnapshotStale: connection !== 'online' && connection !== 'degraded',
             commandError,
@@ -897,6 +923,7 @@ function App() {
             data-testid={isIdleNotesKeyboardTarget ? 'idle-notes-keyboard-layer' : 'settings-keyboard-layer'}
           >
             <div
+              ref={keyboardFocusRef}
               className="app-virtual-keyboard-popup"
               role="dialog"
               aria-modal="true"
@@ -925,6 +952,7 @@ function App() {
 
         <PrintTuneModal
           activeGroup={activePrintTuneGroup}
+          onTemperatureTargetChange={handlePrintTuneGroupOpen}
           onClose={handlePrintTuneGroupClose}
           onApply={handlePrintTuneApply}
           temperature={printTuneTemperatureProps}
@@ -963,6 +991,7 @@ function App() {
         {isPrintCancelConfirmOpen ? (
           <div className="print-cancel-modal-layer" role="presentation" onClick={closePrintCancelConfirm}>
             <section
+              ref={cancelFocusRef}
               className="print-cancel-modal-dialog"
               role="dialog"
               aria-modal="true"
@@ -1029,7 +1058,11 @@ function App() {
           onPowerMenuAction={topStatusController.onPowerMenuAction}
         />
 
-        <PrinterNotificationPopup enabled={settingsPageProps.notifications.isNotificationsEnabled} />
+        <PrinterNotificationPopup
+          enabled={settingsPageProps.notifications.isNotificationsEnabled && topStatusController.activeTopPopup === null}
+          activeScreen={activeScreen}
+          readTopPopupPosition={topStatusController.readTopPopupPosition}
+        />
         <ScreenSleepGuard
           timeoutMs={getScreenSleepTimeoutMs(settingsPageProps.interfaceSettings.sleepModeValue)}
         />

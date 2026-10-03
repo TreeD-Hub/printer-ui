@@ -1,0 +1,149 @@
+import { useState } from 'react'
+import type { PrinterCommandId } from '../core/commands'
+import type { PrintFileItem } from '../printFiles'
+import { IconMask, PrintPreviewIcon, joinClassNames } from '../ui'
+import { getPreferredPreviewImage, getPreviewSrcSet } from '../ui/printFilePreview'
+
+const FILE_MODAL_TITLE_ID = 'print-file-modal-title'
+
+type PrintFileModalProps = {
+  file: PrintFileItem
+  notice: string | null
+  isBusy: boolean
+  pendingCommand: PrinterCommandId | null
+  isStartBlocked: boolean
+  isDeleteBlocked: boolean
+  onClose: () => void
+  onStart: () => void
+  onDelete: () => void
+}
+
+function formatFileDate(addedAt: string): string {
+  const date = new Date(addedAt)
+  if (Number.isNaN(date.getTime())) {
+    return '—'
+  }
+
+  return date.toLocaleDateString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  })
+}
+
+export function PrintFileModal({
+  file,
+  notice,
+  isBusy,
+  pendingCommand,
+  isStartBlocked,
+  isDeleteBlocked,
+  onClose,
+  onStart,
+  onDelete,
+}: PrintFileModalProps) {
+  const preferredPreview = getPreferredPreviewImage(file.preview)
+  const [failedPreviewSrc, setFailedPreviewSrc] = useState<string | null>(null)
+  const previewImage = preferredPreview !== null && preferredPreview.src !== failedPreviewSrc
+    ? preferredPreview
+    : null
+  const isMetadataLoading = file.metadataStatus === 'idle' || file.metadataStatus === 'queued' || file.metadataStatus === 'loading'
+
+  return (
+    <div className="file-modal-layer" role="presentation" onClick={onClose}>
+      <section
+        className="file-modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={FILE_MODAL_TITLE_ID}
+        data-testid="print-file-modal"
+        aria-busy={isMetadataLoading || undefined}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="file-modal-head">
+          <h2 id={FILE_MODAL_TITLE_ID}>Файл печати</h2>
+          <button type="button" className="file-modal-close" aria-label="Закрыть окно файла" onClick={onClose}>
+            ×
+          </button>
+        </header>
+
+        <div className="file-modal-layout">
+          <div className={joinClassNames('file-modal-preview', previewImage !== null && 'has-image')} aria-hidden={previewImage === null ? 'true' : undefined}>
+            {previewImage !== null ? (
+              <img
+                className="file-modal-preview-image"
+                src={previewImage.src}
+                srcSet={getPreviewSrcSet(file.preview)}
+                sizes="300px"
+                width={previewImage.width}
+                height={previewImage.height}
+                alt={`Предпросмотр ${file.name}`}
+                decoding="async"
+                draggable={false}
+                onError={() => setFailedPreviewSrc(previewImage.src)}
+              />
+            ) : (
+              <PrintPreviewIcon />
+            )}
+          </div>
+
+          <div className="file-modal-details">
+            <p className="file-modal-name">{file.name}</p>
+
+            <dl className="file-modal-meta">
+              <div>
+                <dt>Время печати</dt>
+                <dd>{isMetadataLoading ? <span className="print-file-meta-skeleton" /> : file.printTime}</dd>
+              </div>
+              <div>
+                <dt>Масса</dt>
+                <dd>{isMetadataLoading ? <span className="print-file-meta-skeleton" /> : file.weight}</dd>
+              </div>
+              <div>
+                <dt>Материал</dt>
+                <dd>{isMetadataLoading ? <span className="print-file-meta-skeleton" /> : file.material}</dd>
+              </div>
+              <div>
+                <dt>Дата</dt>
+                <dd>{formatFileDate(file.addedAt)}</dd>
+              </div>
+              {file.directory !== null ? (
+                <div className="file-modal-path">
+                  <dt>Путь</dt>
+                  <dd>{file.path}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {notice !== null && notice.length > 0 ? (
+              <p className="file-modal-notice" data-testid="print-file-start-notice">{notice}</p>
+            ) : null}
+
+            <div className="file-modal-actions">
+              <button
+                type="button"
+                className="file-modal-action file-modal-action-delete"
+                aria-label="Удалить файл"
+                title="Удалить файл"
+                data-testid="print-file-delete-button"
+                onClick={onDelete}
+                disabled={isBusy || isDeleteBlocked}
+              >
+                <IconMask name="actionDelete" size={24} />
+              </button>
+              <button
+                type="button"
+                className="file-modal-action file-modal-action-start"
+                data-testid="print-file-start-button"
+                onClick={onStart}
+                disabled={isBusy || isStartBlocked}
+              >
+                {pendingCommand === 'start' ? 'Запуск...' : 'Старт печати'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  )
+}

@@ -17,8 +17,6 @@ export const DASHBOARD_VALUES = {
   fileName: 'test_cube_v2.gcode',
   progressPercent: 67,
   etaTime: '12:34',
-  layerCurrent: 145,
-  layerTotal: 218,
 } as const
 
 export type TopStatusButtonId = 'wifi' | 'cloud' | 'notifications' | 'power'

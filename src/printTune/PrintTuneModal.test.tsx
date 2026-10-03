@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
 import { PrintTuneModal, type PrintTuneModalProps } from './PrintTuneModal'
@@ -17,6 +17,7 @@ function createProps(overrides: Partial<PrintTuneModalProps> = {}): PrintTuneMod
       keyboardValue: '',
       renderKeyboardPanel: () => null,
       onKeyboardOpen: vi.fn(),
+      onKeyboardClose: vi.fn(),
       onNozzleTargetChange: vi.fn(),
       onBedTargetChange: vi.fn(),
     },
@@ -48,6 +49,7 @@ function createProps(overrides: Partial<PrintTuneModalProps> = {}): PrintTuneMod
     },
     onClose: vi.fn(),
     onApply: vi.fn(),
+    onTemperatureTargetChange: vi.fn(),
   }
 
   return {
@@ -78,6 +80,26 @@ describe('PrintTuneModal', () => {
 
     expect(screen.getByTestId('print-tune-temp-bed-input')).toBeInTheDocument()
     expect(screen.queryByTestId('print-tune-temp-nozzle-input')).not.toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toHaveAccessibleName('Температура стола')
+    expect(screen.getByRole('button', { name: 'Стол', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Сопло', exact: true }))
+    expect(props.onTemperatureTargetChange).toHaveBeenCalledWith('nozzle')
+    expect(props.temperature.onKeyboardOpen).not.toHaveBeenCalled()
+  })
+
+  it('switches the open keypad to the selected heater and provides a return to the compact editor', () => {
+    const props = createProps({ activeGroup: 'bed', temperature: {
+      ...createProps().temperature, keyboardTarget: 'bed', keyboardValue: '75',
+    } })
+    render(<PrintTuneModal {...props} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Сопло', exact: true }))
+    expect(props.onTemperatureTargetChange).toHaveBeenCalledWith('nozzle')
+    expect(props.temperature.onKeyboardOpen).toHaveBeenCalledWith('nozzle')
+    expect(props.temperature.onNozzleTargetChange).not.toHaveBeenCalled()
+    expect(props.temperature.onBedTargetChange).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Назад', exact: true }))
+    expect(props.temperature.onKeyboardClose).toHaveBeenCalledOnce()
   })
 
   it('uses the compact temperature keyboard layout in the print modal', () => {
@@ -95,8 +117,9 @@ describe('PrintTuneModal', () => {
 
     render(<PrintTuneModal {...props} />)
 
-    expect(renderKeyboardPanel).toHaveBeenCalledWith('is-print-tune')
-    expect(screen.getByTestId('print-temp-keyboard')).toHaveClass('is-print-tune')
+    expect(renderKeyboardPanel).toHaveBeenCalledWith('is-tune-workspace')
+    expect(screen.getByTestId('print-temp-keyboard')).toHaveClass('is-tune-workspace')
+    expect(screen.getByTestId('print-tune-modal')).toHaveClass('is-keyboard-open')
   })
 
   it('renders numeric print tune popups with the same single-row template as temperature', () => {
@@ -116,11 +139,12 @@ describe('PrintTuneModal', () => {
       .getByTestId('print-tune-keyboard-digit-1')
       .closest('.print-temp-keyboard-side')
 
-    expect(flowInput.closest('.print-temp-workspace')).not.toBeNull()
-    expect(flowInput.closest('.print-temp-control-row')).not.toBeNull()
+    expect(flowInput.closest('.tune-value-workspace')).not.toBeNull()
+    expect(flowInput.closest('.tune-value-editor')).not.toBeNull()
     expect(flowInput.closest('.print-tune-compact-main-panel')).toBeNull()
-    expect(keyboardPanel).toHaveClass('is-print-tune')
-    expect(screen.getByTestId('print-tune-modal-apply-button')).toBeInTheDocument()
+    expect(keyboardPanel).toHaveClass('numeric-keypad')
+    expect(keyboardPanel?.querySelector('.print-temp-keyboard-head')).toBeNull()
+    expect(screen.queryByTestId('print-tune-modal-apply-button')).not.toBeInTheDocument()
     expect(screen.queryByTestId('print-tune-modal-close-button')).not.toBeInTheDocument()
   })
 
@@ -131,8 +155,8 @@ describe('PrintTuneModal', () => {
 
     const fanInput = screen.getByTestId('print-tune-fan-input')
 
-    expect(fanInput.closest('.print-temp-workspace')).not.toBeNull()
-    expect(fanInput.closest('.print-temp-control-row')).not.toBeNull()
+    expect(fanInput.closest('.tune-value-workspace')).not.toBeNull()
+    expect(fanInput.closest('.tune-value-editor')).not.toBeNull()
     expect(screen.queryByTestId('print-tune-fan-slider')).not.toBeInTheDocument()
   })
 })

@@ -1,0 +1,399 @@
+.control-content-shell .control-maintenance-header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 5px;
+}
+
+.control-maintenance-header-actions {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.control-content-shell .control-maintenance-subtitle,
+.control-content-shell .control-maintenance-status-pill {
+  font-family: var(--font-family-ui);
+  letter-spacing: 0;
+}
+
+.control-content-shell .control-maintenance-status-pill {
+  min-height: 40px;
+  padding-inline: 14px;
+  border-radius: 10px;
+  font-size: var(--font-size-small);
+}
+
+.control-maintenance-history-button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 72%, transparent);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 5%, transparent), transparent),
+    color-mix(in srgb, var(--color-block-surface) 78%, transparent);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.control-maintenance-history-button:hover {
+  border-color: color-mix(in srgb, var(--color-text-primary) 34%, var(--color-border-default));
+}
+
+.control-maintenance-history-button:active {
+  transform: translateY(1px);
+}
+
+.control-maintenance-history-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.control-maintenance-history-button svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.maintenance-overview {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 10px;
+  font-family: var(--font-family-ui);
+}
+
+.maintenance-overview-metrics {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.maintenance-overview-metric {
+  position: relative;
+  min-width: 0;
+  min-height: 82px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--color-border-default) 56%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 4%, transparent), transparent 72%),
+    color-mix(in srgb, var(--color-block-surface) 54%, transparent);
+}
+
+.maintenance-overview-metric::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background: color-mix(in srgb, var(--color-border-default) 30%, transparent);
+}
+
+.maintenance-overview-system.is-ok::after {
+  background: color-mix(in srgb, var(--color-text-primary) 38%, transparent);
+}
+
+.maintenance-overview-system.is-warning::after,
+.maintenance-overview-system.is-error::after {
+  background: var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary-glow);
+}
+
+.maintenance-overview-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 58%, transparent);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-text-primary) 16%, transparent) 0 1px, transparent 1.2px) 0 0 / 7px 7px,
+    color-mix(in srgb, var(--color-surface-track) 60%, transparent);
+  color: var(--color-text-primary);
+}
+
+.maintenance-overview-line-icon {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.maintenance-overview-metric-copy {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+}
+
+.maintenance-overview-metric-label,
+.maintenance-overview-metric-copy small {
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-regular);
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maintenance-overview-metric-copy small {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-tiny);
+}
+
+.maintenance-overview-metric-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-accent);
+  font-size: clamp(22px, 2.4vw, 29px);
+  font-weight: var(--font-weight-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maintenance-overview-progress {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  padding: 18px 20px 16px;
+  display: grid;
+  grid-template-rows: auto auto minmax(44px, 1fr) auto;
+  align-content: stretch;
+  gap: 10px;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--color-border-default) 56%, transparent);
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-text-primary) 10%, transparent) 0 1px, transparent 1.15px) 0 0 / 16px 16px,
+    linear-gradient(180deg, color-mix(in srgb, var(--color-text-primary) 4%, transparent), transparent 62%),
+    color-mix(in srgb, var(--color-block-surface) 54%, transparent);
+}
+
+.maintenance-overview-progress::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--color-background) 24%, transparent) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+.maintenance-overview-progress > * {
+  position: relative;
+  z-index: 1;
+}
+
+.maintenance-overview-progress-head {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.maintenance-overview-progress-head p,
+.maintenance-overview-progress-head h3,
+.maintenance-overview-progress-summary p {
+  margin: 0;
+  font-family: var(--font-family-ui);
+}
+
+.maintenance-overview-progress-head p {
+  margin-bottom: 4px;
+  color: var(--color-text-soft);
+  font-size: var(--font-size-tiny);
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.maintenance-overview-progress-head h3 {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-body-large);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.15;
+}
+
+.maintenance-overview-progress-percent {
+  flex: 0 0 auto;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-accent);
+  font-size: clamp(34px, 4vw, 48px);
+  font-weight: var(--font-weight-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 0.9;
+}
+
+.maintenance-overview-progress-summary {
+  min-width: 0;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.maintenance-overview-progress-summary > div {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.maintenance-overview-progress-value {
+  color: var(--color-text-primary);
+  font-family: var(--font-family-accent);
+  font-size: clamp(28px, 3.3vw, 40px);
+  font-weight: var(--font-weight-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.maintenance-overview-progress-summary span,
+.maintenance-overview-progress-summary p {
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-small);
+  line-height: 1.2;
+}
+
+.maintenance-overview-progress-summary p {
+  max-width: 46%;
+  text-align: right;
+}
+
+.maintenance-overview-ruler {
+  position: relative;
+  min-height: 44px;
+  margin-inline: 8px;
+  align-self: end;
+}
+
+.maintenance-overview-track,
+.maintenance-overview-fill {
+  position: absolute;
+  left: 0;
+  top: 18px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.maintenance-overview-track {
+  right: 0;
+  border: 1px solid color-mix(in srgb, var(--color-border-default) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface-track) 74%, transparent);
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--color-background) 70%, transparent);
+}
+
+.maintenance-overview-fill {
+  width: var(--maintenance-progress);
+  max-width: 100%;
+  background: var(--color-primary);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-primary-glow) 82%, transparent);
+}
+
+.maintenance-overview-marker {
+  position: absolute;
+  left: var(--maintenance-progress);
+  top: 13px;
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--color-text-primary);
+  border-radius: 999px;
+  background: var(--color-primary);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--color-background) 72%, transparent),
+    0 0 15px var(--color-primary-glow);
+  transform: translateX(-50%);
+}
+
+.maintenance-overview-ticks span {
+  position: absolute;
+  left: var(--maintenance-tick-position);
+  top: 20px;
+  width: 1px;
+  height: 6px;
+  background: color-mix(in srgb, var(--color-text-primary) 30%, transparent);
+  transform: translateX(-50%);
+}
+
+.maintenance-overview-ticks span.is-major {
+  top: 17px;
+  height: 12px;
+  background: color-mix(in srgb, var(--color-text-primary) 62%, transparent);
+}
+
+.maintenance-overview-scale {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-small);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.maintenance-overview-scale span:nth-child(2) {
+  text-align: center;
+}
+
+.maintenance-overview-scale span:last-child {
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .control-content-shell .control-maintenance-status-pill {
+    display: none;
+  }
+
+  .maintenance-overview-metric {
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: 9px;
+    padding-inline: 10px;
+  }
+
+  .maintenance-overview-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .maintenance-overview-line-icon {
+    width: 23px;
+    height: 23px;
+  }
+
+  .maintenance-overview-progress-summary p {
+    max-width: 52%;
+  }
+}

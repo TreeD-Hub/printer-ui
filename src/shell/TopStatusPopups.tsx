@@ -3,6 +3,7 @@ import type { PrinterCommandId } from '../core/commands'
 import type { TopStatusButtonId } from '../dashboard/config'
 import type { PrinterDisplayNotification } from '../dashboard/printerStatusState'
 import { usePrinterNotifications } from '../core/store/printerNotifications'
+import { useModalFocus } from '../ui'
 import {
   CLOUD_LINK_URL,
   CLOUD_QR_IMAGE_URL,
@@ -53,6 +54,7 @@ export function TopStatusPopups({
   onOpenWifiSettings,
   onPowerMenuAction,
 }: TopStatusPopupsProps) {
+  const dialogRef = useModalFocus<HTMLElement>(activeTopPopup !== null, onClose)
   const { history } = usePrinterNotifications()
   if (activeTopPopup === null) {
     return null
@@ -64,6 +66,7 @@ export function TopStatusPopups({
   return (
     <div className="top-popup-layer" role="presentation" onClick={onClose}>
       <section
+        ref={dialogRef}
         className="top-popup-dialog"
         role="dialog"
         aria-modal="true"

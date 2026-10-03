@@ -1,0 +1,549 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  createMoonrakerWebSocketUrl,
+  subscribeToMoonrakerStatus,
+} from './moonrakerWebSocketClient'
+import { MOONRAKER_RUNTIME_OBJECTS } from './moonrakerRuntimeObjects'
+import { getPrinterConnectionState, type PrinterConnectionState, type PrinterSnapshot } from './types'
+
+class TestWebSocket {
+  static instances: TestWebSocket[] = []
+  static availableObjects: string[] = [...MOONRAKER_RUNTIME_OBJECTS]
+  static requiredMacros = ''
+  static klippyState = 'ready'
+
+  readonly url: string
+  readonly sentMessages: string[] = []
+  onopen: (() => void) | null = null
+  onmessage: ((event: { data: string }) => void) | null = null
+  onerror: (() => void) | null = null
+  onclose: (() => void) | null = null
+
+  constructor(url: string) {
+    this.url = url
+    TestWebSocket.instances.push(this)
+  }
+
+  send(message: string): void {
+    this.sentMessages.push(message)
+    const request = JSON.parse(message) as { id: number, method: string }
+    if (request.method === 'server.info') {
+      this.message({ id: request.id, result: { klippy_state: TestWebSocket.klippyState } })
+    } else if (request.method === 'printer.objects.list') {
+      this.message({ id: request.id, result: { objects: TestWebSocket.availableObjects } })
+    } else if (request.method === 'printer.objects.query') {
+      this.message({ id: request.id, result: { status: { 'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: TestWebSocket.requiredMacros,
+      } } } })
+    }
+  }
+
+  close(): void {
+    this.onclose?.()
+  }
+
+  open(): void {
+    this.onopen?.()
+  }
+
+  message(payload: unknown): void {
+    const response = payload as { id?: number, result?: { status?: Record<string, unknown> } }
+    if (response.id !== undefined && response.id > 0 && response.result?.status) {
+      payload = {
+        ...response,
+        result: {
+          ...response.result,
+          status: {
+            'gcode_macro _TREED_UI_CONTRACT': {
+              contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: TestWebSocket.requiredMacros,
+            },
+            ...response.result.status,
+          },
+        },
+      }
+    }
+    this.onmessage?.({ data: JSON.stringify(payload) })
+  }
+
+  failClose(): void {
+    this.onclose?.()
+  }
+
+  static reset(): void {
+    TestWebSocket.instances = []
+    TestWebSocket.availableObjects = [...MOONRAKER_RUNTIME_OBJECTS]
+    TestWebSocket.requiredMacros = ''
+    TestWebSocket.klippyState = 'ready'
+  }
+}
+
+function subscribeForTest() {
+  const snapshots: PrinterSnapshot[] = []
+  const connectionChanges: Array<{ connection: PrinterConnectionState, message?: string }> = []
+  const errors: string[] = []
+  const fileListChanges: number[] = []
+  const gcodeResponses: string[] = []
+  const subscription = subscribeToMoonrakerStatus(
+    {
+      onSnapshot(snapshot) {
+        snapshots.push(snapshot)
+      },
+      onConnectionChange(connection, message) {
+        connectionChanges.push({ connection, message })
+      },
+      onError(message) {
+        errors.push(message)
+      },
+      onFileListChanged() {
+        fileListChanges.push(Date.now())
+      },
+      onGcodeResponse(message) {
+        gcodeResponses.push(message)
+      },
+    },
+    {
+      moonrakerUrl: 'http://127.0.0.1:7125',
+      reconnectDelayMs: 50,
+      reconnectJitterRatio: 0,
+      WebSocketCtor: TestWebSocket as unknown as typeof WebSocket,
+    },
+  )
+
+  return {
+    connectionChanges,
+    errors,
+    fileListChanges,
+    gcodeResponses,
+    snapshots,
+    subscription,
+  }
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+  TestWebSocket.reset()
+})
+
+describe('moonrakerWebSocketClient', () => {
+  it('maps Moonraker HTTP URLs to the primary websocket endpoint', () => {
+    expect(createMoonrakerWebSocketUrl('http://127.0.0.1:7125')).toBe('ws://127.0.0.1:7125/websocket')
+    expect(createMoonrakerWebSocketUrl('https://printer.local/api')).toBe('wss://printer.local/websocket')
+  })
+
+  it('sends subscription request and normalizes initial status result', () => {
+    const { snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    expect(socket?.url).toBe('ws://127.0.0.1:7125/websocket')
+
+    socket?.open()
+
+    expect(socket?.sentMessages.map((message) => JSON.parse(message).method)).toEqual([
+      'server.info', 'printer.objects.list', 'printer.objects.query', 'printer.objects.subscribe',
+    ])
+    expect(JSON.parse(socket?.sentMessages.at(-1) ?? '{}')).toEqual({
+      jsonrpc: '2.0',
+      method: 'printer.objects.subscribe',
+      params: {
+        objects: Object.fromEntries(MOONRAKER_RUNTIME_OBJECTS.map((name) => [name, null])),
+      },
+      id: 1,
+    })
+
+    socket?.message({
+      id: 1,
+      result: {
+        eventtime: 12.3,
+        status: {
+          webhooks: {
+            state: 'ready',
+            state_message: 'Printer is ready',
+          },
+          toolhead: {
+            position: [10, 20, 30, 0],
+            homed_axes: 'xy',
+          },
+        },
+      },
+    })
+
+    expect(snapshots).toHaveLength(1)
+    expect(getPrinterConnectionState(snapshots[0]!)).toBe('online')
+    expect(snapshots[0]?.toolhead.rawX).toBe(10)
+    expect(snapshots[0]?.toolhead.rawY).toBe(20)
+    expect(snapshots[0]?.homedAxes).toBe('xy')
+
+    subscription.close()
+  })
+
+  it('waits for Klippy readiness before listing and subscribing', () => {
+    vi.useFakeTimers()
+    TestWebSocket.klippyState = 'startup'
+    const { subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+    socket?.open()
+    expect(socket?.sentMessages.map((message) => JSON.parse(message).method)).toEqual(['server.info'])
+
+    TestWebSocket.klippyState = 'ready'
+    vi.advanceTimersByTime(2_000)
+    expect(socket?.sentMessages.at(-1)).toContain('printer.objects.subscribe')
+    subscription.close()
+  })
+
+  it('keeps an absent required macro incompatible while filtering subscription objects', () => {
+    TestWebSocket.availableObjects = ['webhooks', 'toolhead', 'gcode_macro _TREED_UI_CONTRACT']
+    TestWebSocket.requiredMacros = 'TREED_UI_MOVE_AXIS'
+    const { connectionChanges, snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+    socket?.open()
+
+    const subscribeRequest = JSON.parse(socket?.sentMessages.at(-1) ?? '{}')
+    expect(Object.keys(subscribeRequest.params.objects)).toEqual([
+      'webhooks', 'toolhead', 'gcode_macro _TREED_UI_CONTRACT',
+    ])
+    expect(connectionChanges.at(-1)?.connection).toBe('degraded')
+    socket?.message({ id: 1, result: { status: { webhooks: { state: 'ready' } } } })
+    expect(snapshots.at(-1)?.uiContract).toMatchObject({
+      status: 'incompatible', missingMacros: ['TREED_UI_MOVE_AXIS'],
+    })
+    subscription.close()
+  })
+
+  it('merges notify_status_update payloads without losing cached object fields', () => {
+    const { snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+          },
+          toolhead: {
+            position: [10, 20, 30, 0],
+            homed_axes: 'xy',
+          },
+        },
+      },
+    })
+    socket?.message({
+      method: 'notify_status_update',
+      params: [
+        {
+          toolhead: {
+            homed_axes: 'xyz',
+          },
+        },
+        13.4,
+      ],
+    })
+
+    expect(snapshots).toHaveLength(2)
+    expect(snapshots[1]?.toolhead.rawX).toBe(10)
+    expect(snapshots[1]?.toolhead.rawY).toBe(20)
+    expect(snapshots[1]?.homedAxes).toBe('xyz')
+    expect(getPrinterConnectionState(snapshots[1]!)).toBe('online')
+
+    subscription.close()
+  })
+
+  it('merges partial exclude_object status updates without losing object definitions', () => {
+    const { snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+          },
+          print_stats: {
+            state: 'printing',
+          },
+          virtual_sdcard: {
+            is_active: true,
+          },
+          exclude_object: {
+            current_object: 'part_1',
+            excluded_objects: [],
+            objects: [
+              {
+                name: 'part_1',
+                center: [40, 40],
+                polygon: [[20, 20], [60, 20], [60, 60]],
+              },
+              {
+                name: 'part_2',
+                center: [100, 40],
+                polygon: [[80, 20], [120, 20], [120, 60]],
+              },
+            ],
+          },
+        },
+      },
+    })
+    socket?.message({
+      method: 'notify_status_update',
+      params: [
+        {
+          exclude_object: {
+            current_object: 'part_2',
+          },
+        },
+        13.4,
+      ],
+    })
+    socket?.message({
+      method: 'notify_status_update',
+      params: [
+        {
+          exclude_object: {
+            excluded_objects: ['part_1'],
+          },
+        },
+        13.5,
+      ],
+    })
+
+    expect(snapshots).toHaveLength(3)
+    expect(snapshots[1]?.excludeObjects.objects).toHaveLength(2)
+    expect(snapshots[1]?.excludeObjects.currentObjectName).toBe('part_2')
+    expect(snapshots[1]?.excludeObjects.excludedObjectNames).toEqual([])
+    expect(snapshots[2]?.excludeObjects.objects).toHaveLength(2)
+    expect(snapshots[2]?.excludeObjects.currentObjectName).toBe('part_2')
+    expect(snapshots[2]?.excludeObjects.excludedObjectNames).toEqual(['part_1'])
+    expect(snapshots[2]?.excludeObjects.objects[0]?.isExcluded).toBe(true)
+
+    subscription.close()
+  })
+
+  it('replaces cached status on reconnect when the initial subscription omits fields', () => {
+    vi.useFakeTimers()
+    const { snapshots, subscription } = subscribeForTest()
+    const firstSocket = TestWebSocket.instances[0]
+
+    firstSocket?.open()
+    firstSocket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+            state_message: 'Printer is ready',
+          },
+          toolhead: {
+            position: [10, 20, 30, 0],
+            homed_axes: 'xy',
+          },
+        },
+      },
+    })
+
+    expect(snapshots).toHaveLength(1)
+    expect(snapshots[0]?.toolhead.rawX).toBe(10)
+
+    firstSocket?.failClose()
+    vi.advanceTimersByTime(50)
+
+    const secondSocket = TestWebSocket.instances[1]
+    secondSocket?.open()
+    secondSocket?.message({
+      id: 1,
+      result: {
+        status: {
+          webhooks: {
+            state: 'ready',
+            state_message: 'Printer is ready',
+          },
+        },
+      },
+    })
+
+    expect(snapshots).toHaveLength(2)
+    expect(snapshots[1]?.toolhead.rawX).toBe(0)
+    expect(snapshots[1]?.toolhead.rawY).toBe(0)
+    expect(snapshots[1]?.homedAxes).toBe('')
+
+    subscription.close()
+  })
+
+  it('maps Klippy lifecycle notifications to connection snapshots', () => {
+    const { snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.message({
+      method: 'notify_klippy_disconnected',
+    })
+
+    expect(snapshots).toHaveLength(1)
+    expect(getPrinterConnectionState(snapshots[0]!)).toBe('offline')
+    expect(snapshots[0]?.message).toBe('Klippy disconnected')
+
+    socket?.message({
+      method: 'notify_klippy_shutdown',
+    })
+
+    expect(getPrinterConnectionState(snapshots[1]!)).toBe('shutdown')
+    expect(snapshots[1]?.message).toBe('Klippy shutdown')
+
+    subscription.close()
+  })
+
+  it('re-subscribes after Klippy becomes ready and accepts only the latest subscription ack', () => {
+    const { snapshots, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.message({
+      id: 1,
+      result: {
+        eventtime: 10,
+        status: {
+          webhooks: {
+            state: 'ready',
+          },
+          toolhead: {
+            position: [10, 20, 30, 0],
+          },
+        },
+      },
+    })
+    socket?.message({ method: 'notify_klippy_disconnected' })
+    socket?.message({ method: 'notify_klippy_ready' })
+
+    expect(socket?.sentMessages).toHaveLength(7)
+    expect(JSON.parse(socket?.sentMessages.at(-1) ?? '{}')).toMatchObject({
+      method: 'printer.objects.subscribe',
+      id: 2,
+    })
+    expect(getPrinterConnectionState(snapshots.at(-1)!)).toBe('degraded')
+    expect(snapshots.at(-1)?.toolhead.rawX).toBe(0)
+
+    socket?.message({
+      method: 'notify_status_update',
+      params: [{ toolhead: { position: [99, 99, 99, 0] } }, 11],
+    })
+    socket?.message({
+      id: 1,
+      result: {
+        eventtime: 11,
+        status: {
+          webhooks: { state: 'ready' },
+          toolhead: { position: [88, 88, 88, 0] },
+        },
+      },
+    })
+
+    expect(snapshots.at(-1)?.toolhead.rawX).toBe(0)
+
+    socket?.message({
+      id: 2,
+      result: {
+        eventtime: 12,
+        status: {
+          webhooks: { state: 'ready' },
+          toolhead: { position: [40, 50, 60, 0] },
+        },
+      },
+    })
+    socket?.message({
+      method: 'notify_status_update',
+      params: [{ toolhead: { homed_axes: 'xyz' } }, 13],
+    })
+
+    expect(snapshots.at(-1)?.toolhead.rawX).toBe(40)
+    expect(snapshots.at(-1)?.toolhead.rawY).toBe(50)
+    expect(snapshots.at(-1)?.homedAxes).toBe('xyz')
+
+    subscription.close()
+  })
+
+  it('routes file and G-code notifications to typed handlers', () => {
+    const { fileListChanges, gcodeResponses, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.message({ method: 'notify_filelist_changed', params: [{ action: 'create_file' }] })
+    socket?.message({ method: 'notify_metadata_update', params: [{ filename: 'benchy.gcode' }] })
+    socket?.message({ method: 'notify_gcode_response', params: ['ok T:220'] })
+
+    expect(fileListChanges).toHaveLength(2)
+    expect(gcodeResponses).toEqual(['ok T:220'])
+
+    subscription.close()
+  })
+
+  it('emits reconnecting state and opens a new socket after close', () => {
+    vi.useFakeTimers()
+    const { connectionChanges, subscription } = subscribeForTest()
+    const socket = TestWebSocket.instances[0]
+
+    socket?.open()
+    socket?.failClose()
+
+    expect(connectionChanges.at(-1)).toEqual({
+      connection: 'reconnecting',
+      message: 'Moonraker WebSocket closed',
+    })
+
+    vi.advanceTimersByTime(50)
+
+    expect(TestWebSocket.instances).toHaveLength(2)
+    expect(connectionChanges.at(-1)).toEqual({
+      connection: 'connecting',
+      message: undefined,
+    })
+
+    subscription.close()
+  })
+
+  it('uses capped exponential backoff between repeated reconnect attempts', () => {
+    vi.useFakeTimers()
+    const subscription = subscribeToMoonrakerStatus(
+      {
+        onSnapshot() {
+          return undefined
+        },
+        onConnectionChange() {
+          return undefined
+        },
+      },
+      {
+        moonrakerUrl: 'http://127.0.0.1:7125',
+        reconnectDelayMs: 50,
+        reconnectMaxDelayMs: 200,
+        reconnectJitterRatio: 0,
+        WebSocketCtor: TestWebSocket as unknown as typeof WebSocket,
+      },
+    )
+
+    TestWebSocket.instances[0]?.failClose()
+    vi.advanceTimersByTime(49)
+    expect(TestWebSocket.instances).toHaveLength(1)
+    vi.advanceTimersByTime(1)
+    expect(TestWebSocket.instances).toHaveLength(2)
+
+    TestWebSocket.instances[1]?.failClose()
+    vi.advanceTimersByTime(99)
+    expect(TestWebSocket.instances).toHaveLength(2)
+    vi.advanceTimersByTime(1)
+    expect(TestWebSocket.instances).toHaveLength(3)
+
+    TestWebSocket.instances[2]?.failClose()
+    vi.advanceTimersByTime(199)
+    expect(TestWebSocket.instances).toHaveLength(3)
+    vi.advanceTimersByTime(1)
+    expect(TestWebSocket.instances).toHaveLength(4)
+
+    TestWebSocket.instances[3]?.failClose()
+    vi.advanceTimersByTime(200)
+    expect(TestWebSocket.instances).toHaveLength(5)
+
+    subscription.close()
+  })
+})

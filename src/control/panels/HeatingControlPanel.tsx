@@ -116,7 +116,7 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
               <div key={row.id} className="control-heating-row control-subpanel">
                 <div className="control-heating-sensor">
                   <span className={`control-heating-sensor-icon is-${row.tone}`} aria-hidden="true">
-                    <IconMask name={row.icon} size={18} />
+                    <IconMask name={row.icon} size={28} />
                   </span>
                   <div className="control-heating-sensor-text">
                     <h3>{row.uiLabel}</h3>

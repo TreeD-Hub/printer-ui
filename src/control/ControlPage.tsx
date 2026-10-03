@@ -7,6 +7,8 @@ import { HeatingControlPanel } from './panels/HeatingControlPanel'
 import { LightingControlPanel } from './panels/LightingControlPanel'
 import { MaintenanceControlPanel } from './panels/MaintenanceControlPanel'
 import { MovementControlPanel } from './panels/MovementControlPanel'
+import { DriverModeControlPanel } from './panels/DriverModeControlPanel'
+import type { DriverControlsProps } from './panels/DriverModeControlPanel'
 import type {
   ControlGroupId,
   FanControlPanelProps,
@@ -18,6 +20,7 @@ import type {
 } from './types'
 
 type ControlPageProps = {
+  driverControls?: DriverControlsProps
   activeControlGroup: ControlGroupId
   isControlMenuCompact: boolean
   controlGroupBlockReasons?: Partial<Record<ControlGroupId, string | null>>
@@ -32,6 +35,7 @@ type ControlPageProps = {
 }
 
 export const ControlPage = memo(function ControlPage({
+  driverControls,
   activeControlGroup,
   isControlMenuCompact,
   controlGroupBlockReasons,
@@ -60,13 +64,15 @@ export const ControlPage = memo(function ControlPage({
         <aside className={`settings-menu-shell control-menu-shell ${isControlMenuCompact ? 'is-compact' : ''}`}>
           <button
             type="button"
-            className="control-menu-collapse-btn"
+            className="settings-sidebar-item control-menu-collapse-btn"
             aria-expanded={!isControlMenuCompact}
             aria-label={isControlMenuCompact ? 'Развернуть меню управления' : 'Свернуть меню управления до иконок'}
+            title={isControlMenuCompact ? 'Развернуть меню' : 'Свернуть меню'}
             data-testid="control-menu-mode-toggle"
             onClick={onControlMenuCompactToggle}
           >
             <IconMask name="utilityChevron" size={20} className="control-menu-collapse-icon" />
+            <span className="settings-sidebar-label">Свернуть меню</span>
           </button>
           <SettingsSidebarMenu
             options={CONTROL_GROUP_OPTIONS}
@@ -80,38 +86,40 @@ export const ControlPage = memo(function ControlPage({
         </aside>
 
         <div className="settings-content-shell control-content-shell">
-          {activeControlGroup === 'maintenance' ? (
-            <div className="control-maintenance-header">
-              <div className="control-maintenance-heading">
-                <p className="control-tab-label" data-testid="control-active-tab-label">Т.О</p>
-                <p className="control-maintenance-subtitle">
-                  Сервисное обслуживание и напоминания для вашего 3D-принтера.
-                </p>
+          <header className="control-view-header">
+            {activeControlGroup === 'maintenance' ? (
+              <div className="control-maintenance-header">
+                <div className="control-maintenance-heading">
+                  <p className="control-tab-label" data-testid="control-active-tab-label">Т.О</p>
+                  <p className="control-maintenance-subtitle">
+                    Сервисное обслуживание и напоминания для вашего 3D-принтера.
+                  </p>
+                </div>
+                <div className="control-maintenance-header-actions">
+                  <p className="control-maintenance-status-pill">
+                    {maintenanceStatusLabel}
+                    <span aria-hidden="true" />
+                  </p>
+                  <button
+                    type="button"
+                    className="control-maintenance-history-button"
+                    aria-label="История ТО — в разработке"
+                    title="История ТО — в разработке"
+                    data-testid="maintenance-history-button"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <circle cx="12" cy="12" r="7.5" />
+                      <path d="M12 7.7v4.6l3 1.9" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div className="control-maintenance-header-actions">
-                <p className="control-maintenance-status-pill">
-                  {maintenanceStatusLabel}
-                  <span aria-hidden="true" />
-                </p>
-                <button
-                  type="button"
-                  className="control-maintenance-history-button"
-                  aria-label="История ТО — в разработке"
-                  title="История ТО — в разработке"
-                  data-testid="maintenance-history-button"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <circle cx="12" cy="12" r="7.5" />
-                    <path d="M12 7.7v4.6l3 1.9" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <p className="control-tab-label" data-testid="control-active-tab-label">
-              {activeControlGroupOption.label}
-            </p>
-          )}
+            ) : (
+              <p className="control-tab-label" data-testid="control-active-tab-label">
+                {activeControlGroupOption.label}
+              </p>
+            )}
+          </header>
           <div className="control-scroll-area">
             {activeControlGroup === 'movement' ? (
               <MovementControlPanel {...movement} />
@@ -123,6 +131,15 @@ export const ControlPage = memo(function ControlPage({
               <LightingControlPanel {...lighting} />
             ) : activeControlGroup === 'filament' ? (
               <FilamentSensorControlPanel {...filament} />
+            ) : activeControlGroup === 'drivers' ? (
+              <div className="control-driver-profiles">
+                {driverControls?.mode?.supported || driverControls?.fanMode?.supported ? (
+                  <>
+                    <DriverModeControlPanel controls={driverControls} kind="drivers" />
+                    <DriverModeControlPanel controls={driverControls} kind="fan" />
+                  </>
+                ) : <p className="control-block-reason">Режимы драйверов недоступны на этом принтере.</p>}
+              </div>
             ) : (
               <MaintenanceControlPanel {...maintenance} />
             )}

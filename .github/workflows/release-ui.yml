@@ -25,6 +25,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout active printer-core protocol
+        uses: actions/checkout@v4
+        with:
+          repository: TreeD-Hub/printer-core
+          ref: treed-v2
+          path: printer-core
+          persist-credentials: false
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -36,6 +44,13 @@ jobs:
 
       - name: Run quality gate
         run: npm run quality
+
+      - name: Check printer-core protocol compatibility
+        env:
+          CORE_CONTRACT_FIXTURE: printer-core/contracts/printer-protocol.json
+        run: |
+          test -s "$CORE_CONTRACT_FIXTURE"
+          npx vitest run src/core/transport/coreProtocolCompatibility.test.ts --pool=forks
 
       - name: Install Chromium for kiosk smoke tests
         run: npx playwright install --with-deps chromium

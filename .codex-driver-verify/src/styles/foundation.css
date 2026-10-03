@@ -1,0 +1,97 @@
+@font-face {
+  font-family: 'Nothing Font';
+  src: url('/fonts/nothing-font.otf') format('opentype');
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-variable.ttf') format('truetype');
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* 00_Foundation: colors */
+  --color-window-background: #11161c; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
+  --color-background: #101213; /* Основной почти чёрный фон интерфейса. */
+  --color-surface: #101213; /* Фон системных баров и крупных зон. */
+  --color-block-surface: #131517; /* Карточки и панели в Nothing terminal стиле. */
+  --color-surface-elevated: #14181b; /* Вложенные контролы и активные поверхности. */
+  --color-border-subtle: #24282b; /* Мягкие пиксельные разделители. */
+  --color-border-default: #3a3f43; /* Основные рамки карточек, popup и контролов. */
+  --color-surface-track: #030405; /* Фон дорожек прогресса и графиков. */
+  --color-primary: #ff2a2a; /* Красный Nothing-акцент для активных состояний. */
+  --color-primary-light: #ff5a5a; /* Светлый красный для активного текста. */
+  --color-primary-dark: #b91414; /* Тёмный красный для нажатых состояний. */
+  --color-success: #d9f7e5; /* Светлый терминальный success без зелёного доминирования. */
+  --color-warning: #fff0b8; /* Тёплый warning, читаемый на чёрном фоне. */
+  --color-error: #ff2a2a; /* Критичные действия и ошибки. */
+  --color-text-primary: #cccccc; /* Основной светлый dot-matrix текст. */
+  --color-text-secondary: #c0c0c0; /* Подписи и вторичный текст. */
+  --color-text-soft: #818181; /* Units, meta и muted-информация. */
+  --color-overlay: rgba(2, 3, 4, 0.78); /* Затемнение контента под popup. */
+  --color-shadow-strong: rgba(0, 0, 0, 0.58); /* Жёсткая тень popup и всплывающих слоёв. */
+  --color-primary-surface: rgba(255, 42, 42, 0.14); /* Активная красная подложка. */
+  --color-primary-surface-soft: rgba(255, 42, 42, 0.09); /* Мягкая активная подложка у контролов. */
+  --color-primary-ring: rgba(255, 42, 42, 0.72); /* Красный пиксельный контур. */
+  --color-primary-glow: rgba(255, 42, 42, 0.22); /* Сдержанное красное свечение. */
+  --color-power-active-ring: rgba(255, 42, 42, 0.58); /* Контур активной кнопки питания. */
+  --color-preview-frame-stroke: rgba(244, 244, 240, 0.52); /* Внешняя линия превью модели. */
+  --color-preview-cube-stroke: rgba(244, 244, 240, 0.72); /* Основная линия куба в превью модели. */
+  --gradient-progress-print: linear-gradient(90deg, #ff2a2a 0%, #f4f4f0 56%, #8b8f8a 100%); /* Терминальная шкала прогресса. */
+  --gradient-meter-heat: linear-gradient(90deg, #f4f4f0 0%, color-mix(in srgb, var(--color-primary) 58%, #f4f4f0) 55%, var(--color-primary) 100%); /* Единая шкала нагрева от белого к заданному красному. */
+  --terminal-red: #ff2a2a;
+  --terminal-grid-dot: rgba(244, 244, 240, 0.11);
+  --terminal-grid-line: rgba(244, 244, 240, 0.055);
+  --terminal-scanline: rgba(244, 244, 240, 0.035);
+  --terminal-panel-sheen: rgba(244, 244, 240, 0.05);
+  --terminal-border-active: rgba(244, 244, 240, 0.36);
+
+  /* 00_Foundation: typography */
+  --font-size-heading-large: 24px;
+  --font-size-heading-medium: 26px;
+  --font-size-body-large: 18px;
+  --font-size-body: 17px;
+  --font-size-small: 14px;
+  --font-size-tiny: 12px;
+
+  --font-weight-medium: 500;
+  --font-weight-regular: 400;
+  --font-weight-accent: 100;
+
+  --font-family-ui: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+  --font-family-accent: 'Nothing Font', 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+
+  /* 00_Foundation: grid */
+  --grid-base: 8px;
+  --grid-landscape-columns: 12;
+  --grid-landscape-gutter: 16px;
+  --grid-landscape-margin: 24px;
+  --grid-safe-area: 16px;
+
+  --grid-portrait-columns: 4;
+  --grid-portrait-gutter: 16px;
+  --grid-portrait-margin: 20px;
+
+  /* spacing scale */
+  --space-micro: 2px;
+  --space-xxs: 5px;
+  --space-xs: 10px;
+  --space-sm: 14px;
+  --space-md: 19px;
+  --space-lg: 24px;
+
+  /* device contract */
+  --screen-width: 960px;
+  --screen-height: 544px;
+
+  /* block layout rule */
+  --layout-block-padding-y: var(--space-md);
+  --layout-block-padding-x: var(--space-md);
+  --layout-block-content-align: center;
+  --layout-block-label-size: 19px;
+  --layout-block-value-size: 26px;
+  --layout-block-unit-size: 19px;
+}

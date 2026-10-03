@@ -1,0 +1,1433 @@
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { vi } from 'vitest'
+import App from './App'
+import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
+import {
+  clearMockCommandFailure,
+  clearMockNetworkRuntime,
+  clearMockTransportSnapshot,
+  createMockSnapshot,
+  getMockCommandOperations,
+  getMockNetworkOperations,
+  setMockCommandFailure,
+  setMockNetworkStatus,
+  setMockTransportSnapshot,
+} from '../mocks/runtime'
+import { getPrinterConnectionState, isPrintJobActive, type PrinterSnapshot } from './core/transport/types'
+import { createLoadingMoonrakerSystemStatus, type MoonrakerSystemStatus } from './settings/systemStatus'
+
+const systemStatusMock = vi.hoisted(() => ({
+  status: undefined as MoonrakerSystemStatus | undefined,
+  refresh: vi.fn(),
+}))
+
+vi.mock('./settings/useMoonrakerSystemStatus', async () => {
+  const { createLoadingMoonrakerSystemStatus } = await import('./settings/systemStatus')
+
+  return {
+    useMoonrakerSystemStatus: () => ({
+      status: systemStatusMock.status ?? createLoadingMoonrakerSystemStatus(),
+      isRefreshing: false,
+      refresh: systemStatusMock.refresh,
+    }),
+  }
+})
+
+function applyPrinterSnapshot(nextSnapshot: PrinterSnapshot): void {
+  setMockTransportSnapshot(nextSnapshot)
+  act(() => {
+    setPrinterSnapshot(nextSnapshot)
+  })
+}
+
+function createSystemStatus(overrides: Partial<MoonrakerSystemStatus> = {}): MoonrakerSystemStatus {
+  return {
+    ...createLoadingMoonrakerSystemStatus(),
+    loadState: 'ready',
+    health: 'ok',
+    updatedAt: '2026-07-02T12:00:00.000Z',
+    ...overrides,
+  }
+}
+
+beforeEach(() => {
+  systemStatusMock.status = undefined
+  systemStatusMock.refresh.mockClear()
+  act(() => {
+    setPrinterSnapshot(createMockSnapshot())
+  })
+})
+
+afterEach(() => {
+  cleanup()
+  clearMockCommandFailure()
+  clearMockNetworkRuntime()
+  clearMockTransportSnapshot()
+})
+
+describe('App', () => {
+  it('renders idle placeholder on dashboard before print start', async () => {
+    render(<App />)
+
+    expect(screen.getByTestId('screen-shell')).toBeInTheDocument()
+    expect(screen.getByText('TreeD')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Статус Wi-Fi' })).toBeInTheDocument()
+    expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
+    expect(screen.getByText(/Экосистема/i)).toBeInTheDocument()
+    const maintenanceWidget = within(screen.getByTestId('idle-widget-maintenance'))
+    expect(maintenanceWidget.getByText('Пробег')).toBeInTheDocument()
+    expect(maintenanceWidget.getByText('До Т.О')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Ожидание печати' })).not.toBeInTheDocument()
+    const idleNotesInput = screen.getByTestId('idle-notes-input') as HTMLTextAreaElement
+    expect(idleNotesInput.value.length).toBeGreaterThan(0)
+    fireEvent.focus(idleNotesInput)
+    expect(screen.getByTestId('idle-notes-keyboard')).toBeInTheDocument()
+    idleNotesInput.setSelectionRange(idleNotesInput.value.length, idleNotesInput.value.length)
+    fireEvent.click(screen.getByRole('button', { name: /Символ о/i }))
+    expect(idleNotesInput.value.endsWith('о')).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть клавиатуру' }))
+    expect(screen.queryByTestId('idle-notes-keyboard')).not.toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /Основная навигация/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Уведомления' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Пауза' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
+  }, 20000)
+
+  it('keeps idle dashboard chrome and sidebar visible during a Klipper diagnostic', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+    })
+
+    render(<App />)
+
+    const idleDashboard = await screen.findByTestId('screen-dashboard-idle')
+    const diagnostic = within(idleDashboard).getByTestId('dashboard-diagnostic')
+    expect(diagnostic).toBeInTheDocument()
+    expect(diagnostic).toHaveClass('is-fatal')
+    expect(diagnostic).toHaveAttribute('aria-live', 'assertive')
+    expect(within(idleDashboard).getByText('Klipper остановлен')).toBeInTheDocument()
+    expect(within(idleDashboard).getByText("Lost communication with MCU 'eddy'")).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-widget-temperature')).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-widget-maintenance')).toBeInTheDocument()
+    expect(within(idleDashboard).getByTestId('idle-notes-input')).toBeInTheDocument()
+    expect(screen.getByRole('navigation', { name: /Основная навигация/i })).toBeInTheDocument()
+  })
+
+  it('keeps active print view visible when a diagnostic condition is present', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+      printJob: {
+        ...snapshot.printJob,
+        filename: 'diagnostic-active-print.gcode',
+        filePath: 'diagnostic-active-print.gcode',
+        state: 'printing',
+        progress: 0.4,
+        progressPercent: 40,
+      },
+    })
+
+    render(<App />)
+
+    expect(await screen.findByTestId('print-progress-summary')).toBeInTheDocument()
+    expect(screen.queryByTestId('dashboard-diagnostic')).not.toBeInTheDocument()
+  })
+
+  it('requires confirmation before recovery and keeps command errors inside the idle hero', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: "Lost communication with MCU 'eddy'",
+      },
+    })
+    setMockCommandFailure('firmwareRestart', 'Mock: firmware restart failed')
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    const commandCountBeforeConfirm = getMockCommandOperations().length
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Перезапустить прошивку' }))
+    expect(getMockCommandOperations()).toHaveLength(commandCountBeforeConfirm)
+
+    fireEvent.click(within(diagnostic).getByRole('button', { name: /Подтвердить/i }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'firmwareRestart' }),
+        ]),
+      )
+      expect(within(diagnostic).getByText('Mock: firmware restart failed')).toBeInTheDocument()
+    })
+    expect(screen.getByTestId('screen-dashboard-idle')).toContainElement(diagnostic)
+  })
+
+  it('opens System settings from a system health warning', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      source: 'live',
+    })
+    systemStatusMock.status = createSystemStatus({
+      health: 'warning',
+      services: [{
+        name: 'crowsnest',
+        activeState: 'failed',
+        subState: 'failed',
+        healthy: false,
+      }],
+    })
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    expect(within(diagnostic).getByText('Камера недоступна')).toBeInTheDocument()
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Открыть «Систему»' }))
+
+    expect(await screen.findByRole('heading', { name: 'Система' })).toBeInTheDocument()
+  })
+
+  it('refreshes printer and system snapshots from an unavailable system diagnostic', async () => {
+    const snapshot = createMockSnapshot()
+    const liveSnapshot: PrinterSnapshot = {
+      ...snapshot,
+      source: 'live',
+    }
+    applyPrinterSnapshot(liveSnapshot)
+    systemStatusMock.status = createSystemStatus({
+      loadState: 'unavailable',
+      health: 'error',
+      updatedAt: null,
+      errors: ['Moonraker: HTTP 503'],
+    })
+
+    render(<App />)
+
+    const diagnostic = await screen.findByTestId('dashboard-diagnostic')
+    const shutdownSnapshot: PrinterSnapshot = {
+      ...liveSnapshot,
+      klippy: {
+        state: 'shutdown',
+        message: 'MCU shutdown',
+      },
+    }
+    setMockTransportSnapshot(shutdownSnapshot)
+
+    fireEvent.click(within(diagnostic).getByRole('button', { name: 'Повторить подключение' }))
+
+    await waitFor(() => {
+      expect(systemStatusMock.refresh).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('Klipper остановлен')).toBeInTheDocument()
+    })
+  })
+
+  it('returns to waiting state after print cancel', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+
+    await waitFor(() => {
+      expect((screen.getByTestId('print-file-start-button') as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Стоп' })).toBeInTheDocument()
+    })
+    expect(isPrintJobActive(getPrinterSnapshot().printJob)).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Стоп' }))
+    expect(screen.getByTestId('print-cancel-modal')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('print-cancel-confirm-button'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
+    })
+    expect(screen.getByTestId('screen-dashboard-idle')).toBeInTheDocument()
+    expect(isPrintJobActive(getPrinterSnapshot().printJob)).toBe(false)
+  }, 10000)
+
+  it('switches print state between pause and print from the pause button', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+
+    await waitFor(() => {
+      expect((screen.getByTestId('print-file-start-button') as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Стоп' })).toBeInTheDocument()
+    })
+
+    const actionButtons = screen.getAllByRole('button')
+    const pauseActionButton = actionButtons.find((button) => button.getAttribute('aria-label') === 'Пауза')
+
+    expect(pauseActionButton).toBeDefined()
+    expect(pauseActionButton?.querySelector('.ui-icon-mask')).toHaveStyle({
+      maskImage: expect.stringContaining('action-pause.svg'),
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Пауза' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Продолжить' })).toBeInTheDocument()
+    })
+
+    const resumeActionButton = screen.getByRole('button', { name: 'Продолжить' })
+    expect(resumeActionButton.querySelector('.ui-icon-mask')).toHaveStyle({
+      maskImage: expect.stringContaining('action-resume.svg'),
+    })
+
+    fireEvent.click(resumeActionButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Пауза' })).toBeInTheDocument()
+    })
+  }, 20000)
+
+  it('renders active print left panel from live job and file metadata', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        updatedAt: '2026-06-25T09:15:00',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'queue/very_long_calibration_tower_for_scroll.gcode',
+          filePath: 'queue/very_long_calibration_tower_for_scroll.gcode',
+          state: 'printing',
+          progress: 0.25,
+          progressPercent: 25,
+          currentLayer: 12,
+          totalLayer: 48,
+        },
+        printFiles: [
+          {
+            id: 'file-calibration-tower',
+            path: 'queue/very_long_calibration_tower_for_scroll.gcode',
+            name: 'very_long_calibration_tower_for_scroll.gcode',
+            directory: 'queue',
+            printTime: '40 мин',
+            weight: '12 г',
+            material: 'PLA',
+            addedAt: '2026-06-25T08:00:00.000Z',
+            preview: {
+              small: {
+                src: 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/tower-48x48.png',
+                width: 48,
+                height: 48,
+                format: 'png',
+              },
+              large: {
+                src: 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/tower-300x300.png',
+                width: 300,
+                height: 300,
+                format: 'png',
+              },
+            },
+          },
+        ],
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId('print-progress-summary')).toBeInTheDocument()
+      })
+
+      const previewImage = screen.getByAltText('Предпросмотр very_long_calibration_tower_for_scroll.gcode')
+      expect(previewImage).toHaveAttribute('src', 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/tower-300x300.png')
+      expect(screen.getByText('very_long_calibration_tower_for_scroll.gcode')).toHaveClass('is-scrollable')
+      expect(screen.getByText('25%')).toBeInTheDocument()
+      expect(screen.getByText('09:45')).toBeInTheDocument()
+      expect(screen.getByText('12 / 48')).toBeInTheDocument()
+      expect(document.querySelector('.job-meter-fill')).toHaveStyle({ width: '25%' })
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  }, 20000)
+
+  it('opens exclude-object modal and sends one confirmed command for the selected object', async () => {
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'queue/object_plate.gcode',
+          filePath: 'queue/object_plate.gcode',
+          state: 'printing',
+          progress: 0.35,
+          progressPercent: 35,
+        },
+        excludeObjects: {
+          supported: true,
+          state: 'ready',
+          objects: [
+            {
+              name: 'part_1',
+              displayName: 'part 1',
+              center: { x: 40, y: 40 },
+              polygon: [{ x: 20, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 60 }, { x: 20, y: 60 }],
+              isCurrent: false,
+              isExcluded: false,
+            },
+            {
+              name: 'part_2',
+              displayName: 'part 2',
+              center: { x: 105, y: 40 },
+              polygon: [{ x: 85, y: 20 }, { x: 125, y: 20 }, { x: 125, y: 60 }, { x: 85, y: 60 }],
+              isCurrent: true,
+              isExcluded: false,
+            },
+            {
+              name: 'part_3',
+              displayName: 'part 3',
+              center: { x: 170, y: 40 },
+              polygon: null,
+              isCurrent: false,
+              isExcluded: true,
+            },
+          ],
+          currentObjectName: 'part_2',
+          excludedObjectNames: ['part_3'],
+          message: null,
+        },
+      })
+
+      render(<App />)
+
+      fireEvent.click(await screen.findByTestId('open-exclude-object-modal'))
+      expect(screen.getByRole('heading', { name: 'Исключение объектов' })).toBeInTheDocument()
+      expect(screen.getAllByText('Текущий').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Исключён').length).toBeGreaterThan(0)
+
+      fireEvent.click(screen.getByTestId('exclude-object-map-item-part_1'))
+      expect(screen.getByTestId('exclude-object-selected-name')).toHaveTextContent('part 1')
+      fireEvent.click(screen.getByTestId('exclude-object-submit'))
+      expect(screen.getByText('Исключить «part 1»?')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('exclude-object-confirm-submit'))
+
+      await waitFor(() => {
+        expect(getMockCommandOperations()).toEqual([
+          expect.objectContaining({ command: 'excludeObject', objectName: 'part_1' }),
+        ])
+      })
+      expect(screen.getByTestId('exclude-object-list-item-part_1')).toBeDisabled()
+      expect(screen.getByTestId('exclude-object-map-item-part_1')).toHaveAttribute('aria-disabled', 'true')
+
+      applyPrinterSnapshot({
+        ...getPrinterSnapshot(),
+        excludeObjects: {
+          ...getPrinterSnapshot().excludeObjects,
+          excludedObjectNames: ['part_1', 'part_3'],
+          objects: getPrinterSnapshot().excludeObjects.objects.map((item) => (
+            item.name === 'part_1' ? { ...item, isExcluded: true } : item
+          )),
+        },
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId('exclude-object-list-item-part_1')).toHaveTextContent('Исключён')
+      })
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  }, 10000)
+
+  it('opens exclude-object modal after starting a mock print', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    const openButton = await screen.findByTestId('open-exclude-object-modal')
+    fireEvent.click(openButton)
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog', { name: 'Исключение объектов' })).toBeInTheDocument()
+    })
+  }, 10000)
+
+  it('keeps the exclude-object button hidden while printer is idle', () => {
+    render(<App />)
+
+    expect(screen.queryByTestId('open-exclude-object-modal')).not.toBeInTheDocument()
+  })
+
+  it('renders active print thermal and quick metrics from live snapshot', async () => {
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        extruderTemp: 193.4,
+        bedTemp: 52.7,
+        modelFanPercent: 37,
+        thermalTargets: {
+          nozzle: 245,
+          bed: 80,
+        },
+        runtimeTune: {
+          ...previousSnapshot.runtimeTune,
+          flowFactorPercent: 92,
+        },
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'queue/thermal_snapshot_check.gcode',
+          filePath: 'queue/thermal_snapshot_check.gcode',
+          state: 'printing',
+          progress: 0.42,
+          progressPercent: 42,
+        },
+      })
+
+      render(<App />)
+
+      const nozzleGroup = await screen.findByTestId('print-tune-group-nozzle')
+      const bedGroup = screen.getByTestId('print-tune-group-bed')
+      const fanGroup = screen.getByTestId('print-tune-group-fan')
+      const flowGroup = screen.getByTestId('print-tune-group-flow')
+
+      expect(nozzleGroup).toHaveTextContent('193/245°C')
+      expect(bedGroup).toHaveTextContent('53/80°C')
+      expect(fanGroup).toHaveTextContent('37%')
+      expect(flowGroup).toHaveTextContent('92%')
+      expect(screen.getByTestId('print-heat-meter-nozzle-fill')).toHaveStyle({ width: '79%' })
+      expect(screen.getByTestId('print-heat-meter-bed-fill')).toHaveStyle({ width: '66%' })
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  })
+
+  it('renders active print process metrics from separate live tune fields', async () => {
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        runtimeTune: {
+          ...previousSnapshot.runtimeTune,
+          speedFactorPercent: 123,
+          accelMmS2: 7400,
+          pressureAdvance: 0.055,
+          retractLengthMm: 1.2,
+        },
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'queue/process_metrics_check.gcode',
+          filePath: 'queue/process_metrics_check.gcode',
+          state: 'printing',
+          progress: 0.42,
+          progressPercent: 42,
+        },
+      })
+
+      render(<App />)
+
+      expect(await screen.findByTestId('print-process-metric-speed-value')).toHaveTextContent('123%')
+      expect(screen.getByTestId('print-process-metric-accel-value')).toHaveTextContent('7400мм/с²')
+      expect(screen.getByTestId('print-process-metric-kFactor-value')).toHaveTextContent('0.055')
+      expect(screen.getByTestId('print-process-metric-retract-value')).toHaveTextContent('1.2мм')
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  })
+
+  it('opens numeric keyboard for temperature input and applies value', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+    fireEvent.click(screen.getByTestId('control-group-heating'))
+
+    const nozzleInput = screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement
+    fireEvent.focus(nozzleInput)
+    expect(screen.getByRole('button', { name: 'Ввод' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 4' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 0' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить последний символ' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Очистить температуру' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 4' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Цифра 0' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ввод' }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'setNozzleTarget',
+            targetCelsius: 240,
+          }),
+        ]),
+      )
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: 'Ввод' })).not.toBeInTheDocument()
+    })
+    await waitFor(() => {
+      expect((screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement).value).toBe('240')
+    }, { timeout: 3500 })
+
+    fireEvent.click(screen.getByTestId('control-heating-preset-abs'))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'setHeatingTargets',
+            nozzleCelsius: 245,
+            bedCelsius: 100,
+          }),
+        ]),
+      )
+    })
+    await waitFor(() => {
+      expect((screen.getByTestId('control-heating-nozzle-input') as HTMLInputElement).value).toBe('245')
+      expect((screen.getByTestId('control-heating-bed-input') as HTMLInputElement).value).toBe('100')
+    }, { timeout: 3500 })
+  }, 30000)
+
+  it('routes print tune speed and Z-offset controls through printer commands', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('print-tune-group-speed')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByTestId('print-tune-group-speed'))
+    fireEvent.click(screen.getByTestId('print-tune-speed-plus'))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'setPrintSpeedFactorPercent',
+            percent: 105,
+          }),
+        ]),
+      )
+    })
+
+    fireEvent.click(screen.getByTestId('print-tune-modal-apply-button'))
+    fireEvent.click(screen.getByRole('button', { name: 'Babystep плюс 0.05' }))
+
+    expect(screen.getByRole('button', { name: 'Пауза' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Стоп' })).toBeEnabled()
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'adjustZOffset',
+            deltaMm: 0.05,
+          }),
+        ]),
+      )
+    })
+  }, 20000)
+
+  it('switches between screens from bottom navigation', () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+
+    expect(screen.getByTestId('screen-files')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Статус Wi-Fi' })).not.toBeInTheDocument()
+    expect(screen.getByText('Прокрутите вниз, чтобы найти нужную модель.')).toBeInTheDocument()
+    expect(screen.queryByText(/Экран файлов подключен в каркас маршрутизации/i)).not.toBeInTheDocument()
+    expect(screen.getAllByTestId('print-file-card')).toHaveLength(12)
+
+    const sortByNameButton = screen.getByRole('button', { name: 'По имени' })
+    const sortByAddedAtButton = screen.getByRole('button', { name: 'По дате' })
+
+    expect(sortByNameButton).toHaveAttribute('aria-pressed', 'false')
+    expect(sortByAddedAtButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('fan_shroud_prototype.gcode')
+
+    fireEvent.click(sortByNameButton)
+
+    expect(sortByNameButton).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getAllByTestId('print-file-card')[0]).toHaveTextContent('bearing_bracket_mk2.gcode')
+    expect(screen.getByText('2 ч 15 мин')).toBeInTheDocument()
+    expect(screen.getByText('34 г')).toBeInTheDocument()
+  }, 10000)
+
+  it('renames dashboard navigation item to print while print is active', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+    const navigation = screen.getByRole('navigation', { name: /Основная навигация/i })
+
+    try {
+      expect(within(navigation).getByRole('button', { name: 'Главная' })).toBeInTheDocument()
+
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'bearing_bracket_mk2.gcode',
+          state: 'printing',
+        },
+      })
+
+      await waitFor(() => {
+        expect(within(navigation).getByRole('button', { name: 'Печать' })).toBeInTheDocument()
+      })
+      expect(within(navigation).queryByRole('button', { name: 'Главная' })).not.toBeInTheDocument()
+
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'bearing_bracket_mk2.gcode',
+          state: 'complete',
+        },
+      })
+
+      await waitFor(() => {
+        expect(within(navigation).getByRole('button', { name: 'Главная' })).toBeInTheDocument()
+      })
+      expect(within(navigation).queryByRole('button', { name: 'Печать' })).not.toBeInTheDocument()
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  })
+
+  it('renders control widgets and switches parking mode to specific axis', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+
+    expect(screen.getByTestId('screen-control')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Статус Wi-Fi' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('control-group-movement')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('control-menu-mode-toggle')).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(screen.getByTestId('control-menu-mode-toggle'))
+    expect(screen.getByTestId('control-menu-mode-toggle')).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(screen.getByTestId('control-menu-mode-toggle'))
+    expect(screen.getByTestId('control-menu-mode-toggle')).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Перемещение')
+    expect(screen.getByRole('heading', { name: 'Парковка' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Сервисный режим' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Подсветка' })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Оси' })).toBeInTheDocument()
+    expect(screen.queryByTestId('parking-action-button')).not.toBeInTheDocument()
+    expect(screen.getByTestId('service-mode-button')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('motors-disable-button')).toHaveAccessibleName('Release')
+    expect(screen.getByRole('button', { name: 'Загрузить филамент' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Выгрузить филамент' })).toBeInTheDocument()
+
+    const parkingAllButton = screen.getByTestId('parking-mode-all')
+    const parkingAxisXButton = screen.getByTestId('parking-axis-X')
+
+    expect(parkingAllButton).toHaveAttribute('aria-pressed', 'false')
+    expect(parkingAxisXButton).toHaveAttribute('aria-pressed', 'false')
+
+    fireEvent.click(parkingAxisXButton)
+
+    expect(parkingAllButton).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('button', { name: 'Парковка оси X' })).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'homeX' }),
+        ]),
+      )
+      expect(parkingAxisXButton).toHaveAttribute('aria-pressed', 'true')
+    })
+    await waitFor(() => {
+      expect(parkingAxisXButton).toHaveAttribute('aria-pressed', 'false')
+    }, { timeout: 1500 })
+
+    fireEvent.click(screen.getByTestId('parking-axis-Z'))
+    expect(screen.getByTestId('z-parking-dialog')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('z-parking-lower'))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'parkZBottom' }),
+        ]),
+      )
+    })
+
+    const serviceModeButton = screen.getByTestId('service-mode-button')
+    fireEvent.click(serviceModeButton)
+    expect(serviceModeButton).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => {
+      expect(serviceModeButton).toHaveAttribute('aria-pressed', 'false')
+    }, { timeout: 1500 })
+
+    fireEvent.click(screen.getByTestId('control-group-heating'))
+    expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Нагрев')
+    expect(screen.getByRole('heading', { name: 'Сопло' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Стол' })).toBeInTheDocument()
+    expect(screen.getByTestId('control-heating-nozzle-input')).toBeInTheDocument()
+    expect(screen.getByTestId('control-heating-bed-input')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('control-group-fans'))
+    expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Вентиляторы')
+    expect(screen.getByRole('heading', { name: 'Обдув модели' })).toBeInTheDocument()
+    expect(screen.getByTestId('control-fan-slider')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('control-group-lighting'))
+    expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Освещение')
+    expect(screen.getByRole('heading', { name: 'Подсветка' })).toBeInTheDocument()
+    expect(screen.getByTestId('control-light-main')).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByTestId('control-light-toolhead')).toHaveAttribute('aria-pressed', 'false')
+    const mainLightButton = screen.getByTestId('control-light-main')
+    fireEvent.click(mainLightButton)
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({ command: 'setMainLightEnabled', enabled: true })
+    })
+
+    const toolheadLightButton = screen.getByTestId('control-light-toolhead')
+    fireEvent.click(toolheadLightButton)
+    expect(toolheadLightButton).toBeDisabled()
+
+    fireEvent.click(screen.getByTestId('control-group-movement'))
+
+    expect(screen.queryByTestId('move-mode-buttons')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('move-mode-joystick')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг Y в плюс' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг X в минус' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг Y в минус' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг Z вверх' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Сдвиг Z вниз' })).toBeInTheDocument()
+    expect(screen.getByTestId('move-step-1')).toBeInTheDocument()
+    expect(screen.getByTestId('axis-coordinates')).toBeInTheDocument()
+
+    const coordinatesBeforeMove = screen.getByTestId('axis-coordinates').textContent
+    fireEvent.click(screen.getByRole('button', { name: 'Сдвиг X в плюс' }))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'moveAxis', axis: 'X', distanceMm: 1 }),
+        ]),
+      )
+    })
+    expect(screen.getByTestId('axis-coordinates').textContent).toBe(coordinatesBeforeMove)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Загрузить филамент' })).not.toBeDisabled()
+    })
+    fireEvent.click(screen.getByTestId('move-step-10'))
+    fireEvent.click(screen.getByRole('button', { name: 'Загрузить филамент' }))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'loadFilament', lengthMm: 10 }),
+        ]),
+      )
+    })
+
+    fireEvent.click(screen.getByTestId('motors-disable-button'))
+    expect(screen.getByRole('dialog', { name: 'Освободить моторы?' })).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('motors-release-confirm'))
+    expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()
+  }, 30000)
+
+  it('keeps movement tab open but locks axes and filament when print becomes active', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+      expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Перемещение')
+      expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toBeInTheDocument()
+
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'bearing_bracket_mk2.gcode',
+          state: 'printing',
+        },
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTestId('control-group-movement')).not.toBeDisabled()
+        expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Перемещение')
+      })
+      expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toHaveAttribute('aria-disabled', 'true')
+      expect(screen.getByRole('button', { name: 'Загрузить филамент' })).toHaveAttribute('aria-disabled', 'true')
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  }, 20000)
+
+  it('opens filament sensor control and dispatches typed settings commands', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+    fireEvent.click(screen.getByTestId('control-group-filament'))
+
+    expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Датчик нити')
+    expect(screen.getByText('Нить установлена')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('filament-mode-presence'))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({
+        command: 'setFilamentSensorMode',
+        mode: 'presence',
+      })
+    })
+
+    fireEvent.click(screen.getByTestId('filament-sensitivity-high'))
+    fireEvent.click(screen.getByTestId('filament-sensitivity-confirm'))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({
+        command: 'setFilamentEncoderSensitivity',
+        sensitivity: 'high',
+      })
+    })
+  })
+
+  it('allows movement navigation during print and unlocks only filament on pause', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        source: 'live',
+        printJob: {
+          ...previousSnapshot.printJob,
+          filename: 'bearing_bracket_mk2.gcode',
+          state: 'printing',
+        },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+
+      const movementTab = screen.getByTestId('control-group-movement')
+      expect(movementTab).not.toBeDisabled()
+      expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Перемещение')
+
+      fireEvent.click(screen.getByTestId('control-group-lighting'))
+      expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Освещение')
+
+      fireEvent.click(movementTab)
+      expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Перемещение')
+      applyPrinterSnapshot({ ...getPrinterSnapshot(), extruderTemp: 210,
+        printJob: { ...getPrinterSnapshot().printJob, state: 'paused' } })
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Загрузить филамент' })).not.toHaveAttribute('aria-disabled', 'true')
+        expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toHaveAttribute('aria-disabled', 'true')
+      })
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  })
+
+  it('blocks heating presets without thermal capability with shared command catalog reason', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        capabilities: {
+          ...previousSnapshot.capabilities,
+          thermal: false,
+        },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+      fireEvent.click(screen.getByTestId('control-group-heating'))
+
+      const plaPresetButton = screen.getByTestId('control-heating-preset-pla')
+      expect(plaPresetButton.getAttribute('aria-disabled')).toBe('true')
+
+      fireEvent.click(plaPresetButton)
+
+      expect((await screen.findByTestId('heating-lock-popup')).textContent).toContain(
+        'Нагрев сопла: capability «нагрев» не подтвержден.',
+      )
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  })
+
+  it('blocks fan controls without fan capability with shared command catalog reason', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
+    })
+
+    const previousSnapshot = getPrinterSnapshot()
+
+    try {
+      applyPrinterSnapshot({
+        ...previousSnapshot,
+        capabilities: {
+          ...previousSnapshot.capabilities,
+          fan: false,
+        },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+      fireEvent.click(screen.getByTestId('control-group-fans'))
+
+      const increaseFanButton = screen.getByRole('button', { name: 'Увеличить скорость вентилятора на 5 процентов' })
+      expect(increaseFanButton.getAttribute('aria-disabled')).toBe('true')
+
+      fireEvent.click(increaseFanButton)
+
+      expect((await screen.findByTestId('fan-lock-popup')).textContent).toContain(
+        'Обдув модели: capability «обдув» не подтвержден.',
+      )
+    } finally {
+      applyPrinterSnapshot(previousSnapshot)
+    }
+  })
+
+  it('renders Eddy calibration workflow as step screens and dispatches step commands', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Макросы' }))
+
+    expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
+    expect(screen.getByTestId('macros-manager')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('heading', { name: 'Выберите проход' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('macros-manager-workflows')).getAllByRole('button')).toHaveLength(1)
+
+    fireEvent.click(
+      within(screen.getByTestId('macros-manager-workflows')).getByRole('button', {
+        name: 'Калибровка датчика уровня 0/5',
+      }),
+    )
+
+    expect(screen.getByRole('heading', { name: 'Калибровка датчика уровня' })).toBeInTheDocument()
+    expect(screen.getByText('Шаг 1 из 6')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Первичная калибровка датчика' })).toBeInTheDocument()
+    expect(screen.queryByTestId('eddy-step-list')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Калибровать ток' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Начать paper test' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'TESTZ -0.05 мм' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'ACCEPT и сохранить' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+
+    expect(screen.getByText('Шаг 2 из 6')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Температурная калибровка' })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Запустить поиск Z0' }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({ command: 'eddyCheckZ0' })
+    })
+  })
+
+  it('opens print file modal and handles start and delete actions', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+
+    const initialCards = screen.getAllByTestId('print-file-card')
+    fireEvent.click(initialCards[0])
+
+    const fileDialog = screen.getByRole('dialog', { name: 'Файл печати' })
+    expect(fileDialog).toBeInTheDocument()
+    expect(within(fileDialog).getByText('Время печати')).toBeInTheDocument()
+    expect(within(fileDialog).getByText('Масса')).toBeInTheDocument()
+    expect(within(fileDialog).getByText('Материал')).toBeInTheDocument()
+    expect(within(fileDialog).getByRole('button', { name: 'Старт печати' })).toBeInTheDocument()
+    expect(within(fileDialog).getByRole('button', { name: 'Удалить файл' })).toBeInTheDocument()
+
+    fireEvent.click(within(fileDialog).getByRole('button', { name: 'Старт печати' }))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+    })
+    expect(screen.getByTestId('print-progress-summary')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить файл' }))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+      expect(screen.getAllByTestId('print-file-card')).toHaveLength(initialCards.length - 1)
+    })
+  }, 20000)
+
+  it('shows shared command catalog reason when print start is blocked', async () => {
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('print-file-modal')).not.toBeInTheDocument()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Стоп' })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+
+    const fileDialog = screen.getByRole('dialog', { name: 'Файл печати' })
+    const startButton = within(fileDialog).getByRole('button', { name: 'Старт печати' })
+
+    expect(startButton).toBeDisabled()
+    expect(within(fileDialog).getByTestId('print-file-start-notice')).toHaveTextContent(
+      'Старт печати: уже есть активная печать.',
+    )
+  }, 10000)
+
+  it('keeps print file modal open and shows command error when print start fails', async () => {
+    setMockCommandFailure('start', 'Mock: start failed')
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
+    fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+    fireEvent.click(screen.getByTestId('print-file-start-button'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('print-file-modal')).toBeInTheDocument()
+      expect(screen.getByTestId('print-file-start-notice')).toHaveTextContent('Mock: start failed')
+    })
+    expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
+  }, 10000)
+
+  it('opens Wi-Fi popup with network details and navigates to settings', async () => {
+    render(<App />)
+
+    const wifiButton = screen.getByRole('button', { name: 'Статус Wi-Fi' })
+    fireEvent.click(wifiButton)
+
+    const wifiPopup = screen.getByTestId('top-popup-wifi')
+
+    expect(screen.getByRole('dialog', { name: 'Состояние Wi-Fi' })).toBeInTheDocument()
+    expect(wifiPopup.style.top).toBe('8px')
+    expect(wifiPopup.style.left).not.toBe('')
+    expect(wifiButton).toHaveClass('is-active')
+    expect(screen.getByText('Wi-Fi сеть')).toBeInTheDocument()
+    expect(screen.getByText('IP адрес')).toBeInTheDocument()
+    expect(within(wifiPopup).getByText('Время')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Перейти в настройки Wi-Fi' }))
+
+    expect(screen.getByTestId('screen-settings')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Статус Wi-Fi' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('settings-group-network')).toHaveAttribute('aria-pressed', 'true')
+    const wifiSearchInput = screen.getByTestId('settings-network-search') as HTMLInputElement
+    expect(wifiSearchInput).toBeDisabled()
+    fireEvent.focus(wifiSearchInput)
+    expect(screen.queryByTestId('settings-wifi-search-keyboard')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-keyboard-layer')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-wifi-search-keyboard')).not.toBeInTheDocument()
+
+    expect(screen.getByTestId('settings-network-scan')).toBeDisabled()
+    expect(screen.queryByTestId('settings-network-item-office-main-5g')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-network-connect-button')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-network-forget-button')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-network-notice')).toHaveTextContent('network bridge недоступен')
+    })
+    expect(screen.queryByText('Текущая сеть')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('top-popup-wifi')).not.toBeInTheDocument()
+  })
+
+  it('enables Wi-Fi controls through host network runtime and opens password keyboard', async () => {
+    setMockNetworkStatus({
+      available: true,
+      ssid: null,
+      ipAddress: null,
+      message: 'Mock network bridge ready',
+      networks: [
+        {
+          id: 'office-main-5g',
+          ssid: 'Office_Main_5G',
+          signalPercent: 73,
+          security: 'wpa2',
+          saved: true,
+          connected: false,
+        },
+      ],
+    })
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Настройки' }))
+    fireEvent.click(screen.getByTestId('settings-group-network'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-network-scan')).not.toBeDisabled()
+    })
+
+    fireEvent.click(screen.getByTestId('settings-network-item-office-main-5g'))
+    const passwordInput = screen.getByTestId('settings-network-password-input') as HTMLInputElement
+    fireEvent.focus(passwordInput)
+    expect(screen.getByTestId('settings-wifi-keyboard')).toBeInTheDocument()
+
+    fireEvent.change(passwordInput, { target: { value: '12345678' } })
+    fireEvent.click(screen.getByTestId('settings-network-connect-button'))
+
+    await waitFor(() => {
+      expect(getMockNetworkOperations()).toContain('connect:Office_Main_5G')
+    })
+  })
+
+  it('renders extended settings sections and handles interactions', async () => {
+    render(<App />)
+
+    await act(async () => {
+      await new Promise((resolve) => window.setTimeout(resolve, 0))
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Настройки' }))
+    expect(screen.getByTestId('screen-settings')).toBeInTheDocument()
+    const settingsMenu = screen.getByRole('navigation', { name: 'Группы настроек' })
+    expect(within(settingsMenu).getAllByRole('button')[0]).toHaveTextContent('Сеть')
+
+    fireEvent.click(screen.getByTestId('settings-group-interface'))
+    expect(screen.getByRole('heading', { name: 'Интерфейс' })).toBeInTheDocument()
+    expect(screen.getByTestId('settings-dark-theme-toggle')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByTestId('settings-max-performance-toggle')).toHaveAttribute('aria-pressed', 'false')
+    expect((screen.getByRole('combobox', { name: 'Спящий режим' }) as HTMLSelectElement).value).toBe('5 мин')
+    expect(
+      within(screen.getByRole('combobox', { name: 'Временная зона UTC' })).getAllByRole('option').length,
+    ).toBeGreaterThan(20)
+
+    fireEvent.click(screen.getByTestId('settings-max-performance-toggle'))
+    expect(document.querySelector('.app-root')).toHaveClass('is-performance-mode')
+
+    fireEvent.click(screen.getByTestId('settings-group-notifications'))
+    expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument()
+    expect(screen.getByTestId('settings-notifications-enabled-toggle')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText('Печать завершена')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-group-cloud'))
+    expect(screen.getByTestId('settings-cloud-connect-toggle')).toBeDisabled()
+    expect(screen.getByTestId('settings-cloud-ai-toggle')).toBeDisabled()
+    expect(screen.getByText(/cloud capability не подтвержден/i)).toBeInTheDocument()
+    expect(screen.getByText('Выключен')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-group-device'))
+    expect(screen.getByRole('heading', { name: 'Об устройстве' })).toBeInTheDocument()
+    expect(screen.getByText('Rock Pi / Armbian Debian 12')).toBeInTheDocument()
+    expect(screen.getByText('Octopus Pro CAN')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-group-updates'))
+    expect(screen.getByTestId('settings-check-updates-button')).toBeEnabled()
+    expect(screen.getByText('TreeD Printer UI')).toBeInTheDocument()
+    expect(screen.getByText('TreeD Printer Core')).toBeInTheDocument()
+    expect(screen.getAllByText('Mock')).toHaveLength(2)
+    expect(screen.getByTestId('settings-apply-printer-ui-button')).toBeDisabled()
+    expect(screen.getByTestId('settings-apply-printer-core-button')).toBeDisabled()
+
+    fireEvent.click(screen.getByTestId('settings-group-console'))
+    const consoleInput = screen.getByTestId('settings-console-input') as HTMLTextAreaElement
+    fireEvent.focus(consoleInput)
+    expect(screen.getByTestId('settings-console-keyboard')).toBeInTheDocument()
+    expect(screen.getByTestId('settings-keyboard-layer')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-console-quick-0'))
+    expect(consoleInput.value).toBe('G28')
+
+    fireEvent.click(screen.getByTestId('settings-console-send-button'))
+    expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('подтверждения')
+
+    fireEvent.click(screen.getByTestId('settings-console-send-button'))
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('Команда отправлена: G28')
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ command: 'consoleGcode', gcode: 'G28' }),
+        ]),
+      )
+    })
+    expect(screen.getByText('G28', { selector: 'strong' })).toBeInTheDocument()
+  })
+
+  it('shows disabled cloud capability state instead of QR redirect', () => {
+    render(<App />)
+
+    const cloudButton = screen.getByRole('button', { name: 'Статус облака' })
+    fireEvent.click(cloudButton)
+
+    expect(screen.getByRole('dialog', { name: 'Состояние облака' })).toBeInTheDocument()
+    expect(cloudButton).toHaveClass('is-active')
+    expect(screen.getByText('Недоступно')).toBeInTheDocument()
+    expect(screen.getByText(/cloud capability не подтвержден/i)).toBeInTheDocument()
+
+    expect(screen.queryByRole('link', { name: 'Открыть treed.pro для добавления устройства' })).not.toBeInTheDocument()
+  })
+
+  it('keeps all system actions available while Moonraker is online and Klipper is shutdown', async () => {
+    const snapshot = createMockSnapshot()
+    applyPrinterSnapshot({
+      ...snapshot,
+      transport: {
+        ...snapshot.transport,
+        state: 'online',
+      },
+      klippy: {
+        state: 'shutdown',
+        message: 'Klipper shutdown',
+      },
+    })
+
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('shutdown')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
+
+    expect(screen.getByRole('dialog', { name: 'Питание и перезапуск' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Перезапуск Klipper' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапуск прошивки MCU' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапуск интерфейса' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезапуск Moonraker' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Перезагрузка системы' })).not.toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Выключение системы' })).not.toBeDisabled()
+    expect(screen.queryByText(/Перезапуск сервисов может прервать печать/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Перезапускает сервис Klipper/)).not.toBeInTheDocument()
+  })
+
+  it('requires repeated confirm before enabled power and service commands execute', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
+
+    const restartKlipperButton = screen.getByRole('button', { name: 'Перезапуск Klipper' })
+
+    expect(restartKlipperButton).not.toBeDisabled()
+    expect(restartKlipperButton).toHaveAttribute('aria-disabled', 'false')
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Выключение системы' })).toHaveAttribute('aria-disabled', 'false')
+    })
+
+    const shutdownHostButton = screen.getByRole('button', { name: 'Выключение системы' })
+    const commandCountBeforeConfirm = getMockCommandOperations().length
+    fireEvent.click(shutdownHostButton)
+    expect(getMockCommandOperations()).toHaveLength(commandCountBeforeConfirm)
+    expect(screen.getByText('Выключить систему?')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить: Выключение системы' }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            command: 'shutdownHost',
+          }),
+        ]),
+      )
+    })
+  })
+
+  it('starts bounded recovery after a restart command is accepted', async () => {
+    render(<App />)
+
+    await waitFor(() => {
+      expect(getPrinterConnectionState(getPrinterSnapshot())).toBe('online')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Питание' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Перезапуск прошивки MCU' }))
+
+    expect(screen.getByText('Перезапустить прошивку MCU?')).toBeInTheDocument()
+    expect(screen.getByText('Выполняет firmware restart контроллеров через Klipper.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить: Перезапуск прошивки MCU' }))
+
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({ command: 'firmwareRestart' })
+      expect(screen.getByRole('status')).toHaveTextContent('Прошивка MCU перезапускается')
+      expect(systemStatusMock.refresh).toHaveBeenCalled()
+    })
+    expect(screen.getByRole('button', { name: 'Перезапуск Moonraker' })).toBeDisabled()
+  })
+})

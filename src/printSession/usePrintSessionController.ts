@@ -56,8 +56,8 @@ export type UsePrintSessionControllerResult = {
   isPrintPaused: boolean
   printPauseCommand: Extract<PrinterCommandId, 'pause' | 'resume'>
   printFill: number
-  displayLayerCurrent: number
-  displayLayerTotal: number
+  displayLayerCurrent: number | null
+  displayLayerTotal: number | null
   commandRuntimePrintJob: CommandRuntimePrintJob
   isPrintCancelConfirmOpen: boolean
   selectFile: (fileId: string) => void
@@ -112,12 +112,8 @@ export function usePrintSessionController({
     ? Math.round(clampValue(snapshot.printJob.progress * 100, 0, 100))
     : Math.max(0, Math.min(100, DASHBOARD_VALUES.progressPercent))
   const adjustedEtaTime = getPrintEndTime(snapshot.updatedAt, activePrintFile, printFill)
-  const displayLayerCurrent = snapshot.source === 'live'
-    ? (snapshot.printJob.currentLayer ?? DASHBOARD_VALUES.layerCurrent)
-    : DASHBOARD_VALUES.layerCurrent
-  const displayLayerTotal = snapshot.source === 'live'
-    ? (snapshot.printJob.totalLayer ?? DASHBOARD_VALUES.layerTotal)
-    : DASHBOARD_VALUES.layerTotal
+  const displayLayerCurrent = snapshot.printJob.currentLayer
+  const displayLayerTotal = snapshot.printJob.totalLayer
   const effectiveActivePrintState = snapshot.source === 'live'
     ? snapshot.printJob.state
     : hasActivePrint

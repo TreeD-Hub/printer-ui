@@ -68,6 +68,7 @@ function TestHarness({
       <span data-testid="has-active-print">{String(controller.hasActivePrint)}</span>
       <span data-testid="is-paused">{String(controller.isPrintPaused)}</span>
       <span data-testid="runtime-state">{controller.commandRuntimePrintJob.state}</span>
+      <span data-testid="layers">{controller.displayLayerCurrent ?? '—'} / {controller.displayLayerTotal ?? '—'}</span>
       <span data-testid="notice">{controller.getFileStartNotice(printStartBlockReason) || 'none'}</span>
       <span data-testid="cancel-confirm">{String(controller.isPrintCancelConfirmOpen)}</span>
 
@@ -94,6 +95,31 @@ function TestHarness({
 }
 
 describe('usePrintSessionController', () => {
+  it.each(['live', 'mock'] as const)('обновляет слой из snapshot в режиме %s', (source) => {
+    const snapshot = createMockSnapshot()
+    snapshot.source = source
+    snapshot.printJob = { ...snapshot.printJob, state: 'printing', currentLayer: 1, totalLayer: 218 }
+    const { rerender } = render(<TestHarness snapshot={snapshot} />)
+    expect(screen.getByTestId('layers')).toHaveTextContent('1 / 218')
+    rerender(<TestHarness snapshot={{ ...snapshot, printJob: { ...snapshot.printJob, state: 'paused', currentLayer: 2 } }} />)
+    expect(screen.getByTestId('layers')).toHaveTextContent('2 / 218')
+    rerender(<TestHarness snapshot={{ ...snapshot, printJob: { ...snapshot.printJob, currentLayer: null, totalLayer: null } }} />)
+    expect(screen.getByTestId('layers')).toHaveTextContent('— / —')
+  })
+
+  it.each([
+    [null, null, '— / —'],
+    [4, null, '4 / —'],
+    [null, 20, '— / 20'],
+    [0, 20, '0 / 20'],
+  ] as const)('сохраняет неизвестные номера слоёв в live: %s / %s', (currentLayer, totalLayer, expected) => {
+    const snapshot = createMockSnapshot()
+    snapshot.source = 'live'
+    snapshot.printJob = { ...snapshot.printJob, currentLayer, totalLayer }
+    render(<TestHarness snapshot={snapshot} />)
+    expect(screen.getByTestId('layers')).toHaveTextContent(expected)
+  })
+
   it('starts a mock print and exposes runtime print job state for command blocking', async () => {
     const executeCommand = vi.fn<ExecuteCommandMock>().mockResolvedValue(true)
     const refreshPrintJob = vi.fn<RefreshPrintJobMock>().mockResolvedValue(undefined)

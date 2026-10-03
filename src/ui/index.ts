@@ -2,6 +2,7 @@ export { IconMask } from './IconMask'
 export { PrintPreviewIcon } from './PrintPreviewIcon'
 export { ActionSquareButton, NavItemButton, StatusIconButton } from './buttons'
 export { joinClassNames } from './classNames'
+export { useModalFocus } from './useModalFocus'
 export {
   AxisCrossControls,
   HorizontalSteppedSlider,
@@ -14,6 +15,7 @@ export {
 export { PlainMetric, TemperatureMetric } from './metrics'
 export { TemperatureTrendChart, TuneCompactStepperInput, TuneModeToggle, TuneNumberControl } from './printTuneWidgets'
 export { PrintFileCard } from './printFileCard'
+export { NumericKeypad, TuneValueEditor } from './numericTuneWidgets'
 export {
   SettingsInfoCard,
   SettingsSelectField,

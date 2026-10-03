@@ -185,6 +185,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const [error, setError] = useState<string>('')
   const lastTransitionRef = useRef<string>('')
   const runtimeSourceRef = useRef<'websocket' | 'polling'>('polling')
+  const lastWebsocketSnapshotAtRef = useRef<number | null>(null)
   const runtimeEpochRef = useRef(0)
   const refreshSequenceRef = useRef(0)
   const targetedRefreshSequenceRef = useRef(new Map<string, number>())
@@ -275,10 +276,15 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       runtimeEpochRef.current += 1
       setError('')
     } catch (err) {
-      if (runtimeEpoch !== runtimeEpochRef.current || runtimeSourceRef.current === 'websocket') {
+      const hasFreshWebsocketSnapshot = runtimeSourceRef.current === 'websocket'
+        && lastWebsocketSnapshotAtRef.current !== null
+        && Date.now() - lastWebsocketSnapshotAtRef.current < WEBSOCKET_WATCHDOG_INTERVAL_MS
+      if (runtimeEpoch !== runtimeEpochRef.current || hasFreshWebsocketSnapshot) {
         return
       }
 
+      runtimeSourceRef.current = 'polling'
+      runtimeEpochRef.current += 1
       const message = getErrorMessage(err)
       recordOperationalDiagnostic('transport-error', message)
       updatePrinterSnapshot((prev) => ({
@@ -471,6 +477,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     let isDisposed = false
     let runtimeTimer: number | null = null
     runtimeSourceRef.current = 'polling'
+    lastWebsocketSnapshotAtRef.current = null
     const getRuntimeIntervalMs = (): number => {
       if (client.subscribe === undefined) {
         return pollIntervalMs
@@ -511,6 +518,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           return
         }
 
+        lastWebsocketSnapshotAtRef.current = Date.now()
         setRuntimeSource('websocket')
         runtimeEpochRef.current += 1
         recordSnapshotTransition(nextSnapshot)
@@ -598,6 +606,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     error,
     refresh,
     refreshUsage,
+    refreshRuntime,
     refreshFilamentSensor,
     refreshEddyState,
     refreshExcludeObjects,

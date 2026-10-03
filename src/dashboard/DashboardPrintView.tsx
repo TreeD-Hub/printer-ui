@@ -122,7 +122,7 @@ export function DashboardPrintView({
             <div className="job-layer-row">
               <span className="label">Слой</span>
               <strong>
-                {displayLayerCurrent} / {displayLayerTotal}
+                {displayLayerCurrent ?? '—'} / {displayLayerTotal ?? '—'}
               </strong>
             </div>
           </div>

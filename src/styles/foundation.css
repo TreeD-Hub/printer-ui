@@ -22,11 +22,13 @@
   --color-border-subtle: #24282b; /* Мягкие пиксельные разделители. */
   --color-border-default: #3a3f43; /* Основные рамки карточек, popup и контролов. */
   --color-surface-track: #030405; /* Фон дорожек прогресса и графиков. */
-  --color-primary: #ff2a2a; /* Красный Nothing-акцент для активных состояний. */
+  --color-primary: #ff2a2a; /* Красный Nothing-сигнал опасности, нагрева и ошибок. */
   --color-primary-light: #ff5a5a; /* Светлый красный для активного текста. */
   --color-primary-dark: #b91414; /* Тёмный красный для нажатых состояний. */
   --color-success: #d9f7e5; /* Светлый терминальный success без зелёного доминирования. */
   --color-warning: #fff0b8; /* Тёплый warning, читаемый на чёрном фоне. */
+  --color-temperature-nozzle: var(--color-primary); /* Сопло: линия графика и её легенда. */
+  --color-temperature-bed: var(--color-warning); /* Стол: линия графика и её легенда. */
   --color-error: #ff2a2a; /* Критичные действия и ошибки. */
   --color-text-primary: #cccccc; /* Основной светлый dot-matrix текст. */
   --color-text-secondary: #c0c0c0; /* Подписи и вторичный текст. */
@@ -50,12 +52,13 @@
   --terminal-border-active: rgba(244, 244, 240, 0.36);
 
   /* 00_Foundation: typography */
-  --font-size-heading-large: 24px;
-  --font-size-heading-medium: 26px;
-  --font-size-body-large: 18px;
-  --font-size-body: 17px;
+  --font-size-heading-large: 32px;
+  --font-size-heading-medium: 22px;
+  --font-size-body-large: 20px;
+  --font-size-body: 16px;
   --font-size-small: 14px;
   --font-size-tiny: 12px;
+  --font-size-metric: 26px;
 
   --font-weight-medium: 500;
   --font-weight-regular: 400;
@@ -63,6 +66,33 @@
 
   --font-family-ui: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
   --font-family-accent: 'Nothing Font', 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Courier New', monospace;
+
+  /* Совместимые роли старых экранов; новые значения не создают отдельную шкалу. */
+  --font-size-heading: var(--font-size-heading-medium);
+  --font-size-heading-small: var(--font-size-body-large);
+  --font-size-body-small: var(--font-size-small);
+  --font-size-caption: var(--font-size-tiny);
+  --font-family-mono: var(--font-family-ui);
+  --color-danger: var(--color-error);
+  --color-text-muted: var(--color-text-soft);
+  --color-border-strong: var(--terminal-border-active);
+
+  /* Общие состояния и геометрия контролов. */
+  --color-control-active-border: var(--terminal-border-active);
+  --color-control-surface: rgba(244, 244, 240, 0.025);
+  --color-control-active-surface: rgba(244, 244, 240, 0.06);
+  --color-control-active-text: var(--color-text-primary);
+  --color-selection: var(--color-primary);
+  --color-selection-surface: var(--color-primary-surface-soft);
+  --color-focus-ring: var(--color-text-primary);
+  --control-min-width: 48px;
+  --control-height: 56px;
+  --radius-control: 6px;
+  --radius-panel: 8px;
+  --border-width: 1px;
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --motion-control: 120ms;
 
   /* 00_Foundation: grid */
   --grid-base: 8px;
@@ -77,10 +107,10 @@
 
   /* spacing scale */
   --space-micro: 2px;
-  --space-xxs: 5px;
-  --space-xs: 10px;
-  --space-sm: 14px;
-  --space-md: 19px;
+  --space-xxs: 4px;
+  --space-xs: 8px;
+  --space-sm: 16px;
+  --space-md: 16px;
   --space-lg: 24px;
 
   /* device contract */
@@ -91,7 +121,7 @@
   --layout-block-padding-y: var(--space-md);
   --layout-block-padding-x: var(--space-md);
   --layout-block-content-align: center;
-  --layout-block-label-size: 19px;
-  --layout-block-value-size: 26px;
-  --layout-block-unit-size: 19px;
+  --layout-block-label-size: var(--font-size-body-large);
+  --layout-block-value-size: var(--font-size-metric);
+  --layout-block-unit-size: var(--font-size-body);
 }

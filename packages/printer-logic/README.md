@@ -18,9 +18,14 @@
 
 Контракт датчика нити включает `FilamentSensorSnapshot`, capability `filamentSensorControl` / `filamentEncoderSensitivity` и команды `setFilamentSensorMode` / `setFilamentEncoderSensitivity`. Правила блокируют обе настройки во время активной печати, режим `motion` при недоступном motion-канале и чувствительность при недоступном motion-канале.
 
-Системные команды `restartKlipper`, `firmwareRestart`, `restartUi`, `restartMoonraker`, `rebootHost` и `shutdownHost` относятся к независимому pending-домену `system`. Все перечисленные команды, кроме `restartUi`, блокируются в состояниях `printing`, `paused`, `preparing`, `recovery`, `calibration` и при активном задании печати. Транспорт и recovery-loop остаются ответственностью UI-приложения.
+Системные команды `restartKlipper`, `firmwareRestart`, `restartUi`, `restartMoonraker`, `rebootHost` и `shutdownHost` относятся к независимому pending-домену `system`. Все перечисленные команды, кроме `restartUi`, блокируются в состояниях `printing`, `paused`, `preparing`, `recovery`, `calibration`, при активном задании печати, фазах core `preparing`, `calibrating`, `auto_remove` и автоматической прочистке. Транспорт и recovery-loop остаются ответственностью UI-приложения.
 
 Команда `disableMotors` снимает удержание осей через `M84`, относится к motion-домену и требует подтверждения в UI.
+
+`setDriverMode` (XYZ, домен `motion`) и `setDriverFanMode` (домен `fan`)
+принимают `quiet|normal` и требуют отдельных подтверждений. Доступ определяется
+capability и `DriverModeSnapshot`; XYZ заблокирован при печати, паузе и сервисе,
+обдув сохраняет автоматику. Ответ HTTP подтверждается фактическим режимом в snapshot.
 
 Команда `moveAxis` принимает одно перемещение от -50 до 50 мм.
 

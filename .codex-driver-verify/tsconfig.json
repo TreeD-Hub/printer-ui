@@ -1,0 +1,1 @@
+{"extends":"../tsconfig.app.json","compilerOptions":{"baseUrl":".","paths":{"#runtime":["src/runtime/live.ts"],"@treed/printer-logic":["packages/printer-logic/src/index.ts"]}},"include":["src","mocks/runtime.ts"]}

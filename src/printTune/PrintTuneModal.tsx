@@ -4,7 +4,10 @@ import type { TemperatureKeyboardTarget } from '../control'
 import { rounded } from '../dashboard/helpers'
 import {
   IconMask,
+  NumericKeypad,
+  TuneValueEditor,
   TuneCompactStepperInput,
+  useModalFocus,
 } from '../ui'
 import type { UiIconName } from '../ui/iconAssets'
 import {
@@ -28,6 +31,7 @@ type PrintTuneTemperatureProps = {
   keyboardValue: string
   renderKeyboardPanel: (className?: string) => ReactNode
   onKeyboardOpen: (target: TemperatureKeyboardTarget) => void
+  onKeyboardClose: () => void
   onNozzleTargetChange: (value: number) => void
   onBedTargetChange: (value: number) => void
 }
@@ -65,7 +69,6 @@ type NumericTuneRow = {
   keyboardTarget: PrintTuneNumericKeyboardTarget
   uiLabel: string
   icon: UiIconName
-  tone: 'orange' | 'green'
   currentText: string
   value: number
   min: number
@@ -85,6 +88,7 @@ export type PrintTuneModalProps = {
   keyboard: PrintTuneKeyboardProps
   onClose: () => void
   onApply: () => void
+  onTemperatureTargetChange: (target: TemperatureKeyboardTarget) => void
 }
 
 export function PrintTuneModal({
@@ -95,7 +99,9 @@ export function PrintTuneModal({
   keyboard,
   onClose,
   onApply,
+  onTemperatureTargetChange,
 }: PrintTuneModalProps) {
+  const dialogRef = useModalFocus<HTMLElement>(activeGroup !== null, onClose)
   if (activeGroup === null) {
     return null
   }
@@ -111,8 +117,6 @@ export function PrintTuneModal({
             keyboardTarget: 'bed' as const,
             uiLabel: 'Стол',
             icon: 'metricBed' as const,
-            tone: 'green' as const,
-            current: temperature.currentBedTemp,
             target: temperature.bedTargetTemp,
             maxTarget: temperature.bedMaxC,
             onTargetChange: temperature.onBedTargetChange,
@@ -122,8 +126,6 @@ export function PrintTuneModal({
             keyboardTarget: 'nozzle' as const,
             uiLabel: 'Сопло',
             icon: 'metricNozzle' as const,
-            tone: 'orange' as const,
-            current: temperature.currentNozzleTemp,
             target: temperature.nozzleTargetTemp,
             maxTarget: temperature.nozzleMaxC,
             onTargetChange: temperature.onNozzleTargetChange,
@@ -136,23 +138,31 @@ export function PrintTuneModal({
         : String(Math.round(activeTemperatureRow.target))
 
     return (
-      <div
-        className={`print-tune-modal-stack print-tune-modal-stack-temperature ${temperature.keyboardTarget !== null ? 'is-keyboard-open' : ''}`}
-      >
-        <div className="print-temp-workspace">
-          <section className="print-temp-main-panel">
-            <div className="control-heating-row control-subpanel print-temp-control-row is-active">
-              <div className="control-heating-sensor">
-                <span className={`control-heating-sensor-icon is-${activeTemperatureRow.tone}`} aria-hidden="true">
-                  <IconMask name={activeTemperatureRow.icon} size={18} />
-                </span>
-                <div className="control-heating-sensor-text">
-                  <h3>{activeTemperatureRow.uiLabel}</h3>
-                </div>
+      <div className={`tune-value-workspace ${isKeyboardOpen ? 'is-keyboard-open' : ''}`}>
+          <TuneValueEditor label={activeTemperatureRow.uiLabel} icon={activeTemperatureRow.icon}
+            labelControl={
+              <div className="tune-temperature-targets" role="group" aria-label="Выбор нагревателя">
+                {(['nozzle', 'bed'] as const).map((target) => (
+                  <button key={target} type="button"
+                    className={`tune-heater-choice ${activeGroup === target ? 'is-active' : ''}`}
+                    aria-label={target === 'nozzle' ? 'Сопло' : 'Стол'}
+                    aria-pressed={activeGroup === target}
+                    onClick={() => {
+                      if (activeGroup === target) return
+                      onTemperatureTargetChange(target)
+                      if (temperature.keyboardTarget !== null) temperature.onKeyboardOpen(target)
+                    }}>
+                    <span className="tune-heater-name">{target === 'nozzle' ? 'Сопло' : 'Стол'}</span>
+                    <IconMask name={target === 'nozzle' ? 'metricNozzle' : 'metricBed'} size={28} />
+                    <span className="tune-heater-reading">
+                      {rounded(target === 'nozzle' ? temperature.currentNozzleTemp : temperature.currentBedTemp)}
+                      <span>°C</span>
+                    </span>
+                    <span className="tune-heater-state">{activeGroup === target ? 'Выбрано' : 'Настроить'}</span>
+                  </button>
+                ))}
               </div>
-              <div className="control-heating-current">
-                {rounded(activeTemperatureRow.current)} <span>°C</span>
-              </div>
+            }>
               <TuneCompactStepperInput
                 value={activeTemperatureRow.target}
                 min={0}
@@ -166,13 +176,11 @@ export function PrintTuneModal({
                 inputAriaLabel={`Целевая температура ${activeTemperatureRow.uiLabel.toLowerCase()}`}
                 testIdPrefix={activeTemperatureRow.testIdPrefix}
               />
-            </div>
-          </section>
+          </TuneValueEditor>
 
           {temperature.keyboardTarget !== null ? (
-            temperature.renderKeyboardPanel('is-print-tune')
+            temperature.renderKeyboardPanel('is-tune-workspace')
           ) : null}
-        </div>
       </div>
     )
   }
@@ -187,74 +195,11 @@ export function PrintTuneModal({
     }
 
     return (
-      <aside className="print-temp-keyboard-side is-print-tune" aria-label="Цифровая клавиатура параметра печати">
-        <div className="print-temp-keyboard-head">
-          <p className="print-temp-keyboard-label">{activeKeyboardMeta.label}</p>
-          <button
-            type="button"
-            className="print-cancel-modal-close print-temp-keyboard-close"
-            aria-label="Закрыть клавиатуру параметра печати"
-            onClick={keyboard.onClose}
-          >
-            ×
-          </button>
-        </div>
-        <p className="print-temp-keyboard-display">
-          {keyboard.value}
-          {keyboard.value.length > 0 && activeKeyboardMeta.unit.length > 0 ? <span> {activeKeyboardMeta.unit}</span> : null}
-        </p>
-        <div className="print-temp-keyboard-grid">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-            <button
-              key={digit}
-              type="button"
-              className="settings-network-btn print-temp-keyboard-key"
-              onClick={() => keyboard.onDigit(digit)}
-              aria-label={`Цифра ${digit}`}
-              data-testid={`print-tune-keyboard-digit-${digit}`}
-            >
-              {digit}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="settings-network-btn print-temp-keyboard-key"
-            onClick={keyboard.onBackspace}
-            data-testid="print-tune-keyboard-backspace"
-          >
-            Стереть
-          </button>
-          <button
-            type="button"
-            className="settings-network-btn print-temp-keyboard-key"
-            onClick={() => keyboard.onDigit('0')}
-            aria-label="Цифра 0"
-            data-testid="print-tune-keyboard-digit-0"
-          >
-            0
-          </button>
-          {activeKeyboardMeta.allowDecimal ? (
-            <button
-              type="button"
-              className="settings-network-btn print-temp-keyboard-key"
-              onClick={keyboard.onDecimal}
-              data-testid="print-tune-keyboard-decimal"
-            >
-              .
-            </button>
-          ) : (
-            <span className="print-temp-keyboard-spacer" aria-hidden="true" />
-          )}
-        </div>
-        <button
-          type="button"
-          className="settings-network-btn settings-network-btn-primary print-temp-keyboard-submit"
-          onClick={keyboard.onSubmit}
-          data-testid="print-tune-keyboard-submit"
-        >
-          Ввод
-        </button>
-      </aside>
+      <NumericKeypad label={activeKeyboardMeta.label} value={keyboard.value} showValue={false} showHeader={false}
+        ariaLabel="Цифровая клавиатура параметра печати" closeLabel="Закрыть клавиатуру параметра печати"
+        onClose={keyboard.onClose} onDigit={keyboard.onDigit} onBackspace={keyboard.onBackspace}
+        onDecimal={activeKeyboardMeta.allowDecimal ? keyboard.onDecimal : undefined}
+        onSubmit={keyboard.onSubmit} testIdPrefix="print-tune-keyboard" />
     )
   }
 
@@ -265,23 +210,8 @@ export function PrintTuneModal({
         : formatTuneKeyboardValue(row.value, row.fractionDigits ?? 0)
 
     return (
-      <div
-        className={`print-tune-modal-stack print-tune-modal-stack-temperature ${keyboard.target !== null ? 'is-keyboard-open' : ''}`}
-      >
-        <div className="print-temp-workspace">
-          <section className="print-temp-main-panel">
-            <div className="control-heating-row control-subpanel print-temp-control-row is-active">
-              <div className="control-heating-sensor">
-                <span className={`control-heating-sensor-icon is-${row.tone}`} aria-hidden="true">
-                  <IconMask name={row.icon} size={18} />
-                </span>
-                <div className="control-heating-sensor-text">
-                  <h3>{row.uiLabel}</h3>
-                </div>
-              </div>
-              <div className="control-heating-current">
-                {row.currentText}
-              </div>
+      <div className={`tune-value-workspace ${isKeyboardOpen ? 'is-keyboard-open' : ''}`}>
+          <TuneValueEditor label={row.uiLabel} icon={row.icon} currentText={row.currentText}>
               <TuneCompactStepperInput
                 value={row.value}
                 min={row.min}
@@ -296,11 +226,9 @@ export function PrintTuneModal({
                 inputAriaLabel={`Целевое значение: ${row.uiLabel.toLowerCase()}`}
                 testIdPrefix={row.testIdPrefix}
               />
-            </div>
-          </section>
+          </TuneValueEditor>
 
           {renderNumericKeyboardPanel()}
-        </div>
       </div>
     )
   }
@@ -311,7 +239,6 @@ export function PrintTuneModal({
         keyboardTarget: 'fan',
         uiLabel: 'Обдув',
         icon: 'metricFan',
-        tone: 'green',
         currentText: `${values.fanPercent}%`,
         value: values.fanPercent,
         min: 0,
@@ -328,7 +255,6 @@ export function PrintTuneModal({
         keyboardTarget: 'flow',
         uiLabel: 'Поток',
         icon: 'metricFlow',
-        tone: 'green',
         currentText: `${values.flowPercent}%`,
         value: values.flowPercent,
         min: 50,
@@ -345,7 +271,6 @@ export function PrintTuneModal({
         keyboardTarget: 'speed',
         uiLabel: 'Скорость',
         icon: 'metricSpeed',
-        tone: 'orange',
         currentText: `${formatTuneKeyboardValue(values.speedFactorPercent, 0)}%`,
         value: values.speedFactorPercent,
         min: 10,
@@ -362,7 +287,6 @@ export function PrintTuneModal({
         keyboardTarget: 'accel',
         uiLabel: 'Ускорение',
         icon: 'metricSpeed',
-        tone: 'orange',
         currentText: `${formatTuneKeyboardValue(values.accelMmS2, 0)} мм/с²`,
         value: values.accelMmS2,
         min: 500,
@@ -379,7 +303,6 @@ export function PrintTuneModal({
         keyboardTarget: 'kFactor',
         uiLabel: 'K-factor',
         icon: 'metricFlow',
-        tone: 'green',
         currentText: formatTuneKeyboardValue(values.kFactor, 3),
         value: values.kFactor,
         min: 0,
@@ -396,7 +319,6 @@ export function PrintTuneModal({
         keyboardTarget: 'retract',
         uiLabel: 'Откат',
         icon: 'metricFlow',
-        tone: 'orange',
         currentText: `${formatTuneKeyboardValue(values.retractMm, 1)} мм`,
         value: values.retractMm,
         min: 0,
@@ -422,7 +344,8 @@ export function PrintTuneModal({
       data-testid="print-tune-modal-layer"
     >
       <section
-        className={`print-tune-modal-dialog is-temperature ${isKeyboardOpen ? 'is-temperature-keyboard-open' : ''}`}
+        ref={dialogRef}
+        className={`print-tune-modal-dialog is-numeric-tune ${isKeyboardOpen ? 'is-keyboard-open' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={PRINT_TUNE_MODAL_TITLE_ID}
@@ -432,14 +355,19 @@ export function PrintTuneModal({
         <header className="print-cancel-modal-head">
           <h2 id={PRINT_TUNE_MODAL_TITLE_ID}>{activeMeta.label}</h2>
           <div className="print-tune-modal-head-actions">
-            <button
+            {isKeyboardOpen ? <button type="button"
+              className="settings-network-btn print-tune-modal-head-save"
+              onClick={isTemperatureGroup ? temperature.onKeyboardClose : keyboard.onClose}>
+              Назад
+            </button> : null}
+            {!isKeyboardOpen ? <button
               type="button"
               className="settings-network-btn settings-network-btn-primary print-tune-modal-head-save"
               onClick={onApply}
               data-testid="print-tune-modal-apply-button"
             >
-              Сохранить
-            </button>
+              Готово
+            </button> : null}
             <button
               type="button"
               className="print-cancel-modal-close"

@@ -306,6 +306,26 @@ describe('createMoonrakerClient', () => {
     vi.useRealTimers()
   })
 
+  it.each([true, false])('ограничивает чтение тела HTTP-ответа таймаутом при ok=%s', async (ok) => {
+    vi.useFakeTimers()
+    try {
+      const fetchMock = vi.fn((_url: string, init?: RequestInit) => Promise.resolve({
+        ok,
+        status: ok ? 200 : 503,
+        json: () => new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+        }),
+      } as Response))
+      const client = createMoonrakerClient({ fetchImpl: fetchMock as typeof fetch, fetchTimeoutMs: 25 })
+      const result = expect(client.fetchRuntimeSnapshot()).rejects.toMatchObject({ kind: 'timeout' })
+      await vi.advanceTimersByTimeAsync(25)
+      await result
+      expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('throws typed transport errors for Moonraker HTTP failures', async () => {
     const fetchMock = vi.fn((url: string) => {
       if (url.includes('/printer/objects/list')) return Promise.resolve(runtimeObjectList())

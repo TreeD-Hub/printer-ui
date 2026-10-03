@@ -1,0 +1,9 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path
+    d="M12 2.75V21.25M12 2.75L15.75 6.5M12 2.75L8.25 6.5M12 21.25L15.75 17.5M12 21.25L8.25 17.5M3.75 7.5L20.25 16.5M3.75 7.5L8.75 8.85M3.75 7.5L5.15 12.5M20.25 16.5L15.25 15.15M20.25 16.5L18.85 11.5M3.75 16.5L20.25 7.5M3.75 16.5L5.15 11.5M3.75 16.5L8.75 15.15M20.25 7.5L18.85 12.5M20.25 7.5L15.25 8.85"
+    stroke="currentColor"
+    stroke-width="1.65"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

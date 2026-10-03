@@ -103,6 +103,9 @@ export function SettingsInfoCard({
 
 type SettingsToggleRowProps = {
   label: string
+  icon?: UiIconName
+  description?: string
+  title?: string
   checked: boolean
   onChange: (nextValue: boolean) => void
   testId?: string
@@ -111,6 +114,9 @@ type SettingsToggleRowProps = {
 
 export function SettingsToggleRow({
   label,
+  icon,
+  description,
+  title,
   checked,
   onChange,
   testId,
@@ -120,12 +126,19 @@ export function SettingsToggleRow({
     <button
       type="button"
       className="settings-toggle-row"
-      aria-pressed={checked}
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
       data-testid={testId}
+      title={title}
       disabled={disabled}
       onClick={() => onChange(!checked)}
     >
-      <span className="settings-toggle-label">{label}</span>
+      {icon ? <IconMask name={icon} size={32} className="settings-toggle-icon" /> : null}
+      <span className="settings-toggle-copy">
+        <span className="settings-toggle-label">{label}</span>
+        {description ? <span className="settings-toggle-description">{description}</span> : null}
+      </span>
       <span className={joinClassNames('settings-toggle-switch', checked && 'is-active')} aria-hidden="true" />
     </button>
   )
@@ -295,6 +308,7 @@ export function SettingsVirtualKeyboard({
         <p className="virtual-keyboard-preview-label">{valueLabel}</p>
         <textarea
           ref={previewInputRef}
+          data-modal-initial-focus
           className="virtual-keyboard-preview-value virtual-keyboard-preview-input"
           value={value}
           onChange={handlePreviewChange}

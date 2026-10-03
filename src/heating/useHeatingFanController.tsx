@@ -11,6 +11,7 @@ import type {
   TemperatureKeyboardTarget,
 } from '../control/types'
 import type { PrintTuneModalProps, TemperatureChartMode } from '../printTune'
+import { NumericKeypad } from '../ui'
 
 type HeatingSnapshot = Pick<PrinterSnapshot,
   'transport' | 'klippy' | 'uiContract' | 'extruderTemp' | 'bedTemp' | 'modelFanPercent' | 'thermalTargets' | 'limits'>
@@ -258,67 +259,14 @@ export function useHeatingFanController({
 
   function renderTemperatureKeyboardPanel(className = ''): ReactNode {
     return (
-      <aside className={`print-temp-keyboard-side ${className}`.trim()} aria-label="Цифровая клавиатура температуры">
-        <div className="print-temp-keyboard-head">
-          <p className="print-temp-keyboard-label">Температура</p>
-          <button
-            type="button"
-            className="print-cancel-modal-close print-temp-keyboard-close"
-            aria-label="Закрыть клавиатуру температуры"
-            onClick={closeTemperatureKeyboard}
-          >
-            ×
-          </button>
-        </div>
-        <p className="print-temp-keyboard-display">
-          {temperatureKeyboardValue}
-          {temperatureKeyboardValue.length > 0 ? <span> °C</span> : null}
-        </p>
-        <div className="print-temp-keyboard-grid">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-            <button
-              key={digit}
-              type="button"
-              className="settings-network-btn print-temp-keyboard-key"
-              onClick={() => handleTemperatureKeyboardDigit(digit)}
-              aria-label={`Цифра ${digit}`}
-            >
-              {digit}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="settings-network-btn print-temp-keyboard-key"
-            onClick={handleTemperatureKeyboardClear}
-            aria-label="Очистить температуру"
-          >
-            C
-          </button>
-          <button
-            type="button"
-            className="settings-network-btn print-temp-keyboard-key"
-            onClick={() => handleTemperatureKeyboardDigit('0')}
-            aria-label="Цифра 0"
-          >
-            0
-          </button>
-          <button
-            type="button"
-            className="settings-network-btn print-temp-keyboard-key"
-            onClick={handleTemperatureKeyboardBackspace}
-            aria-label="Удалить последний символ"
-          >
-            ⌫
-          </button>
-        </div>
-        <button
-          type="button"
-          className="settings-network-btn settings-network-btn-primary print-temp-keyboard-submit"
-          onClick={handleTemperatureKeyboardSubmit}
-        >
-          Ввод
-        </button>
-      </aside>
+      <NumericKeypad label="Температура" value={temperatureKeyboardValue} unit="°C" className={className}
+        showValue={className !== 'is-tune-workspace'} ariaLabel="Цифровая клавиатура температуры"
+        showHeader={className !== 'is-tune-workspace'}
+        showLabel={className !== 'is-control'}
+        closeLabel="Закрыть клавиатуру температуры" clearLabel="Очистить температуру"
+        onClose={closeTemperatureKeyboard} onDigit={handleTemperatureKeyboardDigit}
+        onClear={handleTemperatureKeyboardClear} onBackspace={handleTemperatureKeyboardBackspace}
+        onSubmit={handleTemperatureKeyboardSubmit} />
     )
   }
 
@@ -354,6 +302,7 @@ export function useHeatingFanController({
     keyboardValue: temperatureKeyboardValue,
     renderKeyboardPanel: renderTemperatureKeyboardPanel,
     onKeyboardOpen: openTemperatureKeyboard,
+    onKeyboardClose: closeTemperatureKeyboard,
     onNozzleTargetChange: handleNozzleTargetChange,
     onBedTargetChange: handleBedTargetChange,
   }

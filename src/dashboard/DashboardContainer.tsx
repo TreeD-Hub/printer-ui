@@ -22,8 +22,8 @@ type DashboardChromeProps = {
 }
 type DashboardPrintProps = {
   adjustedEtaTime: string
-  displayLayerCurrent: number
-  displayLayerTotal: number
+  displayLayerCurrent: number | null
+  displayLayerTotal: number | null
   displayPrintFileName: string | null
   displayPrintFileNameScrollDistanceCh: number
   hasActivePrint: boolean

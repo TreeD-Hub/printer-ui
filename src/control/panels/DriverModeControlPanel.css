@@ -1,0 +1,10 @@
+.control-driver-profiles { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); min-height: 0; }
+.control-driver-profiles .driver-mode-card { display: flex; align-items: center; align-content: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-xs); padding: var(--space-sm); }
+.driver-mode-card strong { font-size: var(--font-size-body-large); font-weight: var(--font-weight-regular); }
+.driver-mode-card p { margin: 4px 0; }
+.driver-mode-actions { display: flex; gap: 12px; }
+.driver-mode-actions button { padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-control); border: 1px solid var(--color-border-default); background: var(--color-block-surface); color: inherit; font-weight: var(--font-weight-regular); cursor: pointer; }
+.driver-mode-actions button:disabled { opacity: .5; cursor: default; }
+.driver-mode-overlay { position: fixed; inset: 0; z-index: 1000; background: #0009; display: grid; place-items: center; padding: 20px; }
+.driver-mode-dialog { width: min(520px, 100%); max-height: 90vh; overflow: auto; padding: 24px; border-radius: 12px; background: var(--color-block-surface, #222); color: var(--color-text-primary, #fff); }
+.driver-mode-dialog h2 { margin-top: 0; }
