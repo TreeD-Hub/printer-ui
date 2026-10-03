@@ -32,7 +32,7 @@ export const SETTINGS_GROUP_OPTIONS: Array<SettingsMenuOption<SettingsGroupId>> 
   { id: 'interface', label: 'Интерфейс', icon: 'menuInterface' },
   { id: 'notifications', label: 'Уведомления', icon: 'statusNotification' },
   { id: 'cloud', label: 'Облако', icon: 'statusCloud' },
-  { id: 'device', label: 'Об устройстве', icon: 'menuDevice' },
+  { id: 'device', label: 'Устройство', icon: 'menuDevice' },
   { id: 'updates', label: 'Обновления', icon: 'menuUpdates' },
   { id: 'language', label: 'Язык', icon: 'menuLanguage' },
   { id: 'console', label: 'Консоль', icon: 'menuControl' },

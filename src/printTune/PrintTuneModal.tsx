@@ -5,6 +5,7 @@ import { rounded } from '../dashboard/helpers'
 import {
   IconMask,
   TuneCompactStepperInput,
+  useModalFocus,
 } from '../ui'
 import type { UiIconName } from '../ui/iconAssets'
 import {
@@ -96,6 +97,7 @@ export function PrintTuneModal({
   onClose,
   onApply,
 }: PrintTuneModalProps) {
+  const dialogRef = useModalFocus<HTMLElement>(activeGroup !== null, onClose)
   if (activeGroup === null) {
     return null
   }
@@ -422,6 +424,7 @@ export function PrintTuneModal({
       data-testid="print-tune-modal-layer"
     >
       <section
+        ref={dialogRef}
         className={`print-tune-modal-dialog is-temperature ${isKeyboardOpen ? 'is-temperature-keyboard-open' : ''}`}
         role="dialog"
         aria-modal="true"

@@ -511,6 +511,54 @@ describe('usePrinterSnapshot', () => {
     hook.unmount()
   })
 
+  it('снимает online при молчащем WebSocket и ошибке watchdog, затем восстанавливает подписку', async () => {
+    vi.useFakeTimers()
+    runtimeMocks.fetchSnapshot.mockResolvedValue(applyRuntimeFields(createSnapshot(2, 182, 2), 2))
+    runtimeMocks.fetchRuntimeSnapshot.mockRejectedValue(new Error('Moonraker недоступен'))
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+    const hook = renderHook(() => usePrinterSnapshot())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+      handlers?.onSnapshot(applyRuntimeFields(createSnapshot(4, 184, 4), 4))
+      await vi.advanceTimersByTimeAsync(15_000)
+    })
+    expect(hook.result.current.snapshot.transport.state).toBe('reconnecting')
+    expect(hook.result.current.error).toBe('Moonraker недоступен')
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000) })
+    expect(runtimeMocks.fetchRuntimeSnapshot).toHaveBeenCalledTimes(2)
+    await act(async () => { handlers?.onSnapshot(applyRuntimeFields(createSnapshot(6, 186, 6), 6)) })
+    expect(getPrinterConnectionState(hook.result.current.snapshot)).toBe('online')
+    expect(hook.result.current.error).toBe('')
+    hook.unmount()
+  })
+
+  it('не применяет ошибку watchdog после свежего WebSocket snapshot', async () => {
+    vi.useFakeTimers()
+    const request = createDeferred<PrinterSnapshot>()
+    runtimeMocks.fetchSnapshot.mockResolvedValue(applyRuntimeFields(createSnapshot(2, 182, 2), 2))
+    runtimeMocks.fetchRuntimeSnapshot.mockReturnValue(request.promise)
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+    const hook = renderHook(() => usePrinterSnapshot())
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+      handlers?.onSnapshot(applyRuntimeFields(createSnapshot(4, 184, 4), 4))
+      await vi.advanceTimersByTimeAsync(15_000)
+      handlers?.onSnapshot(applyRuntimeFields(createSnapshot(6, 186, 6), 6))
+      request.reject(new Error('Ошибка старого запроса'))
+      await Promise.resolve()
+    })
+    expect(getPrinterConnectionState(hook.result.current.snapshot)).toBe('online')
+    expect(hook.result.current.snapshot.extruderTemp).toBe(186)
+    expect(hook.result.current.error).toBe('')
+    hook.unmount()
+  })
+
   it('updates runtime fields through HTTP fallback when websocket is silent', async () => {
     vi.useFakeTimers()
     const initialSnapshot = applyRuntimeFields(createSnapshot(1, 181, 1), 1)

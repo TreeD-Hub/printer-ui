@@ -63,8 +63,8 @@ export type DashboardPageProps = {
   printFilePreview?: PrinterFilePreview
   printFill: number
   adjustedEtaTime: string
-  displayLayerCurrent: number
-  displayLayerTotal: number
+  displayLayerCurrent: number | null
+  displayLayerTotal: number | null
   temperatureTargets: {
     nozzle: number
     bed: number

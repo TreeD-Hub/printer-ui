@@ -5,7 +5,7 @@ Production-контур для экранного UI принтера.
 ## Цепочка
 
 1. `treed-shell` собирает live UI bundle командой `npm run build:ui:printer`.
-2. `.github/workflows/release-ui.yml` прогоняет quality/e2e, добавляет manifest и публикует GitHub Release.
+2. `.github/workflows/release-ui.yml` прогоняет quality/e2e и обязательную проверку совместимости с протоколом `printer-core` ветки `treed-v2`, добавляет manifest и публикует GitHub Release. Отсутствующий fixture или несовместимый протокол останавливают публикацию.
 3. Release содержит asset `treed-shell-ui.zip`.
 4. `treed-mainshellOS` loader скачивает asset, проверяет `treed-shell-ui-manifest.json`, распаковывает bundle в managed runtime dir и запускает его через OS-owned kiosk/browser service.
 5. KlipperScreen остается fallback UI и переключается через `treed-ui`.

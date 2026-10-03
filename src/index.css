@@ -1,5 +1,4 @@
 @import './styles/foundation.css';
-@import './styles/ui-kit.css';
 
 :root {
   font-family: var(--font-family-ui);
@@ -13,11 +12,6 @@
 
 * {
   box-sizing: border-box;
-}
-
-html:not([data-runtime-mode='mock']),
-html:not([data-runtime-mode='mock']) * {
-  cursor: none !important;
 }
 
 body {

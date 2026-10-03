@@ -33,6 +33,7 @@ import {
 } from './control'
 import {
   SettingsVirtualKeyboard,
+  useModalFocus,
   type VirtualKeyboardLanguage,
   type AxisId,
 } from './ui'
@@ -60,6 +61,7 @@ import type { PrinterConnectionState } from './core/transport/types'
 import type { FilamentSensorMode, FilamentSensorSensitivity } from '@treed/printer-logic'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
+import './styles/ui-kit.css'
 
 const DEFAULT_SCREEN: ScreenId = 'dashboard'
 const PRINT_CANCEL_MODAL_TITLE_ID = 'print-cancel-modal-title'
@@ -749,6 +751,8 @@ function App() {
     closeTemperatureKeyboard()
   }, [closePrintTuneGroup, closeTemperatureKeyboard, setTemperatureChartMode])
 
+  const keyboardFocusRef = useModalFocus<HTMLDivElement>(activeKeyboardTarget !== null, handleKeyboardClose)
+  const cancelFocusRef = useModalFocus<HTMLElement>(isPrintCancelConfirmOpen, closePrintCancelConfirm)
   const handlePrintTuneApply = handlePrintTuneGroupClose
 
   const dashboardStatusDock = (
@@ -919,6 +923,7 @@ function App() {
             data-testid={isIdleNotesKeyboardTarget ? 'idle-notes-keyboard-layer' : 'settings-keyboard-layer'}
           >
             <div
+              ref={keyboardFocusRef}
               className="app-virtual-keyboard-popup"
               role="dialog"
               aria-modal="true"
@@ -985,6 +990,7 @@ function App() {
         {isPrintCancelConfirmOpen ? (
           <div className="print-cancel-modal-layer" role="presentation" onClick={closePrintCancelConfirm}>
             <section
+              ref={cancelFocusRef}
               className="print-cancel-modal-dialog"
               role="dialog"
               aria-modal="true"

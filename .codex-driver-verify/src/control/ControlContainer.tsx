@@ -1,0 +1,243 @@
+import { useMemo } from 'react'
+import { ControlPage } from './ControlPage'
+import type { DriverControlsProps } from './panels/DriverModeControlPanel'
+import type { ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
+import type { AxisId } from '../ui'
+import type {
+  FilamentSensorMode,
+  FilamentSensorSensitivity,
+  FilamentSensorSnapshot,
+} from '@treed/printer-logic'
+import { CONTROL_MOVE_STEP_OPTIONS } from './config'
+import type {
+  ControlGroupId,
+  FanControlPanelProps,
+  HeatingControlPanelProps,
+  LightingControlPanelProps,
+  MaintenanceChecklistItem,
+  MaintenanceHistoryItem,
+  MaintenanceStatus,
+  MovementCommandBlockReasons,
+  MovementMode,
+  MoveStepKey,
+  ParkingMode,
+  ZParkingSensor,
+} from './types'
+
+const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
+
+export type ControlContainerProps = {
+  driverControls?: DriverControlsProps
+  lightPreferences?: LightingControlPanelProps['lightPreferences']
+  lightPreferencesBlockReason?: string | null
+  onLightPreferenceChange?: LightingControlPanelProps['onLightPreferenceChange']
+  activeControlGroup: ControlGroupId
+  isControlMenuCompact: boolean
+  controlGroupBlockReasons?: Partial<Record<ControlGroupId, string | null>>
+  pendingCommands: PrinterPendingCommands
+  activeControlFlashKey: string | null
+  movementMode: MovementMode
+  moveStepKey: MoveStepKey
+  heating: HeatingControlPanelProps
+  fan: FanControlPanelProps
+  filamentSensor: FilamentSensorSnapshot
+  isFilamentSensorSnapshotStale: boolean
+  commandError: string
+  isMainLightEnabled: boolean
+  isToolheadLightEnabled: boolean
+  mainLightCommandBlockReason: string | null
+  toolheadLightCommandBlockReason: string | null
+  onMainLightToggle: () => void
+  onToolheadLightToggle: () => void
+  maintenanceStatus: MaintenanceStatus
+  maintenanceHistoryItems: readonly MaintenanceHistoryItem[]
+  maintenanceChecklistItems: readonly MaintenanceChecklistItem[]
+  maintenanceProgressTicks: readonly number[]
+  maintenanceChecklistState: Record<string, boolean>
+  onMaintenanceChecklistItemChange: (itemId: string, checked: boolean) => void
+  onMaintenanceChecklistComplete: () => Promise<boolean> | void
+  onControlGroupChange: (groupId: ControlGroupId) => void
+  onControlMenuCompactToggle: () => void
+  getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
+  onParkingTargetSelect: (
+    nextMode: ParkingMode,
+    nextAxis?: AxisId,
+    zSensor?: ZParkingSensor,
+  ) => Promise<boolean>
+  onServiceModeToggle: () => void
+  onMotorsDisable: () => Promise<boolean>
+  onMovementModeChange: (nextMode: MovementMode) => void
+  onMoveStepChange: (nextStep: MoveStepKey) => void
+  onAxisMove: (axis: AxisId, distanceMm: number) => Promise<boolean>
+  onFilamentMove: (direction: -1 | 1, distanceMm: number) => Promise<boolean>
+  onFilamentSensorModeChange: (mode: FilamentSensorMode) => Promise<boolean>
+  onFilamentSensitivityChange: (sensitivity: FilamentSensorSensitivity) => Promise<boolean>
+  getLastCommandError: () => string
+}
+
+export function ControlContainer({
+  driverControls,
+  lightPreferences,
+  lightPreferencesBlockReason,
+  onLightPreferenceChange,
+  activeControlGroup,
+  isControlMenuCompact,
+  controlGroupBlockReasons,
+  pendingCommands,
+  activeControlFlashKey,
+  movementMode,
+  moveStepKey,
+  heating,
+  fan,
+  filamentSensor,
+  isFilamentSensorSnapshotStale,
+  commandError,
+  isMainLightEnabled,
+  isToolheadLightEnabled,
+  mainLightCommandBlockReason,
+  toolheadLightCommandBlockReason,
+  onMainLightToggle,
+  onToolheadLightToggle,
+  maintenanceStatus,
+  maintenanceProgressTicks,
+  onMaintenanceChecklistComplete,
+  onControlGroupChange,
+  onControlMenuCompactToggle,
+  getCommandBlockReason,
+  onParkingTargetSelect,
+  onServiceModeToggle,
+  onMotorsDisable,
+  onMovementModeChange,
+  onMoveStepChange,
+  onAxisMove,
+  onFilamentMove,
+  onFilamentSensorModeChange,
+  onFilamentSensitivityChange,
+  getLastCommandError,
+}: ControlContainerProps) {
+  const moveStepMm = CONTROL_MOVE_STEP_OPTIONS.find((item) => item.id === moveStepKey)?.valueMm ?? 1
+  const motionPendingCommand = pendingCommands.motion ?? null
+  const isMotionBusy = motionPendingCommand !== null
+  const isFilamentBusy = (pendingCommands.filament ?? null) !== null
+  const isLightBusy = (pendingCommands.light ?? null) !== null
+  const movementCommandBlockReasons = useMemo<MovementCommandBlockReasons>(() => ({
+    parking: {
+      all: getCommandBlockReason('homeAll'),
+      axis: {
+        X: getCommandBlockReason('homeX'),
+        Y: getCommandBlockReason('homeY'),
+        Z: getCommandBlockReason('homeZ'),
+      },
+      zBottom: getCommandBlockReason('parkZBottom'),
+    },
+    moveAxis: {
+      X: {
+        negative: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: -moveStepMm }),
+        positive: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'X', distanceMm: moveStepMm }),
+      },
+      Y: {
+        negative: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Y', distanceMm: -moveStepMm }),
+        positive: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Y', distanceMm: moveStepMm }),
+      },
+      Z: {
+        negative: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Z', distanceMm: -moveStepMm }),
+        positive: getCommandBlockReason('moveAxis', { command: 'moveAxis', axis: 'Z', distanceMm: moveStepMm }),
+      },
+    },
+    disableMotors: getCommandBlockReason('disableMotors'),
+    loadFilament: getCommandBlockReason('loadFilament'),
+    unloadFilament: getCommandBlockReason('unloadFilament'),
+  }), [getCommandBlockReason, moveStepMm])
+  const filamentModeBlockReasons = useMemo<Record<FilamentSensorMode, string | null>>(() => ({
+    presence: getCommandBlockReason('setFilamentSensorMode', {
+      command: 'setFilamentSensorMode',
+      mode: 'presence',
+    }),
+    motion: getCommandBlockReason('setFilamentSensorMode', {
+      command: 'setFilamentSensorMode',
+      mode: 'motion',
+    }),
+  }), [getCommandBlockReason])
+  const maintenanceProgressPercent = maintenanceStatus.isCycleBacked === true
+    ? Math.min(100, Math.max(0, ((maintenanceStatus.cycleRuntimeHours ?? 0) / maintenanceStatus.intervalHours) * 100))
+    : 0
+  const filamentSensitivityBlockReasons = useMemo<Record<FilamentSensorSensitivity, string | null>>(() => ({
+    low: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'low',
+    }),
+    medium: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'medium',
+    }),
+    high: getCommandBlockReason('setFilamentEncoderSensitivity', {
+      command: 'setFilamentEncoderSensitivity',
+      sensitivity: 'high',
+    }),
+  }), [getCommandBlockReason])
+
+  return (
+    <ControlPage
+      driverControls={driverControls}
+      activeControlGroup={activeControlGroup}
+      isControlMenuCompact={isControlMenuCompact}
+      controlGroupBlockReasons={controlGroupBlockReasons}
+      onControlGroupChange={onControlGroupChange}
+      onControlMenuCompactToggle={onControlMenuCompactToggle}
+      movement={{
+        pendingCommand: motionPendingCommand,
+        isMotionBusy,
+        isFilamentBusy,
+        activeControlFlashKey,
+        movementMode,
+        moveStepKey,
+        commandBlockReasons: movementCommandBlockReasons,
+        zBounds: HEAD_Z_BOUNDS_MM,
+        onParkingTargetSelect,
+        onServiceModeToggle,
+        onMotorsDisable,
+        onMovementModeChange,
+        onMoveStepChange,
+        onAxisMove,
+        onFilamentMove,
+        getLastCommandError,
+      }}
+      heating={heating}
+      fan={fan}
+      filament={{
+        snapshot: filamentSensor,
+        isStale: isFilamentSensorSnapshotStale,
+        pendingCommand: pendingCommands.filament ?? null,
+        commandError,
+        modeBlockReasons: filamentModeBlockReasons,
+        sensitivityBlockReasons: filamentSensitivityBlockReasons,
+        onModeChange: onFilamentSensorModeChange,
+        onSensitivityChange: onFilamentSensitivityChange,
+      }}
+      lighting={{
+        lightPreferences,
+        lightPreferencesBlockReason,
+        onLightPreferenceChange,
+        isMainLightEnabled,
+        isToolheadLightEnabled,
+        isBusy: isLightBusy,
+        mainLightCommandBlockReason,
+        toolheadLightCommandBlockReason,
+        onMainLightToggle,
+        onToolheadLightToggle,
+      }}
+      maintenance={{
+        status: maintenanceStatus,
+        progressTicks: maintenanceProgressTicks,
+        progressPercent: maintenanceProgressPercent,
+        isCompletingMaintenance: maintenanceStatus.isCompletingMaintenance ?? false,
+        completionError: maintenanceStatus.completionError ?? '',
+        completionBlockReason: maintenanceStatus.completionBlockReason ?? null,
+        onMaintenanceComplete: async () => {
+          const result = await Promise.resolve(onMaintenanceChecklistComplete())
+          return result !== false
+        },
+      }}
+    />
+  )
+}

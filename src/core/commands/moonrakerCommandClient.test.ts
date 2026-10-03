@@ -88,6 +88,47 @@ describe('createMoonrakerCommandClient', () => {
     vi.useRealTimers()
   })
 
+  it.each([true, false])('ограничивает чтение тела ответа таймаутом при HTTP ok=%s', async (ok) => {
+    vi.useFakeTimers()
+    const body = createDeferred<unknown>()
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      init?.signal?.addEventListener('abort', () => body.reject(new DOMException('Aborted', 'AbortError')))
+      return Promise.resolve({ ok, status: ok ? 200 : 503, json: () => body.promise } as Response)
+    })
+    const client = createMoonrakerCommandClient({ fetchImpl: fetchMock as typeof fetch, fetchTimeoutMs: 25 })
+    const result = expect(client.execute({ command: 'turnOffHeaters' })).rejects.toMatchObject({ kind: 'timeout' })
+    await vi.advanceTimersByTimeAsync(25)
+    await result
+    expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true)
+    expect(consoleDebug).not.toHaveBeenCalledWith('[treed-command] accepted', expect.anything())
+  })
+
+  it.each([{}, null, [], { error: {} }, { error: { message: '' }, result: 'ok' }].map((payload) => ({ payload })))(
+    'отклоняет некорректный envelope %j',
+    async ({ payload }) => {
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload })
+      const client = createMoonrakerCommandClient({ fetchImpl: fetchMock })
+      await expect(client.execute({ command: 'setFanPercent', percent: 50 })).rejects.toThrow()
+      expect(consoleDebug).not.toHaveBeenCalledWith('[treed-command] accepted', expect.anything())
+    },
+  )
+
+  it('отклоняет ответ с невалидным JSON', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => { throw new SyntaxError('invalid JSON') },
+    })
+    const client = createMoonrakerCommandClient({ fetchImpl: fetchMock })
+    await expect(client.execute({ command: 'setFanPercent', percent: 50 })).rejects.toMatchObject({ kind: 'invalid-result' })
+    expect(consoleDebug).not.toHaveBeenCalledWith('[treed-command] accepted', expect.anything())
+  })
+
+  it.each([{}, { sensitivity: 'invalid' }, { sensitivity: ['high'] }])('отклоняет некорректный raw-ответ настройки чувствительности %j', async (payload) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload })
+    const client = createMoonrakerCommandClient({ fetchImpl: fetchMock })
+    await expect(client.execute({ command: 'setFilamentEncoderSensitivity', sensitivity: 'high' })).rejects.toMatchObject({ kind: 'invalid-result' })
+  })
+
   it('allows filament sensitivity restart requests to run past the default timeout', async () => {
     vi.useFakeTimers()
     const response = createDeferred<Response>()

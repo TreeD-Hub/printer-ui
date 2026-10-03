@@ -1,7 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "build": {
-    "beforeDevCommand": "npm run build:logic && vite --mode live",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeDevCommand": "npm run build:logic && vite --mode live --host 127.0.0.1",
     "beforeBuildCommand": "npm run build:ui:printer"
   },
   "app": {
@@ -21,7 +22,7 @@
         "minimizable": false,
         "closable": false,
         "fullscreen": false,
-        "decorations": false,
+        "decorations": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "devtools": false,
@@ -30,7 +31,7 @@
     ],
     "security": {
       "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost http://127.0.0.1:7125 ws://127.0.0.1:7125 http://localhost:7125 ws://localhost:7125 https://api.github.com; img-src 'self' asset: http://asset.localhost data: http://127.0.0.1:7125 http://localhost:7125 https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
-      "devCsp": "default-src 'self' http://localhost:5173; connect-src ipc: http://ipc.localhost http://localhost:5173 ws://localhost:5173 http://127.0.0.1:7125 ws://127.0.0.1:7125 http://localhost:7125 ws://localhost:7125 https://api.github.com; img-src 'self' asset: http://asset.localhost data: http://127.0.0.1:7125 http://localhost:7125 https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
+      "devCsp": "default-src 'self' http://127.0.0.1:5173; connect-src ipc: http://ipc.localhost http://127.0.0.1:5173 ws://127.0.0.1:5173 http://127.0.0.1:7125 ws://127.0.0.1:7125 http://localhost:7125 ws://localhost:7125 http://192.168.0.197 ws://192.168.0.197 https://api.github.com; img-src 'self' asset: http://asset.localhost data: http://127.0.0.1:7125 http://localhost:7125 https://api.qrserver.com; style-src 'self' 'unsafe-inline'; font-src 'self' data:"
     }
   }
 }

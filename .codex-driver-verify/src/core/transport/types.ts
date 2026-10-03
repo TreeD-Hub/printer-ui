@@ -1,0 +1,323 @@
+import type {
+  DriverModeSnapshot,
+  LightPreferences,
+  PrinterEvent,
+  PrinterCapabilitiesSnapshot,
+  PrinterConnectionState,
+  PrinterEddyStatus,
+  PrinterFileItem,
+  PrinterExcludeObjectSnapshot,
+  FilamentSensorSnapshot,
+  PrinterLimits,
+  PrinterJobState,
+  PrinterTransportState,
+} from '@treed/printer-logic'
+
+export type {
+  PrinterCapabilitiesSnapshot,
+  PrinterConnectionState,
+  PrinterEddyStatus,
+  PrinterFileItem,
+  PrinterExcludeObjectSnapshot,
+  FilamentSensorSnapshot,
+  PrinterLimits,
+  PrinterJobState,
+  PrinterTransportState,
+} from '@treed/printer-logic'
+
+export type PrinterSource = 'mock' | 'live'
+export type PrinterKlippyState = 'startup' | 'ready' | 'shutdown' | 'error' | 'disconnected'
+export type PrinterRevisionSource = 'mock' | 'http' | 'websocket'
+
+export interface PrinterDataRevision {
+  eventtime: number | null
+  receivedAt: number
+  source: PrinterRevisionSource
+}
+
+export interface PrinterRuntimeRevisions {
+  printerObjects: PrinterDataRevision
+  files: PrinterDataRevision | null
+}
+
+export interface PrinterTransportSnapshot {
+  state: PrinterTransportState
+  message: string | null
+}
+
+export interface PrinterKlippySnapshot {
+  state: PrinterKlippyState
+  message: string
+}
+
+export interface PrinterHardwareSnapshot {
+  marker: 'treed-v2'
+  profile: 'treed_v2_corexy_v1'
+  host: string
+  mainMcu: string
+  toolheadMcu: string
+  probe: string
+  model: string
+  revision: string | null
+}
+
+export interface PrinterUiContractSnapshot {
+  status: 'legacy' | 'compatible' | 'incompatible'
+  expectedVersion: '1.0'
+  contractVersion: string | null
+  profile: string | null
+  requiredMacros: string[]
+  missingMacros: string[]
+  message: string | null
+}
+
+export interface PrinterPositionSnapshot {
+  x: number
+  y: number
+  z: number
+  e: number
+}
+
+export interface PrinterGeometrySnapshot {
+  toolhead: PrinterPositionSnapshot
+  gcode: PrinterPositionSnapshot
+  homingOrigin: PrinterPositionSnapshot
+  absoluteCoordinates: boolean
+  absoluteExtrude: boolean
+  speedFactor: number
+  speed: number
+  extrudeFactor: number
+}
+
+export interface PrinterThermalTargetsSnapshot {
+  nozzle: number
+  bed: number
+}
+
+export interface PrinterRuntimeTuneSnapshot {
+  contractVersion: string | null
+  speedFactorPercent: number
+  flowFactorPercent: number
+  accelMmS2: number
+  pressureAdvance: number
+  retractLengthMm: number
+  appliedBabystepMm: number
+}
+
+export interface PrinterFilesSnapshot {
+  type: 'virtual_sdcard' | 'unknown'
+  path: string | null
+  progress: number
+  filePosition: number
+  fileSize: number | null
+}
+
+export interface PrinterFileListStatusSnapshot {
+  state: 'unknown' | 'ready' | 'error'
+  message: string | null
+}
+
+export interface PrinterUsageSnapshot {
+  totalPrintTimeSec: number | null
+  totalJobTimeSec: number | null
+  totalJobs: number | null
+  totalFilamentUsedMm: number | null
+  longestPrintSec: number | null
+  updatedAt: string | null
+  state: 'ready' | 'unavailable'
+  message: string | null
+}
+
+export interface PrinterPrintJobSnapshot {
+  filename: string
+  filePath: string | null
+  state: PrinterJobState
+  message: string
+  progress: number
+  progressPercent: number
+  totalDurationSec: number
+  printDurationSec: number
+  filamentUsedMm: number
+  currentLayer: number | null
+  totalLayer: number | null
+}
+
+export function isPrintJobActive(job: Pick<PrinterPrintJobSnapshot, 'state'>): boolean {
+  return job.state === 'preparing' || job.state === 'printing' || job.state === 'paused'
+}
+
+export interface PrinterMacroStateSnapshot {
+  available: string[]
+  values: Record<string, Record<string, unknown>>
+}
+
+export interface PrinterCameraSnapshot {
+  supported: boolean
+  active: boolean
+  resolution: string | null
+  format: string | null
+  encoder: string | null
+  targetFps: number | null
+  maxFps: number | null
+  streamUrl: string | null
+  snapshotUrl: string | null
+}
+
+export type PrinterFileItemSnapshot = PrinterFileItem
+
+export interface PrinterToolheadRuntimeSnapshot {
+  rawX: number
+  rawY: number
+  rawZ: number
+  rawE: number
+  printOffsetX: number
+  printOffsetY: number
+  homedAxes: string
+  coordinateMode: 'raw'
+}
+
+export type PrinterEddyCalibrationStep = 'not_started' | 'primary' | 'temperature' | 'z0' | 'screws' | 'mesh' | 'complete'
+export type PrinterEddyOperatorPrompt =
+  | 'none'
+  | 'drive_current'
+  | 'paper_test'
+  | 'temperature_points'
+  | 'verify_z0'
+  | 'adjust_screws'
+  | 'mesh_scan'
+  | 'restart'
+
+export interface PrinterEddyCalibrationSnapshot {
+  activeStep: PrinterEddyCalibrationStep
+  operatorPrompt: PrinterEddyOperatorPrompt
+  driveCurrentDone: boolean
+  primaryDone: boolean
+  temperatureDone: boolean
+  z0Done: boolean
+  screwsDone: boolean
+  meshDone: boolean
+  requiredDone: boolean
+}
+
+export interface PrinterV2Snapshot {
+  branch: 'treed-v2'
+  profile: 'treed_v2_corexy_v1'
+  eddy: {
+    status: PrinterEddyStatus
+    autosaveEnabled: boolean
+    autosavePending: boolean
+    calibration: PrinterEddyCalibrationSnapshot
+  }
+}
+
+export interface PrinterRuntimeSnapshot {
+  driverMode?: DriverModeSnapshot
+  driverFanMode?: DriverModeSnapshot
+  lightPreferences?: LightPreferences
+  printerEvent?: PrinterEvent | null
+  clogRecoveryActive?: boolean
+  operationPhase?: string
+  source: PrinterSource
+  revisions: PrinterRuntimeRevisions
+  transport: PrinterTransportSnapshot
+  klippy: PrinterKlippySnapshot
+  wifiSsid: string
+  ipAddress: string
+  toolheadX: number
+  toolheadY: number
+  toolheadZ: number
+  homedAxes: string
+  extruderTemp: number
+  bedTemp: number
+  modelFanPercent: number
+  mainLightEnabled: boolean
+  updatedAt: string
+  message: string
+  hardware: PrinterHardwareSnapshot
+  uiContract: PrinterUiContractSnapshot
+  capabilities: PrinterCapabilitiesSnapshot
+  filamentSensor: FilamentSensorSnapshot
+  limits: PrinterLimits
+  usage: PrinterUsageSnapshot
+  printJob: PrinterPrintJobSnapshot
+  excludeObjects: PrinterExcludeObjectSnapshot
+  files: PrinterFilesSnapshot
+  camera: PrinterCameraSnapshot
+  fileList?: PrinterFileListStatusSnapshot
+  toolhead: PrinterToolheadRuntimeSnapshot
+  geometry: PrinterGeometrySnapshot
+  thermalTargets: PrinterThermalTargetsSnapshot
+  runtimeTune: PrinterRuntimeTuneSnapshot
+  macros: PrinterMacroStateSnapshot
+  printFiles: PrinterFileItemSnapshot[]
+  v2: PrinterV2Snapshot
+}
+
+export type PrinterSnapshot = PrinterRuntimeSnapshot
+
+export function getPrinterConnectionState(
+  snapshot: Pick<PrinterSnapshot, 'transport' | 'klippy' | 'uiContract'>,
+): PrinterConnectionState {
+  if (snapshot.transport.state !== 'online') return snapshot.transport.state
+  if (snapshot.klippy.state === 'startup') return 'connecting'
+  if (snapshot.klippy.state === 'shutdown') return 'shutdown'
+  if (snapshot.klippy.state !== 'ready') return 'offline'
+  return snapshot.uiContract.status === 'compatible' && snapshot.transport.message === null
+    ? 'online'
+    : 'degraded'
+}
+
+export type PrinterEddyStateSnapshot = Pick<
+  PrinterV2Snapshot['eddy'],
+  'autosaveEnabled' | 'autosavePending' | 'calibration'
+>
+
+export type PrinterPrintJobStateSnapshot = Pick<
+  PrinterSnapshot,
+  'excludeObjects' | 'files' | 'message' | 'printJob' | 'updatedAt'
+>
+
+export type PrinterPrintFilesStateSnapshot = Pick<
+  PrinterSnapshot,
+  'fileList' | 'printFiles' | 'revisions'
+>
+
+export type PrinterPrintFilesMetadataSnapshot = Pick<
+  PrinterSnapshot,
+  'printFiles' | 'revisions'
+>
+
+export type PrinterMotionStateSnapshot = Pick<
+  PrinterSnapshot,
+  'geometry' | 'homedAxes' | 'message' | 'toolhead' | 'toolheadX' | 'toolheadY' | 'toolheadZ' | 'updatedAt'
+> & {
+  axisLimits: PrinterLimits['axis']
+  eddyStatus: PrinterV2Snapshot['eddy']['status']
+}
+
+export interface TransportSubscriptionHandlers {
+  onSnapshot: (snapshot: PrinterSnapshot) => void
+  onConnectionChange: (connection: PrinterConnectionState, message?: string) => void
+  onError?: (message: string) => void
+  onFileListChanged?: () => void
+  onGcodeResponse?: (message: string) => void
+}
+
+export interface TransportSubscription {
+  close: () => void
+}
+
+export interface TransportClient {
+  fetchSnapshot: () => Promise<PrinterSnapshot>
+  fetchRuntimeSnapshot: () => Promise<PrinterSnapshot>
+  fetchUsage: () => Promise<PrinterUsageSnapshot>
+  fetchFilamentSensor: () => Promise<FilamentSensorSnapshot>
+  fetchEddyState: () => Promise<PrinterEddyStateSnapshot>
+  fetchExcludeObjects: () => Promise<PrinterExcludeObjectSnapshot>
+  fetchPrintJobState: () => Promise<PrinterPrintJobStateSnapshot>
+  fetchPrintFilesState: () => Promise<PrinterPrintFilesStateSnapshot>
+  fetchPrintFileMetadata?: (paths: string[]) => Promise<PrinterPrintFilesMetadataSnapshot>
+  fetchMotionState: () => Promise<PrinterMotionStateSnapshot>
+  deletePrintFile?: (path: string) => Promise<void>
+  subscribe?: (handlers: TransportSubscriptionHandlers) => TransportSubscription
+}

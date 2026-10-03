@@ -70,12 +70,32 @@ async function parseMoonrakerError(response: Response): Promise<string> {
   return `HTTP ${response.status}`
 }
 
-async function parseMoonrakerEnvelope(response: Response): Promise<MoonrakerEnvelope | null> {
+async function parseMoonrakerEnvelope(
+  response: Response,
+  command?: ExecuteCommandArgs['command'],
+): Promise<MoonrakerEnvelope> {
+  let payload: unknown
   try {
-    return (await response.json()) as MoonrakerEnvelope
-  } catch {
-    return null
+    payload = await response.json()
+  } catch (error) {
+    if (isAbortError(error)) throw error
+    throw new MoonrakerTransportError('invalid-result', 'Некорректный JSON ответа Moonraker')
   }
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new MoonrakerTransportError('invalid-result', 'Некорректный ответ Moonraker')
+  }
+  const envelope = payload as MoonrakerEnvelope
+  if (envelope.error !== undefined) {
+    throw new Error(envelope.error?.message || 'Moonraker вернул ошибку без описания')
+  }
+  if (envelope.result === undefined) {
+    // Компонент core регистрирует endpoint чувствительности с wrap_result=False.
+    const sensitivity = (payload as { sensitivity?: unknown }).sensitivity
+    if (command !== 'setFilamentEncoderSensitivity' || typeof sensitivity !== 'string' || !['low', 'medium', 'high'].includes(sensitivity)) {
+      throw new MoonrakerTransportError('invalid-result', 'Moonraker result is missing')
+    }
+  }
+  return envelope
 }
 
 function formatUnknownError(error: unknown): string {
@@ -111,52 +131,29 @@ async function callMoonraker(
     init.body = JSON.stringify(body)
   }
 
-  let response: Response
   console.debug('[treed-command] sending', logContext)
   try {
-    response = await options.fetchImpl(`${options.moonrakerUrl}${path}`, init)
-  } catch (error) {
-    if (didTimeout || isAbortError(error)) {
-      const timeoutError = new MoonrakerTransportError('timeout', `Moonraker request timed out after ${options.fetchTimeoutMs}ms`)
-      console.error('[treed-command] failed', {
-        ...logContext,
-        error: timeoutError.message,
-      })
-      throw timeoutError
+    const response = await options.fetchImpl(`${options.moonrakerUrl}${path}`, init)
+    if (!response.ok) {
+      throw new Error(await parseMoonrakerError(response))
     }
-
+    const payload = await parseMoonrakerEnvelope(response, command)
+    console.debug('[treed-command] accepted', {
+      ...logContext,
+      response: payload,
+    })
+  } catch (error) {
+    const commandError = didTimeout || isAbortError(error)
+      ? new MoonrakerTransportError('timeout', `Moonraker request timed out after ${options.fetchTimeoutMs}ms`)
+      : error
     console.error('[treed-command] failed', {
       ...logContext,
-      error: formatUnknownError(error),
+      error: formatUnknownError(commandError),
     })
-    throw error
+    throw commandError
   } finally {
     window.clearTimeout(timeoutId)
   }
-
-  if (!response.ok) {
-    const error = new Error(await parseMoonrakerError(response))
-    console.error('[treed-command] failed', {
-      ...logContext,
-      error: error.message,
-    })
-    throw error
-  }
-
-  const payload = await parseMoonrakerEnvelope(response)
-  if (payload?.error?.message) {
-    const error = new Error(payload.error.message)
-    console.error('[treed-command] failed', {
-      ...logContext,
-      error: error.message,
-    })
-    throw error
-  }
-
-  console.debug('[treed-command] accepted', {
-    ...logContext,
-    response: payload,
-  })
 }
 
 function sendScript(

@@ -12,6 +12,6 @@
 
 - `mock`/`live` runtime выбирается через Vite alias `#runtime`.
 - Если live WebSocket доступен, частые обновления приходят через subscription.
-- HTTP fallback остается включенным: `2s` polling для clients без subscription и `30s` fallback при WebSocket.
+- HTTP fallback остается включенным: `2s` polling для clients без subscription и `15s` watchdog при WebSocket. Если подписка замолчала и HTTP-проверка завершилась ошибкой, UI снимает `online` и возвращается к polling; свежие WebSocket-данные защищены от ошибок старых запросов.
 - При ошибках connection переводится в `reconnecting` или `offline`, а `shutdown` сохраняется как отдельное состояние.
 - Новые UI-блоки должны читать частые данные через selector-хуки, а не подписываться на весь `PrinterSnapshot`, если им нужен небольшой срез.

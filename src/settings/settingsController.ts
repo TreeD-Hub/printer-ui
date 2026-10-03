@@ -181,13 +181,15 @@ export function useSettingsController({
   const wifiIpLabel = hostNetworkStatus.ipAddress ?? '—'
   const networkCapabilityNotice = isNetworkCapabilityAvailable
     ? hostNetworkStatus.message
-    : `Недоступно: ${hostNetworkStatus.message}`
+    : hostNetworkStatus.message === 'Failed to fetch'
+      ? 'Нет связи со службой Wi-Fi принтера. Проверьте соединение и повторите попытку.'
+      : 'Управление Wi-Fi пока недоступно на этом принтере.'
   const cloudCapabilityNotice = isCloudCapabilityAvailable
     ? cloudConnectionNotice
-    : 'Недоступно: Moonraker/V2 cloud capability не подтвержден.'
+    : 'Облачный сервис пока недоступен на этом принтере.'
   const updateCapabilityNotice = isUpdatesCapabilityAvailable
     ? updateNotice
-    : 'Недоступно: runtime не поддерживает fetch для проверки GitHub Releases.'
+    : 'Проверка обновлений недоступна в этом режиме интерфейса.'
   const selectedWifiNetwork = useMemo(() => {
     if (selectedWifiNetworkId === null) {
       return null

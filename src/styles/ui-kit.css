@@ -2,3 +2,233 @@
   display: block;
   background: currentColor;
 }
+
+/* Общий touch-контракт. Визуальная иконка может быть меньше зоны нажатия. */
+.screen-shell button[class],
+.screen-shell select[class],
+.screen-shell input[class]:not([type='checkbox']):not([type='radio']):not([type='range']):not(.print-tune-compact-stepper-input),
+.screen-shell .print-tune-compact-stepper-input-wrap {
+  min-width: var(--control-min-width);
+  min-height: var(--control-height);
+}
+
+.screen-shell button:not(.nav-item),
+.screen-shell input,
+.screen-shell select,
+.screen-shell textarea,
+.screen-shell .label,
+.screen-shell .macros-eddy-kicker,
+.screen-shell .macros-eddy-step-count,
+.screen-shell .macros-eddy-testz-panel p {
+  font-family: var(--font-family-ui);
+}
+
+.screen-shell :is(button, input, select, textarea, a, [tabindex]):focus-visible,
+.screen-shell .print-tune-compact-stepper-input-wrap:focus-within {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+  box-shadow: none;
+}
+
+/* Базовый primitive и его состояния принадлежат этому слою. */
+.screen-shell :is(
+  .segmented-toggle-btn, .files-sort-btn, .step-btn, .settings-sidebar-item,
+  .settings-network-btn, .settings-network-item, .settings-console-chip,
+  .settings-console-key, .settings-toggle-row, .control-action-btn,
+  .control-target-btn, .control-service-btn, .macros-eddy-back-btn,
+  .axis-cross-btn, .babystep-btn, .stack-action, .file-modal-action,
+  .top-popup-action, .virtual-keyboard-key, .print-temp-keyboard-key,
+  .print-temp-keyboard-submit
+) {
+  border-radius: var(--radius-control);
+  border: var(--border-width) solid var(--color-border-default);
+  background: var(--color-control-surface);
+  color: var(--color-text-secondary);
+  box-shadow: none;
+}
+
+/* Выбор, включение и обычная команда используют нейтральную роль. */
+.screen-shell :is(
+  .segmented-toggle-btn, .files-sort-btn, .step-btn, .settings-sidebar-item,
+  .settings-network-item, .control-service-btn, .control-target-btn,
+  .control-fan-preset-btn, .control-heating-preset-btn, .control-filament-choice,
+  .control-filament-sensitivity, .virtual-keyboard-key
+).is-active,
+.screen-shell .settings-network-btn-primary,
+.screen-shell .file-modal-action-start,
+.screen-shell .macros-eddy-command-btn:not(.is-secondary) {
+  border-color: var(--color-control-active-border);
+  background: var(--color-control-active-surface);
+  color: var(--color-control-active-text);
+  box-shadow: none;
+}
+
+.screen-shell .settings-toggle-switch.is-active,
+.screen-shell .control-lighting-row.is-active .control-lighting-switch {
+  border-color: var(--color-control-active-border);
+  background: var(--color-control-active-surface);
+}
+
+.screen-shell .settings-toggle-switch.is-active::after,
+.screen-shell .control-lighting-row.is-active .control-lighting-switch-knob,
+.screen-shell .control-fan-preset-btn.is-active .control-fan-preset-dot,
+.screen-shell .control-filament-choice.is-active .control-filament-radio,
+.screen-shell .control-filament-sensitivity.is-active .control-filament-radio,
+.screen-shell .settings-sidebar-item.is-active::before,
+.screen-shell .nav-item.is-active::after {
+  background: var(--color-control-active-text);
+  border-color: var(--color-control-active-border);
+  box-shadow: none;
+}
+
+.screen-shell .control-lighting-row.is-active :is(.control-lighting-icon, .control-lighting-state, .control-lighting-switch-mark),
+.screen-shell .macros-manager-workflow strong,
+.screen-shell .macros-eddy-summary strong,
+.screen-shell .macros-eddy-step-count {
+  color: var(--color-text-primary);
+}
+
+.screen-shell .control-light-preference input:checked {
+  background: var(--color-control-active-surface);
+  border-color: var(--color-control-active-border);
+}
+
+.screen-shell .virtual-keyboard-key:active {
+  background: var(--color-control-active-surface);
+  box-shadow: none;
+}
+
+.screen-shell .file-modal-action-delete {
+  color: var(--color-error);
+  border-color: var(--color-primary-ring);
+  background: var(--color-primary-surface-soft);
+}
+
+.screen-shell :is(.action-cancel, .file-modal-action-danger, .top-popup-action-danger, .control-action-btn-danger) {
+  border-color: var(--color-primary);
+  background: var(--color-primary-surface);
+  color: var(--color-primary-light);
+}
+
+.screen-shell :is(button, select, input)[class]:is(:disabled, [aria-disabled='true']) {
+  color: var(--color-text-muted);
+  border-color: var(--color-border-subtle);
+  background: var(--color-block-surface);
+  box-shadow: none;
+  text-shadow: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+/* Геометрия shared-контролов вместо размеров, разбросанных по экранам. */
+.screen-shell :is(
+  .segmented-toggle-btn, .files-sort-btn, .step-btn, .settings-network-btn,
+  .settings-console-chip, .virtual-keyboard-key, .file-modal-action,
+  .top-popup-action, .macros-eddy-command-btn, .macros-eddy-back-btn
+) {
+  border-radius: var(--radius-control);
+  border-width: var(--border-width);
+  transition: border-color var(--motion-control), background-color var(--motion-control);
+}
+
+.screen-shell :is(.settings-network-btn, .settings-console-chip, .file-modal-action, .virtual-keyboard-key) {
+  height: var(--control-height);
+}
+
+.screen-shell :is(.file-modal-close, .top-popup-close, .print-cancel-modal-close, .control-menu-collapse-btn, .control-lock-popup-close) {
+  width: var(--control-height);
+  height: var(--control-height);
+  flex-shrink: 0;
+}
+
+.screen-shell .settings-sidebar-item {
+  font-size: var(--font-size-body);
+}
+
+.screen-shell .settings-sidebar-label {
+  font-size: var(--font-size-small);
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.2;
+}
+
+.screen-shell .virtual-keyboard-preview-input {
+  min-height: var(--control-height);
+  height: var(--control-height);
+}
+
+.screen-shell .control-menu-shell {
+  grid-template-rows: var(--control-height) minmax(0, 1fr);
+}
+
+/* Профиль драйверов занимает собственную строку, не сжимается поверх координат. */
+.screen-shell .control-scroll-area.has-driver-profile {
+  grid-template-rows: minmax(88px, max-content) minmax(440px, 1fr);
+}
+
+.screen-shell .driver-mode-card {
+  display: flex;
+  min-height: 88px;
+}
+
+.screen-shell .control-block-reason {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.3;
+}
+
+.screen-shell .control-card-parking:has(.control-block-reason) {
+  grid-template-rows: auto auto minmax(112px, 1fr) auto auto;
+}
+
+.screen-shell .settings-sidebar-menu {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+.screen-shell .settings-sidebar-menu::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+}
+
+.screen-shell .settings-sidebar-menu::-webkit-scrollbar-thumb {
+  background: var(--color-border-default);
+}
+
+.screen-shell .macros-eddy-workflow {
+  grid-template-rows: 80px minmax(0, 1fr) var(--control-height);
+}
+
+.screen-shell :is(.macros-manager-workflow, .macros-eddy-workflow-header, .macros-eddy-step-screen) {
+  border-radius: var(--radius-panel);
+}
+
+.screen-shell .macros-eddy-workflow-header {
+  padding: var(--space-xs);
+}
+
+.screen-shell .macros-eddy-summary span {
+  white-space: normal;
+  line-height: 1.2;
+}
+
+.screen-shell .macros-eddy-step-count {
+  font-size: var(--font-size-small);
+}
+
+.screen-shell .macros-eddy-step-screen {
+  overflow-y: auto;
+  grid-template-rows: auto auto;
+  align-content: start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-shell *,
+  .screen-shell *::before,
+  .screen-shell *::after {
+    animation: none;
+    transition: none;
+  }
+}

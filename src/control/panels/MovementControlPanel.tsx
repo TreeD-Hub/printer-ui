@@ -323,6 +323,11 @@ export const MovementControlPanel = memo(function MovementControlPanel({
             <p className="control-card-state">Парковка...</p>
           ) : null}
         </div>
+        {commandBlockReasons.parking.all !== null || commandBlockReasons.disableMotors !== null ? (
+          <p className="control-block-reason" id="movement-block-reason" role="status">
+            {commandBlockReasons.parking.all ?? commandBlockReasons.disableMotors}
+          </p>
+        ) : null}
         {parkingLockPopup !== null ? (
           <div
             key={parkingLockPopup.id}
@@ -349,6 +354,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
             className={`control-target-btn ${activeControlFlashKey === 'parking-all' ? 'is-active' : ''}`}
             aria-pressed={activeControlFlashKey === 'parking-all'}
             aria-disabled={commandBlockReasons.parking.all !== null || undefined}
+            aria-describedby={commandBlockReasons.parking.all !== null ? 'movement-block-reason' : undefined}
             data-testid="parking-mode-all"
             onClick={() => void handleParkingSelect('all')}
             disabled={isMotionBusy}
@@ -389,9 +395,10 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           data-testid="motors-disable-button"
           onClick={() => void handleMotorsDisableClick()}
           aria-disabled={commandBlockReasons.disableMotors !== null || undefined}
+          aria-describedby={commandBlockReasons.disableMotors !== null ? 'movement-block-reason' : undefined}
           disabled={isMotionBusy}
         >
-          Release
+          Отключить моторы
         </button>
       </article>
 
@@ -461,7 +468,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
                 onClick={() => void confirmMotorsRelease()}
                 disabled={isMotionBusy || commandBlockReasons.disableMotors !== null}
               >
-                Release
+                Отключить моторы
               </button>
             </div>
           </section>

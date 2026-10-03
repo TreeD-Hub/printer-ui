@@ -295,6 +295,7 @@ export function SettingsVirtualKeyboard({
         <p className="virtual-keyboard-preview-label">{valueLabel}</p>
         <textarea
           ref={previewInputRef}
+          data-modal-initial-focus
           className="virtual-keyboard-preview-value virtual-keyboard-preview-input"
           value={value}
           onChange={handlePreviewChange}

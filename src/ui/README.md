@@ -14,6 +14,7 @@
 - `printTuneWidgets.tsx` - controls для runtime-tune modal.
 - `settingsWidgets.tsx` - settings cards/select/toggle/sidebar/virtual keyboard.
 - `classNames.ts` - минимальный helper сборки CSS-классов.
+- `useModalFocus.ts` - начальный фокус, цикл Tab внутри модалки, закрытие по Escape и возврат фокуса, включая вложенные окна.
 - `index.ts` - публичные экспорты UI слоя.
 
 ## Правила

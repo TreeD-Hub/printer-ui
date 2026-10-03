@@ -32,7 +32,7 @@ export function MacrosContainer(props: MacrosContainerProps) {
             <header className="macros-manager-list-head">
               <div className="macros-manager-title">
                 <p>Макросы</p>
-                <h1>Выберите проход</h1>
+                <h1>Выберите калибровку</h1>
               </div>
             </header>
 

@@ -56,7 +56,6 @@ body {
   border: 0;
   padding: 0;
   opacity: 1;
-  cursor: none;
   touch-action: none;
   transition: opacity 120ms linear;
 }
@@ -715,12 +714,6 @@ body {
   font-size: var(--font-size-body);
   line-height: 1.12;
   cursor: pointer;
-}
-
-.macros-eddy-command-btn:not(.is-secondary) {
-  border-color: var(--color-primary-ring);
-  background: var(--color-primary-surface-soft);
-  color: var(--color-primary-light);
 }
 
 .macros-eddy-command-btn:disabled,
@@ -3186,16 +3179,6 @@ body {
   border-radius: 50%;
 }
 
-.control-filament-choice.is-active,
-.control-filament-sensitivity.is-active {
-  border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-block-surface));
-}
-
-.control-filament-choice.is-active .control-filament-radio {
-  border: 5px solid var(--color-primary);
-}
-
 .control-filament-sensitivity-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -4843,13 +4826,16 @@ body {
 
 .print-file-meta-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: max-content minmax(0, 1fr);
   align-items: baseline;
   gap: var(--space-xs);
 }
 
 .print-file-meta dt,
 .print-file-meta dd {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   margin: 0;
 }
 
@@ -7256,52 +7242,6 @@ select {
     0 0 16px var(--color-primary-glow);
 }
 
-.segmented-toggle-btn,
-.files-sort-btn,
-.step-btn,
-.settings-sidebar-item,
-.settings-network-btn,
-.settings-network-item,
-.settings-console-chip,
-.settings-console-key,
-.settings-toggle-row,
-.control-action-btn,
-.control-target-btn,
-.control-service-btn,
-.macros-eddy-back-btn,
-.axis-cross-btn,
-.babystep-btn,
-.stack-action,
-.file-modal-action,
-.top-popup-action,
-.virtual-keyboard-key,
-.print-temp-keyboard-key,
-.print-temp-keyboard-submit,
-.nav-item {
-  border-radius: 6px;
-  border: 1px solid var(--color-border-default);
-  background: rgba(244, 244, 240, 0.025);
-  color: var(--color-text-secondary);
-  box-shadow: none;
-}
-
-.segmented-toggle-btn.is-active,
-.files-sort-btn.is-active,
-.step-btn.is-active,
-.settings-sidebar-item.is-active,
-.settings-toggle-switch.is-active,
-.settings-network-btn-primary,
-.settings-network-item.is-active,
-.control-service-btn.is-active,
-.control-target-btn.is-active,
-.virtual-keyboard-key.is-active,
-.nav-item.is-active {
-  border-color: var(--color-primary);
-  background: var(--color-primary-surface-soft);
-  color: var(--color-text-primary);
-  text-shadow: none;
-}
-
 .nav-item {
   border-color: transparent;
 }
@@ -7328,13 +7268,6 @@ select {
   border-color: var(--color-primary);
   background: var(--color-primary-surface);
   color: var(--color-primary-light);
-}
-
-.file-modal-action-start {
-  border-color: var(--color-primary);
-  background: var(--color-primary-surface);
-  color: var(--color-primary-light);
-  box-shadow: none;
 }
 
 .file-modal-action-delete {
@@ -7373,14 +7306,6 @@ select {
 
 .settings-toggle-switch::after {
   background: var(--color-text-soft);
-}
-
-.settings-toggle-switch.is-active {
-  background: var(--color-primary-surface-soft);
-}
-
-.settings-toggle-switch.is-active::after {
-  background: var(--color-primary);
 }
 
 .top-popup-dialog::before {
@@ -7845,13 +7770,13 @@ select {
 }
 
 .dashboard-status-actions .top-icon-btn {
-  width: 48px;
-  height: 48px;
+  width: var(--control-min-width);
+  height: var(--control-height);
 }
 
 .dashboard-status-actions .power-btn {
   width: 58px;
-  height: 48px;
+  height: var(--control-height);
 }
 
 .dashboard-idle-sidebar {

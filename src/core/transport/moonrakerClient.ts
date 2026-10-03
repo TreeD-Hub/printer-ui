@@ -178,13 +178,22 @@ async function fetchMoonraker<T>(
     didTimeout = true
     controller.abort()
   }, context.fetchTimeoutMs)
-  let response: Response
-
   try {
-    response = await context.fetchImpl(`${context.moonrakerUrl}${path}`, {
+    const response = await context.fetchImpl(`${context.moonrakerUrl}${path}`, {
       ...init,
       signal: controller.signal,
     })
+
+    if (!response.ok) {
+      throw new MoonrakerTransportError('http', await parseMoonrakerError(response), response.status)
+    }
+
+    const payload = (await response.json()) as MoonrakerResponse<T>
+    if (payload.result === undefined) {
+      throw new MoonrakerTransportError('invalid-result', 'Moonraker result is missing')
+    }
+
+    return payload.result
   } catch (error) {
     if (didTimeout || isAbortError(error)) {
       throw new MoonrakerTransportError('timeout', `Moonraker request timed out after ${context.fetchTimeoutMs}ms`)
@@ -194,18 +203,6 @@ async function fetchMoonraker<T>(
   } finally {
     window.clearTimeout(timeoutId)
   }
-
-  if (!response.ok) {
-    throw new MoonrakerTransportError('http', await parseMoonrakerError(response), response.status)
-  }
-
-  const payload = (await response.json()) as MoonrakerResponse<T>
-
-  if (payload.result === undefined) {
-    throw new MoonrakerTransportError('invalid-result', 'Moonraker result is missing')
-  }
-
-  return payload.result
 }
 
 function getMoonrakerFilePath(item: MoonrakerFileListItem): string {

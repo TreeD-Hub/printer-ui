@@ -22,6 +22,7 @@ type WizardStepId = 'primary' | 'temperature' | 'z0' | 'screws' | 'mesh' | 'auto
 type WizardStep = {
   id: WizardStepId
   title: string
+  command: PrinterCommandId
   done: (calibration: PrinterEddyCalibrationSnapshot, snapshot: PrinterSnapshot) => boolean
 }
 
@@ -29,31 +30,37 @@ const WIZARD_STEPS: readonly WizardStep[] = [
   {
     id: 'primary',
     title: 'Первичная калибровка датчика',
+    command: 'eddyDriveCurrentCalibrate',
     done: (calibration) => calibration.primaryDone,
   },
   {
     id: 'temperature',
     title: 'Температурная калибровка',
+    command: 'eddyTemperatureStart',
     done: (calibration) => calibration.temperatureDone,
   },
   {
     id: 'z0',
     title: 'Поиск Z0',
+    command: 'eddyCheckZ0',
     done: (calibration) => calibration.z0Done,
   },
   {
     id: 'screws',
     title: 'Выравнивание винтов стола',
+    command: 'eddyScrewsTiltStart',
     done: (calibration) => calibration.screwsDone,
   },
   {
     id: 'mesh',
     title: 'Построение карты стола',
+    command: 'eddyBedMeshCalibrate',
     done: (calibration) => calibration.meshDone,
   },
   {
     id: 'autosave',
     title: 'Автосохранение Z-offset',
+    command: 'eddyAutosaveStatus',
     done: (_calibration, snapshot) => snapshot.v2.eddy.autosaveEnabled,
   },
 ]
@@ -71,7 +78,7 @@ const ACTIVE_STEP_INDEX: Record<PrinterEddyCalibrationStep, number> = {
 const PROMPT_LABELS: Record<PrinterEddyCalibrationSnapshot['operatorPrompt'], string> = {
   none: 'Готов к следующему действию',
   drive_current: 'Калибровка тока катушки',
-  paper_test: 'Paper test: настройте высоту и нажмите ACCEPT',
+  paper_test: 'Настройте высоту по бумаге и нажмите «Принять и сохранить»',
   temperature_points: 'Ожидание температурных точек Eddy',
   verify_z0: 'Проверьте повторяемость Z0',
   adjust_screws: 'Регулируйте винты и повторяйте измерение',
@@ -90,6 +97,8 @@ export function EddyCalibrationScreen({
   const calibration = snapshot.v2.eddy.calibration
   const [currentStepIndex, setCurrentStepIndex] = useState(() => ACTIVE_STEP_INDEX[calibration.activeStep])
   const currentStep = WIZARD_STEPS[currentStepIndex] ?? WIZARD_STEPS[0]
+  const currentStepBlockReason = getCommandBlockReason(currentStep.command)
+  const stepStatus = currentStepBlockReason ?? (pendingCommand !== null ? 'Выполняется команда принтера…' : PROMPT_LABELS[calibration.operatorPrompt])
   const completedRequiredCount = WIZARD_STEPS.slice(0, 5).filter((step) => step.done(calibration, snapshot)).length
 
   useEffect(() => {
@@ -119,6 +128,8 @@ export function EddyCalibrationScreen({
         type="button"
         className={joinClassNames('macros-eddy-command-btn', tone === 'secondary' && 'is-secondary')}
         disabled={isCommandBlocked(args)}
+        title={getCommandBlockReason(args.command, args) ?? undefined}
+        aria-describedby="eddy-step-status"
         onClick={() => runCommand(args)}
       >
         {label}
@@ -133,11 +144,11 @@ export function EddyCalibrationScreen({
           <>
             <div className="macros-eddy-action-row">
               {renderCommandButton('Калибровать ток', { command: 'eddyDriveCurrentCalibrate' })}
-              {renderCommandButton('Начать paper test', { command: 'eddyPrimaryHeightStart' })}
-              {renderCommandButton('ACCEPT и сохранить', { command: 'eddyPrimaryAcceptSave' }, 'secondary')}
+              {renderCommandButton('Проверить высоту по бумаге', { command: 'eddyPrimaryHeightStart' })}
+              {renderCommandButton('Принять и сохранить', { command: 'eddyPrimaryAcceptSave' }, 'secondary')}
             </div>
             <div className="macros-eddy-testz-panel">
-              <p>TESTZ</p>
+              <p>Шаг высоты, мм</p>
               <div className="macros-eddy-testz-grid">
                 {EDDY_TEST_Z_STEP_OPTIONS.map((deltaMm) => {
                   const label = `${deltaMm > 0 ? '+' : ''}${deltaMm}`
@@ -163,7 +174,7 @@ export function EddyCalibrationScreen({
         return (
           <div className="macros-eddy-action-row">
             {renderCommandButton('Запустить температурную калибровку', { command: 'eddyTemperatureStart' })}
-            {renderCommandButton('ACCEPT и сохранить', { command: 'eddyTemperatureAcceptSave' }, 'secondary')}
+            {renderCommandButton('Принять и сохранить', { command: 'eddyTemperatureAcceptSave' }, 'secondary')}
           </div>
         )
       case 'z0':
@@ -202,12 +213,12 @@ export function EddyCalibrationScreen({
           К списку
         </button>
         <div className="macros-eddy-title-group">
-          <p className="macros-eddy-kicker">Workflow</p>
+          <p className="macros-eddy-kicker">Калибровка</p>
           <h2>Калибровка датчика уровня</h2>
         </div>
         <div className="macros-eddy-summary" aria-label="Прогресс обязательной калибровки">
           <strong>{completedRequiredCount}/5</strong>
-          <span>{calibration.requiredDone ? 'обязательные шаги готовы' : PROMPT_LABELS[calibration.operatorPrompt]}</span>
+          <span>{completedRequiredCount === 5 ? 'обязательные шаги готовы' : 'обязательные шаги'}</span>
         </div>
       </header>
 
@@ -216,7 +227,7 @@ export function EddyCalibrationScreen({
           <div className="macros-eddy-step-copy">
             <p className="macros-eddy-step-count">Шаг {currentStepIndex + 1} из {WIZARD_STEPS.length}</p>
             <h2>{currentStep.title}</h2>
-            <p>{PROMPT_LABELS[calibration.operatorPrompt]}</p>
+            <p id="eddy-step-status" role="status" aria-live="polite">{stepStatus}</p>
           </div>
           <div className="macros-eddy-step-actions">
             {renderCurrentStep()}

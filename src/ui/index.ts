@@ -2,6 +2,7 @@ export { IconMask } from './IconMask'
 export { PrintPreviewIcon } from './PrintPreviewIcon'
 export { ActionSquareButton, NavItemButton, StatusIconButton } from './buttons'
 export { joinClassNames } from './classNames'
+export { useModalFocus } from './useModalFocus'
 export {
   AxisCrossControls,
   HorizontalSteppedSlider,

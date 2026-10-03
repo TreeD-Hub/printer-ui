@@ -17,15 +17,15 @@
 - `AMOLED Optimized`:
   `Почти чёрный фон, мягкие серые поверхности и белый текст без цветового шума`
 - `Touch-First`:
-  `Все элементы минимум 56px высотой, оптимизированы для тач-управления`
+  `Интерактивные элементы имеют зону нажатия минимум 48px по ширине и 56px по высоте, оптимизированы для тач-управления`
 - `Red As Signal`:
   `Красный используется как точечный статус/опасность, а не как декоративная заливка интерфейса`
 
 ## 2) TreeD Brand Colors (токены)
 
-- `Background`: `#050607`
-- `Surface`: `#090B0D`
-- `Block Surface`: `#0D1012`
+- `Background`: `#101213`
+- `Surface`: `#101213`
+- `Block Surface`: `#131517`
 - `Surface Elevated`: `#14181B`
 - `Primary`: `#FF2A2A`
 - `Primary Light`: `#FF5A5A`
@@ -33,8 +33,8 @@
 - `Success`: `#D9F7E5`
 - `Warning`: `#FFF0B8`
 - `Error`: `#FF2A2A`
-- `Text Primary`: `#F4F4F0`
-- `Text Secondary`: `#C9CBC7`
+- `Text Primary`: `#CCCCCC`
+- `Text Secondary`: `#C0C0C0`
 
 ### Support UI Tokens
 
@@ -42,11 +42,11 @@
 - `Border Subtle`: `#24282B`
 - `Border Default`: `#3A3F43`
 - `Surface Track`: `#030405`
-- `Text Soft`: `#90948F`
+- `Text Soft`: `#818181`
 - `Overlay`: `rgba(2, 3, 4, 0.78)`
 - `Terminal Grid Dot`: `rgba(244, 244, 240, 0.11)`
 - `Terminal Scanline`: `rgba(244, 244, 240, 0.035)`
-- `Terminal Border Active`: `rgba(244, 244, 240, 0.86)`
+- `Terminal Border Active`: `rgba(244, 244, 240, 0.36)`
 
 ### Правило оптимизации палитры
 
@@ -59,7 +59,7 @@
 
 ## 3) Typography Scale
 
-- `Heading Large` (Top brand / Main values): `28-32px / 400`
+- `Heading Large` (Top brand / Main values): `32px / 400`
 - `Heading Medium` (Section titles): `22px / 400`
 - `Body Large` (Card headers): `20px / 400`
 - `Body` (Default text): `16px / 400`
@@ -67,9 +67,29 @@
 - `Tiny` (Meta info): `12px / 400`
 
 Шрифтовой контракт:
-- базовый UI: `Web IBM MDA` с fallback-стеком `Cascadia Mono / Consolas / Courier New`;
-- крупные брендовые/навигационные надписи: CSS dot-matrix эффект через text clip;
-- мелкие метрики и поля ввода остаются читаемыми моноширинными, без чрезмерного dot-clip.
+- В проекте загружаются ровно два шрифта: `Nothing Font` (`public/fonts/nothing-font.otf`) и `JetBrains Mono` (`public/fonts/jetbrains-mono-variable.ttf`).
+- `--font-family-accent`: наш dotted Nothing Font для крупных брендовых, навигационных надписей и крупных приборных значений. Точечный рисунок уже содержится в шрифте; дополнительный text clip не нужен.
+- `--font-family-ui`: обычный JetBrains Mono для кнопок, подсказок, полей, единиц, мелких метрик и сообщений. Для functional-текста не использовать dotted.
+- Системные моноширинные fallback-шрифты используются только при ошибке загрузки; третьего подключаемого семейства нет.
+
+### Общие роли и приёмы
+
+Источник значений — `src/styles/foundation.css`; shared-поведение — `src/styles/ui-kit.css`, подключаемый после стилей экранов. UI primitives и управление фокусом находятся в существующем `src/ui`; отдельный shared-пакет для этого не требуется.
+
+| Роль | Токены / контракт |
+| --- | --- |
+| Типографика | `heading-large=32`, `metric=26`, `heading-medium=22`, `body-large=20`, `body=16`, `small=14`, `tiny=12`; старые `heading`, `body-small`, `caption`, `mono` — алиасы этих ролей |
+| Touch-контрол | `--control-min-width: 48px`, `--control-height: 56px`; иконка внутри может быть меньше |
+| Рамка и скругление | `--border-width: 1px`, `--radius-control: 6px`, `--radius-panel: 8px` |
+| Обычный выбор / включение | `--color-control-active-border`, `--color-control-active-surface`, `--color-control-active-text`; нейтральная рамка и мягкая белая подложка |
+| Фокус | `--color-focus-ring`, `--focus-width: 2px`, `--focus-offset: 2px`; виден при клавиатурной навигации |
+| Недоступность | приглушённый текст и рамка; причина блокировки показывается текстом, текущие значения остаются читаемыми |
+| Движение | `--motion-control: 120ms`; при `prefers-reduced-motion` анимация отключена |
+| Terminal-рисунок | `--terminal-grid-dot`, `--terminal-grid-line`, `--terminal-scanline`, `--terminal-panel-sheen`; без дополнительных локальных цветов |
+| Интервалы | 4 / 8 / 16 / 24px; 2px — только микроинтервал |
+| Модалка | начальный безопасный фокус, цикл Tab внутри, возврат фокуса при закрытии; команды и их guards принадлежат экрану |
+
+Красный сохраняется у опасных действий, ошибок, нагрева и сигналов питания. Обычная выбранная вкладка, активный preset, переключатель, калибровочная команда и старт файла используют нейтральную роль.
 
 ## 4) Grid System
 
