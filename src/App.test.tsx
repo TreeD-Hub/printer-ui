@@ -891,7 +891,7 @@ describe('App', () => {
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()
   }, 30000)
 
-  it('leaves movement tab when print becomes active', async () => {
+  it('keeps movement tab open but locks axes and filament when print becomes active', async () => {
     render(<App />)
 
     await waitFor(() => {
@@ -916,11 +916,11 @@ describe('App', () => {
       })
 
       await waitFor(() => {
-        expect(screen.getByTestId('control-group-movement')).toBeDisabled()
-        expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Нагрев')
+        expect(screen.getByTestId('control-group-movement')).not.toBeDisabled()
+        expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Перемещение')
       })
-      expect(screen.queryByRole('button', { name: 'Сдвиг X в плюс' })).not.toBeInTheDocument()
-      expect(screen.queryByRole('heading', { name: 'Парковка' })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toHaveAttribute('aria-disabled', 'true')
+      expect(screen.getByRole('button', { name: 'Загрузить филамент' })).toHaveAttribute('aria-disabled', 'true')
     } finally {
       applyPrinterSnapshot(previousSnapshot)
     }
@@ -953,7 +953,7 @@ describe('App', () => {
     })
   })
 
-  it('blocks movement tab during active print and opens control on heating', async () => {
+  it('allows movement navigation during print and unlocks only filament on pause', async () => {
     render(<App />)
 
     await waitFor(() => {
@@ -976,17 +976,20 @@ describe('App', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
 
       const movementTab = screen.getByTestId('control-group-movement')
-      expect(movementTab).toBeDisabled()
-      expect(movementTab).toHaveAttribute('aria-disabled', 'true')
-      expect(movementTab).toHaveAttribute('title', 'Перемещение оси: движение недоступно во время печати.')
-      expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Нагрев')
-      expect(screen.queryByRole('heading', { name: 'Парковка' })).not.toBeInTheDocument()
+      expect(movementTab).not.toBeDisabled()
+      expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Перемещение')
 
       fireEvent.click(screen.getByTestId('control-group-lighting'))
       expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Освещение')
 
       fireEvent.click(movementTab)
-      expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Освещение')
+      expect(screen.getByTestId('control-active-tab-label')).toHaveTextContent('Перемещение')
+      applyPrinterSnapshot({ ...getPrinterSnapshot(), extruderTemp: 210,
+        printJob: { ...getPrinterSnapshot().printJob, state: 'paused' } })
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Загрузить филамент' })).not.toHaveAttribute('aria-disabled', 'true')
+        expect(screen.getByRole('button', { name: 'Сдвиг X в плюс' })).toHaveAttribute('aria-disabled', 'true')
+      })
     } finally {
       applyPrinterSnapshot(previousSnapshot)
     }

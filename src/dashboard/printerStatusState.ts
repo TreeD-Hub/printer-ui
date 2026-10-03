@@ -25,7 +25,7 @@ const PRINT_STATE_LABELS: Record<string, { label: string; severity: PrinterDispl
   idle: { label: 'Ожидание печати', severity: 'normal' },
   preparing: { label: 'Подготовка печати', severity: 'info' },
   printing: { label: 'Печать', severity: 'info' },
-  paused: { label: 'Пауза', severity: 'warning' },
+  paused: { label: 'Пауза', severity: 'warning', notify: true },
   complete: { label: 'Печать завершена', severity: 'info', notify: true },
   cancelled: { label: 'Печать отменена', severity: 'warning', notify: true },
   error: { label: 'Ошибка печати', severity: 'error', notify: true },

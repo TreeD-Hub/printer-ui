@@ -31,6 +31,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'setFilamentSensorMode',
   'setFilamentEncoderSensitivity',
   'setMainLightEnabled',
+  'setLightPreference',
   'setPrintSpeedFactorPercent',
   'setPrintFlowFactorPercent',
   'setPrintAccel',

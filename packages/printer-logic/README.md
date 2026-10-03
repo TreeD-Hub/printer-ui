@@ -32,6 +32,10 @@
 
 ## Публичный контракт
 
+- `LightPreferences` и команда `setLightPreference` задают независимые `onStartup` / `onPrintStart`. Запись требует capability `lightingPreferences`.
+- `PrinterEvent`, `parsePrinterEvent`, `readPrinterEvent`, `describePrinterEvent` задают общий для shell/web формат `treed_event v1|sequence|code|detail` и его отображение. Последнее событие доступно из `_TREED_EVENT` в Klipper.
+- Ручной филамент запрещён при печати, подготовке, калибровке, автосъёме и `clogRecoveryActive`. На паузе разрешён при нагретом сопле; движение осей и парковка остаются заблокированы.
+
 - Runtime types экспортируются из `src/index.ts`.
 - Сборочный entrypoint: `dist/index.js`.
 - Type declarations: `dist/index.d.ts`.

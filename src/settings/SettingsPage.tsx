@@ -403,7 +403,7 @@ export function SettingsPage({
                 <p>Включение/отключение уведомлений и журнал последних событий.</p>
               </header>
               <SettingsToggleRow
-                label="Уведомления"
+                label="Всплывающие уведомления"
                 checked={notifications.isNotificationsEnabled}
                 onChange={notifications.onNotificationsEnabledChange}
                 testId="settings-notifications-enabled-toggle"
@@ -415,6 +415,7 @@ export function SettingsPage({
                 testId="settings-notification-sound-toggle"
               />
               <div className="settings-notification-list">
+                {notifications.history.length === 0 ? <p>Событий в текущем сеансе пока нет.</p> : null}
                 {notifications.history.map((item) => (
                   <article className="settings-notification-item" key={item.id}>
                     <p className="settings-notification-title">

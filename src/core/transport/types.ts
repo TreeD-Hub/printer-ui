@@ -1,4 +1,6 @@
 import type {
+  LightPreferences,
+  PrinterEvent,
   PrinterCapabilitiesSnapshot,
   PrinterConnectionState,
   PrinterEddyStatus,
@@ -208,6 +210,10 @@ export interface PrinterV2Snapshot {
 }
 
 export interface PrinterRuntimeSnapshot {
+  lightPreferences?: LightPreferences
+  printerEvent?: PrinterEvent | null
+  clogRecoveryActive?: boolean
+  operationPhase?: string
   source: PrinterSource
   revisions: PrinterRuntimeRevisions
   transport: PrinterTransportSnapshot

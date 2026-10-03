@@ -12,6 +12,7 @@ import type {
   ControlGroupId,
   FanControlPanelProps,
   HeatingControlPanelProps,
+  LightingControlPanelProps,
   MaintenanceChecklistItem,
   MaintenanceHistoryItem,
   MaintenanceStatus,
@@ -25,6 +26,9 @@ import type {
 const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
 
 export type ControlContainerProps = {
+  lightPreferences?: LightingControlPanelProps['lightPreferences']
+  lightPreferencesBlockReason?: string | null
+  onLightPreferenceChange?: LightingControlPanelProps['onLightPreferenceChange']
   activeControlGroup: ControlGroupId
   isControlMenuCompact: boolean
   controlGroupBlockReasons?: Partial<Record<ControlGroupId, string | null>>
@@ -70,6 +74,9 @@ export type ControlContainerProps = {
 }
 
 export function ControlContainer({
+  lightPreferences,
+  lightPreferencesBlockReason,
+  onLightPreferenceChange,
   activeControlGroup,
   isControlMenuCompact,
   controlGroupBlockReasons,
@@ -204,6 +211,9 @@ export function ControlContainer({
         onSensitivityChange: onFilamentSensitivityChange,
       }}
       lighting={{
+        lightPreferences,
+        lightPreferencesBlockReason,
+        onLightPreferenceChange,
         isMainLightEnabled,
         isToolheadLightEnabled,
         isBusy: isLightBusy,

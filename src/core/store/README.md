@@ -6,6 +6,7 @@
 
 - `printerStore.ts` - внешний store полного `PrinterSnapshot`, fallback snapshot, selector-подписки через `useSyncExternalStore` и reconcile stale revisions.
 - `usePrinterSnapshot.ts` - lifecycle transport client: first refresh, WebSocket subscription, HTTP fallback polling, error transitions и delete file wrapper.
+- `printerNotifications.ts` — единая история последних 50 событий сеанса и текущее всплывающее окно; принимает структурированный G-code RESPOND, последнее событие snapshot и ошибки состояния. Дедуплицирует sequence до перезапуска Klipper. История не сохраняется на диск.
 
 ## Контракт
 

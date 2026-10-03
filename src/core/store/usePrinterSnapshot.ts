@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createTransportClient } from '#runtime'
+import { receivePrinterGcodeResponse } from './printerNotifications'
 import { recordOperationalDiagnostic } from '../../diagnostics'
 import { getPrinterConnectionState } from '../transport/types'
 import type {
@@ -552,6 +553,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
       onGcodeResponse(message) {
         if (!isDisposed) {
           recordOperationalDiagnostic('gcode-response', message)
+          receivePrinterGcodeResponse(message)
         }
       },
     })

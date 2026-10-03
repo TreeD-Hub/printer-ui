@@ -21,3 +21,4 @@ Mock-transport живет вне production graph в `mocks/runtime.ts` и по�
 - Сохранять источник ревизии (`mock`, `http`, `websocket`) для printer objects и files.
 - Ошибки file list/metadata показывать отдельно от состояния задания.
 - WebSocket reconnect должен явно переводить UI в `reconnecting`, а не оставлять stale online state.
+- Подписка на `save_variables`, `_TREED_EVENT`, `_TREED_CLOG_RECOVERY_STATE`, `_TREED_OPERATION_STATE` даёт настройки света, последнее событие, допуск филамента и фазу операции. `notify_gcode_response` передаётся также в центр уведомлений; его формат разбирает общий пакет `@treed/printer-logic`.

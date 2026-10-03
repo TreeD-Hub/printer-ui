@@ -2798,6 +2798,65 @@ body {
   gap: 8px;
 }
 
+.control-light-preferences {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.control-light-preference {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+}
+
+.control-light-preference input {
+  appearance: none;
+  flex: 0 0 40px;
+  height: 24px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 16px;
+  background: var(--color-block-surface);
+  cursor: pointer;
+}
+
+.control-light-preference input::before {
+  content: '';
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 3px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+}
+
+.control-light-preference input:checked { background: #d47717; }
+.control-light-preference input:checked::before { transform: translateX(16px); background: #fff; }
+.control-light-preference input:disabled { opacity: 0.45; cursor: not-allowed; }
+.printer-notification-history { max-height: 300px; overflow-y: auto; }
+
+.printer-event-popup {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  z-index: 130;
+  width: 360px;
+  max-height: 210px;
+  overflow-y: auto;
+  padding: 18px 48px 18px 18px;
+  border: 2px solid #efab40;
+  border-radius: 16px;
+  background: var(--color-block-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 8px 32px #0008;
+}
+.printer-event-popup.is-error { border-color: #fa6d65; }
+.printer-event-popup.is-info { border-color: #73b8ec; }
+.printer-event-popup p { margin: 10px 0 0; line-height: 1.4; }
+.printer-event-close { position: absolute; right: 4px; top: 4px; width: 40px; height: 40px; border: 0; background: transparent; color: inherit; font-size: 28px; }
+
 .control-lighting-row {
   min-width: 0;
   min-height: 62px;

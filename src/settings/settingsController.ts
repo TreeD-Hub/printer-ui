@@ -4,6 +4,7 @@ import {
   type WifiNetworkItem,
 } from '@treed/printer-logic'
 import { runtimeMode } from '#runtime'
+import { usePrinterNotifications } from '../core/store/printerNotifications'
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { downloadDiagnosticReport } from '../diagnostics'
@@ -24,13 +25,11 @@ import { isPrintJobActive, type PrinterSnapshot } from '../core/transport/types'
 import {
   DEFAULT_TIMEZONE_OPTION,
   LANGUAGE_OPTIONS,
-  SETTINGS_NOTIFICATION_HISTORY,
   SLEEP_MODE_OPTIONS,
   TIMEZONE_OPTIONS,
   PRINTER_UI_CURRENT_VERSION,
   UPDATE_RELEASE_TARGETS,
   type SettingsGroupId,
-  type SettingsNotificationItem,
 } from './config'
 import type { SettingsPageProps } from './SettingsPage'
 import {
@@ -139,7 +138,10 @@ export function useSettingsController({
   const [isExternalVoiceEnabled, setIsExternalVoiceEnabled] = useState<boolean>(false)
   const [isNotificationsEnabled, setIsNotificationsEnabled] = useState<boolean>(true)
   const [isNotificationSoundsEnabled, setIsNotificationSoundsEnabled] = useState<boolean>(true)
-  const [notificationHistory] = useState<SettingsNotificationItem[]>(SETTINGS_NOTIFICATION_HISTORY)
+  const printerNotifications = usePrinterNotifications()
+  const notificationHistory = printerNotifications.history.map((entry) => ({
+    ...entry, createdAt: new Date(entry.receivedAt).toLocaleTimeString('ru-RU'),
+  }))
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false)
   const [isCloudAiMonitoringEnabled, setIsCloudAiMonitoringEnabled] = useState<boolean>(false)
   const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Сервис облака не подключен.')
