@@ -8,6 +8,8 @@ export const MOONRAKER_RUNTIME_OBJECTS = [
   'extruder',
   'heater_bed',
   'fan',
+  'treed_driver_mode',
+  'treed_driver_fan_mode',
   'output_pin chamber_light',
   'firmware_retraction',
   'display_status',

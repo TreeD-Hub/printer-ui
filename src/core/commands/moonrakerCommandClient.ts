@@ -213,6 +213,9 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'Heaters off sent'
     case 'setFanPercent':
       return `Fan set to ${args.percent}%`
+    case 'setDriverMode':
+    case 'setDriverFanMode':
+      return 'Режим отправлен; ожидается подтверждение устройства'
     case 'setMainLightEnabled':
       return args.enabled ? 'Main light on sent' : 'Main light off sent'
     case 'setLightPreference':
@@ -371,6 +374,10 @@ function executeMoonrakerCommand(
       return sendScript('TURN_OFF_HEATERS', options, args.command)
     case 'setFanPercent':
       return sendScript(`M106 S${mapFanPercentToM106(args.percent)}`, options, args.command)
+    case 'setDriverMode':
+      return sendScript(`TREED_UI_SET_DRIVER_MODE MODE=${args.mode}`, options, args.command)
+    case 'setDriverFanMode':
+      return sendScript(`TREED_UI_SET_DRIVER_FAN_MODE MODE=${args.mode}`, options, args.command)
     case 'setMainLightEnabled':
       return sendScript(args.enabled ? 'LIGHT_ON' : 'LIGHT_OFF', options, args.command)
     case 'setLightPreference':

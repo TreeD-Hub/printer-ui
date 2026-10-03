@@ -598,6 +598,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     error,
     refresh,
     refreshUsage,
+    refreshRuntime,
     refreshFilamentSensor,
     refreshEddyState,
     refreshExcludeObjects,

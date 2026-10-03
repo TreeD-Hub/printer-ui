@@ -7,6 +7,8 @@ import { HeatingControlPanel } from './panels/HeatingControlPanel'
 import { LightingControlPanel } from './panels/LightingControlPanel'
 import { MaintenanceControlPanel } from './panels/MaintenanceControlPanel'
 import { MovementControlPanel } from './panels/MovementControlPanel'
+import { DriverModeControlPanel } from './panels/DriverModeControlPanel'
+import type { DriverControlsProps } from './panels/DriverModeControlPanel'
 import type {
   ControlGroupId,
   FanControlPanelProps,
@@ -18,6 +20,7 @@ import type {
 } from './types'
 
 type ControlPageProps = {
+  driverControls?: DriverControlsProps
   activeControlGroup: ControlGroupId
   isControlMenuCompact: boolean
   controlGroupBlockReasons?: Partial<Record<ControlGroupId, string | null>>
@@ -32,6 +35,7 @@ type ControlPageProps = {
 }
 
 export const ControlPage = memo(function ControlPage({
+  driverControls,
   activeControlGroup,
   isControlMenuCompact,
   controlGroupBlockReasons,
@@ -112,7 +116,9 @@ export const ControlPage = memo(function ControlPage({
               {activeControlGroupOption.label}
             </p>
           )}
-          <div className="control-scroll-area">
+          <div className={`control-scroll-area${driverControls && ((activeControlGroup === 'movement' && driverControls.mode) || (activeControlGroup === 'fans' && driverControls.fanMode)) ? ' has-driver-profile' : ''}`}>
+            {driverControls && (activeControlGroup === 'movement' || activeControlGroup === 'fans') &&
+              <DriverModeControlPanel controls={driverControls} kind={activeControlGroup === 'movement' ? 'drivers' : 'fan'} />}
             {activeControlGroup === 'movement' ? (
               <MovementControlPanel {...movement} />
             ) : activeControlGroup === 'heating' ? (

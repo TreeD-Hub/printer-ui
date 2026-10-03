@@ -64,6 +64,10 @@ function isCommandConfirmed(
   }
 
   switch (args.command) {
+    case 'setDriverMode':
+      return context.driverMode?.state === 'ready' && context.driverMode.mode === args.mode
+    case 'setDriverFanMode':
+      return context.driverFanMode?.state === 'ready' && context.driverFanMode.mode === args.mode
     case 'start': {
       const currentFilename = context.printJob?.filename?.replace(/^\/+gcodes\//, '')
       const expectedFilename = args.filename.replace(/^\/+gcodes\//, '')
@@ -257,6 +261,15 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
       }
 
       const blockReason = getTreeDCommandBlockReason(command, runtimeContextRef.current, args)
+      if ((command === 'start' && (activeCommandTokensRef.current.has('motion') || pendingConfirmationsRef.current.has('motion')))
+        || (command === 'setDriverMode' && ['print', 'system'].some((key) => {
+          const pendingDomain = key as PrinterCommandPendingDomain
+          return activeCommandTokensRef.current.has(pendingDomain) || pendingConfirmationsRef.current.has(pendingDomain)
+        }))) {
+        lastErrorRef.current = 'Дождитесь завершения команды печати, движения или перезапуска.'
+        setError(lastErrorRef.current)
+        return false
+      }
       if (blockReason !== null) {
         const result: CommandResult = {
           command,

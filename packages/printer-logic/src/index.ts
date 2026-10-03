@@ -29,6 +29,8 @@ export type PrinterCommandId =
   | 'setHeatingTargets'
   | 'turnOffHeaters'
   | 'setFanPercent'
+  | 'setDriverMode'
+  | 'setDriverFanMode'
   | 'setMainLightEnabled'
   | 'setLightPreference'
   | 'setPrintSpeedFactorPercent'
@@ -90,6 +92,19 @@ const PRINTER_PENDING_DOMAIN_ORDER: readonly PrinterCommandPendingDomain[] = [
 ]
 
 export type AxisId = 'X' | 'Y' | 'Z'
+export type DriverMode = 'normal' | 'quiet'
+export interface DriverModeSnapshot {
+  supported: boolean
+  mode: DriverMode | null
+  state: 'ready' | 'applying' | 'fault' | 'unavailable'
+  availableModes: DriverMode[]
+  needsRestart: boolean
+  message: string | null
+  effectiveModes?: Partial<Record<AxisId, DriverMode | null>>
+  speedPercent?: number | null
+  activePercent?: number | null
+  idlePercent?: number | null
+}
 export type FilamentSensorMode = 'presence' | 'motion'
 export type FilamentSensorSensitivity = 'low' | 'medium' | 'high'
 
@@ -164,6 +179,10 @@ export type ExecuteCommandArgs =
   | {
       command: 'setFanPercent'
       percent: number
+    }
+  | {
+      command: 'setDriverMode' | 'setDriverFanMode'
+      mode: DriverMode
     }
   | {
       command: 'setMainLightEnabled'
@@ -408,6 +427,8 @@ export type { PrinterEvent, PrinterNotification } from './printerEvents'
 
 export interface PrinterCapabilitiesSnapshot {
   lightingPreferences?: boolean
+  driverMode?: boolean
+  driverFanMode?: boolean
   print: boolean
   motion: boolean
   thermal: boolean
@@ -854,6 +875,8 @@ export type TreeDCommandCapability =
   | 'motionTest'
   | 'power'
   | 'serviceCommands'
+  | 'driverMode'
+  | 'driverFanMode'
 
 export interface TreeDCommandCatalogItem {
   id: PrinterCommandId
@@ -865,6 +888,8 @@ export interface TreeDCommandCatalogItem {
 }
 
 export interface TreeDCommandRuntimeContext {
+  driverMode?: DriverModeSnapshot
+  driverFanMode?: DriverModeSnapshot
   lightPreferences?: LightPreferences
   clogRecoveryActive?: boolean
   operationPhase?: string
@@ -905,6 +930,8 @@ const MAX_Z_OFFSET_BABYSTEP_DELTA_MM = Z_OFFSET_BABYSTEP_STEP_OPTIONS[Z_OFFSET_B
 export const EDDY_TEST_Z_STEP_OPTIONS = [-1, -0.1, -0.05, 0.05, 0.1, 1] as const
 
 const COMMAND_CAPABILITY_LABELS: Record<TreeDCommandCapability, string> = {
+  driverMode: 'режим драйверов XYZ',
+  driverFanMode: 'режим обдува драйверов',
   print: 'печать',
   motion: 'перемещение',
   thermal: 'нагрев',
@@ -1072,6 +1099,14 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     capability: 'fan',
     requiresConfirmation: false,
     pendingDomain: 'fan',
+  },
+  setDriverMode: {
+    id: 'setDriverMode', risk: 'caution', label: 'Режим драйверов XYZ',
+    capability: 'driverMode', requiresConfirmation: true, pendingDomain: 'motion',
+  },
+  setDriverFanMode: {
+    id: 'setDriverFanMode', risk: 'caution', label: 'Обдув драйверов',
+    capability: 'driverFanMode', requiresConfirmation: true, pendingDomain: 'fan',
   },
   setMainLightEnabled: {
     id: 'setMainLightEnabled',
@@ -1543,6 +1578,22 @@ function getCommandSpecificBlockReason(
   const activePrint = hasActivePrint(context)
   const pausedPrint = hasPausedPrint(context)
 
+  if (command === 'setDriverMode' || command === 'setDriverFanMode') {
+    const state = command === 'setDriverMode' ? context.driverMode : context.driverFanMode
+    if (context.transportState !== 'online' || context.klippyState !== 'ready'
+      || context.uiContractStatus !== 'compatible' || state?.supported !== true || state.state !== 'ready') {
+      return `${item.label}: готовое состояние устройства не подтверждено.`
+    }
+    if (args !== undefined && 'mode' in args && !state.availableModes.includes(args.mode as DriverMode)) {
+      return state.message ?? `${item.label}: выбранный режим недоступен.`
+    }
+    if (command === 'setDriverMode' && (activePrint || pausedPrint || context.clogRecoveryActive === true
+      || (context.operationPhase !== undefined && context.operationPhase !== 'idle')
+      || ['preparing', 'recovery', 'calibration', 'error'].includes(normalizeState(context.printJob?.state)))) {
+      return 'Режим XYZ можно менять только после завершения печати и сервисных операций.'
+    }
+  }
+
   if (
     SYSTEM_DISRUPTIVE_COMMANDS.has(command) &&
     (activePrint || SYSTEM_DISRUPTIVE_STATES.has(normalizeState(context.printJob?.state)))
@@ -1693,6 +1744,9 @@ export function getTreeDCommandArgumentError(
   limits: PrinterLimits = TREED_V2_COREXY_V1_LIMITS,
 ): string | null {
   switch (args.command) {
+    case 'setDriverMode':
+    case 'setDriverFanMode':
+      return args.mode === 'normal' || args.mode === 'quiet' ? null : 'MODE должен быть quiet или normal.'
     case 'moveAxis': {
       if (!Number.isFinite(args.distanceMm) || args.distanceMm === 0 || Math.abs(args.distanceMm) > MAX_UI_MOVE_DISTANCE_MM) {
         return `DISTANCE должен быть в диапазоне -${MAX_UI_MOVE_DISTANCE_MM}…${MAX_UI_MOVE_DISTANCE_MM} мм и не равен 0.`

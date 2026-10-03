@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { ControlPage } from './ControlPage'
+import type { DriverControlsProps } from './panels/DriverModeControlPanel'
 import type { ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
 import type { AxisId } from '../ui'
 import type {
@@ -26,6 +27,7 @@ import type {
 const HEAD_Z_BOUNDS_MM = { min: 0, max: 200 } as const
 
 export type ControlContainerProps = {
+  driverControls?: DriverControlsProps
   lightPreferences?: LightingControlPanelProps['lightPreferences']
   lightPreferencesBlockReason?: string | null
   onLightPreferenceChange?: LightingControlPanelProps['onLightPreferenceChange']
@@ -74,6 +76,7 @@ export type ControlContainerProps = {
 }
 
 export function ControlContainer({
+  driverControls,
   lightPreferences,
   lightPreferencesBlockReason,
   onLightPreferenceChange,
@@ -175,6 +178,7 @@ export function ControlContainer({
 
   return (
     <ControlPage
+      driverControls={driverControls}
       activeControlGroup={activeControlGroup}
       isControlMenuCompact={isControlMenuCompact}
       controlGroupBlockReasons={controlGroupBlockReasons}

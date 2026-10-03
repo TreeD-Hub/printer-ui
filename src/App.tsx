@@ -94,6 +94,7 @@ function App() {
     snapshot,
     refresh,
     refreshUsage,
+    refreshRuntime,
     refreshFilamentSensor,
     refreshEddyState,
     refreshExcludeObjects,
@@ -131,6 +132,8 @@ function App() {
       modelFanPercent: snapshot.modelFanPercent,
       mainLightEnabled: snapshot.mainLightEnabled,
       lightPreferences: snapshot.lightPreferences,
+      driverMode: snapshot.driverMode,
+      driverFanMode: snapshot.driverFanMode,
       clogRecoveryActive: snapshot.clogRecoveryActive,
       operationPhase: snapshot.operationPhase,
       filamentSensor: snapshot.filamentSensor,
@@ -147,6 +150,8 @@ function App() {
       snapshot.limits,
       snapshot.mainLightEnabled,
       snapshot.lightPreferences,
+      snapshot.driverMode,
+      snapshot.driverFanMode,
       snapshot.clogRecoveryActive,
       snapshot.operationPhase,
       snapshot.modelFanPercent,
@@ -856,6 +861,23 @@ function App() {
             getLastCommandError,
             heating: heatingProps,
             fan: fanProps,
+            driverControls: {
+              mode: snapshot.capabilities.driverMode ? snapshot.driverMode : undefined,
+              fanMode: snapshot.capabilities.driverFanMode ? snapshot.driverFanMode : undefined,
+              pendingCommands,
+              isRestarting: systemTransitionCommand !== null,
+              getCommandBlockReason,
+              getLastCommandError,
+              onApply: async (command, mode) => {
+                try {
+                  return await executeCommand({ command, mode })
+                } finally {
+                  // После отказа обновление возвращает fault/needs_restart, потерянные в shutdown snapshot.
+                  await refreshRuntime()
+                }
+              },
+              onRestart: () => executeCommand({ command: 'firmwareRestart' }),
+            },
             filamentSensor: snapshot.filamentSensor,
             isFilamentSensorSnapshotStale: connection !== 'online' && connection !== 'degraded',
             commandError,

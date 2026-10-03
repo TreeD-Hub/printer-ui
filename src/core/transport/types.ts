@@ -1,4 +1,5 @@
 import type {
+  DriverModeSnapshot,
   LightPreferences,
   PrinterEvent,
   PrinterCapabilitiesSnapshot,
@@ -210,6 +211,8 @@ export interface PrinterV2Snapshot {
 }
 
 export interface PrinterRuntimeSnapshot {
+  driverMode?: DriverModeSnapshot
+  driverFanMode?: DriverModeSnapshot
   lightPreferences?: LightPreferences
   printerEvent?: PrinterEvent | null
   clogRecoveryActive?: boolean

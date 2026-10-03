@@ -93,6 +93,9 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
       return 'Mock: heaters off'
     case 'setFanPercent':
       return `Mock: fan set to ${args.percent}%`
+    case 'setDriverMode':
+    case 'setDriverFanMode':
+      return `Mock: режим ${args.mode} сохранён`
     case 'setMainLightEnabled':
       return args.enabled ? 'Mock: main light on' : 'Mock: main light off'
     case 'setLightPreference':
@@ -153,6 +156,17 @@ function updateMockSnapshot(mutator: (snapshot: PrinterSnapshot) => void): void 
 
 function applyMockCommandEffect(args: ExecuteCommandArgs): void {
   switch (args.command) {
+    case 'setDriverMode':
+    case 'setDriverFanMode':
+      updateMockSnapshot(snapshot => {
+        const state = args.command === 'setDriverMode' ? snapshot.driverMode : snapshot.driverFanMode
+        if (state) {
+          state.mode = args.mode
+          state.state = 'ready'
+          if (args.command === 'setDriverMode') state.effectiveModes = { X: args.mode, Y: args.mode, Z: args.mode }
+        }
+      })
+      return
     case 'start':
       updateMockSnapshot((snapshot) => {
         snapshot.printJob = {
@@ -377,6 +391,8 @@ export function createMockSnapshot(): PrinterSnapshot {
     extruderTemp: 215,
     bedTemp: 58,
     modelFanPercent: 78,
+    driverMode: { supported: true, mode: 'normal', state: 'ready', availableModes: ['normal', 'quiet'], needsRestart: false, message: null },
+    driverFanMode: { supported: true, mode: 'normal', state: 'ready', availableModes: ['normal', 'quiet'], needsRestart: false, message: null },
     mainLightEnabled: false,
     lightPreferences: { onStartup: false, onPrintStart: true },
     updatedAt: nowIso(),
@@ -401,6 +417,8 @@ export function createMockSnapshot(): PrinterSnapshot {
       message: null,
     },
     capabilities: {
+      driverMode: true,
+      driverFanMode: true,
       lightingPreferences: true,
       print: true,
       motion: true,

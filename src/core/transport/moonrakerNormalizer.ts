@@ -26,6 +26,8 @@ import type {
   PrinterV2Snapshot,
 } from './types'
 import {
+  type DriverMode,
+  type DriverModeSnapshot,
   readPrinterEvent,
   getPrinterFileDirectoryFromPath,
   getPrinterFileNameFromPath,
@@ -470,6 +472,27 @@ function normalizeHeater(value: MoonrakerHeaterStatus | undefined): number {
 
 function normalizeFan(value: MoonrakerFanStatus | undefined): number {
   return clamp(toFiniteNumber(value?.speed, 0) * 100, 0, 100)
+}
+
+function normalizeDriverMode(value: unknown): DriverModeSnapshot {
+  const record = isRecord(value) ? value : {}
+  const isMode = (mode: unknown): mode is DriverMode => mode === 'normal' || mode === 'quiet'
+  const availableModes = Array.isArray(record.available_modes) ? record.available_modes.filter(isMode) : []
+  const mode = isMode(record.mode) ? record.mode : null
+  const state = record.state === 'ready' || record.state === 'applying' || record.state === 'fault'
+    ? record.state : 'unavailable'
+  const supported = record.contract_version === '1.0' && availableModes.includes('normal')
+    && state !== 'unavailable' && (state !== 'ready' || (mode !== null && availableModes.includes(mode)))
+  const percent = (raw: unknown): number | null => typeof raw === 'number' && Number.isFinite(raw)
+    && raw >= 0 && raw <= 1 ? Math.round(raw * 100) : null
+  const effective = isRecord(record.effective_modes) ? record.effective_modes : {}
+  return {
+    supported, mode: supported ? mode : null, state: supported ? state : 'unavailable',
+    availableModes: supported ? availableModes : [], needsRestart: record.needs_restart === true,
+    message: typeof record.message === 'string' ? record.message : null,
+    effectiveModes: Object.fromEntries(['X', 'Y', 'Z'].map((axis) => [axis, isMode(effective[axis]) ? effective[axis] : null])),
+    speedPercent: percent(record.speed), activePercent: percent(record.active_speed), idlePercent: percent(record.idle_speed),
+  }
 }
 
 function normalizeMainLight(status: MoonrakerPrinterObjectsStatus): boolean {
@@ -1281,6 +1304,19 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const uiContract = normalizeUiContract(macros)
   const filamentSensor = normalizeFilamentSensor(status, macros)
   const capabilities = normalizeCapabilities(macros, uiContract, filamentSensor)
+  const driverMode = normalizeDriverMode(status.treed_driver_mode)
+  const driverFanMode = normalizeDriverMode(status.treed_driver_fan_mode)
+  const driverContract = readMacro(macros.values, '_TREED_UI_CONTRACT')
+  if (driverContract?.capability_driver_mode !== undefined) {
+    capabilities.driverMode = uiContract.status === 'compatible' && driverMode.supported
+      && parseMacroBoolean(driverContract.capability_driver_mode) === true
+      && macros.available.includes('TREED_UI_SET_DRIVER_MODE')
+  }
+  if (driverContract?.capability_driver_fan_mode !== undefined) {
+    capabilities.driverFanMode = uiContract.status === 'compatible' && driverFanMode.supported
+      && parseMacroBoolean(driverContract.capability_driver_fan_mode) === true
+      && macros.available.includes('TREED_UI_SET_DRIVER_FAN_MODE')
+  }
   const homedAxes = typeof status.toolhead?.homed_axes === 'string' ? status.toolhead.homed_axes : ''
   const source = options.source ?? 'live'
   const revisionSource = options.revisionSource ?? (source === 'mock' ? 'mock' : 'http')
@@ -1319,6 +1355,8 @@ export function normalizeMoonrakerRuntimeSnapshot(
     extruderTemp: normalizeHeater(status.extruder),
     bedTemp: normalizeHeater(status.heater_bed),
     modelFanPercent: normalizeFan(status.fan),
+    driverMode,
+    driverFanMode,
     mainLightEnabled: normalizeMainLight(status),
     lightPreferences: {
       onStartup: parseMacroBoolean(status.save_variables?.variables?.light_on_startup) === true,
