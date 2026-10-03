@@ -3669,12 +3669,13 @@ body {
 
 .control-card-heating-keyboard {
   grid-template-rows: minmax(0, 1fr);
+  min-height: calc(5 * var(--control-height) + 6 * var(--space-xs) + 2 * var(--border-width));
   padding: var(--space-xs);
 }
 
 .print-temp-keyboard-side.is-control {
   height: 100%;
-  min-height: 0;
+  min-height: calc(5 * var(--control-height) + 4 * var(--space-xs));
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -3682,13 +3683,14 @@ body {
   box-shadow: none;
   gap: var(--space-xs);
   grid-template-columns: minmax(0, 1fr) var(--control-height);
-  grid-template-rows: var(--control-height) minmax(0, 1fr) var(--control-height);
+  /* Значение видно в поле температуры; здесь нужны четыре ряда и действия. */
+  grid-template-rows: minmax(calc(4 * var(--control-height) + 3 * var(--space-xs)), 1fr) var(--control-height);
   align-content: stretch;
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-head {
   grid-column: 2;
-  grid-row: 1;
+  grid-row: 2;
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-key {
@@ -3704,14 +3706,14 @@ body {
 .print-temp-keyboard-side.is-control .print-temp-keyboard-grid {
   min-height: 0;
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 1;
   grid-template-rows: repeat(4, minmax(var(--control-height), 1fr));
   gap: var(--space-xs);
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-submit {
-  grid-column: 1 / -1;
-  grid-row: 3;
+  grid-column: 1;
+  grid-row: 2;
   height: 100%;
   margin-top: 0;
   border-radius: 10px;
@@ -3725,13 +3727,7 @@ body {
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-display {
-  grid-column: 1;
-  grid-row: 1;
-  min-width: 0;
-  min-height: var(--control-height);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--color-surface-elevated) 84%, var(--color-block-surface));
-  font-size: 24px;
+  display: none;
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-key:nth-child(10),
