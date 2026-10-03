@@ -148,7 +148,7 @@ describe('settings controller helpers', () => {
     }))
 
     await waitFor(() => {
-      expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true)
+      expect(result.current.pageProps.updates.releaseResults).toBe(availableUpdateStatus.releaseResults)
     })
 
     await act(async () => {
@@ -157,7 +157,7 @@ describe('settings controller helpers', () => {
 
     expect(apply).toHaveBeenCalledWith(expect.objectContaining({
       targetId: 'printer-ui',
-      targetTag: 'ui-main-42-1',
+      targetTag: 'ui-main-16-1',
       requestId: expect.stringMatching(/^[0-9a-f-]{36}$/),
     }))
   })
