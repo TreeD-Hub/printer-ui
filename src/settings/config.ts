@@ -78,7 +78,7 @@ export const PRINTER_CORE_CURRENT_VERSION = '0.1.0'
 export const UPDATE_RELEASE_TARGETS: UpdateReleaseTarget[] = [
   {
     id: 'printer-ui',
-    label: 'TreeD Printer UI',
+    label: 'Интерфейс TreeD',
     currentVersion: PRINTER_UI_CURRENT_VERSION,
     releaseApiUrl: printerUiReleaseApiUrl,
     tagPrefix: 'ui-main-',
@@ -86,7 +86,7 @@ export const UPDATE_RELEASE_TARGETS: UpdateReleaseTarget[] = [
   },
   {
     id: 'printer-core',
-    label: 'TreeD Printer Core',
+    label: 'Система TreeD',
     currentVersion: PRINTER_CORE_CURRENT_VERSION,
     releaseApiUrl: printerCoreReleaseApiUrl,
     tagPrefix: 'v',

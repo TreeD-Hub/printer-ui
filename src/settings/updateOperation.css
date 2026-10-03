@@ -1,0 +1,162 @@
+.update-operation-screen {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  box-sizing: border-box;
+  padding: 24px 32px 40px;
+  display: grid;
+  grid-template-rows: 24px 1fr 24px;
+  overflow: hidden;
+  background: var(--color-update-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-ui);
+  outline: none;
+}
+
+.update-operation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+}
+
+.update-operation-version {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-soft);
+}
+
+.update-operation-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-evenly;
+  min-height: 0;
+  text-align: center;
+}
+
+.update-operation-logo {
+  display: block;
+  width: 500px;
+  height: auto;
+}
+
+.update-operation-status {
+  width: 100%;
+}
+
+.update-operation-screen h2 {
+  margin: 0;
+  font-size: var(--font-size-heading-large);
+  font-weight: var(--font-weight-regular);
+  line-height: 1.25;
+}
+
+.update-operation-detail {
+  max-width: 800px;
+  min-height: 24px;
+  max-height: 72px;
+  overflow-y: auto;
+  margin: 12px auto 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-body);
+  line-height: 24px;
+  overflow-wrap: anywhere;
+}
+
+.update-operation-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 56px;
+}
+
+.update-operation-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.update-operation-progress-track {
+  height: 16px;
+  overflow: hidden;
+  background: var(--color-border-subtle);
+}
+
+.update-operation-progress-track > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--color-text-primary);
+  transform-origin: left;
+  transition: transform 220ms ease-out;
+}
+
+.update-operation-progress-track.is-indeterminate::before {
+  content: '';
+  display: block;
+  width: 24%;
+  height: 100%;
+  background: var(--color-text-primary);
+  animation: update-operation-indeterminate 2s ease-in-out infinite;
+}
+
+.update-operation-percent {
+  position: absolute;
+  right: 32px;
+  bottom: 40px;
+  min-width: 4ch;
+  font-size: var(--font-size-body);
+  line-height: 24px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.update-operation-footer {
+  text-align: left;
+  color: var(--color-text-soft);
+  font-size: var(--font-size-small);
+  line-height: 24px;
+}
+
+.update-operation-dismiss {
+  min-width: 288px;
+  min-height: 56px;
+  padding: 0 24px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.update-operation-dismiss:active {
+  background: var(--color-control-active-surface);
+  border-color: var(--color-control-active-border);
+}
+
+.update-operation-dismiss:focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+@keyframes update-operation-indeterminate {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(420%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .update-operation-progress-track.is-indeterminate::before {
+    animation: none;
+    transform: translateX(160%);
+  }
+  .update-operation-progress-track > span { transition: none; }
+}

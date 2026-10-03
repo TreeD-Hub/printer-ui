@@ -18,6 +18,7 @@ export type UpdateReleaseResult = {
   status: UpdateReleaseStatus
   message: string
   canApply?: boolean
+  capability?: { supported: boolean; reasonCode: string | null; reason: string | null }
 }
 
 type GitHubRelease = {
@@ -158,15 +159,32 @@ export function createUnknownUpdateReleaseResults(
 export function createMockUpdateReleaseResults(
   targets: UpdateReleaseTarget[],
 ): UpdateReleaseResult[] {
-  return targets.map((target) => ({
-    id: target.id,
-    label: target.label,
-    currentVersion: target.currentVersion,
-    latestTag: null,
-    latestVersion: target.currentVersion,
-    status: 'mock',
-    message: 'Mock: GitHub Releases не проверяются.',
-  }))
+  return targets.map((target) => target.id === 'printer-ui'
+    ? {
+        id: target.id,
+        label: 'Интерфейс TreeD',
+        currentVersion: target.currentVersion,
+        latestTag: 'ui-main-42-1',
+        latestVersion: 'ui-main-42-1',
+        status: 'available',
+        message: 'Проверочный выпуск интерфейса доступен.',
+        canApply: true,
+      }
+    : {
+        id: target.id,
+        label: 'Система TreeD',
+        currentVersion: target.currentVersion,
+        latestTag: 'v0.2.0',
+        latestVersion: '0.2.0',
+        status: 'mock',
+        message: 'Системный выпуск доступен только на проверенной A/B-платформе.',
+        canApply: false,
+        capability: {
+          supported: false,
+          reasonCode: 'ab_platform_unverified',
+          reason: 'В текущей среде проверка системной A/B-платформы не выполняется.',
+        },
+      })
 }
 
 export function checkUpdateReleases(

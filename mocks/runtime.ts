@@ -4,7 +4,7 @@ import {
   type HostNetworkClient,
   type HostNetworkStatus,
 } from '../src/core/hostNetwork'
-import type { HostUpdateClient, HostUpdateStatus } from '../src/core/hostUpdate'
+import type { HostUpdateClient, HostUpdateOperation, HostUpdateStatus } from '../src/core/hostUpdate'
 import { TREED_V2_COREXY_V1_LIMITS, type PrinterCommandId } from '@treed/printer-logic'
 import type { PrinterSnapshot, PrinterSource, TransportClient } from '../src/core/transport/types'
 
@@ -20,30 +20,35 @@ const mockUpdateStatus: HostUpdateStatus = {
   available: true,
   busy: false,
   canApply: false,
-  message: 'Mock: GitHub Releases не проверяются.',
+  message: 'Проверочный выпуск интерфейса доступен.',
   targetId: null,
   targetTag: null,
   logPath: null,
   releaseResults: [
     {
       id: 'printer-ui',
-      label: 'TreeD Printer UI',
+      label: 'Интерфейс TreeD',
       currentVersion: '0.1.0',
-      latestTag: null,
-      latestVersion: '0.1.0',
-      status: 'mock',
-      message: 'Mock: GitHub Releases не проверяются.',
-      canApply: false,
+      latestTag: 'ui-main-42-1',
+      latestVersion: 'ui-main-42-1',
+      status: 'available',
+      message: 'Проверочный выпуск интерфейса доступен.',
+      canApply: true,
     },
     {
       id: 'printer-core',
-      label: 'TreeD Printer Core',
+      label: 'Система TreeD',
       currentVersion: '0.1.0',
       latestTag: null,
       latestVersion: '0.1.0',
       status: 'mock',
-      message: 'Mock: GitHub Releases не проверяются.',
+      message: 'Системное обновление доступно только на проверенной A/B-платформе.',
       canApply: false,
+      capability: {
+        supported: false,
+        reasonCode: 'ab_platform_unverified',
+        reason: 'A/B-платформа для системного выпуска не настроена.',
+      },
     },
   ],
 }
@@ -710,16 +715,112 @@ function cloneMockUpdateStatus(status: HostUpdateStatus): HostUpdateStatus {
   return {
     ...status,
     releaseResults: status.releaseResults.map((release) => ({ ...release })),
+    operation: status.operation ? { ...status.operation } : null,
+    latestOperation: status.latestOperation ? { ...status.latestOperation } : null,
   }
 }
 
 export function createHostUpdateClient(): HostUpdateClient {
+  let status = cloneMockUpdateStatus(mockUpdateStatus)
+  const requestedScenario = new URLSearchParams(globalThis.location?.search ?? '').get('mockUpdate')
+  const scenario = requestedScenario === 'rollback' || requestedScenario === 'error'
+    ? requestedScenario
+    : 'success'
+
+  const publishStage = (operation: HostUpdateOperation): void => {
+    const isTerminal = ['applied', 'error', 'rolled_back', 'rejected'].includes(operation.status)
+    const releaseResults = status.releaseResults.map((release) => {
+      if (operation.targetId !== release.id || operation.status !== 'applied' || !operation.targetTag) {
+        return release
+      }
+      return {
+        ...release,
+        currentVersion: operation.targetTag,
+        latestTag: operation.targetTag,
+        latestVersion: operation.targetTag,
+        status: 'latest' as const,
+        message: 'Установлена последняя версия.',
+        canApply: false,
+      }
+    })
+    status = {
+      ...status,
+      busy: !isTerminal,
+      canApply: releaseResults.some((release) => release.canApply === true),
+      message: operation.message,
+      releaseResults,
+      operation: { ...operation },
+      latestOperation: { ...operation },
+      history: ['applied', 'error', 'rolled_back', 'rejected'].includes(operation.status)
+        ? [...(status.history ?? []).filter((item) => item.operationId !== operation.operationId), { ...operation }].slice(-10)
+        : status.history ?? [],
+      targetId: operation.targetId,
+      targetTag: operation.targetTag,
+    }
+  }
+
   return {
-    getStatus: () => Promise.resolve(cloneMockUpdateStatus(mockUpdateStatus)),
-    check: () => Promise.resolve(cloneMockUpdateStatus(mockUpdateStatus)),
-    apply: () => Promise.resolve({
-      ...cloneMockUpdateStatus(mockUpdateStatus),
-      message: 'Mock: системное обновление не запускается.',
-    }),
+    getStatus: () => Promise.resolve(cloneMockUpdateStatus(status)),
+    check: () => Promise.resolve(cloneMockUpdateStatus(status)),
+    apply: ({ targetId, targetTag, requestId }) => {
+      if (requestId && status.operation?.requestId === requestId) {
+        return Promise.resolve(cloneMockUpdateStatus(status))
+      }
+      if (status.busy && status.operation !== null && status.operation !== undefined) {
+        return Promise.resolve(cloneMockUpdateStatus(status))
+      }
+      const opId = `mock-${Date.now()}`
+      const base: HostUpdateOperation = {
+        operationId: opId,
+        requestId: requestId ?? opId,
+        status: 'queued',
+        phase: 'queued',
+        progress: 0,
+        resultCode: null,
+        message: 'Обновление принято. Не выключайте принтер.',
+        targetId,
+        targetTag: targetTag ?? null,
+        startedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        finishedAt: null,
+      }
+      const stages: Array<Pick<HostUpdateOperation, 'phase' | 'progress' | 'message'>> = [
+        { phase: 'validating', progress: 8, message: 'Проверка подписи и совместимости пакета.' },
+        { phase: 'downloading', progress: 32, message: 'Пакет загружен и проверен.' },
+        { phase: 'installing', progress: 64, message: 'Запись новой версии в неактивный слот.' },
+        { phase: 'restarting', progress: 82, message: 'Перезапуск для проверки новой версии.' },
+        { phase: 'verifying', progress: 94, message: 'Проверка служб и готовности принтера.' },
+        ...(scenario === 'rollback'
+          ? [{ phase: 'rolling_back' as const, progress: null, message: 'Проверка не пройдена. Восстанавливаем предыдущую версию.' }]
+          : []),
+        scenario === 'rollback'
+          ? { phase: 'complete', progress: null, message: 'Предыдущая версия восстановлена.' }
+          : scenario === 'error'
+            ? { phase: 'complete', progress: null, message: 'Проверка не пройдена. Предыдущая версия остаётся активной.' }
+            : { phase: 'complete', progress: 100, message: 'Новая версия работает. Проверка завершена.' },
+      ]
+      publishStage(base)
+      let index = 0
+      const advance = (): void => {
+        const stage = stages[index]
+        if (!stage) return
+        const terminal = index === stages.length - 1
+        const rolledBack = terminal && scenario === 'rollback'
+        const operation: HostUpdateOperation = {
+          ...base,
+          ...stage,
+          phase: terminal ? 'complete' : stage.phase,
+          status: terminal ? rolledBack ? 'rolled_back' : scenario === 'error' ? 'error' : 'applied' : 'running',
+          resultCode: terminal ? rolledBack || scenario === 'error' ? 'MOCK_HEALTH_CHECK_FAILED' : 'MOCK_APPLIED' : null,
+          finishedAt: terminal ? new Date().toISOString() : null,
+          updatedAt: new Date().toISOString(),
+        }
+        publishStage(operation)
+        index += 1
+        if (!terminal) setTimeout(advance, 1100)
+      }
+      setTimeout(advance, 700)
+      return Promise.resolve(cloneMockUpdateStatus(status))
+    },
   }
 }

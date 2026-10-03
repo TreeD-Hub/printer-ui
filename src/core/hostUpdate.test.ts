@@ -64,7 +64,14 @@ describe('Moonraker host update client', () => {
         busy: true,
         canApply: false,
         message: 'queued',
+        accepted: true,
+        operationId: 'operation-1',
+        requestId: 'request-1',
+        status: 'queued',
+        phase: 'queued',
+        progress: 0,
         targetTag: 'v0.2.0',
+        targetId: 'printer-core',
         logPath: '/tmp/treed-update-apply.log',
         releaseResults: [],
       }))
@@ -80,7 +87,7 @@ describe('Moonraker host update client', () => {
       releaseResults: [
         expect.objectContaining({
           id: 'printer-core',
-          label: 'TreeD Printer Core',
+          label: 'Система TreeD',
           latestTag: 'v0.2.0',
           canApply: true,
         }),
@@ -90,14 +97,60 @@ describe('Moonraker host update client', () => {
     await expect(client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0' })).resolves.toMatchObject({
       busy: true,
       targetTag: 'v0.2.0',
+      operation: {
+        operationId: 'operation-1',
+        status: 'queued',
+        phase: 'queued',
+        progress: 0,
+      },
     })
     expect(fetchImpl).toHaveBeenLastCalledWith(
       'http://moonraker.local/server/treed/update/apply',
       expect.objectContaining({
-        body: JSON.stringify({ targetId: 'printer-core', targetTag: 'v0.2.0' }),
+        body: expect.stringMatching(/^\{"requestId":"[^"]+","targetId":"printer-core","targetTag":"v0.2.0"\}$/),
         method: 'POST',
       }),
     )
+  })
+
+  it('restores a durable in-progress operation and its history after reconnect', async () => {
+    const client = createMoonrakerHostUpdateClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: vi.fn().mockResolvedValue(jsonResponse({
+        available: true,
+        busy: true,
+        canApply: false,
+        message: 'Запись новой версии.',
+        operation: {
+          operationId: 'operation-2',
+          requestId: 'request-2',
+          status: 'installing',
+          phase: 'installing',
+          progress: null,
+          resultCode: null,
+          message: 'Запись новой версии.',
+          targetId: 'printer-ui',
+          targetTag: 'ui-main-42-1',
+        },
+        latestOperation: null,
+        history: [{
+          operationId: 'operation-1',
+          requestId: 'request-1',
+          status: 'rolled_back',
+          phase: 'complete',
+          message: 'Предыдущая версия восстановлена.',
+          targetId: 'printer-ui',
+          targetTag: 'ui-main-41-1',
+        }],
+        releaseResults: [],
+      })),
+    })
+
+    await expect(client.getStatus()).resolves.toMatchObject({
+      busy: true,
+      operation: { operationId: 'operation-2', status: 'installing', progress: null },
+      history: [{ operationId: 'operation-1', status: 'rolled_back' }],
+    })
   })
 
   it('aborts status and check requests after 30 seconds', async () => {
@@ -153,7 +206,7 @@ describe('Moonraker host update client', () => {
       expect(fetchImpl).toHaveBeenCalledWith(
         'http://moonraker.local/server/treed/update/apply',
         expect.objectContaining({
-          body: JSON.stringify({ targetId: 'printer-core', targetTag: 'v0.2.0' }),
+        body: expect.stringMatching(/^\{"requestId":"[^"]+","targetId":"printer-core","targetTag":"v0.2.0"\}$/),
           headers: { 'content-type': 'application/json' },
           method: 'POST',
           signal: expect.any(AbortSignal),

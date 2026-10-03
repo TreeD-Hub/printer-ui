@@ -6,6 +6,7 @@
 
 - `logo_treeD-28.svg` - фирменный знак с текстовой частью.
 - `logo_treeD_mark.svg` - отдельный знак TreeD для dot-matrix/idle-сценариев.
+- `treed-watermark.png` - копия действующего Plymouth watermark TreeD для полноэкранного состояния обновления.
 - `react.svg` - стандартный Vite asset, не является частью production UI contract.
 - `icons/` - SVG-иконки, подключаемые через `src/ui/iconAssets.ts`.
 

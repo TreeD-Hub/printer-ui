@@ -2,6 +2,27 @@ import { moonrakerUrl } from '../config'
 
 type HostUpdateReleaseStatus = 'unknown' | 'latest' | 'available' | 'error' | 'mock'
 export type HostUpdateTargetId = 'printer-ui' | 'printer-core'
+export type HostUpdateOperationStatus =
+  | 'queued' | 'running' | 'validating' | 'downloading' | 'installing' | 'restarting'
+  | 'verifying' | 'rolling_back' | 'complete' | 'applied' | 'error' | 'rolled_back' | 'rejected' | 'busy'
+export type HostUpdateOperationPhase =
+  | 'queued' | 'validating' | 'downloading' | 'installing' | 'restarting'
+  | 'verifying' | 'rolling_back' | 'complete' | 'unknown'
+
+export type HostUpdateOperation = {
+  operationId: string | null
+  requestId: string | null
+  status: HostUpdateOperationStatus
+  phase: HostUpdateOperationPhase
+  progress: number | null
+  resultCode: string | null
+  message: string
+  targetId: HostUpdateTargetId | null
+  targetTag: string | null
+  startedAt: string | null
+  updatedAt: string | null
+  finishedAt: string | null
+}
 
 export type HostUpdateReleaseResult = {
   id: string
@@ -12,6 +33,7 @@ export type HostUpdateReleaseResult = {
   status: HostUpdateReleaseStatus
   message: string
   canApply?: boolean
+  capability?: { supported: boolean; reasonCode: string | null; reason: string | null }
 }
 
 export type HostUpdateStatus = {
@@ -23,11 +45,15 @@ export type HostUpdateStatus = {
   targetTag: string | null
   logPath: string | null
   releaseResults: HostUpdateReleaseResult[]
+  operation?: HostUpdateOperation | null
+  latestOperation?: HostUpdateOperation | null
+  history?: HostUpdateOperation[]
 }
 
 export type HostUpdateApplyArgs = {
   targetId: HostUpdateTargetId
   targetTag?: string | null
+  requestId?: string
 }
 
 export type HostUpdateClient = {
@@ -61,8 +87,8 @@ const HOST_UPDATE_TARGET_ALIASES: Record<string, HostUpdateTargetId> = {
   'treed-mainshellos': 'printer-core',
 }
 const HOST_UPDATE_TARGET_LABELS: Record<HostUpdateTargetId, string> = {
-  'printer-ui': 'TreeD Printer UI',
-  'printer-core': 'TreeD Printer Core',
+  'printer-ui': 'Интерфейс TreeD',
+  'printer-core': 'Система TreeD',
 }
 
 function readString(value: unknown, fallback: string): string {
@@ -120,6 +146,13 @@ function normalizeReleaseResult(value: unknown): HostUpdateReleaseResult | null 
     status,
     message: readString(record.message, 'Нет данных.'),
     canApply: record.canApply === true,
+    capability: typeof record.capability === 'object' && record.capability !== null
+      ? {
+          supported: (record.capability as Record<string, unknown>).supported === true,
+          reasonCode: readNullableString((record.capability as Record<string, unknown>).reasonCode),
+          reason: readNullableString((record.capability as Record<string, unknown>).reason),
+        }
+      : undefined,
   }
 }
 
@@ -132,16 +165,57 @@ function normalizeHostUpdateStatus(value: unknown): HostUpdateStatus {
   const releaseResults = Array.isArray(record.releaseResults)
     ? record.releaseResults.map(normalizeReleaseResult).filter((item): item is HostUpdateReleaseResult => item !== null)
     : []
+  const operation = normalizeHostUpdateOperation(record.operation) ?? normalizeHostUpdateOperation(record)
+  const latestOperation = normalizeHostUpdateOperation(record.latestOperation)
+  const history = Array.isArray(record.history)
+    ? record.history.map(normalizeHostUpdateOperation).filter((item): item is HostUpdateOperation => item !== null)
+    : []
+  const operationIsActive = operation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(operation.status)
 
   return {
     available: record.available === true,
-    busy: record.busy === true,
+    busy: record.busy === true || operationIsActive,
     canApply: record.canApply === true,
-    message: readString(record.message, 'Update status ready.'),
-    targetId: readTargetId(record.targetId),
-    targetTag: readNullableString(record.targetTag),
+    message: readString(record.message, 'Состояние обновлений получено.'),
+    targetId: readTargetId(record.targetId) ?? operation?.targetId ?? null,
+    targetTag: readNullableString(record.targetTag) ?? operation?.targetTag ?? null,
     logPath: readNullableString(record.logPath),
     releaseResults,
+    operation,
+    latestOperation,
+    history,
+  }
+}
+
+function normalizeHostUpdateOperation(value: unknown): HostUpdateOperation | null {
+  if (typeof value !== 'object' || value === null) return null
+  const record = value as Record<string, unknown>
+  const status = record.status
+  const phase = record.phase
+  const validStatuses: HostUpdateOperationStatus[] = [
+    'queued', 'running', 'validating', 'downloading', 'installing', 'restarting',
+    'verifying', 'rolling_back', 'complete', 'applied', 'error', 'rolled_back', 'rejected', 'busy',
+  ]
+  const validPhases: HostUpdateOperationPhase[] = ['queued', 'validating', 'downloading', 'installing', 'restarting', 'verifying', 'rolling_back', 'complete', 'unknown']
+  if (typeof status !== 'string' || !validStatuses.includes(status as HostUpdateOperationStatus)) return null
+  const numericProgress = typeof record.progress === 'number' && Number.isFinite(record.progress)
+    ? Math.max(0, Math.min(100, record.progress))
+    : null
+  return {
+    operationId: readNullableString(record.operationId),
+    requestId: readNullableString(record.requestId),
+    status: status as HostUpdateOperationStatus,
+    phase: typeof phase === 'string' && validPhases.includes(phase as HostUpdateOperationPhase)
+      ? phase as HostUpdateOperationPhase
+      : 'unknown',
+    progress: numericProgress,
+    resultCode: readNullableString(record.resultCode),
+    message: readString(record.message, 'Состояние операции получено.'),
+    targetId: readTargetId(record.targetId),
+    targetTag: readNullableString(record.targetTag),
+    startedAt: readNullableString(record.startedAt),
+    updatedAt: readNullableString(record.updatedAt),
+    finishedAt: readNullableString(record.finishedAt),
   }
 }
 
@@ -214,6 +288,18 @@ export function isMoonrakerHostUpdateEndpointUnavailable(error: unknown): boolea
   )
 }
 
+export function getHostUpdateErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof MoonrakerHostUpdateError) {
+    if (error.status === 408) return 'Служба обновлений не ответила вовремя. Проверяем состояние операции.'
+    if (error.status >= 500) return 'Служба обновлений сообщила об ошибке. Повторите попытку позже.'
+    if (error.status === 404 || error.status === 501) return 'Служба обновлений недоступна на этом принтере.'
+  }
+  if (error instanceof TypeError && /fetch/i.test(error.message)) {
+    return 'Нет связи со службой обновлений. Проверьте соединение с принтером.'
+  }
+  return fallback
+}
+
 export function createMoonrakerHostUpdateClient(
   options: MoonrakerHostUpdateClientOptions = {},
 ): HostUpdateClient {
@@ -240,10 +326,11 @@ export function createMoonrakerHostUpdateClient(
       )
     },
     apply(args) {
+      const requestId = args.requestId ?? globalThis.crypto.randomUUID()
       return requestHostUpdateStatus(
         '/server/treed/update/apply',
         {
-          body: JSON.stringify({ targetId: args.targetId, targetTag: args.targetTag ?? null }),
+          body: JSON.stringify({ requestId, targetId: args.targetId, targetTag: args.targetTag ?? null }),
           headers: { 'content-type': 'application/json' },
           method: 'POST',
         },
