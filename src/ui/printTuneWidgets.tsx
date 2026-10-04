@@ -117,6 +117,7 @@ type TemperatureTrendSeries = {
 type TemperatureTrendChartProps = {
   series: TemperatureTrendSeries[]
   testId?: string
+  height?: number
 }
 
 type TuneCompactStepperInputProps = {
@@ -161,8 +162,9 @@ function buildPolylinePoints(
   max: number,
   minTime: number,
   maxTime: number,
+  height: number,
 ): string {
-  const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom
+  const plotHeight = height - CHART_PADDING.top - CHART_PADDING.bottom
   const safeRange = Math.max(1, max - min)
 
   return points
@@ -180,9 +182,10 @@ function buildAreaPoints(
   max: number,
   minTime: number,
   maxTime: number,
+  height: number,
 ): string {
-  const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom
-  const polylinePoints = buildPolylinePoints(points, min, max, minTime, maxTime)
+  const plotHeight = height - CHART_PADDING.top - CHART_PADDING.bottom
+  const polylinePoints = buildPolylinePoints(points, min, max, minTime, maxTime, height)
   const firstX = resolveChartX(points[0]?.timestamp ?? minTime, minTime, maxTime)
   const lastX = resolveChartX(points.at(-1)?.timestamp ?? maxTime, minTime, maxTime)
   const bottomY = CHART_PADDING.top + plotHeight
@@ -325,7 +328,7 @@ export function TuneCompactStepperInput({
   )
 }
 
-export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartProps) {
+export function TemperatureTrendChart({ series, testId, height = CHART_HEIGHT }: TemperatureTrendChartProps) {
   const normalizedSeries = series.filter((item) => item.points.length > 0)
   const allPoints = normalizedSeries.flatMap((item) => item.points)
   const allValues = allPoints.flatMap((point) => point.target > 0
@@ -337,7 +340,7 @@ export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartP
   const minValue = yTicks[0] ?? 0
   const maxValue = yTicks[yTicks.length - 1] ?? 100
   const plotWidth = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right
-  const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom
+  const plotHeight = height - CHART_PADDING.top - CHART_PADDING.bottom
   const minTime = allPoints.length > 0 ? Math.min(...allPoints.map((point) => point.timestamp)) : 0
   const maxTime = allPoints.length > 0 ? Math.max(...allPoints.map((point) => point.timestamp)) : minTime
   const timeTicks = buildTimeTickLabels(minTime, maxTime)
@@ -348,7 +351,7 @@ export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartP
 
   return (
     <section className="print-temp-chart" data-testid={testId}>
-      <svg className="print-temp-chart-svg" viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} preserveAspectRatio="none">
+      <svg className="print-temp-chart-svg" viewBox={`0 0 ${CHART_WIDTH} ${height}`} preserveAspectRatio={height === CHART_HEIGHT ? 'none' : 'xMidYMid meet'}>
         <rect
           x={CHART_PADDING.left}
           y={CHART_PADDING.top}
@@ -396,7 +399,7 @@ export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartP
               />
               <text
                 x={x}
-                y={CHART_HEIGHT - 6}
+                y={height - 6}
                 className="print-temp-chart-time-label"
                 textAnchor={textAnchor}
               >
@@ -413,11 +416,11 @@ export function TemperatureTrendChart({ series, testId }: TemperatureTrendChartP
           return (
             <g key={item.id}>
               <polygon
-                points={buildAreaPoints(item.points, minValue, maxValue, minTime, maxTime)}
+                points={buildAreaPoints(item.points, minValue, maxValue, minTime, maxTime, height)}
                 className={joinClassNames('print-temp-chart-area', toneClassName)}
               />
               <polyline
-                points={buildPolylinePoints(item.points, minValue, maxValue, minTime, maxTime)}
+                points={buildPolylinePoints(item.points, minValue, maxValue, minTime, maxTime, height)}
                 className={joinClassNames('print-temp-chart-line', toneClassName)}
                 data-testid={`chart-current-${item.id}`}
               />
