@@ -3,6 +3,22 @@ import { normalizeMoonrakerRuntimeSnapshot } from './moonrakerNormalizer'
 import { createMoonrakerCommandClient } from '../commands/moonrakerCommandClient'
 
 describe('Контракт режимов драйверов', () => {
+ it('получает мощность и причину нагрузки, округляет границы внутрь диапазона', () => {
+  const snapshot = normalizeMoonrakerRuntimeSnapshot({status: {
+   treed_driver_fan_mode: {contract_version: '1.0', mode: 'normal', state: 'ready', available_modes: ['normal'],
+    power_control: true, min_power: .805, max_power: .995, active_speed: .9, speed: 0., load_reason: 'manual_delay'},
+  }})
+  expect(snapshot.driverFanMode).toMatchObject({powerControlSupported: true, minPowerPercent: 81,
+   maxPowerPercent: 99, activePercent: 90, speedPercent: 0, loadReason: 'manual_delay'})
+ })
+ it('отправляет POWER и отклоняет нечисловую мощность до запроса', async () => {
+  const fetchMock = vi.fn().mockResolvedValue({ok: true, json: async () => ({result: 'ok'})})
+  const client = createMoonrakerCommandClient({moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock})
+  await client.execute({command: 'setDriverFanMode', mode: 'normal', percent: 90})
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body).script).toBe('TREED_UI_SET_DRIVER_FAN_MODE MODE=normal POWER=90')
+  await expect(client.execute({command: 'setDriverFanMode', mode: 'normal', percent: NaN})).rejects.toThrow('Мощность')
+  expect(fetchMock).toHaveBeenCalledTimes(1)
+ })
  it('старый core не получает новые возможности', () => {
   const snapshot = normalizeMoonrakerRuntimeSnapshot({status: {}})
   expect(snapshot.capabilities.driverMode).toBeUndefined()

@@ -12,7 +12,7 @@ export type DriverControlsProps = {
   isRestarting?: boolean
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   getLastCommandError: () => string
-  onApply: (command: ModeCommand, mode: DriverMode) => Promise<boolean>
+  onApply: (command: ModeCommand, mode: DriverMode, percent?: number) => Promise<boolean>
   onRestart: () => Promise<boolean>
 }
 
@@ -29,13 +29,24 @@ export function DriverModeControlPanel({ controls, kind }: {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const dialogStatusRef = useRef<DriverModeSnapshot | null>(null)
   const [target, setTarget] = useState<DriverMode | null>(null)
+  const [targetPower, setTargetPower] = useState<number | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [awaiting, setAwaiting] = useState(false)
   const [error, setError] = useState('')
   const pending = Boolean(controls.pendingCommands[domain] || controls.pendingCommands.system || controls.pendingCommands.critical || controls.isRestarting)
   const busy = submitting || awaiting || pending
-  const reason = target ? controls.getCommandBlockReason(command, { command, mode: target }) : null
+  const reason = target ? controls.getCommandBlockReason(command, command === 'setDriverFanMode'
+    ? { command, mode: target, percent: targetPower ?? undefined } : { command, mode: target }) : null
   const dialogStatus = status?.supported ? status : dialogStatusRef.current
+  const minPower = status?.minPowerPercent ?? 100
+  const maxPower = status?.maxPowerPercent ?? 100
+  const powerEditable = kind === 'fan' && status?.powerControlSupported === true && minPower < maxPower
+  const loadLabel: Record<string, string> = {
+    idle: 'Нет нагрузки', manual_delay: 'Короткое ручное перемещение', motor_timeout: 'Длительное включение XYZ',
+    preparing: 'Подготовка печати', printing: 'Печать', paused: 'Удержание на паузе',
+    calibrating: 'Калибровка', auto_remove: 'Автосъём', cooldown: 'Охлаждение после нагрузки',
+    unknown_state: 'Защитный обдув',
+  }
 
   useEffect(() => {
     // Контекст окна переживает очистку snapshot при shutdown, но не разрешает применение.
@@ -44,7 +55,8 @@ export function DriverModeControlPanel({ controls, kind }: {
 
   useEffect(() => {
     if (!awaiting || submitting || pending) return
-    if (status?.state === 'ready' && status.mode === target) {
+    if (status?.state === 'ready' && status.mode === target
+      && (targetPower === null || status.activePercent === targetPower)) {
       setAwaiting(false)
       setTarget(null)
       setError('')
@@ -52,7 +64,7 @@ export function DriverModeControlPanel({ controls, kind }: {
       setAwaiting(false)
       setError(controls.getLastCommandError() || status?.message || 'Ошибка применения режима.')
     }
-  }, [awaiting, submitting, pending, status, target, controls])
+  }, [awaiting, submitting, pending, status, target, targetPower, controls])
 
   useEffect(() => {
     if (!awaiting) return
@@ -76,7 +88,8 @@ export function DriverModeControlPanel({ controls, kind }: {
     setSubmitting(true)
     setError('')
     try {
-      const accepted = await controls.onApply(command, target)
+      const accepted = targetPower === null ? await controls.onApply(command, target)
+        : await controls.onApply(command, target, targetPower)
       if (accepted) setAwaiting(true)
       else setError(controls.getLastCommandError() || 'Не удалось применить режим.')
     } catch (failure) {
@@ -100,20 +113,32 @@ export function DriverModeControlPanel({ controls, kind }: {
 
   return <>
     {status?.supported && <section className="control-card driver-mode-card" aria-label={title}>
-    <div><strong>{title}</strong><p>Режим: {status.mode === 'quiet' ? 'тихий' : status.mode === 'normal' ? 'громкий' : 'неизвестен'}</p></div>
+    <div><strong>{title}</strong><p>Режим: {status.mode === 'quiet' ? 'тихий' : status.mode === 'normal' ? (kind === 'fan' ? 'обычный' : 'громкий') : 'неизвестен'}</p>
+      {kind === 'fan' && <>
+        <p>Сейчас: {status.speedPercent ?? '—'}% · При нагрузке: {status.activePercent ?? '—'}%</p>
+        {status.loadReason && <p>{loadLabel[status.loadReason] ?? 'Состояние нагрузки неизвестно'}</p>}
+      </>}
+    </div>
     <div className="driver-mode-actions">
       {(['quiet', 'normal'] as const).map(mode => <button key={mode} type="button" className="control-driver-mode-btn"
         aria-pressed={status.mode === mode} disabled={busy || status.mode === mode}
-        onClick={event => { triggerRef.current = event.currentTarget; dialogStatusRef.current = status; setTarget(mode); setError('') }}>
-        {mode === 'quiet' ? 'Тихий' : 'Громкий'}
+        onClick={event => { triggerRef.current = event.currentTarget; dialogStatusRef.current = status; setTargetPower(null); setTarget(mode); setError('') }}>
+        {mode === 'quiet' ? 'Тихий' : kind === 'fan' ? 'Обычный' : 'Громкий'}
       </button>)}
+      {kind === 'fan' && status.powerControlSupported && <button type="button" disabled={busy || !powerEditable || status.state !== 'ready'}
+        onClick={event => {
+          triggerRef.current = event.currentTarget; dialogStatusRef.current = status
+          setTargetPower(Math.max(minPower, Math.min(maxPower, status.activePercent ?? maxPower)))
+          setTarget(status.mode ?? 'normal'); setError('')
+        }}>Мощность</button>}
     </div>
+    {kind === 'fan' && status.powerControlSupported && !powerEditable && <p className="driver-mode-hint">Снижение мощности доступно после проверки тихого профиля.</p>}
     {status.state === 'fault' && <p role="alert">{status.message}</p>}
     </section>}
     {target && createPortal(<div className="driver-mode-overlay" onKeyDown={event => {
       if (event.key === 'Escape' && !busy) setTarget(null)
       if (event.key === 'Tab') {
-        const buttons = dialogRef.current?.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')
+        const buttons = dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)')
         if (!buttons?.length) { event.preventDefault(); return }
         const first = buttons[0], last = buttons[buttons.length - 1]
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
@@ -121,10 +146,22 @@ export function DriverModeControlPanel({ controls, kind }: {
       }
     }}>
       <section ref={dialogRef} className="driver-mode-dialog" role="dialog" aria-modal="true" aria-labelledby={headingId}>
-        <h2 id={headingId}>{title}: {target === 'quiet' ? 'тихий' : 'громкий'} режим</h2>
+        <h2 id={headingId}>{targetPower === null ? `${title}: ${target === 'quiet' ? 'тихий' : kind === 'fan' ? 'обычный' : 'громкий'} режим` : 'Мощность обдува при нагрузке'}</h2>
         <p>{kind === 'drivers'
           ? 'Изменится режим XYZ. Экструдер не затрагивается. Переключение доступно после завершения движения и печати.'
-          : 'Изменится профиль скорости. Автоматическое включение и задержка выключения сохранятся.'}</p>
+          : 'Обдув включается при нагрузке или длительном удержании XYZ. После нагрузки вентилятор продолжает охлаждать драйверы.'}</p>
+        {targetPower !== null && <div className="driver-fan-power-editor">
+          <label htmlFor={`${headingId}-power`}>Мощность при нагрузке: {targetPower}%</label>
+          <div>
+            <button type="button" aria-label="Уменьшить мощность обдува" disabled={busy || !powerEditable || targetPower <= minPower}
+              onClick={() => setTargetPower(Math.max(minPower, targetPower - 5))}>−</button>
+            <input id={`${headingId}-power`} type="range" min={minPower} max={maxPower} step={1}
+              value={targetPower} disabled={busy || !powerEditable} onChange={event => setTargetPower(Number(event.target.value))} />
+            <button type="button" aria-label="Увеличить мощность обдува" disabled={busy || !powerEditable || targetPower >= maxPower}
+              onClick={() => setTargetPower(Math.min(maxPower, targetPower + 5))}>+</button>
+          </div>
+          <p>Проверенный диапазон: {minPower}–{maxPower}%. Настройка не включает вентилятор без нагрузки.</p>
+        </div>}
         <p>Настройка сохранится. Обычно применяется без перезапуска Klipper.</p>
         {(error || dialogStatus?.message || reason) && <p role="alert">{error || dialogStatus?.message || reason}</p>}
         {!status?.supported && <p role="status">Текущее состояние принтера недоступно. Выбранный режим сохранён в окне; применение заблокировано до восстановления состояния.</p>}

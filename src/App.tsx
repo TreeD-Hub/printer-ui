@@ -881,9 +881,9 @@ function App() {
               isRestarting: systemTransitionCommand !== null,
               getCommandBlockReason,
               getLastCommandError,
-              onApply: async (command, mode) => {
+              onApply: async (command, mode, percent) => {
                 try {
-                  return await executeCommand({ command, mode })
+                  return await executeCommand(command === 'setDriverFanMode' ? { command, mode, percent } : { command, mode })
                 } finally {
                   // После отказа обновление возвращает fault/needs_restart, потерянные в shutdown snapshot.
                   await refreshRuntime()

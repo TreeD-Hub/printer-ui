@@ -17,6 +17,19 @@ function context(): TreeDCommandRuntimeContext {
 }
 
 describe('Допуск и ожидание режимов', () => {
+ it('держит команду мощности pending до подтверждения мощности', async () => {
+  runtime.execute.mockReset()
+  runtime.execute.mockResolvedValue({command: 'setDriverFanMode', ok: true, status: 'accepted', message: 'ok', at: new Date().toISOString()})
+  const initial = context()
+  initial.driverFanMode = {...initial.driverFanMode!, powerControlSupported: true, minPowerPercent: 80, maxPowerPercent: 100, activePercent: 100}
+  const hook = renderHook(({state}) => usePrinterCommands(state), {initialProps: {state: initial}})
+  await act(async () => { expect(await hook.result.current.executeCommand({command: 'setDriverFanMode', mode: 'normal', percent: 90})).toBe(true) })
+  expect(hook.result.current.pendingCommands.fan).toBe('setDriverFanMode')
+  hook.rerender({state: {...initial, driverFanMode: {...initial.driverFanMode!, activePercent: 90}}})
+  expect(hook.result.current.pendingCommands.fan).toBeUndefined()
+  hook.unmount()
+  runtime.execute.mockReset()
+ })
  it('блокирует XYZ во время печати, разрешает автоматический профиль обдува', () => {
   const state = {...context(), printJob: {state: 'printing'}}
   expect(getTreeDCommandBlockReason('setDriverMode', state, {command: 'setDriverMode', mode: 'quiet'})).not.toBeNull()

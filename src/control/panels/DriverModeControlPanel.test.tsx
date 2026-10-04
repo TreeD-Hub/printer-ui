@@ -10,6 +10,28 @@ function fixture(): DriverControlsProps {
  }
 }
 describe('Подтверждение режима драйверов', () => {
+ it('отправляет мощность и ждёт подтверждения значения, даже если режим не меняется', async () => {
+  const controls = fixture()
+  controls.fanMode = {...controls.mode!, powerControlSupported: true, minPowerPercent: 80, maxPowerPercent: 100,
+   activePercent: 100, speedPercent: 0, loadReason: 'manual_delay'}
+  const view = render(<DriverModeControlPanel controls={controls} kind="fan" />)
+  expect(screen.getByText('Короткое ручное перемещение')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', {name: 'Мощность'}))
+  fireEvent.change(screen.getByRole('slider'), {target: {value: '90'}})
+  fireEvent.click(screen.getByRole('button', {name: 'Применить'}))
+  await waitFor(() => expect(controls.onApply).toHaveBeenCalledWith('setDriverFanMode', 'normal', 90))
+  expect(screen.getByRole('dialog')).toBeInTheDocument()
+  view.rerender(<DriverModeControlPanel controls={{...controls, fanMode: {...controls.fanMode, activePercent: 90}}} kind="fan" />)
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+ })
+ it('не предлагает снижение мощности без аппаратно проверенного диапазона', () => {
+  const controls = fixture()
+  controls.fanMode = {...controls.mode!, availableModes: ['normal'], powerControlSupported: true,
+   minPowerPercent: 100, maxPowerPercent: 100, activePercent: 100}
+  render(<DriverModeControlPanel controls={controls} kind="fan" />)
+  expect(screen.getByRole('button', {name: 'Мощность'})).toBeDisabled()
+  expect(screen.getByText('Снижение мощности доступно после проверки тихого профиля.')).toBeInTheDocument()
+ })
  it('отмена не посылает команду', () => {
   const controls = fixture()
   render(<DriverModeControlPanel controls={controls} kind="drivers" />)

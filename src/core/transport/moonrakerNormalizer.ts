@@ -496,6 +496,11 @@ function normalizeDriverMode(value: unknown): DriverModeSnapshot {
     message: typeof record.message === 'string' ? record.message : null,
     effectiveModes: Object.fromEntries(['X', 'Y', 'Z'].map((axis) => [axis, isMode(effective[axis]) ? effective[axis] : null])),
     speedPercent: percent(record.speed), activePercent: percent(record.active_speed), idlePercent: percent(record.idle_speed),
+    powerControlSupported: record.power_control === true && percent(record.min_power) !== null
+      && percent(record.max_power) !== null && (record.min_power as number) <= (record.max_power as number),
+    minPowerPercent: percent(record.min_power) === null ? null : Math.ceil((record.min_power as number) * 100),
+    maxPowerPercent: percent(record.max_power) === null ? null : Math.floor((record.max_power as number) * 100),
+    loadReason: typeof record.load_reason === 'string' ? record.load_reason : null,
   }
 }
 

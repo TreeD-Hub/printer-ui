@@ -176,6 +176,10 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
           state.mode = args.mode
           state.state = 'ready'
           if (args.command === 'setDriverMode') state.effectiveModes = { X: args.mode, Y: args.mode, Z: args.mode }
+          else {
+            state.activePercent = args.percent ?? (args.mode === 'quiet' ? 80 : 100)
+            state.idlePercent = args.mode === 'quiet' ? 40 : 50
+          }
         }
       })
       return
@@ -404,7 +408,9 @@ export function createMockSnapshot(): PrinterSnapshot {
     bedTemp: 58,
     modelFanPercent: 78,
     driverMode: { supported: true, mode: 'normal', state: 'ready', availableModes: ['normal', 'quiet'], needsRestart: false, message: null },
-    driverFanMode: { supported: true, mode: 'normal', state: 'ready', availableModes: ['normal', 'quiet'], needsRestart: false, message: null },
+    driverFanMode: { supported: true, mode: 'normal', state: 'ready', availableModes: ['normal', 'quiet'], needsRestart: false, message: null,
+      speedPercent: 0, activePercent: 100, idlePercent: 50, powerControlSupported: true,
+      minPowerPercent: 80, maxPowerPercent: 100, loadReason: 'idle' },
     mainLightEnabled: false,
     lightPreferences: { onStartup: false, onPrintStart: true },
     updatedAt: nowIso(),
