@@ -410,7 +410,7 @@ export function createMockSnapshot(): PrinterSnapshot {
     driverMode: { supported: true, mode: 'normal', state: 'ready', availableModes: ['normal', 'quiet'], needsRestart: false, message: null },
     driverFanMode: { supported: true, mode: 'normal', state: 'ready', availableModes: ['normal', 'quiet'], needsRestart: false, message: null,
       speedPercent: 0, activePercent: 100, idlePercent: 50, powerControlSupported: true,
-      minPowerPercent: 80, maxPowerPercent: 100, loadReason: 'idle' },
+      minPowerPercent: 15, maxPowerPercent: 100, loadReason: 'idle' },
     mainLightEnabled: false,
     lightPreferences: { onStartup: false, onPrintStart: true },
     updatedAt: nowIso(),

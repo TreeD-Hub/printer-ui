@@ -132,7 +132,7 @@ export function DriverModeControlPanel({ controls, kind }: {
           setTarget(status.mode ?? 'normal'); setError('')
         }}>Мощность</button>}
     </div>
-    {kind === 'fan' && status.powerControlSupported && !powerEditable && <p className="driver-mode-hint">Снижение мощности доступно после проверки тихого профиля.</p>}
+    {kind === 'fan' && status.powerControlSupported && !powerEditable && <p className="driver-mode-hint">Устройство разрешает только фиксированную мощность обдува.</p>}
     {status.state === 'fault' && <p role="alert">{status.message}</p>}
     </section>}
     {target && createPortal(<div className="driver-mode-overlay" onKeyDown={event => {
@@ -160,7 +160,7 @@ export function DriverModeControlPanel({ controls, kind }: {
             <button type="button" aria-label="Увеличить мощность обдува" disabled={busy || !powerEditable || targetPower >= maxPower}
               onClick={() => setTargetPower(Math.min(maxPower, targetPower + 5))}>+</button>
           </div>
-          <p>Проверенный диапазон: {minPower}–{maxPower}%. Настройка не включает вентилятор без нагрузки.</p>
+          <p>Диапазон устройства: {minPower}–{maxPower}%. Настройка не включает вентилятор без нагрузки.</p>
         </div>}
         <p>Настройка сохранится. Обычно применяется без перезапуска Klipper.</p>
         {(error || dialogStatus?.message || reason) && <p role="alert">{error || dialogStatus?.message || reason}</p>}

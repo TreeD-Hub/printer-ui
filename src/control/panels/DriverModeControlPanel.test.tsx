@@ -24,13 +24,13 @@ describe('Подтверждение режима драйверов', () => {
   view.rerender(<DriverModeControlPanel controls={{...controls, fanMode: {...controls.fanMode, activePercent: 90}}} kind="fan" />)
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
  })
- it('не предлагает снижение мощности без аппаратно проверенного диапазона', () => {
+ it('отключает регулировку при фиксированной мощности устройства', () => {
   const controls = fixture()
   controls.fanMode = {...controls.mode!, availableModes: ['normal'], powerControlSupported: true,
    minPowerPercent: 100, maxPowerPercent: 100, activePercent: 100}
   render(<DriverModeControlPanel controls={controls} kind="fan" />)
   expect(screen.getByRole('button', {name: 'Мощность'})).toBeDisabled()
-  expect(screen.getByText('Снижение мощности доступно после проверки тихого профиля.')).toBeInTheDocument()
+  expect(screen.getByText('Устройство разрешает только фиксированную мощность обдува.')).toBeInTheDocument()
  })
  it('отмена не посылает команду', () => {
   const controls = fixture()
@@ -53,9 +53,9 @@ describe('Подтверждение режима драйверов', () => {
   view.rerender(<DriverModeControlPanel controls={{...controls, pendingCommands: {}, mode: {...controls.mode!, mode: 'quiet'}}} kind="drivers" />)
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
  })
- it('не применяет непроверенный тихий обдув', () => {
+ it('не применяет режим, отсутствующий в контракте устройства', () => {
   const controls = fixture()
-  controls.fanMode = {...controls.mode!, availableModes: ['normal'], message: 'Нужна аппаратная приёмка'}
+  controls.fanMode = {...controls.mode!, availableModes: ['normal'], message: 'Режим недоступен'}
   render(<DriverModeControlPanel controls={controls} kind="fan" />)
   fireEvent.click(screen.getByRole('button', {name: 'Тихий'}))
   expect(screen.getByRole('button', {name: 'Применить'})).toBeDisabled()
