@@ -48,7 +48,7 @@ body {
   overflow: hidden;
 }
 
-.screen-sleep-guard {
+.screen-shell > .screen-sleep-guard {
   position: fixed;
   inset: 0;
   z-index: 1000;

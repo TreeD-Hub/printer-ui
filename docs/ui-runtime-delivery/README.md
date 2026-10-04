@@ -4,8 +4,8 @@ Production-контур для экранного UI принтера.
 
 ## Цепочка
 
-1. `treed-shell` собирает live UI bundle командой `npm run build:ui:printer`.
-2. `.github/workflows/release-ui.yml` прогоняет quality/e2e и обязательную проверку совместимости с протоколом `printer-core` ветки `treed-v2`, добавляет manifest и публикует GitHub Release. Отсутствующий fixture или несовместимый протокол останавливают публикацию.
+1. После `push main`, включая merge PR, `.github/workflows/release-ui.yml` один раз запускает `npm run quality:pr`: проверки, сборки UI и E2E. Протокол `printer-core` ветки `treed-v2` обязателен и проверяется в общем наборе тестов; отсутствующий fixture или несовместимый протокол останавливают публикацию. Отдельных автоматических workflow для PR-проверки и сборки логики нет.
+2. Этот же workflow использует готовый live UI из `dist`, сохраняет архив уже собранной логики как Actions artifact, добавляет manifest и публикует GitHub Release. Повторной сборки UI перед упаковкой нет. Ручной `workflow_dispatch` запускает тот же процесс.
 3. Release содержит asset `treed-shell-ui.zip`.
 4. `treed-mainshellOS` loader скачивает asset, проверяет `treed-shell-ui-manifest.json`, распаковывает bundle в managed runtime dir и запускает его через OS-owned kiosk/browser service.
 5. KlipperScreen остается fallback UI и переключается через `treed-ui`.
@@ -43,6 +43,7 @@ npm run build:ui:printer
 npm run build:all
 npm run build:web-ui
 npm run quality
+npm run quality:pr
 npm run test:e2e
 ```
 
@@ -50,7 +51,7 @@ npm run test:e2e
 - `npm run build:ui:printer` собирает `packages/printer-logic`, затем выполняет `tsc -b && vite build --mode live`.
 - `npm run build:all` также собирает ручной `apps/web-ui` playground.
 - `npm run build:web-ui` нужен только для web playground.
-- `npm run quality` повторяет основной CI quality gate.
+- `npm run quality:pr` повторяет основной CI quality gate с E2E. В CI также задаётся `CORE_CONTRACT_FIXTURE`; без этой переменной локально тест совместимости с Core пропускается.
 
 ## Остаточный риск
 

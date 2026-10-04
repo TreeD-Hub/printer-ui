@@ -125,13 +125,14 @@ Workflow: `.github/workflows/release-ui.yml`.
 Что делает workflow:
 
 1. Устанавливает зависимости через `npm ci`.
-2. Запускает `npm run quality`.
-3. Устанавливает Chromium для Playwright.
-4. Запускает `npm run test:e2e`.
-5. Собирает printer UI через `npm run build:ui:printer`.
-6. Добавляет `dist/treed-shell-ui-manifest.json`.
-7. Пакует содержимое `dist/**` в `treed-shell-ui.zip`.
-8. Создает GitHub Release с тегом `ui-main-<run_number>-<run_attempt>`.
+2. Устанавливает Chromium для Playwright.
+3. Один раз запускает `npm run quality:pr`: lint, typecheck, тесты с обязательным протоколом `printer-core` ветки `treed-v2`, сборки UI и E2E.
+4. Пакует уже собранный `@treed/printer-logic` без повторного `prepare` и сохраняет Actions artifact.
+5. Добавляет `dist/treed-shell-ui-manifest.json` в уже собранный live bundle.
+6. Пакует содержимое `dist/**` в `treed-shell-ui.zip`.
+7. Создает GitHub Release с тегом `ui-main-<run_number>-<run_attempt>`.
+
+Автоматический quality gate выполняется только в этом процессе после `push main`, включая merge PR. Отдельного workflow проверки PR нет.
 
 `treed-shell-ui.zip` - единственный production artifact для printer loader. Workflow не устанавливает UI на принтер, не собирает Tauri bundle для устройства и не публикует mock-сборку.
 
@@ -148,11 +149,9 @@ Workflow: `.github/workflows/release-web-ui.yml`.
 
 ## Logic Package Build
 
-Workflow: `.github/workflows/build-logic.yml`.
+Пакет проверяется и собирается в `.github/workflows/release-ui.yml` в составе общего quality gate.
 
-- Проверяет `@treed/printer-logic`.
-- Собирает workspace-пакет.
-- Публикует `treed-printer-logic-package` как GitHub Actions artifact.
+Этот же workflow сохраняет `treed-printer-logic-package` как GitHub Actions artifact без повторной проверки и сборки.
 
 Отдельно на принтер этот package не ставится: UI bundle уже содержит нужную логику после сборки.
 
