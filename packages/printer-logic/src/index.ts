@@ -1446,8 +1446,8 @@ const SYSTEM_DISRUPTIVE_COMMANDS = new Set<PrinterCommandId>([
   'firmwareRestart',
   'restartMoonraker',
 ])
-const SYSTEM_DISRUPTIVE_STATES = new Set(['printing', 'paused', 'preparing', 'recovery', 'calibration'])
-const SYSTEM_DISRUPTIVE_OPERATION_PHASES = new Set(['preparing', 'calibrating', 'auto_remove'])
+const SYSTEM_DISRUPTIVE_STATES = new Set(['recovery', 'calibration'])
+const SYSTEM_DISRUPTIVE_OPERATION_PHASES = new Set(['calibrating', 'auto_remove'])
 const FAILSAFE_COMMANDS = new Set<PrinterCommandId>([
   'emergencyStop',
   'turnOffHeaters',
@@ -1597,7 +1597,9 @@ function getCommandSpecificBlockReason(
 
   if (
     SYSTEM_DISRUPTIVE_COMMANDS.has(command) &&
-    (activePrint
+    // Явно подтверждённый перезапуск во время печати — штатное действие оператора.
+    // Выключение хоста и вмешательство в сервисные операции остаются заблокированы.
+    ((command === 'shutdownHost' && (activePrint || normalizeState(context.operationPhase) === 'preparing'))
       || SYSTEM_DISRUPTIVE_STATES.has(normalizeState(context.printJob?.state))
       || SYSTEM_DISRUPTIVE_OPERATION_PHASES.has(normalizeState(context.operationPhase))
       || context.clogRecoveryActive === true)

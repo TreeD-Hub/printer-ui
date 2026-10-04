@@ -453,8 +453,21 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     })).toContain('не подтверждены Klipper')
   })
 
-  it('blocks disruptive system commands during active print phases', () => {
-    for (const state of ['printing', 'paused', 'preparing', 'recovery', 'calibration']) {
+  it('считает подтверждённые перезапуски во время печати штатным поведением', () => {
+    for (const state of ['printing', 'paused', 'preparing']) {
+      const context = { ...IDLE_CONTEXT, printJob: { state }, operationPhase: 'preparing' }
+      for (const command of ['rebootHost', 'restartKlipper', 'firmwareRestart', 'restartMoonraker', 'restartUi'] as const) {
+        expect(getTreeDCommandBlockReason(command, context)).toBeNull()
+        expect(isDangerousTreeDCommand(command)).toBe(true)
+        expect(getTreeDCommandBlockReason(command, { ...context, transportState: 'offline' })).toContain('Moonraker')
+        expect(getTreeDCommandBlockReason(command, { ...context, uiContractStatus: 'incompatible' })).toContain('UI-контракт')
+      }
+      expect(getTreeDCommandBlockReason('shutdownHost', context)).toContain('системное действие недоступно')
+    }
+  })
+
+  it('сохраняет блокировку перезапусков при восстановлении и калибровке', () => {
+    for (const state of ['recovery', 'calibration']) {
       for (const command of ['rebootHost', 'shutdownHost', 'restartKlipper', 'firmwareRestart', 'restartMoonraker'] as const) {
         expect(getTreeDCommandBlockReason(command, {
           ...IDLE_CONTEXT,
@@ -466,7 +479,7 @@ describe('TREE_D_COMMAND_CATALOG', () => {
   })
 
   it('блокирует системные действия по фазе core и состоянию прочистки при неактивной печати', () => {
-    for (const operationPhase of ['preparing', 'calibrating', 'auto_remove']) {
+    for (const operationPhase of ['calibrating', 'auto_remove']) {
       const context = { ...IDLE_CONTEXT, operationPhase }
       for (const command of ['rebootHost', 'shutdownHost', 'restartKlipper', 'firmwareRestart', 'restartMoonraker'] as const) {
         expect(getTreeDCommandBlockReason(command, context)).toContain('системное действие недоступно')
@@ -476,6 +489,8 @@ describe('TREE_D_COMMAND_CATALOG', () => {
       expect(getTreeDCommandBlockReason('turnOffHeaters', context)).toBeNull()
     }
     expect(getTreeDCommandBlockReason('rebootHost', { ...IDLE_CONTEXT, clogRecoveryActive: true })).not.toBeNull()
+    expect(getTreeDCommandBlockReason('shutdownHost', { ...IDLE_CONTEXT, operationPhase: 'preparing' })).not.toBeNull()
+    expect(getTreeDCommandBlockReason('rebootHost', { ...IDLE_CONTEXT, operationPhase: 'preparing' })).toBeNull()
     expect(getTreeDCommandBlockReason('rebootHost', { ...IDLE_CONTEXT, operationPhase: 'idle' })).toBeNull()
   })
 
