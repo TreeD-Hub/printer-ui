@@ -13,6 +13,12 @@ let lastKlippyState: string | null = null
 let lastStatusId: string | null = null
 let statusPopupId: string | null = null
 const listeners = new Set<() => void>()
+const gcodeListeners = new Set<(message: string) => void>()
+
+export function subscribePrinterGcodeResponses(listener: (message: string) => void): () => void {
+  gcodeListeners.add(listener)
+  return () => { gcodeListeners.delete(listener) }
+}
 
 function emit(): void { listeners.forEach((listener) => listener()) }
 
@@ -29,6 +35,7 @@ export function receivePrinterEvent(event: PrinterEvent | null, showPopup = true
 }
 
 export function receivePrinterGcodeResponse(message: string): void {
+  gcodeListeners.forEach((listener) => listener(message))
   receivePrinterEvent(parsePrinterEvent(message))
   // Не превращаем поток температур и отладочный RESPOND в уведомления.
   if (message.startsWith('!!')) {

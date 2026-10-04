@@ -17,3 +17,4 @@ Mock runtime для режима `vite --mode mock`.
 - Live-сборка не импортирует `mocks/runtime.ts`.
 - Подключение идет через Vite alias `#runtime` в `vite.config.ts`.
 - Mock command operations доступны тестам через helper-функции и не должны смешиваться с production command client.
+- PID-калибровка сопла и стола имитирует 12 секунд ожидания и публикует тестовые коэффициенты через обработчик G-code. Нагрев и запись конфигов не выполняются.
