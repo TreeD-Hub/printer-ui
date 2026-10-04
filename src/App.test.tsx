@@ -1077,7 +1077,10 @@ describe('App', () => {
     expect(screen.getByTestId('macros-manager')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
     expect(screen.getByRole('heading', { name: 'Выберите калибровку' })).toBeInTheDocument()
-    expect(within(screen.getByTestId('macros-manager-workflows')).getAllByRole('button')).toHaveLength(1)
+    const workflows = within(screen.getByTestId('macros-manager-workflows'))
+    expect(workflows.getAllByRole('button')).toHaveLength(2)
+    expect(workflows.getByRole('button', { name: 'Калибровка датчика уровня 0/5' })).toBeInTheDocument()
+    expect(workflows.getByRole('button', { name: /PID-калибровка/ })).toBeInTheDocument()
 
     fireEvent.click(
       within(screen.getByTestId('macros-manager-workflows')).getByRole('button', {
