@@ -162,6 +162,11 @@ function updateMockSnapshot(mutator: (snapshot: PrinterSnapshot) => void): void 
 
 function applyMockCommandEffect(args: ExecuteCommandArgs): void {
   switch (args.command) {
+    case 'setFanPercent':
+      updateMockSnapshot((snapshot) => {
+        snapshot.modelFanPercent = args.percent
+      })
+      return
     case 'setDriverMode':
     case 'setDriverFanMode':
       updateMockSnapshot(snapshot => {
@@ -662,8 +667,25 @@ export function createCommandClient(): CommandClient {
       applyMockCommandEffect(args)
 
       if (args.command === 'consoleGcode' && /^PID_CALIBRATE HEATER=(extruder|heater_bed) TARGET=\d+$/.test(args.script ?? '')) {
-        await wait(12_000)
+        const nozzle = args.script?.includes('HEATER=extruder')
+        const target = Number(args.script?.match(/TARGET=(\d+)/)?.[1])
+        for (let cycle = 0; cycle < 6; cycle += 1) {
+          for (const heating of [true, false]) {
+            updateMockSnapshot((snapshot) => {
+              snapshot.thermalTargets[nozzle ? 'nozzle' : 'bed'] = heating ? target : target - 5
+              snapshot[nozzle ? 'extruderTemp' : 'bedTemp'] = heating ? target - 5 : target + 2
+            })
+            await wait(3_000)
+          }
+        }
+        updateMockSnapshot((snapshot) => { snapshot.thermalTargets[nozzle ? 'nozzle' : 'bed'] = 0 })
         receivePrinterGcodeResponse('PID parameters: pid_Kp=22.100 pid_Ki=1.200 pid_Kd=101.300')
+      }
+
+      if (args.command === 'consoleGcode' && args.script === 'TREED_SAVE_CONFIG') {
+        updateMockSnapshot((snapshot) => { snapshot.klippy.state = 'startup' })
+        await wait(4_000)
+        updateMockSnapshot((snapshot) => { snapshot.klippy.state = 'ready' })
       }
 
       return {
