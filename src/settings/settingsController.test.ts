@@ -8,6 +8,7 @@ import {
 import { createHostUpdateClient, createMockSnapshot } from '../../mocks/runtime'
 import type { HostNetworkClient, HostNetworkStatus } from '../core/hostNetwork'
 import type { HostUpdateClient, HostUpdateOperation, HostUpdateStatus } from '../core/hostUpdate'
+import { MoonrakerHostUpdateError } from '../core/hostUpdate'
 import {
   getSettingsKeyboardMeta,
   isSettingsKeyboardTarget,
@@ -246,6 +247,67 @@ describe('settings controller helpers', () => {
     expect(result.current.pageProps.updates.operation?.status).toBe('running')
     expect(result.current.pageProps.updates.notice).toBe('Запись новой версии.')
     unmount()
+  })
+
+  it.each([false, true])('сохраняет ошибку запуска после подтверждения idle (повторный опрос: %s)', async (reconnect) => {
+    const getStatus = vi.fn().mockResolvedValue(availableUpdateStatus)
+    const updateClient: HostUpdateClient = {
+      getStatus,
+      check: vi.fn().mockResolvedValue(availableUpdateStatus),
+      apply: vi.fn().mockRejectedValue(new MoonrakerHostUpdateError('submit failed', 503)),
+    }
+    const { result, unmount } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(), connectionLabel: 'Подключено',
+      networkClient: unavailableNetworkClient, updateClient,
+      executeCommand: vi.fn().mockResolvedValue(true), getCommandBlockReason: () => null,
+      activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
+    }))
+    try {
+      await waitFor(() => expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true))
+      vi.useFakeTimers()
+      if (reconnect) getStatus.mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+      if (reconnect) {
+        expect(result.current.pageProps.updates.operation?.status).toBe('queued')
+        expect(result.current.pageProps.updates.isReconnectPending).toBe(true)
+        await act(async () => vi.advanceTimersByTimeAsync(900))
+      }
+      expect(result.current.pageProps.updates.operation).toBeNull()
+      expect(result.current.pageProps.updates.isReconnectPending).toBe(false)
+      expect(result.current.pageProps.updates.applyingUpdateTarget).toBeNull()
+      expect(result.current.pageProps.updates.notice).toBe('Служба обновлений сообщила об ошибке. Повторите попытку позже.')
+      await act(async () => vi.advanceTimersByTimeAsync(2000))
+      expect(getStatus).toHaveBeenCalledTimes(reconnect ? 3 : 2)
+      expect(result.current.pageProps.updates.notice).toContain('сообщила об ошибке')
+    } finally {
+      unmount()
+      vi.useRealTimers()
+    }
+  })
+
+  it('показывает и закрывает ошибку службы без operationId', async () => {
+    const updateClient: HostUpdateClient = {
+      ...unavailableUpdateClient,
+      getStatus: vi.fn().mockResolvedValue({
+        ...availableUpdateStatus,
+        operation: {
+          operationId: null, requestId: null, status: 'error', phase: 'unknown',
+          progress: null, resultCode: 'state_unreadable', message: 'Состояние обновления повреждено.',
+          targetId: null, targetTag: null, startedAt: null, updatedAt: null, finishedAt: null,
+        },
+      }),
+    }
+    const { result, unmount } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(), connectionLabel: 'Подключено',
+      networkClient: unavailableNetworkClient, updateClient,
+      executeCommand: vi.fn().mockResolvedValue(true), getCommandBlockReason: () => null,
+      activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
+    }))
+    try {
+      await waitFor(() => expect(result.current.pageProps.updates.operation?.status).toBe('error'))
+      act(() => result.current.pageProps.updates.onDismissOperation())
+      expect(result.current.pageProps.updates.operation).toBeNull()
+    } finally { unmount() }
   })
 
   it('blocks release checks while a durable update operation is active', async () => {

@@ -152,12 +152,13 @@ export function useSettingsController({
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
   const [applyingUpdateTarget, setApplyingUpdateTarget] = useState<HostUpdateTargetId | null>(null)
   const [updateOperation, setUpdateOperation] = useState<HostUpdateOperation | null>(null)
-  const pendingUpdateRef = useRef<Pick<HostUpdateOperation, 'operationId' | 'requestId' | 'targetId' | 'targetTag'> | null>(null)
+  const pendingUpdateRef = useRef<(Pick<HostUpdateOperation, 'operationId' | 'requestId' | 'targetId' | 'targetTag'> & { errorMessage?: string }) | null>(null)
   const [updateOperationHistory, setUpdateOperationHistory] = useState<HostUpdateOperation[]>([])
   const isUpdateOperationActive = updateOperation !== null &&
     !['applied', 'error', 'rolled_back', 'rejected'].includes(updateOperation.status)
   const [isUpdateReconnectPending, setIsUpdateReconnectPending] = useState(false)
   const [dismissedUpdateOperationId, setDismissedUpdateOperationId] = useState<string | null>(null)
+  const updateOperationId = updateOperation?.operationId ?? updateOperation?.requestId ?? updateOperation?.status ?? null
   const [updateReleaseResults, setUpdateReleaseResults] = useState(() =>
     runtimeMode === 'mock'
       ? createMockUpdateReleaseResults(UPDATE_RELEASE_TARGETS)
@@ -327,6 +328,10 @@ export function useSettingsController({
     setIsUpdateReconnectPending(false)
     if (nextOperation && !isApplied) {
       setUpdateNotice(nextOperation.message)
+    } else if (nextOperation === null && !status.busy && pending?.errorMessage) {
+      // Подтверждённый idle не должен стирать ошибку запуска при повторном опросе.
+      setUpdateNotice(pending.errorMessage)
+      pendingUpdateRef.current = null
     }
     if (isApplied && isSameOperation) onUpdateApplied?.()
   }, [onUpdateApplied])
@@ -393,10 +398,10 @@ export function useSettingsController({
   }, [consumeUpdateStatus, updateClient, isUpdateOperationActive])
 
   useEffect(() => {
-    if (updateOperation?.operationId !== dismissedUpdateOperationId) {
+    if (updateOperationId !== dismissedUpdateOperationId) {
       setDismissedUpdateOperationId(null)
     }
-  }, [dismissedUpdateOperationId, updateOperation?.operationId])
+  }, [dismissedUpdateOperationId, updateOperationId])
 
   function handleWifiSearchQueryChange(event: ChangeEvent<HTMLInputElement>): void {
     setWifiSearchQuery(event.target.value)
@@ -622,6 +627,8 @@ export function useSettingsController({
         setUpdateNotice(status.message || 'Служба не подтвердила запуск операции.')
       }
     } catch (error) {
+      const errorMessage = getHostUpdateErrorMessage(error, 'Не удалось подтвердить запуск. Проверяем состояние операции.')
+      pendingUpdateRef.current = { operationId: null, requestId, targetId, targetTag: release.latestTag, errorMessage }
       setUpdateOperation({
         operationId: null,
         requestId,
@@ -637,7 +644,7 @@ export function useSettingsController({
         finishedAt: null,
       })
       setIsUpdateReconnectPending(true)
-      setUpdateNotice(getHostUpdateErrorMessage(error, 'Не удалось подтвердить запуск. Проверяем состояние операции.'))
+      setUpdateNotice(errorMessage)
       void updateClient.getStatus().then(consumeUpdateStatus).catch(() => undefined)
     } finally {
       setApplyingUpdateTarget(null)
@@ -858,10 +865,10 @@ export function useSettingsController({
       isApplyBlockedByActivePrint: isUpdateBlockedByActivePrint,
       isCapabilityAvailable: isUpdatesCapabilityAvailable,
       notice: updateCapabilityNotice,
-      operation: updateOperation?.operationId === dismissedUpdateOperationId ? null : updateOperation,
+      operation: dismissedUpdateOperationId !== null && updateOperationId === dismissedUpdateOperationId ? null : updateOperation,
       operationHistory: updateOperationHistory,
       isReconnectPending: isUpdateReconnectPending,
-      onDismissOperation: () => setDismissedUpdateOperationId(updateOperation?.operationId ?? null),
+      onDismissOperation: () => setDismissedUpdateOperationId(updateOperationId),
       onCheckUpdates: handleCheckUpdates,
       onApplyUpdate: handleApplyUpdate,
     },

@@ -14,7 +14,7 @@ describe('попап уведомлений принтера', () => {
     receivePrinterEvent({ sequence: 1, code: 'print_complete', detail: '' })
     const entry = getPrinterNotifications().popup
     const readTopPopupPosition = vi.fn(() => ({ top: 90, left: 154, arrowLeft: 180 }))
-    render(<PrinterNotificationPopup enabled activeScreen="dashboard" readTopPopupPosition={readTopPopupPosition} />)
+    render(<PrinterNotificationPopup enabled activeScreen="control" readTopPopupPosition={readTopPopupPosition} />)
 
     expect(readTopPopupPosition).toHaveBeenCalledWith('notifications')
     expect(screen.getByRole('alertdialog')).toHaveStyle({ top: '90px', left: '154px' })
@@ -23,8 +23,20 @@ describe('попап уведомлений принтера', () => {
     expect(getPrinterNotifications().history).toContain(entry)
   })
 
+  it('на главном экране скрывает попап, сохраняя событие в истории', () => {
+    receivePrinterEvent({ sequence: 3, code: 'clog_failed', detail: 'timeout' })
+    const entry = getPrinterNotifications().popup
+    const readTopPopupPosition = vi.fn(() => ({ top: 90, left: 154, arrowLeft: 180 }))
+    const { rerender } = render(<PrinterNotificationPopup enabled activeScreen="control" readTopPopupPosition={readTopPopupPosition} />)
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+
+    rerender(<PrinterNotificationPopup enabled activeScreen="dashboard" readTopPopupPosition={readTopPopupPosition} />)
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(getPrinterNotifications().history).toContain(entry)
+  })
+
   it('открытие истории закрывает попап, не удаляя запись', () => {
-    receivePrinterEvent({ sequence: 2, code: 'clog_failed', detail: 'timeout' })
+    receivePrinterEvent({ sequence: 4, code: 'clog_failed', detail: 'history check' })
     const entry = getPrinterNotifications().popup
     const { result } = renderHook(() => useTopStatusController({
       screenShellRef: { current: null },

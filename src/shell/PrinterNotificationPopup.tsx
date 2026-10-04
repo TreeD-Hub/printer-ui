@@ -13,16 +13,17 @@ export function PrinterNotificationPopup({ enabled, activeScreen, readTopPopupPo
   const { popup } = usePrinterNotifications()
   const [position, setPosition] = useState<TopPopupPosition | null>(null)
   const popupId = popup?.id
+  const canShowPopup = enabled && activeScreen !== 'dashboard'
 
   useLayoutEffect(() => {
-    if (!enabled || !popupId) return
+    if (!canShowPopup || !popupId) return
     const updatePosition = () => setPosition(readTopPopupPosition('notifications'))
     updatePosition()
     window.addEventListener('resize', updatePosition)
     return () => window.removeEventListener('resize', updatePosition)
-  }, [enabled, popupId, activeScreen, readTopPopupPosition])
+  }, [canShowPopup, popupId, activeScreen, readTopPopupPosition])
 
-  if (!popup || !enabled || !position) return null
+  if (!popup || !canShowPopup || !position) return null
   return (
     <aside className={`top-popup-dialog printer-event-popup is-${popup.severity}`} role="alertdialog" aria-modal="false"
       aria-labelledby="printer-event-title" aria-describedby="printer-event-details"
