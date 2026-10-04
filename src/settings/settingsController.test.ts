@@ -102,6 +102,62 @@ function changeEvent(value: string): ChangeEvent<HTMLTextAreaElement> {
 }
 
 describe('settings controller helpers', () => {
+  it('allows update after a paused job has been cancelled without remounting the UI', async () => {
+    const snapshot = createMockSnapshot()
+    snapshot.printJob.state = 'paused'
+    const apply = vi.fn().mockResolvedValue(availableUpdateStatus)
+    const updateClient = { ...unavailableUpdateClient, apply, getStatus: () => Promise.resolve(availableUpdateStatus) }
+    const { result, rerender } = renderHook(() => useSettingsController({
+      snapshot, connectionLabel: 'Подключено', networkClient: unavailableNetworkClient,
+      updateClient,
+      executeCommand: vi.fn().mockResolvedValue(true), getCommandBlockReason: () => null,
+      activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
+    }))
+    await waitFor(() => expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true))
+    expect(result.current.pageProps.updates.isApplyBlockedByActivePrint).toBe(false)
+    snapshot.printJob.state = 'cancelled'
+    rerender()
+    await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+    expect(result.current.pageProps.updates.isApplyBlockedByActivePrint).toBe(false)
+    expect(apply).toHaveBeenCalledOnce()
+  })
+
+  it('does not create a pending update for a definite rejection even when status is offline', async () => {
+    const getStatus = vi.fn().mockResolvedValueOnce(availableUpdateStatus).mockRejectedValue(new Error('offline'))
+    const apply = vi.fn().mockRejectedValue(new MoonrakerHostUpdateError('Принтер ещё печатает.', 409))
+    const updateClient = { ...unavailableUpdateClient, getStatus, apply }
+    const { result } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(), connectionLabel: 'Подключено', networkClient: unavailableNetworkClient,
+      updateClient,
+      executeCommand: vi.fn().mockResolvedValue(true), getCommandBlockReason: () => null,
+      activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
+    }))
+    await waitFor(() => expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true))
+    await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+    expect(result.current.pageProps.updates.operation).toBeNull()
+    expect(result.current.pageProps.updates.isReconnectPending).toBe(false)
+    expect(result.current.pageProps.updates.notice).toBe('Принтер ещё печатает.')
+    expect(getStatus).toHaveBeenCalledOnce()
+    await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+    expect(apply).toHaveBeenCalledTimes(2)
+  })
+
+  it('resets overrides through the backend and exposes its result', async () => {
+    const resetOverrides = vi.fn().mockResolvedValue({ reset: true, restartRequired: false, backupPath: '/config/backup.bak', message: 'Настройки сброшены.' })
+    const client = { ...unavailableUpdateClient, resetOverrides,
+      getStatus: vi.fn().mockResolvedValue({ ...availableUpdateStatus, canResetOverrides: true }) }
+    const { result } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(), connectionLabel: 'Подключено', networkClient: unavailableNetworkClient,
+      updateClient: client, executeCommand: vi.fn().mockResolvedValue(true), getCommandBlockReason: () => null,
+      activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
+    }))
+    await waitFor(() => expect(result.current.pageProps.system.factoryReset.canReset).toBe(true))
+    await act(async () => result.current.pageProps.system.factoryReset.onReset())
+    expect(resetOverrides).toHaveBeenCalledOnce()
+    expect(result.current.pageProps.system.factoryReset.notice).toBe('Настройки сброшены.')
+    expect(result.current.pageProps.system.factoryReset.isResetting).toBe(false)
+  })
+
   it.each([
     [availableUpdateStatus, ''],
     [{ ...availableUpdateStatus, available: false }, 'Служба обновлений недоступна. Повторите проверку позже.'],
@@ -163,10 +219,10 @@ describe('settings controller helpers', () => {
     }))
   })
 
-  it('blocks host update apply while a print is paused', async () => {
+  it('requires confirmation to cancel a paused print before applying an update', async () => {
     const snapshot = createMockSnapshot()
     snapshot.printJob.state = 'paused'
-    const apply = vi.fn()
+    const apply = vi.fn().mockResolvedValue(availableUpdateStatus)
     const updateClient: HostUpdateClient = {
       getStatus: vi.fn().mockResolvedValue(availableUpdateStatus),
       check: vi.fn().mockResolvedValue(availableUpdateStatus),
@@ -192,9 +248,16 @@ describe('settings controller helpers', () => {
       await result.current.pageProps.updates.onApplyUpdate('printer-ui')
     })
 
-    expect(result.current.pageProps.updates.isApplyBlockedByActivePrint).toBe(true)
-    expect(result.current.pageProps.updates.notice).toContain('активной печати')
+    expect(result.current.pageProps.updates.isApplyBlockedByActivePrint).toBe(false)
+    expect(result.current.pageProps.updates.pausedUpdateTarget).toBe('printer-ui')
     expect(apply).not.toHaveBeenCalled()
+    act(() => result.current.pageProps.updates.onCancelPausedUpdate())
+    expect(result.current.pageProps.updates.pausedUpdateTarget).toBeNull()
+    expect(apply).not.toHaveBeenCalled()
+    await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+    await act(async () => result.current.pageProps.updates.onConfirmPausedUpdate())
+    expect(apply).toHaveBeenCalledOnce()
+    expect(apply).toHaveBeenCalledWith(expect.objectContaining({ cancelPausedPrint: true }))
   })
 
   it('keeps the accepted operation active when the apply request times out', async () => {

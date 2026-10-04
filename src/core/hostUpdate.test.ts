@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createMoonrakerHostUpdateClient } from './hostUpdate'
+import { createMoonrakerHostUpdateClient, isHostUpdateRequestRejected } from './hostUpdate'
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -9,6 +9,41 @@ function jsonResponse(body: unknown): Response {
 }
 
 describe('Moonraker host update client', () => {
+  it('sends explicit confirmation for resetting overrides and keeps restart outcome', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
+      reset: true, restartRequired: true, backupPath: '/config/local_overrides.cfg.backup.bak',
+      message: 'Настройки сброшены. Перезапустите Klipper для применения.',
+    }))
+    const client = createMoonrakerHostUpdateClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl })
+    await expect(client.resetOverrides!()).resolves.toMatchObject({ reset: true, restartRequired: true })
+    expect(fetchImpl).toHaveBeenCalledWith('http://moonraker.local/server/treed/settings/reset',
+      expect.objectContaining({ method: 'POST', body: '{"confirm":true}' }))
+  })
+
+  it('passes cancellation consent only when explicitly requested', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ available: true, busy: false }))
+    const client = createMoonrakerHostUpdateClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl })
+    await client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0', cancelPausedPrint: true })
+    const request = fetchImpl.mock.calls[0][1] as RequestInit
+    expect(JSON.parse(request.body as string)).toHaveProperty('cancelPausedPrint', true)
+  })
+
+  it('preserves a definite rejection message from Moonraker', async () => {
+    const client = createMoonrakerHostUpdateClient({
+      moonrakerUrl: 'http://moonraker.local',
+      fetchImpl: vi.fn().mockResolvedValue(new Response(JSON.stringify({
+        error: { code: 409, message: 'Принтер ещё печатает.' },
+      }), { status: 409 })),
+    })
+    try {
+      await client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0' })
+      expect.fail('Expected rejection')
+    } catch (error) {
+      expect(isHostUpdateRequestRejected(error)).toBe(true)
+      expect(error).toHaveProperty('message', 'Принтер ещё печатает.')
+    }
+  })
+
   it('binds the default fetch implementation to the browser global', async () => {
     const fetchMock = vi.fn(function (this: typeof globalThis) {
       if (this !== globalThis) {

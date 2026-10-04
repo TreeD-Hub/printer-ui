@@ -4,6 +4,7 @@ import {
   SettingsSelectField,
   SettingsSidebarMenu,
   SettingsToggleRow,
+  useModalFocus,
 } from '../ui'
 import {
   CONSOLE_QUICK_COMMANDS,
@@ -33,6 +34,12 @@ export type SettingsPageProps = {
     contractStatus: string
     runtimeStatus: string
     onExportDiagnostics: () => void
+    factoryReset: {
+      canReset: boolean
+      isResetting: boolean
+      notice: string
+      onReset: () => Promise<void>
+    }
   }
   interfaceSettings: {
     isDarkThemeEnabled: boolean
@@ -99,6 +106,9 @@ export type SettingsPageProps = {
     onDismissOperation: () => void
     onCheckUpdates: () => void
     onApplyUpdate: (targetId: HostUpdateTargetId) => void
+    pausedUpdateTarget: HostUpdateTargetId | null
+    onCancelPausedUpdate: () => void
+    onConfirmPausedUpdate: () => Promise<void>
   }
   language: {
     languageValue: string
@@ -158,6 +168,7 @@ export function SettingsPage({
   language,
   console,
 }: SettingsPageProps) {
+  const pausedUpdateFocusRef = useModalFocus<HTMLElement>(updates.pausedUpdateTarget !== null, updates.onCancelPausedUpdate)
   return (
     <section className="settings-screen" data-testid="screen-settings">
       <div className="settings-layout">
@@ -525,6 +536,7 @@ export function SettingsPage({
                       data-testid={`settings-apply-${release.id}-button`}
                       disabled={
                         updates.isCheckingUpdates ||
+                        system.factoryReset.isResetting ||
                         updates.applyingUpdateTarget !== null ||
                         (updates.operation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updates.operation.status)) ||
                         updates.isApplyBlockedByActivePrint ||
@@ -633,6 +645,18 @@ export function SettingsPage({
           )}
         </div>
       </div>
+      {updates.pausedUpdateTarget !== null ? (
+        <div className="system-reset-layer">
+          <section ref={pausedUpdateFocusRef} className="system-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="paused-update-title" aria-describedby="paused-update-detail">
+            <h2 id="paused-update-title">Отменить печать и обновить?</h2>
+            <p id="paused-update-detail">Печать стоит на паузе. Для обновления она будет отменена; продолжить это задание после обновления не получится.</p>
+            <div className="system-reset-actions">
+              <button type="button" className="file-modal-action" data-modal-initial-focus onClick={updates.onCancelPausedUpdate}>Назад</button>
+              <button type="button" className="file-modal-action file-modal-action-danger" onClick={() => void updates.onConfirmPausedUpdate()}>Отменить и обновить</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   )
 }

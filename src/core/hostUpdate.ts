@@ -40,6 +40,7 @@ export type HostUpdateStatus = {
   available: boolean
   busy: boolean
   canApply: boolean
+  canResetOverrides?: boolean
   message: string
   targetId: HostUpdateTargetId | null
   targetTag: string | null
@@ -54,12 +55,21 @@ export type HostUpdateApplyArgs = {
   targetId: HostUpdateTargetId
   targetTag?: string | null
   requestId?: string
+  cancelPausedPrint?: boolean
 }
 
 export type HostUpdateClient = {
   getStatus: () => Promise<HostUpdateStatus>
   check: () => Promise<HostUpdateStatus>
   apply: (args: HostUpdateApplyArgs) => Promise<HostUpdateStatus>
+  resetOverrides?: () => Promise<HostSettingsResetResult>
+}
+
+export type HostSettingsResetResult = {
+  reset: boolean
+  restartRequired: boolean
+  backupPath: string | null
+  message: string
 }
 
 export class MoonrakerHostUpdateError extends Error {
@@ -176,6 +186,7 @@ function normalizeHostUpdateStatus(value: unknown): HostUpdateStatus {
     available: record.available === true,
     busy: record.busy === true || operationIsActive,
     canApply: record.canApply === true,
+    canResetOverrides: record.canResetOverrides === true,
     message: readString(record.message, 'Состояние обновлений получено.'),
     targetId: readTargetId(record.targetId) ?? operation?.targetId ?? null,
     targetTag: readNullableString(record.targetTag) ?? operation?.targetTag ?? null,
@@ -230,7 +241,10 @@ async function readJsonResponse(response: Response): Promise<unknown> {
 
 function readMoonrakerErrorMessage(body: unknown, fallback: string): string {
   if (typeof body === 'object' && body !== null) {
-    const message = 'message' in body ? body.message : undefined
+    const error = 'error' in body && typeof body.error === 'object' && body.error !== null
+      ? body.error
+      : body
+    const message = 'message' in error ? error.message : undefined
     if (typeof message === 'string' && message.trim().length > 0) {
       return message
     }
@@ -239,12 +253,12 @@ function readMoonrakerErrorMessage(body: unknown, fallback: string): string {
   return fallback
 }
 
-async function requestHostUpdateStatus(
+async function requestHostUpdateJson(
   path: string,
   init: RequestInit,
   options: Required<MoonrakerHostUpdateClientOptions>,
   timeoutMs: number,
-): Promise<HostUpdateStatus> {
+): Promise<unknown> {
   const controller = new AbortController()
   let didTimeout = false
   const timeoutId = setTimeout(() => {
@@ -266,7 +280,7 @@ async function requestHostUpdateStatus(
       )
     }
 
-    return normalizeHostUpdateStatus(body)
+    return body
   } catch (error) {
     if (didTimeout || (error instanceof DOMException && error.name === 'AbortError')) {
       throw new MoonrakerHostUpdateError(
@@ -281,6 +295,20 @@ async function requestHostUpdateStatus(
   }
 }
 
+async function requestHostUpdateStatus(
+  path: string,
+  init: RequestInit,
+  options: Required<MoonrakerHostUpdateClientOptions>,
+  timeoutMs: number,
+): Promise<HostUpdateStatus> {
+  return normalizeHostUpdateStatus(await requestHostUpdateJson(path, init, options, timeoutMs))
+}
+
+export function isHostUpdateRequestRejected(error: unknown): boolean {
+  return error instanceof MoonrakerHostUpdateError &&
+    error.status >= 400 && error.status < 500 && error.status !== 408
+}
+
 export function isMoonrakerHostUpdateEndpointUnavailable(error: unknown): boolean {
   return (
     error instanceof MoonrakerHostUpdateError &&
@@ -291,6 +319,7 @@ export function isMoonrakerHostUpdateEndpointUnavailable(error: unknown): boolea
 export function getHostUpdateErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof MoonrakerHostUpdateError) {
     if (error.status === 408) return 'Служба обновлений не ответила вовремя. Проверяем состояние операции.'
+    if (error.status === 409) return error.message
     if (error.status >= 500) return 'Служба обновлений сообщила об ошибке. Повторите попытку позже.'
     if (error.status === 404 || error.status === 501) return 'Служба обновлений недоступна на этом принтере.'
   }
@@ -309,6 +338,24 @@ export function createMoonrakerHostUpdateClient(
   }
 
   return {
+    async resetOverrides() {
+      const body = await requestHostUpdateJson(
+        '/server/treed/settings/reset',
+        { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ confirm: true }) },
+        clientOptions,
+        HOST_UPDATE_STATUS_TIMEOUT_MS,
+      )
+      if (typeof body !== 'object' || body === null || !('reset' in body) || body.reset !== true) {
+        throw new Error('Служба не подтвердила сброс настроек.')
+      }
+      const record = body as Record<string, unknown>
+      return {
+        reset: true,
+        restartRequired: record.restartRequired !== false,
+        backupPath: readNullableString(record.backupPath),
+        message: readString(record.message, 'Настройки сброшены. Перезапустите Klipper для применения.'),
+      }
+    },
     getStatus() {
       return requestHostUpdateStatus(
         '/server/treed/update/status',
@@ -330,7 +377,8 @@ export function createMoonrakerHostUpdateClient(
       return requestHostUpdateStatus(
         '/server/treed/update/apply',
         {
-          body: JSON.stringify({ requestId, targetId: args.targetId, targetTag: args.targetTag ?? null }),
+          body: JSON.stringify({ requestId, targetId: args.targetId, targetTag: args.targetTag ?? null,
+            ...(args.cancelPausedPrint ? { cancelPausedPrint: true } : {}) }),
           headers: { 'content-type': 'application/json' },
           method: 'POST',
         },

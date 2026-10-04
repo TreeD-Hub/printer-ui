@@ -1,5 +1,5 @@
-import type { CSSProperties, ReactNode } from 'react'
-import { SettingsSidebarMenu } from '../ui'
+import { useState, type CSSProperties, type ReactNode } from 'react'
+import { SettingsSidebarMenu, useModalFocus } from '../ui'
 import { SETTINGS_GROUP_OPTIONS } from './config'
 import type { SettingsPageProps } from './SettingsPage'
 import {
@@ -267,6 +267,8 @@ export function SystemSettingsPage({
   system,
   systemStatus,
 }: SystemSettingsPageProps) {
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false)
+  const resetFocusRef = useModalFocus<HTMLElement>(isResetConfirmOpen, () => setIsResetConfirmOpen(false))
   const { status } = systemStatus
   const memoryPercent = getMemoryPercent(status.host.memoryUsedBytes, status.host.memoryTotalBytes)
   const warnings = collectWarnings(status)
@@ -416,9 +418,39 @@ export function SystemSettingsPage({
                 Экспорт диагностики
               </button>
             </div>
+            <div className="system-settings-footer">
+              <div>
+                <strong>Заводские настройки профиля</strong>
+                <span>Сбрасывает локальные переопределения. Калибровки сохраняются.</span>
+                {system.factoryReset.notice ? <span role="status">{system.factoryReset.notice}</span> : null}
+              </div>
+              <button
+                type="button"
+                className="settings-network-btn"
+                disabled={!system.factoryReset.canReset || system.factoryReset.isResetting}
+                onClick={() => setIsResetConfirmOpen(true)}
+              >
+                {system.factoryReset.isResetting ? 'Сброс…' : 'Сбросить настройки'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
+      {isResetConfirmOpen ? (
+        <div className="system-reset-layer">
+          <section ref={resetFocusRef} className="system-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="system-reset-title" aria-describedby="system-reset-detail">
+            <h2 id="system-reset-title">Сбросить локальные настройки?</h2>
+            <p id="system-reset-detail">Локальные переопределения будут заменены заводскими значениями установленного профиля. Сохраним копию файла. Калибровки останутся. Нагрев выключится, Klipper перезапустится.</p>
+            <div className="system-reset-actions">
+              <button type="button" className="file-modal-action" data-modal-initial-focus onClick={() => setIsResetConfirmOpen(false)}>Отмена</button>
+              <button type="button" className="file-modal-action file-modal-action-danger" disabled={!system.factoryReset.canReset || system.factoryReset.isResetting} onClick={() => {
+                setIsResetConfirmOpen(false)
+                void system.factoryReset.onReset()
+              }}>Сбросить</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </section>
   )
 }

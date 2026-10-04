@@ -2,6 +2,51 @@
   padding: 0;
 }
 
+.system-reset-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  display: grid;
+  place-items: center;
+  padding: var(--space-sm);
+  background: var(--color-overlay);
+}
+
+.system-reset-dialog {
+  width: min(480px, 100%);
+  padding: var(--space-md);
+  display: grid;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
+}
+
+.system-reset-dialog h2,
+.system-reset-dialog p {
+  margin: 0;
+}
+
+.system-reset-dialog h2 {
+  font-size: var(--font-size-heading-medium);
+}
+
+.system-reset-dialog p {
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+.system-reset-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.system-reset-actions button,
+.system-settings-footer button {
+  min-height: 56px;
+}
+
 .system-settings-stack {
   min-height: 100%;
   display: grid;
