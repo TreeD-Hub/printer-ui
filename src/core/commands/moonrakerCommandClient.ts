@@ -378,7 +378,7 @@ function executeMoonrakerCommand(
     case 'setDriverMode':
       return sendScript(`TREED_UI_SET_DRIVER_MODE MODE=${args.mode}`, options, args.command)
     case 'setDriverFanMode':
-      return sendScript(`TREED_UI_SET_DRIVER_FAN_MODE MODE=${args.mode}`, options, args.command)
+      return sendScript(`TREED_UI_SET_DRIVER_FAN_MODE MODE=${args.mode}${args.percent === undefined ? '' : ` POWER=${args.percent}`}`, options, args.command)
     case 'setMainLightEnabled':
       return sendScript(args.enabled ? 'LIGHT_ON' : 'LIGHT_OFF', options, args.command)
     case 'setLightPreference':

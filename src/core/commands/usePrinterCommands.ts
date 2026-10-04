@@ -68,6 +68,7 @@ function isCommandConfirmed(
       return context.driverMode?.state === 'ready' && context.driverMode.mode === args.mode
     case 'setDriverFanMode':
       return context.driverFanMode?.state === 'ready' && context.driverFanMode.mode === args.mode
+        && (args.percent === undefined || isNear(context.driverFanMode.activePercent ?? undefined, args.percent))
     case 'start': {
       const currentFilename = context.printJob?.filename?.replace(/^\/+gcodes\//, '')
       const expectedFilename = args.filename.replace(/^\/+gcodes\//, '')

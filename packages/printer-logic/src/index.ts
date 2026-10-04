@@ -104,6 +104,10 @@ export interface DriverModeSnapshot {
   speedPercent?: number | null
   activePercent?: number | null
   idlePercent?: number | null
+  powerControlSupported?: boolean
+  minPowerPercent?: number | null
+  maxPowerPercent?: number | null
+  loadReason?: string | null
 }
 export type FilamentSensorMode = 'presence' | 'motion'
 export type FilamentSensorSensitivity = 'low' | 'medium' | 'high'
@@ -181,8 +185,13 @@ export type ExecuteCommandArgs =
       percent: number
     }
   | {
-      command: 'setDriverMode' | 'setDriverFanMode'
+      command: 'setDriverMode'
       mode: DriverMode
+    }
+  | {
+      command: 'setDriverFanMode'
+      mode: DriverMode
+      percent?: number
     }
   | {
       command: 'setMainLightEnabled'
@@ -1588,6 +1597,11 @@ function getCommandSpecificBlockReason(
     if (args !== undefined && 'mode' in args && !state.availableModes.includes(args.mode as DriverMode)) {
       return state.message ?? `${item.label}: выбранный режим недоступен.`
     }
+    if (args?.command === 'setDriverFanMode' && args.percent !== undefined
+      && (state.powerControlSupported !== true || state.minPowerPercent == null || state.maxPowerPercent == null
+        || args.percent < state.minPowerPercent || args.percent > state.maxPowerPercent)) {
+      return 'Мощность обдува вне проверенного диапазона устройства.'
+    }
     if (command === 'setDriverMode' && (activePrint || pausedPrint || context.clogRecoveryActive === true
       || (context.operationPhase !== undefined && context.operationPhase !== 'idle')
       || ['preparing', 'recovery', 'calibration', 'error'].includes(normalizeState(context.printJob?.state)))) {
@@ -1751,8 +1765,11 @@ export function getTreeDCommandArgumentError(
 ): string | null {
   switch (args.command) {
     case 'setDriverMode':
-    case 'setDriverFanMode':
       return args.mode === 'normal' || args.mode === 'quiet' ? null : 'MODE должен быть quiet или normal.'
+    case 'setDriverFanMode':
+      if (args.mode !== 'normal' && args.mode !== 'quiet') return 'MODE должен быть quiet или normal.'
+      return args.percent === undefined || (Number.isInteger(args.percent) && args.percent > 0 && args.percent <= 100)
+        ? null : 'Мощность обдува должна быть целым числом от 1 до 100%.'
     case 'moveAxis': {
       if (!Number.isFinite(args.distanceMm) || args.distanceMm === 0 || Math.abs(args.distanceMm) > MAX_UI_MOVE_DISTANCE_MM) {
         return `DISTANCE должен быть в диапазоне -${MAX_UI_MOVE_DISTANCE_MM}…${MAX_UI_MOVE_DISTANCE_MM} мм и не равен 0.`
