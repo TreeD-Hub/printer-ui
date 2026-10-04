@@ -53,12 +53,11 @@ describe('Подтверждение режима драйверов', () => {
   view.rerender(<DriverModeControlPanel controls={{...controls, pendingCommands: {}, mode: {...controls.mode!, mode: 'quiet'}}} kind="drivers" />)
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
  })
- it('не применяет режим, отсутствующий в контракте устройства', () => {
+ it('скрывает режим обдува, отсутствующий в контракте устройства', () => {
   const controls = fixture()
   controls.fanMode = {...controls.mode!, availableModes: ['normal'], message: 'Режим недоступен'}
   render(<DriverModeControlPanel controls={controls} kind="fan" />)
-  fireEvent.click(screen.getByRole('button', {name: 'Тихий'}))
-  expect(screen.getByRole('button', {name: 'Применить'})).toBeDisabled()
+  expect(screen.queryByRole('button', {name: 'Тихий'})).toBeNull()
   expect(controls.onApply).not.toHaveBeenCalled()
  })
  it('предлагает перезапуск только при подтверждённом отказе core', async () => {
