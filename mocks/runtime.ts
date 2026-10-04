@@ -21,6 +21,7 @@ const mockUpdateStatus: HostUpdateStatus = {
   available: true,
   busy: false,
   canApply: false,
+  canResetOverrides: true,
   message: 'Проверочный выпуск интерфейса доступен.',
   targetId: null,
   targetTag: null,
@@ -789,6 +790,12 @@ export function createHostUpdateClient(): HostUpdateClient {
 
   return {
     getStatus: () => Promise.resolve(cloneMockUpdateStatus(status)),
+    resetOverrides: () => Promise.resolve({
+      reset: true,
+      restartRequired: false,
+      backupPath: null,
+      message: 'Проверочный режим: локальные настройки сброшены.',
+    }),
     check: () => Promise.resolve(cloneMockUpdateStatus(status)),
     apply: ({ targetId, targetTag, requestId }) => {
       if (requestId && status.operation?.requestId === requestId) {

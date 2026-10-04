@@ -17,6 +17,7 @@ import {
 } from '../core/hostNetwork'
 import {
   isMoonrakerHostUpdateEndpointUnavailable,
+  isHostUpdateRequestRejected,
   getHostUpdateErrorMessage,
   type HostUpdateClient,
   type HostUpdateOperation,
@@ -151,6 +152,7 @@ export function useSettingsController({
   const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Сервис облака не подключен.')
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
   const [applyingUpdateTarget, setApplyingUpdateTarget] = useState<HostUpdateTargetId | null>(null)
+  const [pausedUpdateTarget, setPausedUpdateTarget] = useState<HostUpdateTargetId | null>(null)
   const [updateOperation, setUpdateOperation] = useState<HostUpdateOperation | null>(null)
   const pendingUpdateRef = useRef<(Pick<HostUpdateOperation, 'operationId' | 'requestId' | 'targetId' | 'targetTag'> & { errorMessage?: string }) | null>(null)
   const [updateOperationHistory, setUpdateOperationHistory] = useState<HostUpdateOperation[]>([])
@@ -165,6 +167,10 @@ export function useSettingsController({
       : createUnknownUpdateReleaseResults(UPDATE_RELEASE_TARGETS),
   )
   const [updateNotice, setUpdateNotice] = useState<string>('')
+  const [canResetOverrides, setCanResetOverrides] = useState(false)
+  const [isResettingOverrides, setIsResettingOverrides] = useState(false)
+  const resetInFlight = useRef(false)
+  const [resetOverridesNotice, setResetOverridesNotice] = useState('')
   const [consoleCommandValue, setConsoleCommandValue] = useState<string>('')
   const [pendingConsoleCommand, setPendingConsoleCommand] = useState<string | null>(null)
   const [consoleHistory, setConsoleHistory] = useState<Array<{ id: string; command: string; createdAt: string }>>([])
@@ -185,7 +191,8 @@ export function useSettingsController({
   const isNetworkCapabilityAvailable = hostNetworkStatus.available
   const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const isUpdatesCapabilityAvailable = runtimeMode === 'mock' || typeof fetch === 'function'
-  const isUpdateBlockedByActivePrint = isPrintJobActive(snapshot.printJob)
+  const isActivePrintJob = isPrintJobActive(snapshot.printJob)
+  const isUpdateBlockedByActivePrint = isActivePrintJob && snapshot.printJob.state !== 'paused'
   const wifiIpLabel = hostNetworkStatus.ipAddress ?? '—'
   const networkCapabilityNotice = isNetworkCapabilityAvailable
     ? hostNetworkStatus.message
@@ -292,6 +299,7 @@ export function useSettingsController({
   }, [applyHostNetworkError, applyHostNetworkStatus, networkClient])
 
   const consumeUpdateStatus = useCallback((status: HostUpdateStatus): void => {
+    setCanResetOverrides(status.canResetOverrides === true)
     applyHostUpdateStatus(status)
     const activeOperation = status.operation ?? (status.busy ? {
       operationId: null,
@@ -602,7 +610,8 @@ export function useSettingsController({
     )
   }
 
-  async function handleApplyUpdate(targetId: HostUpdateTargetId): Promise<void> {
+  async function handleApplyUpdate(targetId: HostUpdateTargetId, cancelPausedPrint = false): Promise<void> {
+    if (resetInFlight.current || applyingUpdateTarget !== null) return
     if (updateOperation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updateOperation.status)) {
       return
     }
@@ -617,16 +626,29 @@ export function useSettingsController({
       return
     }
 
+    if (snapshot.printJob.state === 'paused' && !cancelPausedPrint) {
+      setPausedUpdateTarget(targetId)
+      return
+    }
+
     setApplyingUpdateTarget(targetId)
     const requestId = globalThis.crypto.randomUUID()
     pendingUpdateRef.current = { operationId: null, requestId, targetId, targetTag: release.latestTag }
     try {
-      const status = await updateClient.apply({ targetId, targetTag: release.latestTag, requestId })
+      const status = await updateClient.apply({ targetId, targetTag: release.latestTag, requestId,
+        ...(cancelPausedPrint ? { cancelPausedPrint: true } : {}) })
       consumeUpdateStatus(status)
       if (!status.busy && status.operation === null) {
         setUpdateNotice(status.message || 'Служба не подтвердила запуск операции.')
       }
     } catch (error) {
+      if (isHostUpdateRequestRejected(error)) {
+        pendingUpdateRef.current = null
+        setUpdateOperation(null)
+        setIsUpdateReconnectPending(false)
+        setUpdateNotice(getHostUpdateErrorMessage(error, 'Служба отклонила запрос обновления.'))
+        return
+      }
       const errorMessage = getHostUpdateErrorMessage(error, 'Не удалось подтвердить запуск. Проверяем состояние операции.')
       pendingUpdateRef.current = { operationId: null, requestId, targetId, targetTag: release.latestTag, errorMessage }
       setUpdateOperation({
@@ -648,6 +670,23 @@ export function useSettingsController({
       void updateClient.getStatus().then(consumeUpdateStatus).catch(() => undefined)
     } finally {
       setApplyingUpdateTarget(null)
+    }
+  }
+
+  async function handleResetOverrides(): Promise<void> {
+    if (resetInFlight.current || !canResetOverrides || !updateClient.resetOverrides ||
+      isActivePrintJob || isUpdateOperationActive || applyingUpdateTarget !== null) return
+    resetInFlight.current = true
+    setIsResettingOverrides(true)
+    setResetOverridesNotice('Сохраняем копию и сбрасываем локальные настройки…')
+    try {
+      const result = await updateClient.resetOverrides()
+      setResetOverridesNotice(result.message)
+    } catch (error) {
+      setResetOverridesNotice(error instanceof Error ? error.message : 'Не удалось сбросить настройки.')
+    } finally {
+      resetInFlight.current = false
+      setIsResettingOverrides(false)
     }
   }
 
@@ -805,6 +844,13 @@ export function useSettingsController({
           : snapshot.uiContract.message ?? 'UI contract: несовместим',
       runtimeStatus: `Transport: ${snapshot.transport.state}; Klippy: ${snapshot.klippy.state}`,
       onExportDiagnostics: () => downloadDiagnosticReport(snapshot, PRINTER_UI_CURRENT_VERSION),
+      factoryReset: {
+        canReset: canResetOverrides && typeof updateClient.resetOverrides === 'function' &&
+          !isActivePrintJob && !isUpdateOperationActive && applyingUpdateTarget === null,
+        isResetting: isResettingOverrides,
+        notice: resetOverridesNotice,
+        onReset: handleResetOverrides,
+      },
     },
     interfaceSettings: {
       isDarkThemeEnabled,
@@ -871,6 +917,13 @@ export function useSettingsController({
       onDismissOperation: () => setDismissedUpdateOperationId(updateOperationId),
       onCheckUpdates: handleCheckUpdates,
       onApplyUpdate: handleApplyUpdate,
+      pausedUpdateTarget,
+      onCancelPausedUpdate: () => setPausedUpdateTarget(null),
+      onConfirmPausedUpdate: async () => {
+        const target = pausedUpdateTarget
+        setPausedUpdateTarget(null)
+        if (target !== null) await handleApplyUpdate(target, true)
+      },
     },
     language: {
       languageValue,
