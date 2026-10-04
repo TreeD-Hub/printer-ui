@@ -5,8 +5,8 @@
   "identifier": "com.treed.shell",
   "build": {
     "frontendDist": "../dist",
-    "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run build:logic && vite --mode mock",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeDevCommand": "npm run build:logic && vite --mode mock --host 127.0.0.1 --port 5173 --strictPort",
     "beforeBuildCommand": "npm run build:ui:printer"
   },
   "app": {

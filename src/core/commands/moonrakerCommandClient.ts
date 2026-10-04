@@ -161,7 +161,11 @@ function sendScript(
   options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'fetchTimeoutMs' | 'moonrakerUrl'>>,
   command?: ExecuteCommandArgs['command'],
 ): Promise<void> {
-  const requestOptions = command !== undefined && MOTION_COMMANDS.has(command)
+  // PID блокирует ответ Klipper до окончания циклов нагрева; таймаут не отменяет нагрев.
+  const pidTimeout = /^PID_CALIBRATE HEATER=(extruder|heater_bed) TARGET=\d+$/.test(script) ? 30 * 60_000 : 0
+  const requestOptions = pidTimeout > 0
+    ? { ...options, fetchTimeoutMs: Math.max(options.fetchTimeoutMs, pidTimeout) }
+    : command !== undefined && MOTION_COMMANDS.has(command)
     ? { ...options, fetchTimeoutMs: Math.max(options.fetchTimeoutMs, MOTION_COMMAND_FETCH_TIMEOUT_MS) }
     : options
 

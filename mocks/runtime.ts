@@ -1,4 +1,5 @@
 import type { CommandClient, CommandResult, ExecuteCommandArgs } from '../src/core/commands/types'
+import { receivePrinterGcodeResponse } from '../src/core/store/printerNotifications'
 import {
   createUnavailableHostNetworkStatus,
   type HostNetworkClient,
@@ -659,6 +660,11 @@ export function createCommandClient(): CommandClient {
       }
 
       applyMockCommandEffect(args)
+
+      if (args.command === 'consoleGcode' && /^PID_CALIBRATE HEATER=(extruder|heater_bed) TARGET=\d+$/.test(args.script ?? '')) {
+        await wait(12_000)
+        receivePrinterGcodeResponse('PID parameters: pid_Kp=22.100 pid_Ki=1.200 pid_Kd=101.300')
+      }
 
       return {
         command: args.command,

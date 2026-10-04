@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { EddyCalibrationScreen } from './EddyCalibrationScreen'
+import { PidCalibrationScreen } from './PidCalibrationScreen'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import type { PrinterSnapshot } from '../core/transport/types'
 
@@ -12,7 +13,7 @@ export type MacrosContainerProps = {
 }
 
 export function MacrosContainer(props: MacrosContainerProps) {
-  const [isCalibrationOpen, setIsCalibrationOpen] = useState(false)
+  const [workflow, setWorkflow] = useState<'eddy' | 'pid' | null>(null)
   const calibration = props.snapshot.v2.eddy.calibration
   const completedRequiredCount = [
     calibration.primaryDone,
@@ -25,8 +26,10 @@ export function MacrosContainer(props: MacrosContainerProps) {
   return (
     <section className="macros-screen" data-testid="screen-macros">
       <div className="macros-manager" data-testid="macros-manager">
-        {isCalibrationOpen ? (
-          <EddyCalibrationScreen {...props} onBackToList={() => setIsCalibrationOpen(false)} />
+        {workflow === 'pid' ? (
+          <PidCalibrationScreen {...props} onBackToList={() => setWorkflow(null)} />
+        ) : workflow === 'eddy' ? (
+          <EddyCalibrationScreen {...props} onBackToList={() => setWorkflow(null)} />
         ) : (
           <div className="macros-manager-list">
             <header className="macros-manager-list-head">
@@ -41,11 +44,16 @@ export function MacrosContainer(props: MacrosContainerProps) {
                 type="button"
                 className="macros-manager-workflow"
                 aria-label={`Калибровка датчика уровня ${completedRequiredCount}/5`}
-                onClick={() => setIsCalibrationOpen(true)}
+                onClick={() => setWorkflow('eddy')}
               >
                 <span>Калибровка датчика уровня</span>
                 <em>Пошаговая настройка высоты, стола и карты поверхности.</em>
                 <strong>{completedRequiredCount}/5</strong>
+              </button>
+              <button type="button" className="macros-manager-workflow" onClick={() => setWorkflow('pid')}>
+                <span>PID-калибровка</span>
+                <em>Сопло или стол: подготовка, нагрев, расчёт и результат.</em>
+                <strong>PID</strong>
               </button>
             </div>
           </div>

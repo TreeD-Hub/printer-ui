@@ -48,7 +48,7 @@ export function AppScreenContent({
         ) : activeScreen === 'control' ? (
           <ControlContainer {...control} />
         ) : activeScreen === 'macros' ? (
-          <MacrosContainer {...macros} />
+          null
         ) : activeScreen === 'settings' ? (
           <SettingsContainer {...settings} />
         ) : (
@@ -56,6 +56,9 @@ export function AppScreenContent({
             <p className="screen-placeholder-body" />
           </section>
         )}
+        <div style={{ display: activeScreen === 'macros' ? 'contents' : 'none' }}>
+          <MacrosContainer {...macros} />
+        </div>
       </div>
 
       <nav
