@@ -250,7 +250,7 @@ describe('Moonraker host update client', () => {
     })
 
     try {
-      const promise = client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0' })
+      const promise = client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0', uiTargetTag: 'ui-main-42-1' })
       const timeoutExpectation = expect(promise).rejects.toMatchObject({
         message: expect.stringContaining('10000ms'),
         status: 408,
@@ -260,7 +260,7 @@ describe('Moonraker host update client', () => {
       expect(fetchImpl).toHaveBeenCalledWith(
         'http://moonraker.local/server/treed/update/apply',
         expect.objectContaining({
-        body: expect.stringMatching(/^\{"requestId":"[^"]+","targetId":"printer-core","targetTag":"v0.2.0"\}$/),
+        body: expect.stringMatching(/^\{"requestId":"[^"]+","targetId":"printer-core","targetTag":"v0.2.0","uiTargetTag":"ui-main-42-1"\}$/),
           headers: { 'content-type': 'application/json' },
           method: 'POST',
           signal: expect.any(AbortSignal),

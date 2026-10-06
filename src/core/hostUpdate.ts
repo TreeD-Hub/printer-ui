@@ -38,6 +38,7 @@ export type HostUpdateReleaseResult = {
 
 export type HostUpdateStatus = {
   available: boolean
+  supportsCombinedUpdate?: boolean
   busy: boolean
   canApply: boolean
   canResetOverrides?: boolean
@@ -54,6 +55,7 @@ export type HostUpdateStatus = {
 export type HostUpdateApplyArgs = {
   targetId: HostUpdateTargetId
   targetTag?: string | null
+  uiTargetTag?: string
   requestId?: string
   cancelPausedPrint?: boolean
 }
@@ -184,6 +186,7 @@ function normalizeHostUpdateStatus(value: unknown): HostUpdateStatus {
 
   return {
     available: record.available === true,
+    supportsCombinedUpdate: record.supportsCombinedUpdate === true,
     busy: record.busy === true || operationIsActive,
     canApply: record.canApply === true,
     canResetOverrides: record.canResetOverrides === true,
@@ -387,6 +390,7 @@ export function createMoonrakerHostUpdateClient(
         '/server/treed/update/apply',
         {
           body: JSON.stringify({ requestId, targetId: args.targetId, targetTag: args.targetTag ?? null,
+            ...(args.uiTargetTag ? { uiTargetTag: args.uiTargetTag } : {}),
             ...(args.cancelPausedPrint ? { cancelPausedPrint: true } : {}) }),
           headers: { 'content-type': 'application/json' },
           method: 'POST',

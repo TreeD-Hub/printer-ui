@@ -35,6 +35,7 @@
 - `Warning`: `#FFF0B8`
 - `Error`: `#FF2A2A`
 - `Text Primary`: `#CCCCCC`
+- `Text Highlight`: `#FFFFFF` (`--color-text-highlight`) — номер доступной новой версии.
 - `Text Secondary`: `#C0C0C0`
 
 ### Support UI Tokens

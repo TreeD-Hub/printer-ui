@@ -101,11 +101,10 @@ export type SettingsPageProps = {
     isCapabilityAvailable: boolean
     notice: string
     operation: HostUpdateOperation | null
-    operationHistory: HostUpdateOperation[]
     isReconnectPending: boolean
     onDismissOperation: () => void
     onCheckUpdates: () => void
-    onApplyUpdate: (targetId: HostUpdateTargetId) => void
+    onApplyUpdate: () => void
     pausedUpdateTarget: HostUpdateTargetId | null
     onCancelPausedUpdate: () => void
     onConfirmPausedUpdate: () => Promise<void>
@@ -142,7 +141,7 @@ function updateReleaseStatusLabel(release: UpdateReleaseResult): string {
   }
 
   if (release.status === 'latest') {
-    return 'Установлена последняя версия'
+    return 'Актуальная версия'
   }
 
   if (release.canApply === true) {
@@ -154,6 +153,11 @@ function updateReleaseStatusLabel(release: UpdateReleaseResult): string {
   }
 
   return 'Нужно проверить обновления'
+}
+
+function updateVersionLabel(version: string | null): string {
+  if (!version || version === 'unknown') return '—'
+  return version.replace(/^ui-main-(\d+)-(\d+)$/, '0.$1.$2').replace(/^v(?=\d)/, '')
 }
 
 export function SettingsPage({
@@ -486,74 +490,78 @@ export function SettingsPage({
               </article>
             </div>
           ) : activeSettingsGroup === 'updates' ? (
-            <div className="settings-group-stack">
+            <div className="settings-group-stack settings-updates">
               <header className="settings-group-head">
-                <h3>Обновления</h3>
-                <p>Проверка актуальности версии и доступных обновлений.</p>
+                <h3>Проверка обновлений</h3>
+                <p>Новые версии системы и интерфейса TreeD.</p>
               </header>
-              <article className="settings-description-card settings-updates-summary">
+              <div className="settings-updates-versions" aria-live="polite">
                 {updates.releaseResults.map((release) => (
-                  <p key={release.id}>
-                    <span>{release.label}</span>
-                    <span className="settings-updates-leader" aria-hidden="true" />
-                    <strong>
-                      {updates.isCheckingUpdates ? 'Проверяем обновления...' : updateReleaseStatusLabel(release)}
-                    </strong>
-                  </p>
-                ))}
-              </article>
-              {updates.operationHistory.length > 0 && (
-                <article className="settings-description-card" aria-label="Последние операции обновления">
-                  <p><strong>Последние операции</strong></p>
-                  {updates.operationHistory.slice(-3).reverse().map((item) => (
-                    <p key={item.operationId ?? item.requestId ?? `${item.status}-${item.updatedAt}`}>
-                      <span>{item.targetId === 'printer-ui' ? 'Интерфейс TreeD' : 'Система TreeD'}</span>
-                      <strong>{item.message}</strong>
+                  <article key={release.id} className="settings-update-component" aria-label={release.label}>
+                    <header>
+                      <span className="settings-update-code">{release.id === 'printer-ui' ? 'UI' : 'CORE'}</span>
+                      <h4>{release.label}</h4>
+                    </header>
+                    <div className={`settings-update-versions${release.status === 'available' ? ' has-update' : ' is-current'}`}>
+                      <div><span>Установлено</span><strong>{updateVersionLabel(release.currentVersion)}</strong></div>
+                      {release.status === 'available' ? (
+                        <>
+                          <svg className="settings-update-arrow" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                            <path d="M4 16h23M18 7l9 9-9 9" />
+                          </svg>
+                          <div className="settings-update-next"><span>Новая версия</span><strong>{updates.isCheckingUpdates ? '…' : updateVersionLabel(release.latestVersion)}</strong></div>
+                        </>
+                      ) : release.status === 'latest' && !updates.isCheckingUpdates ? (
+                        <svg className="settings-update-check" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <circle cx="16" cy="16" r="13" />
+                          <path d="m9 16 5 5 9-10" />
+                        </svg>
+                      ) : null}
+                    </div>
+                    <p className={`settings-update-status${release.canApply === true ? ' is-available' : ''}`}>
+                      {updates.isCheckingUpdates ? 'Проверяем версии…' : updateReleaseStatusLabel(release)}
                     </p>
-                  ))}
-                </article>
-              )}
-              <div className="settings-cloud-actions">
+                  </article>
+                ))}
+              </div>
+              <div className="settings-updates-actions">
                 <button
                   type="button"
-                  className="settings-network-btn settings-network-btn-primary"
+                  className="settings-network-btn"
                   onClick={updates.onCheckUpdates}
                   data-testid="settings-check-updates-button"
-                  disabled={updates.isCheckingUpdates || updates.applyingUpdateTarget !== null || !updates.isCapabilityAvailable}
+                  disabled={updates.isCheckingUpdates || updates.applyingUpdateTarget !== null || !updates.isCapabilityAvailable ||
+                    (updates.operation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updates.operation.status))}
                 >
                   {updates.isCheckingUpdates ? 'Проверка...' : 'Проверить обновления'}
                 </button>
-                {updates.releaseResults
-                  .filter((release): release is UpdateReleaseResult & { id: HostUpdateTargetId } => (
-                    release.id === 'printer-ui' || release.id === 'printer-core'
-                  ))
-                  .map((release) => (
+                {updates.releaseResults.some((release) => release.status === 'available' && release.canApply === true && release.latestTag !== null) && (
                     <button
-                      key={`${release.id}-apply`}
                       type="button"
-                      className="settings-network-btn"
-                      onClick={() => updates.onApplyUpdate(release.id)}
-                      data-testid={`settings-apply-${release.id}-button`}
+                      className="settings-network-btn settings-update-apply"
+                      onClick={updates.onApplyUpdate}
+                      data-testid="settings-apply-updates-button"
                       disabled={
                         updates.isCheckingUpdates ||
                         system.factoryReset.isResetting ||
                         updates.applyingUpdateTarget !== null ||
                         (updates.operation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updates.operation.status)) ||
-                        updates.isApplyBlockedByActivePrint ||
-                        release.canApply !== true
+                        updates.isApplyBlockedByActivePrint
                       }
                     >
-                      {updates.operation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updates.operation.status)
-                        ? 'Выполняется...'
-                        : updates.applyingUpdateTarget === release.id
+                      {updates.applyingUpdateTarget !== null
                         ? 'Запуск...'
-                        : release.id === 'printer-ui'
-                          ? 'Обновить интерфейс'
-                          : 'Обновить систему'}
+                        : 'Обновить'}
                     </button>
-                  ))}
+                  )}
               </div>
-              {updates.notice && <p className="settings-cloud-notice">{updates.notice}</p>}
+              <p className="settings-updates-notice" role="status">
+                {updates.notice || (updates.isApplyBlockedByActivePrint
+                  ? 'Обновление будет доступно после завершения печати.'
+                  : updates.releaseResults.length > 0 && updates.releaseResults.every((release) => release.status === 'latest') && !updates.isCheckingUpdates
+                  ? 'Установлены последние версии системы и интерфейса.'
+                  : 'Обновятся только компоненты, для которых доступна новая версия.')}
+              </p>
             </div>
           ) : activeSettingsGroup === 'language' ? (
             <div className="settings-group-stack">

@@ -117,7 +117,7 @@ describe('settings controller helpers', () => {
     expect(result.current.pageProps.updates.isApplyBlockedByActivePrint).toBe(false)
     snapshot.printJob.state = 'cancelled'
     rerender()
-    await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+    await act(async () => result.current.pageProps.updates.onApplyUpdate())
     expect(result.current.pageProps.updates.isApplyBlockedByActivePrint).toBe(false)
     expect(apply).toHaveBeenCalledOnce()
   })
@@ -133,12 +133,12 @@ describe('settings controller helpers', () => {
       activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
     }))
     await waitFor(() => expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true))
-    await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+    await act(async () => result.current.pageProps.updates.onApplyUpdate())
     expect(result.current.pageProps.updates.operation).toBeNull()
     expect(result.current.pageProps.updates.isReconnectPending).toBe(false)
     expect(result.current.pageProps.updates.notice).toBe('Принтер ещё печатает.')
     expect(getStatus).toHaveBeenCalledOnce()
-    await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+    await act(async () => result.current.pageProps.updates.onApplyUpdate())
     expect(apply).toHaveBeenCalledTimes(2)
   })
 
@@ -209,7 +209,7 @@ describe('settings controller helpers', () => {
     })
 
     await act(async () => {
-      await result.current.pageProps.updates.onApplyUpdate('printer-ui')
+      await result.current.pageProps.updates.onApplyUpdate()
     })
 
     expect(apply).toHaveBeenCalledWith(expect.objectContaining({
@@ -245,7 +245,7 @@ describe('settings controller helpers', () => {
     })
 
     await act(async () => {
-      await result.current.pageProps.updates.onApplyUpdate('printer-ui')
+      await result.current.pageProps.updates.onApplyUpdate()
     })
 
     expect(result.current.pageProps.updates.isApplyBlockedByActivePrint).toBe(false)
@@ -254,7 +254,7 @@ describe('settings controller helpers', () => {
     act(() => result.current.pageProps.updates.onCancelPausedUpdate())
     expect(result.current.pageProps.updates.pausedUpdateTarget).toBeNull()
     expect(apply).not.toHaveBeenCalled()
-    await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+    await act(async () => result.current.pageProps.updates.onApplyUpdate())
     await act(async () => result.current.pageProps.updates.onConfirmPausedUpdate())
     expect(apply).toHaveBeenCalledOnce()
     expect(apply).toHaveBeenCalledWith(expect.objectContaining({ cancelPausedPrint: true }))
@@ -302,7 +302,7 @@ describe('settings controller helpers', () => {
 
     await waitFor(() => expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true))
     await act(async () => {
-      await result.current.pageProps.updates.onApplyUpdate('printer-ui')
+      await result.current.pageProps.updates.onApplyUpdate()
     })
     await waitFor(() => expect(result.current.pageProps.updates.operation?.phase).toBe('installing'))
 
@@ -329,7 +329,7 @@ describe('settings controller helpers', () => {
       await waitFor(() => expect(result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true))
       vi.useFakeTimers()
       if (reconnect) getStatus.mockRejectedValueOnce(new TypeError('Failed to fetch'))
-      await act(async () => result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+      await act(async () => result.current.pageProps.updates.onApplyUpdate())
       if (reconnect) {
         expect(result.current.pageProps.updates.operation?.status).toBe('queued')
         expect(result.current.pageProps.updates.isReconnectPending).toBe(true)
@@ -529,6 +529,38 @@ describe('settings controller helpers', () => {
 })
 
 describe('автоматическое завершение обновления', () => {
+  it.each(['ui', 'core', 'both', 'none', 'unsupported'] as const)('выбирает только доступные компоненты: %s', async (selection) => {
+    const status: HostUpdateStatus = {
+      ...availableUpdateStatus,
+      supportsCombinedUpdate: selection !== 'unsupported',
+      releaseResults: availableUpdateStatus.releaseResults.map((release) => {
+        const available = selection === 'both' || selection === 'unsupported' ||
+          (selection === 'ui' && release.id === 'printer-ui') || (selection === 'core' && release.id === 'printer-core')
+        return { ...release, status: available ? 'available' : 'latest', canApply: available,
+          latestTag: release.id === 'printer-core' ? 'v0.2.0' : 'ui-main-16-1' }
+      }),
+    }
+    const apply = vi.fn().mockResolvedValue({ ...status, busy: true, targetId: 'printer-core', targetTag: 'v0.2.0' })
+    const view = mountController({ getStatus: async () => status, check: async () => status, apply }, vi.fn())
+    try {
+      await waitFor(() => expect(view.result.current.pageProps.updates.releaseResults).toBe(status.releaseResults))
+      await act(async () => view.result.current.pageProps.updates.onApplyUpdate())
+      if (selection === 'none' || selection === 'unsupported') {
+        expect(apply).not.toHaveBeenCalled()
+        return
+      }
+      expect(apply).toHaveBeenCalledOnce()
+      expect(apply.mock.calls[0][0]).toEqual({
+        targetId: selection === 'ui' ? 'printer-ui' : 'printer-core',
+        targetTag: selection === 'ui' ? 'ui-main-16-1' : 'v0.2.0',
+        requestId: expect.any(String),
+        ...(selection === 'both' ? { uiTargetTag: 'ui-main-16-1' } : {}),
+      })
+    } finally {
+      view.unmount()
+    }
+  })
+
   const runningOperation: HostUpdateOperation = {
     operationId: 'update-1', requestId: 'request-1', targetId: 'printer-ui', targetTag: 'ui-main-42-1',
     status: 'running', phase: 'verifying', progress: null, resultCode: null,
@@ -590,7 +622,7 @@ describe('автоматическое завершение обновления
     const view = mountController(updateClient, onUpdateApplied)
     try {
       await waitFor(() => expect(view.result.current.pageProps.updates.releaseResults[0]?.canApply).toBe(true))
-      await act(async () => view.result.current.pageProps.updates.onApplyUpdate('printer-ui'))
+      await act(async () => view.result.current.pageProps.updates.onApplyUpdate())
       expect(onUpdateApplied).toHaveBeenCalledOnce()
       expect(view.result.current.pageProps.updates.operation).toBeNull()
     } finally { view.unmount() }
@@ -598,6 +630,28 @@ describe('автоматическое завершение обновления
 })
 
 describe('mock update scenarios', () => {
+  it.each(['success', 'error', 'rollback'])('сохраняет последовательность core → UI: %s', async (scenario) => {
+    const previousUrl = `${window.location.pathname}${window.location.search}`
+    window.history.replaceState({}, '', `/?mockUpdates=both&mockUpdate=${scenario}`)
+    vi.useFakeTimers()
+    try {
+      const client = createHostUpdateClient()
+      await client.apply({ targetId: 'printer-core', targetTag: 'v0.24.1', uiTargetTag: 'ui-main-42-1', requestId: 'batch' })
+      await vi.advanceTimersByTimeAsync(7500)
+      if (scenario === 'success') {
+        expect(await client.getStatus()).toMatchObject({ busy: true, operation: { targetId: 'printer-ui' } })
+      }
+      await vi.advanceTimersByTimeAsync(10000)
+      const finished = await client.check()
+      expect(finished.busy).toBe(false)
+      expect(finished.releaseResults.map((release) => release.currentVersion)).toEqual(
+        scenario === 'success' ? ['ui-main-42-1', 'v0.24.1'] : ['0.1.0', '0.1.0'])
+    } finally {
+      vi.useRealTimers()
+      window.history.replaceState({}, '', previousUrl)
+    }
+  })
+
   it('simulates rollback and preserves the operation outcome', async () => {
     const previousUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`
     window.history.replaceState({}, '', '/?mockUpdate=rollback')

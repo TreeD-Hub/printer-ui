@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { MacrosContainerProps } from './MacrosContainer'
 import { subscribePrinterGcodeResponses } from '../core/store/printerNotifications'
+import { isPrintJobActive } from '../core/transport/types'
 import { NumericKeypad, TemperatureTrendChart, TuneValueEditor, useModalFocus } from '../ui'
 import type { TemperatureChartPoint } from '../control/types'
 import './pidCalibration.css'
@@ -48,6 +49,7 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
   const fanPercent = fanEnabled ? 100 : 0
   const draftNumber = Number(temperatureDraft)
   const draftValid = /^\d+$/.test(temperatureDraft) && Number.isInteger(draftNumber) && draftNumber > 0 && draftNumber <= maxTemperature
+  const hasActivePrint = isPrintJobActive(snapshot.printJob)
   const args = { command: 'consoleGcode' as const, script: `PID_CALIBRATE HEATER=${heater} TARGET=${target}` }
   const fanArgs = { command: 'setFanPercent' as const, percent: fanPercent }
   const saveArgs = { command: 'consoleGcode' as const, script: 'TREED_SAVE_CONFIG' }
@@ -65,6 +67,10 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
           ? 'Температура должна быть ниже предела нагревателя.'
           : getCommandBlockReason('consoleGcode', args) ?? getCommandBlockReason(nozzle ? 'setNozzleTarget' : 'setBedTarget', { command: nozzle ? 'setNozzleTarget' : 'setBedTarget', targetCelsius: target })
             ?? (fanPercent !== Math.round(snapshot.modelFanPercent) ? getCommandBlockReason('setFanPercent', fanArgs) : null)
+
+  useEffect(() => {
+    if (hasActivePrint) setTemperatureOpen(false)
+  }, [hasActivePrint])
 
   useEffect(() => subscribePrinterGcodeResponses((message) => {
     if (!busy.current) return
