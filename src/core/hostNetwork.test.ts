@@ -105,6 +105,26 @@ describe('createMoonrakerHostNetworkClient', () => {
     await expect(client.getStatus()).rejects.toThrow('network component missing')
   })
 
+  it('объясняет запрет доступа к системному API при HTML-ответе nginx', async () => {
+    const client = createMoonrakerHostNetworkClient({
+      fetchImpl: vi.fn().mockResolvedValue(new Response('<html>403 Forbidden</html>', { status: 403 })),
+    })
+
+    await expect(client.getStatus()).rejects.toMatchObject({
+      name: 'MoonrakerHostNetworkError',
+      status: 403,
+      message: 'Нет доступа к системным функциям принтера (HTTP 403). Проверьте настройку подключения интерфейса.',
+    })
+  })
+
+  it('не принимает успешный HTML-ответ за состояние Wi-Fi', async () => {
+    const client = createMoonrakerHostNetworkClient({
+      fetchImpl: vi.fn().mockResolvedValue(new Response('<html>invalid status</html>')),
+    })
+
+    await expect(client.getStatus()).rejects.toBeInstanceOf(SyntaxError)
+  })
+
   it('returns unavailable status when Moonraker returns invalid host network payload', async () => {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({
       result: 'not a host network status',

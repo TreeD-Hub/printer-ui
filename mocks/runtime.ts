@@ -19,6 +19,7 @@ let mockNetworkOperations: string[] = []
 
 const mockUpdateStatus: HostUpdateStatus = {
   available: true,
+  supportsCombinedUpdate: true,
   busy: false,
   canApply: false,
   canResetOverrides: true,
@@ -757,6 +758,15 @@ function cloneMockUpdateStatus(status: HostUpdateStatus): HostUpdateStatus {
 
 export function createHostUpdateClient(): HostUpdateClient {
   let status = cloneMockUpdateStatus(mockUpdateStatus)
+  const updates = new URLSearchParams(globalThis.location?.search ?? '').get('mockUpdates')
+  if (updates === 'both' || updates === 'core') {
+    status.releaseResults[1] = { ...status.releaseResults[1], latestTag: 'v0.24.1', latestVersion: '0.24.1',
+      status: 'available', canApply: true, capability: { supported: true, reasonCode: null, reason: null } }
+  }
+  if (updates === 'latest' || updates === 'core') {
+    status.releaseResults = status.releaseResults.map((release) => updates === 'core' && release.id !== 'printer-ui'
+      ? release : { ...release, status: 'latest', latestVersion: release.currentVersion, canApply: false })
+  }
   const requestedScenario = new URLSearchParams(globalThis.location?.search ?? '').get('mockUpdate')
   const scenario = requestedScenario === 'rollback' || requestedScenario === 'error'
     ? requestedScenario
@@ -803,7 +813,7 @@ export function createHostUpdateClient(): HostUpdateClient {
       message: 'Проверочный режим: локальные настройки сброшены.',
     }),
     check: () => Promise.resolve(cloneMockUpdateStatus(status)),
-    apply: ({ targetId, targetTag, requestId }) => {
+    apply: ({ targetId, targetTag, requestId, uiTargetTag }) => {
       if (requestId && status.operation?.requestId === requestId) {
         return Promise.resolve(cloneMockUpdateStatus(status))
       }
@@ -857,6 +867,15 @@ export function createHostUpdateClient(): HostUpdateClient {
           updatedAt: new Date().toISOString(),
         }
         publishStage(operation)
+        if (terminal && scenario === 'success' && base.targetId === 'printer-core' && uiTargetTag) {
+          base.targetId = 'printer-ui'
+          base.targetTag = uiTargetTag
+          base.message = 'Система обновлена. Обновляем интерфейс TreeD.'
+          publishStage(base)
+          index = 0
+          setTimeout(advance, 700)
+          return
+        }
         index += 1
         if (!terminal) setTimeout(advance, 1100)
       }

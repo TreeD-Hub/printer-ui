@@ -32,6 +32,7 @@
   --color-temperature-bed: var(--color-warning); /* Стол: линия графика и её легенда. */
   --color-error: #ff2a2a; /* Критичные действия и ошибки. */
   --color-text-primary: #cccccc; /* Основной светлый dot-matrix текст. */
+  --color-text-highlight: #ffffff; /* Номер доступной новой версии. */
   --color-text-secondary: #c0c0c0; /* Подписи и вторичный текст. */
   --color-text-soft: #818181; /* Units, meta и muted-информация. */
   --color-overlay: rgba(2, 3, 4, 0.78); /* Затемнение контента под popup. */

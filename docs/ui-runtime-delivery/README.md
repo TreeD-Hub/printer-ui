@@ -49,6 +49,7 @@ npm run test:e2e
 
 - `npm run build` сейчас равен `npm run build:ui:printer`.
 - `npm run build:ui:printer` собирает `packages/printer-logic`, затем выполняет `tsc -b && vite build --mode live`.
+- В `build --mode live` Vite закрепляет Moonraker URL `http://127.0.0.1:7125`; `.env.live.local` и переменные окружения не меняют адрес API в bundle принтера. В `dev:live` адрес по-прежнему берётся из `VITE_MOONRAKER_URL` для подключения к принтеру с компьютера.
 - `npm run build:all` также собирает ручной `apps/web-ui` playground.
 - `npm run build:web-ui` нужен только для web playground.
 - `npm run quality:pr` повторяет основной CI quality gate с E2E. В CI также задаётся `CORE_CONTRACT_FIXTURE`; без этой переменной локально тест совместимости с Core пропускается.

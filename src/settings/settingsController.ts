@@ -155,7 +155,8 @@ export function useSettingsController({
   const [pausedUpdateTarget, setPausedUpdateTarget] = useState<HostUpdateTargetId | null>(null)
   const [updateOperation, setUpdateOperation] = useState<HostUpdateOperation | null>(null)
   const pendingUpdateRef = useRef<(Pick<HostUpdateOperation, 'operationId' | 'requestId' | 'targetId' | 'targetTag'> & { errorMessage?: string }) | null>(null)
-  const [updateOperationHistory, setUpdateOperationHistory] = useState<HostUpdateOperation[]>([])
+  const [supportsCombinedUpdate, setSupportsCombinedUpdate] = useState(false)
+  const updateSubmitInFlight = useRef(false)
   const isUpdateOperationActive = updateOperation !== null &&
     !['applied', 'error', 'rolled_back', 'rejected'].includes(updateOperation.status)
   const [isUpdateReconnectPending, setIsUpdateReconnectPending] = useState(false)
@@ -332,7 +333,6 @@ export function useSettingsController({
     }
     // Исторический успех после загрузки страницы не открывает заставку и не создаёт цикл reload.
     setUpdateOperation(isApplied ? null : nextOperation)
-    setUpdateOperationHistory(status.history ?? [])
     setIsUpdateReconnectPending(false)
     if (nextOperation && !isApplied) {
       setUpdateNotice(nextOperation.message)
@@ -565,16 +565,10 @@ export function useSettingsController({
       return
     }
 
-    if (runtimeMode === 'mock') {
-      setUpdateReleaseResults(createMockUpdateReleaseResults(UPDATE_RELEASE_TARGETS))
-      setUpdateNotice('')
-      return
-    }
-
     setIsCheckingUpdates(true)
     try {
       const status = await updateClient.check()
-      applyHostUpdateStatus(status)
+      consumeUpdateStatus(status)
       return
     } catch (error) {
       if (!isMoonrakerHostUpdateEndpointUnavailable(error)) {
@@ -600,6 +594,7 @@ export function useSettingsController({
   }
 
   function applyHostUpdateStatus(status: HostUpdateStatus): void {
+    setSupportsCombinedUpdate(status.supportsCombinedUpdate === true)
     setUpdateReleaseResults(status.releaseResults)
     setUpdateNotice(
       !status.available
@@ -610,8 +605,8 @@ export function useSettingsController({
     )
   }
 
-  async function handleApplyUpdate(targetId: HostUpdateTargetId, cancelPausedPrint = false): Promise<void> {
-    if (resetInFlight.current || applyingUpdateTarget !== null) return
+  async function handleApplyUpdate(cancelPausedPrint = false): Promise<void> {
+    if (resetInFlight.current || updateSubmitInFlight.current || isCheckingUpdates || applyingUpdateTarget !== null) return
     if (updateOperation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updateOperation.status)) {
       return
     }
@@ -620,9 +615,18 @@ export function useSettingsController({
       return
     }
 
-    const release = updateReleaseResults.find((item) => item.id === targetId)
-    if (release?.canApply !== true || release.latestTag === null) {
-      setUpdateNotice(`Обновление ${release?.label ?? targetId} недоступно.`)
+    const releases = updateReleaseResults.filter((item) =>
+      (item.id === 'printer-core' || item.id === 'printer-ui') && item.status === 'available' &&
+      item.canApply === true && item.latestTag !== null)
+    const release = releases.find((item) => item.id === 'printer-core') ?? releases[0]
+    if (!release) {
+      setUpdateNotice('Нет доступных обновлений. Проверьте версии ещё раз.')
+      return
+    }
+    const targetId = release.id as HostUpdateTargetId
+    const uiTargetTag = releases.length === 2 ? releases.find((item) => item.id === 'printer-ui')?.latestTag : null
+    if (uiTargetTag && !supportsCombinedUpdate) {
+      setUpdateNotice('Служба принтера не поддерживает совместное обновление. Сначала обновите службу TreeD.')
       return
     }
 
@@ -632,10 +636,12 @@ export function useSettingsController({
     }
 
     setApplyingUpdateTarget(targetId)
+    updateSubmitInFlight.current = true
     const requestId = globalThis.crypto.randomUUID()
     pendingUpdateRef.current = { operationId: null, requestId, targetId, targetTag: release.latestTag }
     try {
       const status = await updateClient.apply({ targetId, targetTag: release.latestTag, requestId,
+        ...(uiTargetTag ? { uiTargetTag } : {}),
         ...(cancelPausedPrint ? { cancelPausedPrint: true } : {}) })
       consumeUpdateStatus(status)
       if (!status.busy && status.operation === null) {
@@ -669,6 +675,7 @@ export function useSettingsController({
       setUpdateNotice(errorMessage)
       void updateClient.getStatus().then(consumeUpdateStatus).catch(() => undefined)
     } finally {
+      updateSubmitInFlight.current = false
       setApplyingUpdateTarget(null)
     }
   }
@@ -912,17 +919,16 @@ export function useSettingsController({
       isCapabilityAvailable: isUpdatesCapabilityAvailable,
       notice: updateCapabilityNotice,
       operation: dismissedUpdateOperationId !== null && updateOperationId === dismissedUpdateOperationId ? null : updateOperation,
-      operationHistory: updateOperationHistory,
       isReconnectPending: isUpdateReconnectPending,
       onDismissOperation: () => setDismissedUpdateOperationId(updateOperationId),
       onCheckUpdates: handleCheckUpdates,
-      onApplyUpdate: handleApplyUpdate,
+      onApplyUpdate: () => handleApplyUpdate(),
       pausedUpdateTarget,
       onCancelPausedUpdate: () => setPausedUpdateTarget(null),
       onConfirmPausedUpdate: async () => {
         const target = pausedUpdateTarget
         setPausedUpdateTarget(null)
-        if (target !== null) await handleApplyUpdate(target, true)
+        if (target !== null) await handleApplyUpdate(true)
       },
     },
     language: {

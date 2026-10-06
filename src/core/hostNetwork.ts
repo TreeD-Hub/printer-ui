@@ -66,7 +66,12 @@ async function readJsonResponse(response: Response): Promise<unknown> {
     return null
   }
 
-  return JSON.parse(text) as unknown
+  try {
+    return JSON.parse(text) as unknown
+  } catch (error) {
+    if (response.ok) throw error
+    return null
+  }
 }
 
 async function requestHostNetworkStatus(
@@ -90,8 +95,11 @@ async function requestHostNetworkStatus(
     const body = await readJsonResponse(response)
 
     if (!response.ok) {
+      const fallback = response.status === 403
+        ? 'Нет доступа к системным функциям принтера (HTTP 403). Проверьте настройку подключения интерфейса.'
+        : `Moonraker network endpoint failed with HTTP ${response.status}`
       throw new MoonrakerHostNetworkError(
-        readMoonrakerErrorMessage(body, `Moonraker network endpoint failed with HTTP ${response.status}`),
+        readMoonrakerErrorMessage(body, fallback),
         response.status,
       )
     }

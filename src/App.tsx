@@ -760,6 +760,28 @@ function App() {
     closeTemperatureKeyboard()
   }, [closePrintTuneGroup, closeTemperatureKeyboard, setTemperatureChartMode])
 
+  const wasPrintActiveRef = useRef(false)
+  useEffect(() => {
+    const printStarted = hasActivePrint && !wasPrintActiveRef.current
+    wasPrintActiveRef.current = hasActivePrint
+    if (!printStarted) return
+
+    closeTopPopup()
+    closeFileModal()
+    closePrintCancelConfirm()
+    handleKeyboardClose()
+    handlePrintTuneGroupClose()
+    setIsExcludeObjectModalOpen(false)
+    setActiveScreen('dashboard')
+  }, [
+    closeFileModal,
+    closePrintCancelConfirm,
+    closeTopPopup,
+    handleKeyboardClose,
+    handlePrintTuneGroupClose,
+    hasActivePrint,
+  ])
+
   const keyboardFocusRef = useModalFocus<HTMLDivElement>(activeKeyboardTarget !== null, handleKeyboardClose)
   const cancelFocusRef = useModalFocus<HTMLElement>(isPrintCancelConfirmOpen, closePrintCancelConfirm)
   const handlePrintTuneApply = handlePrintTuneGroupClose

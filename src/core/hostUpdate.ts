@@ -38,6 +38,7 @@ export type HostUpdateReleaseResult = {
 
 export type HostUpdateStatus = {
   available: boolean
+  supportsCombinedUpdate?: boolean
   busy: boolean
   canApply: boolean
   canResetOverrides?: boolean
@@ -54,6 +55,7 @@ export type HostUpdateStatus = {
 export type HostUpdateApplyArgs = {
   targetId: HostUpdateTargetId
   targetTag?: string | null
+  uiTargetTag?: string
   requestId?: string
   cancelPausedPrint?: boolean
 }
@@ -184,6 +186,7 @@ function normalizeHostUpdateStatus(value: unknown): HostUpdateStatus {
 
   return {
     available: record.available === true,
+    supportsCombinedUpdate: record.supportsCombinedUpdate === true,
     busy: record.busy === true || operationIsActive,
     canApply: record.canApply === true,
     canResetOverrides: record.canResetOverrides === true,
@@ -236,7 +239,12 @@ async function readJsonResponse(response: Response): Promise<unknown> {
     return null
   }
 
-  return JSON.parse(text) as unknown
+  try {
+    return JSON.parse(text) as unknown
+  } catch (error) {
+    if (response.ok) throw error
+    return null
+  }
 }
 
 function readMoonrakerErrorMessage(body: unknown, fallback: string): string {
@@ -274,8 +282,11 @@ async function requestHostUpdateJson(
     const body = await readJsonResponse(response)
 
     if (!response.ok) {
+      const fallback = response.status === 403
+        ? 'Нет доступа к системным функциям принтера (HTTP 403). Проверьте настройку подключения интерфейса.'
+        : `Moonraker update endpoint failed with HTTP ${response.status}`
       throw new MoonrakerHostUpdateError(
-        readMoonrakerErrorMessage(body, `Moonraker update endpoint failed with HTTP ${response.status}`),
+        readMoonrakerErrorMessage(body, fallback),
         response.status,
       )
     }
@@ -318,6 +329,7 @@ export function isMoonrakerHostUpdateEndpointUnavailable(error: unknown): boolea
 
 export function getHostUpdateErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof MoonrakerHostUpdateError) {
+    if (error.status === 403) return error.message
     if (error.status === 408) return 'Служба обновлений не ответила вовремя. Проверяем состояние операции.'
     if (error.status === 409) return error.message
     if (error.status >= 500) return 'Служба обновлений сообщила об ошибке. Повторите попытку позже.'
@@ -378,6 +390,7 @@ export function createMoonrakerHostUpdateClient(
         '/server/treed/update/apply',
         {
           body: JSON.stringify({ requestId, targetId: args.targetId, targetTag: args.targetTag ?? null,
+            ...(args.uiTargetTag ? { uiTargetTag: args.uiTargetTag } : {}),
             ...(args.cancelPausedPrint ? { cancelPausedPrint: true } : {}) }),
           headers: { 'content-type': 'application/json' },
           method: 'POST',

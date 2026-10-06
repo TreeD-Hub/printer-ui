@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createMoonrakerHostUpdateClient, isHostUpdateRequestRejected } from './hostUpdate'
+import { createMoonrakerHostUpdateClient, getHostUpdateErrorMessage, isHostUpdateRequestRejected } from './hostUpdate'
 
 function jsonResponse(body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -9,6 +9,25 @@ function jsonResponse(body: unknown): Response {
 }
 
 describe('Moonraker host update client', () => {
+  it('объясняет запрет доступа к системному API при HTML-ответе nginx', async () => {
+    const client = createMoonrakerHostUpdateClient({
+      fetchImpl: vi.fn().mockResolvedValue(new Response('<html>403 Forbidden</html>', { status: 403 })),
+    })
+    const error: unknown = await client.check().catch((reason: unknown) => reason)
+    const message = 'Нет доступа к системным функциям принтера (HTTP 403). Проверьте настройку подключения интерфейса.'
+
+    expect(error).toMatchObject({ name: 'MoonrakerHostUpdateError', status: 403, message })
+    expect(getHostUpdateErrorMessage(error, 'Не удалось проверить обновления.')).toBe(message)
+  })
+
+  it('не принимает успешный HTML-ответ за состояние обновлений', async () => {
+    const client = createMoonrakerHostUpdateClient({
+      fetchImpl: vi.fn().mockResolvedValue(new Response('<html>invalid status</html>')),
+    })
+
+    await expect(client.getStatus()).rejects.toBeInstanceOf(SyntaxError)
+  })
+
   it('sends explicit confirmation for resetting overrides and keeps restart outcome', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({
       reset: true, restartRequired: true, backupPath: '/config/local_overrides.cfg.backup.bak',
@@ -231,7 +250,7 @@ describe('Moonraker host update client', () => {
     })
 
     try {
-      const promise = client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0' })
+      const promise = client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0', uiTargetTag: 'ui-main-42-1' })
       const timeoutExpectation = expect(promise).rejects.toMatchObject({
         message: expect.stringContaining('10000ms'),
         status: 408,
@@ -241,7 +260,7 @@ describe('Moonraker host update client', () => {
       expect(fetchImpl).toHaveBeenCalledWith(
         'http://moonraker.local/server/treed/update/apply',
         expect.objectContaining({
-        body: expect.stringMatching(/^\{"requestId":"[^"]+","targetId":"printer-core","targetTag":"v0.2.0"\}$/),
+        body: expect.stringMatching(/^\{"requestId":"[^"]+","targetId":"printer-core","targetTag":"v0.2.0","uiTargetTag":"ui-main-42-1"\}$/),
           headers: { 'content-type': 'application/json' },
           method: 'POST',
           signal: expect.any(AbortSignal),

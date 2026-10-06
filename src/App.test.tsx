@@ -14,6 +14,7 @@ import {
   setMockTransportSnapshot,
 } from '../mocks/runtime'
 import { getPrinterConnectionState, isPrintJobActive, type PrinterSnapshot } from './core/transport/types'
+import { PRINT_FILE_LIBRARY } from './printFiles'
 import { createLoadingMoonrakerSystemStatus, type MoonrakerSystemStatus } from './settings/systemStatus'
 
 const systemStatusMock = vi.hoisted(() => ({
@@ -97,6 +98,68 @@ describe('App', () => {
     expect(screen.queryByRole('button', { name: 'Пауза' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Стоп' })).not.toBeInTheDocument()
   }, 20000)
+
+  it.each(['Файлы', 'Настройки', 'Управление', 'Wi-Fi', 'Клавиатура', 'PID'])(
+    'переходит на печать при внешнем запуске и закрывает окно %s',
+    async (openWindow) => {
+      const snapshot: PrinterSnapshot = {
+        ...createMockSnapshot(),
+        source: 'live',
+        printFiles: [...PRINT_FILE_LIBRARY],
+      }
+      applyPrinterSnapshot(snapshot)
+      render(<App />)
+
+      if (openWindow === 'Wi-Fi') {
+        fireEvent.click(screen.getByRole('button', { name: 'Статус Wi-Fi' }))
+        expect(screen.getByTestId('top-popup-wifi')).toBeInTheDocument()
+      } else if (openWindow === 'Клавиатура') {
+        fireEvent.focus(screen.getByTestId('idle-notes-input'))
+        expect(screen.getByTestId('idle-notes-keyboard')).toBeInTheDocument()
+      } else if (openWindow === 'PID') {
+        fireEvent.click(screen.getByRole('button', { name: 'Макросы' }))
+        fireEvent.click(screen.getByRole('button', { name: /PID-калибровка/ }))
+        fireEvent.click(screen.getByRole('button', { name: 'Своя температура' }))
+        expect(screen.getByRole('dialog', { name: 'Своя температура калибровки' })).toBeInTheDocument()
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: openWindow }))
+        if (openWindow === 'Файлы') {
+          fireEvent.click(screen.getAllByTestId('print-file-card')[0])
+          expect(screen.getByTestId('print-file-modal')).toBeInTheDocument()
+        }
+      }
+
+      const commandCount = getMockCommandOperations().length
+      const activeSnapshot: PrinterSnapshot = {
+        ...snapshot,
+        printJob: {
+          ...snapshot.printJob,
+          filename: 'external-print.gcode',
+          filePath: 'external-print.gcode',
+          state: 'preparing',
+        },
+      }
+      applyPrinterSnapshot(activeSnapshot)
+
+      expect(await screen.findByTestId('print-progress-summary')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Печать' })).toHaveAttribute('aria-current', 'page')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('top-popup-wifi')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('idle-notes-keyboard')).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Настройки' }))
+      for (const state of ['printing', 'paused', 'printing'] as const) {
+        applyPrinterSnapshot({ ...activeSnapshot, printJob: { ...activeSnapshot.printJob, state } })
+        expect(screen.getByRole('button', { name: 'Настройки' })).toHaveAttribute('aria-current', 'page')
+      }
+
+      applyPrinterSnapshot({ ...activeSnapshot, printJob: { ...activeSnapshot.printJob, state: 'complete' } })
+      applyPrinterSnapshot({ ...activeSnapshot, printJob: { ...activeSnapshot.printJob, state: 'printing' } })
+      expect(await screen.findByTestId('print-progress-summary')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Печать' })).toHaveAttribute('aria-current', 'page')
+      expect(getMockCommandOperations()).toHaveLength(commandCount)
+    },
+  )
 
   it('keeps idle dashboard chrome and sidebar visible during a Klipper diagnostic', async () => {
     const snapshot = createMockSnapshot()
@@ -896,7 +959,7 @@ describe('App', () => {
     expect(screen.queryByText('Команда отключения моторов пока не подключена.')).not.toBeInTheDocument()
   }, 30000)
 
-  it('keeps movement tab open but locks axes and filament when print becomes active', async () => {
+  it('allows returning to movement after print starts but locks axes and filament', async () => {
     render(<App />)
 
     await waitFor(() => {
@@ -919,6 +982,9 @@ describe('App', () => {
           state: 'printing',
         },
       })
+
+      expect(await screen.findByTestId('print-progress-summary')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
 
       await waitFor(() => {
         expect(screen.getByTestId('control-group-movement')).not.toBeDisabled()
@@ -1292,7 +1358,7 @@ describe('App', () => {
     fireEvent.click(screen.getByTestId('settings-group-notifications'))
     expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-notifications-enabled-toggle')).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByText('Печать завершена')).toBeInTheDocument()
+    expect(screen.getAllByText('Печать завершена').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByTestId('settings-group-cloud'))
     expect(screen.getByTestId('settings-cloud-connect-toggle')).toBeDisabled()
@@ -1312,8 +1378,8 @@ describe('App', () => {
     expect(screen.getByText('Доступно обновление')).toBeInTheDocument()
     expect(screen.getByText('Обновление недоступно')).toBeInTheDocument()
     expect(screen.queryByText('Симуляция')).not.toBeInTheDocument()
-    expect(screen.getByTestId('settings-apply-printer-ui-button')).toBeEnabled()
-    expect(screen.getByTestId('settings-apply-printer-core-button')).toBeDisabled()
+    expect(screen.getByTestId('settings-apply-updates-button')).toBeEnabled()
+    expect(screen.queryByLabelText('Последние операции обновления')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('settings-group-console'))
     const consoleInput = screen.getByTestId('settings-console-input') as HTMLTextAreaElement
