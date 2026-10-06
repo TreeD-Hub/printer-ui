@@ -9,6 +9,18 @@ function jsonResponse(body: unknown): Response {
 }
 
 describe('Moonraker host update client', () => {
+  it('передаёт сброс только явно выбранных файлов с hash проверенной версии', async () => {
+    const resetConfigs = [{ path: 'config/printer.cfg', sha256: 'a'.repeat(64) }]
+    const fetchImpl = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({
+      available: true, busy: false, supportsConfigReset: true, configConflicts: resetConfigs,
+    })))
+    const client = createMoonrakerHostUpdateClient({ fetchImpl })
+    expect((await client.check()).configConflicts).toEqual(resetConfigs)
+    await client.apply({ targetId: 'printer-core', targetTag: 'v0.2.0', resetConfigs })
+    expect(JSON.parse((fetchImpl.mock.calls[1][1] as RequestInit).body as string).resetConfigs).toEqual(resetConfigs)
+    await client.apply({ targetId: 'printer-ui', targetTag: 'ui-main-1-1' })
+    expect(JSON.parse((fetchImpl.mock.calls[2][1] as RequestInit).body as string)).not.toHaveProperty('resetConfigs')
+  })
   it('объясняет запрет доступа к системному API при HTML-ответе nginx', async () => {
     const client = createMoonrakerHostUpdateClient({
       fetchImpl: vi.fn().mockResolvedValue(new Response('<html>403 Forbidden</html>', { status: 403 })),

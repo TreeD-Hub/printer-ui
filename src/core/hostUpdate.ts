@@ -36,9 +36,13 @@ export type HostUpdateReleaseResult = {
   capability?: { supported: boolean; reasonCode: string | null; reason: string | null }
 }
 
+export type HostConfigConflict = { path: string; sha256: string }
+
 export type HostUpdateStatus = {
   available: boolean
   supportsCombinedUpdate?: boolean
+  supportsConfigReset?: boolean
+  configConflicts?: HostConfigConflict[]
   busy: boolean
   canApply: boolean
   canResetOverrides?: boolean
@@ -58,6 +62,7 @@ export type HostUpdateApplyArgs = {
   uiTargetTag?: string
   requestId?: string
   cancelPausedPrint?: boolean
+  resetConfigs?: HostConfigConflict[]
 }
 
 export type HostUpdateClient = {
@@ -187,6 +192,11 @@ function normalizeHostUpdateStatus(value: unknown): HostUpdateStatus {
   return {
     available: record.available === true,
     supportsCombinedUpdate: record.supportsCombinedUpdate === true,
+    supportsConfigReset: record.supportsConfigReset === true,
+    configConflicts: Array.isArray(record.configConflicts) ? record.configConflicts.filter(
+      (row): row is HostConfigConflict => typeof row === 'object' && row !== null &&
+        typeof row.path === 'string' && typeof row.sha256 === 'string' && /^[0-9a-f]{64}$/.test(row.sha256),
+    ) : [],
     busy: record.busy === true || operationIsActive,
     canApply: record.canApply === true,
     canResetOverrides: record.canResetOverrides === true,
@@ -391,6 +401,7 @@ export function createMoonrakerHostUpdateClient(
         {
           body: JSON.stringify({ requestId, targetId: args.targetId, targetTag: args.targetTag ?? null,
             ...(args.uiTargetTag ? { uiTargetTag: args.uiTargetTag } : {}),
+            ...(args.resetConfigs?.length ? { resetConfigs: args.resetConfigs } : {}),
             ...(args.cancelPausedPrint ? { cancelPausedPrint: true } : {}) }),
           headers: { 'content-type': 'application/json' },
           method: 'POST',

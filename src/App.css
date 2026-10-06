@@ -1624,6 +1624,40 @@ body {
   color: var(--color-text-secondary);
 }
 
+.system-reset-dialog.settings-config-review {
+  width: min(800px, 100%);
+  max-height: calc(100dvh - 32px);
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+}
+
+.settings-config-conflicts {
+  min-height: 0;
+  max-height: 192px;
+  overflow-y: auto;
+}
+
+.settings-config-conflict {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 192px;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-block: var(--space-xs);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.settings-config-conflict code {
+  overflow-wrap: anywhere;
+  font-size: var(--font-size-small);
+}
+
+.settings-config-conflict button {
+  min-height: var(--control-height);
+}
+
+.settings-config-review .settings-config-review-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .settings-group-stack-network {
   grid-template-rows: auto auto;
 }

@@ -19,7 +19,7 @@ import {
   type WifiNetworkSecurity,
 } from './config'
 import type { UpdateReleaseResult } from './updateReleaseClient'
-import type { HostUpdateOperation, HostUpdateTargetId } from '../core/hostUpdate'
+import type { HostConfigConflict, HostUpdateOperation, HostUpdateTargetId } from '../core/hostUpdate'
 
 export type ConsoleHistoryItem = {
   id: string
@@ -94,6 +94,12 @@ export type SettingsPageProps = {
     onAiMonitoringToggle: (checked: boolean) => void
   }
   updates: {
+    configConflicts: HostConfigConflict[]
+    selectedConfigResets: HostConfigConflict[]
+    isConfigReviewOpen: boolean
+    onToggleConfigReset: (conflict: HostConfigConflict) => void
+    onCancelConfigReview: () => void
+    onConfirmConfigReview: () => Promise<void>
     releaseResults: UpdateReleaseResult[]
     isCheckingUpdates: boolean
     applyingUpdateTarget: HostUpdateTargetId | null
@@ -173,6 +179,7 @@ export function SettingsPage({
   console,
 }: SettingsPageProps) {
   const pausedUpdateFocusRef = useModalFocus<HTMLElement>(updates.pausedUpdateTarget !== null, updates.onCancelPausedUpdate)
+  const configReviewFocusRef = useModalFocus<HTMLElement>(updates.isConfigReviewOpen, updates.onCancelConfigReview)
   return (
     <section className="settings-screen" data-testid="screen-settings">
       <div className="settings-layout">
@@ -653,6 +660,34 @@ export function SettingsPage({
           )}
         </div>
       </div>
+      {updates.isConfigReviewOpen ? (
+        <div className="system-reset-layer">
+          <section ref={configReviewFocusRef} className="system-reset-dialog settings-config-review" role="dialog" aria-modal="true" aria-labelledby="config-review-title" aria-describedby="config-review-detail">
+            <h2 id="config-review-title">Локальные изменения конфигов</h2>
+            <p id="config-review-detail">Чтобы сохранить нужные настройки, перенесите их в local_overrides.cfg через редактор конфигов, затем выберите сброс исходного файла. Если уже восстановили его вручную — проверьте снова. Сброс вернёт файл к новой версии из репозитория.</p>
+            <div className="settings-config-conflicts">
+              {updates.configConflicts.map((conflict) => {
+                const selected = updates.selectedConfigResets.some((row) => row.path === conflict.path && row.sha256 === conflict.sha256)
+                return <div key={conflict.path} className="settings-config-conflict">
+                  <code>{conflict.path.replace(/^config\//, '')}</code>
+                  <button type="button" className={`file-modal-action${selected ? ' file-modal-action-danger' : ''}`} aria-pressed={selected}
+                    aria-label={`${selected ? 'Отменить сброс' : 'Сбросить'} ${conflict.path}`} disabled={updates.isCheckingUpdates}
+                    onClick={() => updates.onToggleConfigReset(conflict)}>{selected ? 'Отменить сброс' : 'Сбросить'}</button>
+                </div>
+              })}
+            </div>
+            <p aria-live="polite">{updates.notice || 'Сброс выполнится при обновлении. Старые файлы сохранятся в резервной копии. Калибровки SAVE_CONFIG сохраняются.'}</p>
+            <div className="system-reset-actions settings-config-review-actions">
+              <button type="button" className="file-modal-action" data-modal-initial-focus onClick={updates.onCancelConfigReview}>Назад</button>
+              <button type="button" className="file-modal-action" onClick={updates.onCheckUpdates} disabled={updates.isCheckingUpdates}>{updates.isCheckingUpdates ? 'Проверяем…' : 'Проверить снова'}</button>
+              <button type="button" className="file-modal-action file-modal-action-danger" onClick={() => void updates.onConfirmConfigReview()}
+                disabled={updates.isCheckingUpdates || updates.configConflicts.some((conflict) => !updates.selectedConfigResets.some((row) => row.path === conflict.path && row.sha256 === conflict.sha256))}>
+                {updates.configConflicts.length ? 'Сбросить и обновить' : 'Обновить'}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {updates.pausedUpdateTarget !== null ? (
         <div className="system-reset-layer">
           <section ref={pausedUpdateFocusRef} className="system-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="paused-update-title" aria-describedby="paused-update-detail">

@@ -102,6 +102,36 @@ function changeEvent(value: string): ChangeEvent<HTMLTextAreaElement> {
 }
 
 describe('settings controller helpers', () => {
+  it('требует выбора каждого файла, снимает устаревший выбор и передаёт подтверждённый сброс', async () => {
+    const conflict = { path: 'config/printer.cfg', sha256: 'a'.repeat(64) }
+    const status: HostUpdateStatus = {
+      ...availableUpdateStatus, supportsConfigReset: true, configConflicts: [conflict],
+      releaseResults: [{ ...availableUpdateStatus.releaseResults[1], latestTag: 'v0.2.0', status: 'available', canApply: true }],
+    }
+    const apply = vi.fn().mockResolvedValue(status)
+    const check = vi.fn().mockResolvedValue(status)
+    const updateClient = { getStatus: () => Promise.resolve(status), check, apply }
+    const { result, unmount } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(), connectionLabel: 'Подключено', networkClient: unavailableNetworkClient,
+      updateClient,
+      executeCommand: vi.fn().mockResolvedValue(true), getCommandBlockReason: () => null,
+      activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
+    }))
+    await waitFor(() => expect(result.current.pageProps.updates.configConflicts).toEqual([conflict]))
+    await act(async () => result.current.pageProps.updates.onApplyUpdate())
+    expect(result.current.pageProps.updates.isConfigReviewOpen).toBe(true)
+    await act(async () => result.current.pageProps.updates.onConfirmConfigReview())
+    expect(apply).not.toHaveBeenCalled()
+    act(() => result.current.pageProps.updates.onToggleConfigReset(conflict))
+    const newer = { ...conflict, sha256: 'b'.repeat(64) }
+    check.mockResolvedValueOnce({ ...status, configConflicts: [newer] })
+    await act(async () => result.current.pageProps.updates.onCheckUpdates())
+    expect(result.current.pageProps.updates.selectedConfigResets).toEqual([])
+    act(() => result.current.pageProps.updates.onToggleConfigReset(newer))
+    await act(async () => result.current.pageProps.updates.onConfirmConfigReview())
+    expect(apply).toHaveBeenCalledWith(expect.objectContaining({ targetId: 'printer-core', resetConfigs: [newer] }))
+    unmount()
+  })
   it('allows update after a paused job has been cancelled without remounting the UI', async () => {
     const snapshot = createMockSnapshot()
     snapshot.printJob.state = 'paused'
