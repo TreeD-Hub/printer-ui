@@ -1600,7 +1600,7 @@ function getCommandSpecificBlockReason(
     if (args?.command === 'setDriverFanMode' && args.percent !== undefined
       && (state.powerControlSupported !== true || state.minPowerPercent == null || state.maxPowerPercent == null
         || args.percent < state.minPowerPercent || args.percent > state.maxPowerPercent)) {
-      return 'Мощность обдува вне проверенного диапазона устройства.'
+      return 'Мощность обдува вне диапазона устройства.'
     }
     if (command === 'setDriverMode' && (activePrint || pausedPrint || context.clogRecoveryActive === true
       || (context.operationPhase !== undefined && context.operationPhase !== 'idle')
