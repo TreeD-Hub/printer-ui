@@ -20,6 +20,7 @@ import {
   isHostUpdateRequestRejected,
   getHostUpdateErrorMessage,
   type HostUpdateClient,
+  type HostConfigConflict,
   type HostUpdateOperation,
   type HostUpdateStatus,
   type HostUpdateTargetId,
@@ -156,6 +157,9 @@ export function useSettingsController({
   const [updateOperation, setUpdateOperation] = useState<HostUpdateOperation | null>(null)
   const pendingUpdateRef = useRef<(Pick<HostUpdateOperation, 'operationId' | 'requestId' | 'targetId' | 'targetTag'> & { errorMessage?: string }) | null>(null)
   const [supportsCombinedUpdate, setSupportsCombinedUpdate] = useState(false)
+  const [configConflicts, setConfigConflicts] = useState<HostConfigConflict[]>([])
+  const [selectedConfigResets, setSelectedConfigResets] = useState<HostConfigConflict[]>([])
+  const [isConfigReviewOpen, setIsConfigReviewOpen] = useState(false)
   const updateSubmitInFlight = useRef(false)
   const isUpdateOperationActive = updateOperation !== null &&
     !['applied', 'error', 'rolled_back', 'rejected'].includes(updateOperation.status)
@@ -595,6 +599,12 @@ export function useSettingsController({
 
   function applyHostUpdateStatus(status: HostUpdateStatus): void {
     setSupportsCombinedUpdate(status.supportsCombinedUpdate === true)
+    if (status.configConflicts !== undefined) {
+      const conflicts = status.supportsConfigReset ? status.configConflicts : []
+      setConfigConflicts(conflicts)
+      setSelectedConfigResets((selected) => selected.filter((row) =>
+        conflicts.some((conflict) => conflict.path === row.path && conflict.sha256 === row.sha256)))
+    }
     setUpdateReleaseResults(status.releaseResults)
     setUpdateNotice(
       !status.available
@@ -605,7 +615,7 @@ export function useSettingsController({
     )
   }
 
-  async function handleApplyUpdate(cancelPausedPrint = false): Promise<void> {
+  async function handleApplyUpdate(cancelPausedPrint = false, confirmConfigReset = false): Promise<void> {
     if (resetInFlight.current || updateSubmitInFlight.current || isCheckingUpdates || applyingUpdateTarget !== null) return
     if (updateOperation !== null && !['applied', 'error', 'rolled_back', 'rejected'].includes(updateOperation.status)) {
       return
@@ -624,6 +634,15 @@ export function useSettingsController({
       return
     }
     const targetId = release.id as HostUpdateTargetId
+    if (targetId === 'printer-core' && configConflicts.length > 0) {
+      if (!confirmConfigReset) {
+        setIsConfigReviewOpen(true)
+        return
+      }
+      if (configConflicts.some((row) => !selectedConfigResets.some((selected) =>
+        selected.path === row.path && selected.sha256 === row.sha256))) return
+    }
+    setIsConfigReviewOpen(false)
     const uiTargetTag = releases.length === 2 ? releases.find((item) => item.id === 'printer-ui')?.latestTag : null
     if (uiTargetTag && !supportsCombinedUpdate) {
       setUpdateNotice('Служба принтера не поддерживает совместное обновление. Сначала обновите службу TreeD.')
@@ -642,6 +661,7 @@ export function useSettingsController({
     try {
       const status = await updateClient.apply({ targetId, targetTag: release.latestTag, requestId,
         ...(uiTargetTag ? { uiTargetTag } : {}),
+        ...(targetId === 'printer-core' && selectedConfigResets.length ? { resetConfigs: selectedConfigResets } : {}),
         ...(cancelPausedPrint ? { cancelPausedPrint: true } : {}) })
       consumeUpdateStatus(status)
       if (!status.busy && status.operation === null) {
@@ -912,6 +932,14 @@ export function useSettingsController({
       onAiMonitoringToggle: handleCloudAiMonitoringToggle,
     },
     updates: {
+      configConflicts,
+      selectedConfigResets,
+      isConfigReviewOpen,
+      onToggleConfigReset: (conflict: HostConfigConflict) => setSelectedConfigResets((selected) =>
+        selected.some((row) => row.path === conflict.path)
+          ? selected.filter((row) => row.path !== conflict.path) : [...selected, conflict]),
+      onCancelConfigReview: () => setIsConfigReviewOpen(false),
+      onConfirmConfigReview: () => handleApplyUpdate(false, true),
       releaseResults: updateReleaseResults,
       isCheckingUpdates,
       applyingUpdateTarget,
@@ -928,7 +956,7 @@ export function useSettingsController({
       onConfirmPausedUpdate: async () => {
         const target = pausedUpdateTarget
         setPausedUpdateTarget(null)
-        if (target !== null) await handleApplyUpdate(true)
+        if (target !== null) await handleApplyUpdate(true, true)
       },
     },
     language: {
