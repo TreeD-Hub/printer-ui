@@ -46,6 +46,12 @@ function compareSemver(left: string, right: string): number {
   return 0
 }
 
+function parseReleaseSequence(tag: string, tagPrefix: string): [bigint, bigint] | null {
+  if (!tag.startsWith(tagPrefix)) return null
+  const match = tag.slice(tagPrefix.length).match(/^([1-9]\d*)-([1-9]\d*)$/)
+  return match ? [BigInt(match[1]), BigInt(match[2])] : null
+}
+
 function isReleaseList(value: unknown): value is GitHubRelease[] {
   return Array.isArray(value)
 }
@@ -98,14 +104,30 @@ async function checkUpdateRelease(
     }
 
     if (target.versionScheme === 'tag') {
+      const latestSequence = parseReleaseSequence(latestTag, target.tagPrefix)
+      if (latestSequence === null) {
+        throw new Error(`Release tag ${latestTag} не похож на tag сборки.`)
+      }
+      const currentSequence = parseReleaseSequence(target.currentVersion, target.tagPrefix)
+      const status = currentSequence === null
+        ? 'unknown'
+        : latestSequence[0] > currentSequence[0]
+          || (latestSequence[0] === currentSequence[0] && latestSequence[1] > currentSequence[1])
+          ? 'available'
+          : 'latest'
+
       return {
         id: target.id,
         label: target.label,
         currentVersion: target.currentVersion,
         latestTag,
         latestVersion: latestTag,
-        status: 'latest',
-        message: 'Последний релиз найден.',
+        status,
+        message: status === 'unknown'
+          ? 'Неизвестен tag установленной сборки UI.'
+          : status === 'available'
+            ? `Доступно обновление ${latestTag}.`
+            : 'Установлена актуальная версия.',
       }
     }
 

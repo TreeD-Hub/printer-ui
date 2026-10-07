@@ -26,6 +26,11 @@ Production-контур для экранного UI принтера.
 - Production `mode`: `live`.
 - Release tag: `ui-main-<run_number>-<run_attempt>`.
 
+Vite встраивает заданный workflow `UI_RELEASE_TAG` в live bundle как
+`VITE_UI_RELEASE_TAG`. Fallback через GitHub Releases сравнивает этот установленный
+tag с последним релизом по номеру запуска, затем по номеру попытки. Без tag сборки
+он возвращает `unknown`; версию `package.json` для этого сравнения не использует.
+
 ## Не production path
 
 - Сборка `treed-shell` из исходников на принтере.

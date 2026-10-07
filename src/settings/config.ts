@@ -73,7 +73,7 @@ export const TIMEZONE_OPTIONS = [
 
 export const DEFAULT_TIMEZONE_OPTION = '(UTC+03:00) Москва, Санкт-Петербург'
 export const LANGUAGE_OPTIONS = ['Русский', 'English'] as const
-export const PRINTER_UI_CURRENT_VERSION = '0.1.0'
+export const PRINTER_UI_CURRENT_VERSION = import.meta.env.VITE_UI_RELEASE_TAG ?? 'unknown'
 export const PRINTER_CORE_CURRENT_VERSION = '0.1.0'
 export const UPDATE_RELEASE_TARGETS: UpdateReleaseTarget[] = [
   {
