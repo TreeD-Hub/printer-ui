@@ -89,8 +89,8 @@ export type SettingsPageProps = {
     isCapabilityAvailable: boolean
     isConnected: boolean
     isAiMonitoringEnabled: boolean
+    isBusy: boolean
     notice: string
-    onConnectionToggle: () => void
     onAiMonitoringToggle: (checked: boolean) => void
   }
   updates: {
@@ -457,32 +457,21 @@ export function SettingsPage({
             <div className="settings-group-stack">
               <header className="settings-group-head">
                 <h3>Облако</h3>
-                <p>Подключение сервиса для AI-контроля ошибок и удалённого мониторинга.</p>
+                <p>AI-детекция спагетти и автоматическая отмена печати.</p>
               </header>
-              <div className="settings-cloud-actions">
-                <button
-                  type="button"
-                  className="settings-network-btn settings-network-btn-primary"
-                  onClick={cloud.onConnectionToggle}
-                  data-testid="settings-cloud-connect-toggle"
-                  disabled={!cloud.isCapabilityAvailable}
-                >
-                  {cloud.isConnected ? 'Отключить облако' : 'Подключить облако'}
-                </button>
-              </div>
               <SettingsToggleRow
                 label="AI контроль ошибок"
                 checked={cloud.isAiMonitoringEnabled}
                 onChange={cloud.onAiMonitoringToggle}
                 testId="settings-cloud-ai-toggle"
-                disabled={!cloud.isCapabilityAvailable}
+                disabled={!cloud.isCapabilityAvailable || cloud.isBusy}
               />
               <article className="settings-description-card">
-                <p><span>Статус</span><strong>{cloud.isConnected ? 'Подключено' : 'Не подключено'}</strong></p>
-                <p><span>Сервис</span><strong>TreeD Cloud Guard</strong></p>
+                <p><span>Управление</span><strong>{cloud.isConnected ? 'Доступно' : 'Недоступно'}</strong></p>
+                <p><span>Сервис</span><strong>TreeD AI</strong></p>
                 <p><span>Режим AI</span><strong>{cloud.isAiMonitoringEnabled ? 'Включен' : 'Выключен'}</strong></p>
               </article>
-              <p className="settings-cloud-notice">{cloud.notice}</p>
+              <p className="settings-cloud-notice" role="status">{cloud.notice}</p>
             </div>
           ) : activeSettingsGroup === 'device' ? (
             <div className="settings-group-stack">

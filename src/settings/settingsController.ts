@@ -4,6 +4,7 @@ import {
   type WifiNetworkItem,
 } from '@treed/printer-logic'
 import { runtimeMode } from '#runtime'
+import { requestAiDetectionSettings } from '../core/hostDetection'
 import { usePrinterNotifications } from '../core/store/printerNotifications'
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
@@ -148,9 +149,12 @@ export function useSettingsController({
   const notificationHistory = printerNotifications.history.map((entry) => ({
     ...entry, createdAt: new Date(entry.receivedAt).toLocaleTimeString('ru-RU'),
   }))
-  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(false)
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean>(runtimeMode === 'mock' && snapshot.capabilities.cloud)
   const [isCloudAiMonitoringEnabled, setIsCloudAiMonitoringEnabled] = useState<boolean>(false)
-  const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Сервис облака не подключен.')
+  const [isAiMonitoringBusy, setIsAiMonitoringBusy] = useState(false)
+  const aiToggleInFlight = useRef(false)
+  const aiSettingsRevision = useRef(0)
+  const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Проверяем настройку AI-детекции...')
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
   const [applyingUpdateTarget, setApplyingUpdateTarget] = useState<HostUpdateTargetId | null>(null)
   const [pausedUpdateTarget, setPausedUpdateTarget] = useState<HostUpdateTargetId | null>(null)
@@ -194,7 +198,7 @@ export function useSettingsController({
   const wifiPasswordInputRef = useRef<HTMLInputElement | null>(null)
   const consoleInputRef = useRef<HTMLTextAreaElement | null>(null)
   const isNetworkCapabilityAvailable = hostNetworkStatus.available
-  const isCloudCapabilityAvailable = snapshot.capabilities.cloud
+  const isCloudCapabilityAvailable = runtimeMode === 'mock' ? snapshot.capabilities.cloud : isCloudConnected
   const isUpdatesCapabilityAvailable = runtimeMode === 'mock' || typeof fetch === 'function'
   const isActivePrintJob = isPrintJobActive(snapshot.printJob)
   const isUpdateBlockedByActivePrint = isActivePrintJob && snapshot.printJob.state !== 'paused'
@@ -204,9 +208,42 @@ export function useSettingsController({
     : hostNetworkStatus.message === 'Failed to fetch'
       ? 'Нет связи со службой Wi-Fi принтера. Проверьте соединение и повторите попытку.'
       : 'Управление Wi-Fi пока недоступно на этом принтере.'
-  const cloudCapabilityNotice = isCloudCapabilityAvailable
-    ? cloudConnectionNotice
-    : 'Облачный сервис пока недоступен на этом принтере.'
+  const cloudCapabilityNotice = runtimeMode === 'mock' && !isCloudCapabilityAvailable
+    ? 'AI-детекция недоступна на этом принтере.'
+    : cloudConnectionNotice || (snapshot.printJob.state === 'paused'
+    ? 'На паузе автоотмена заблокирована. После продолжения серия начинается заново.'
+    : 'Порог спагетти 0,3. Отмена после трёх срабатываний подряд; нормальный кадр сбрасывает серию.')
+
+  useEffect(() => {
+    if (runtimeMode === 'mock') {
+      setCloudConnectionNotice('')
+      return
+    }
+    if (snapshot.transport.state !== 'online') {
+      setIsCloudConnected(false)
+      setCloudConnectionNotice('Нет связи с принтером. Управление AI-детекцией недоступно.')
+      return
+    }
+    let stopped = false
+    async function refresh(): Promise<void> {
+      if (aiToggleInFlight.current) return
+      const revision = aiSettingsRevision.current
+      try {
+        const enabled = await requestAiDetectionSettings()
+        if (stopped || aiToggleInFlight.current || revision !== aiSettingsRevision.current) return
+        setIsCloudAiMonitoringEnabled(enabled)
+        setIsCloudConnected(true)
+        setCloudConnectionNotice('')
+      } catch (error) {
+        if (stopped || aiToggleInFlight.current || revision !== aiSettingsRevision.current) return
+        setIsCloudConnected(false)
+        setCloudConnectionNotice(error instanceof Error ? error.message : 'Настройка AI-детекции недоступна.')
+      }
+    }
+    void refresh()
+    const timer = window.setInterval(() => { void refresh() }, 5_000)
+    return () => { stopped = true; window.clearInterval(timer) }
+  }, [snapshot.transport.state])
   const updateCapabilityNotice = isUpdatesCapabilityAvailable
     ? updateNotice
     : 'Проверка обновлений недоступна в этом режиме интерфейса.'
@@ -526,37 +563,22 @@ export function useSettingsController({
       })
   }
 
-  function handleCloudConnectionToggle(): void {
-    if (!isCloudCapabilityAvailable) {
-      setCloudConnectionNotice(cloudCapabilityNotice)
-      return
+  async function handleCloudAiMonitoringToggle(nextValue: boolean): Promise<void> {
+    if (!isCloudCapabilityAvailable || aiToggleInFlight.current) return
+    aiToggleInFlight.current = true
+    aiSettingsRevision.current += 1
+    setIsAiMonitoringBusy(true)
+    setCloudConnectionNotice('Сохраняем настройку AI-детекции...')
+    try {
+      const enabled = runtimeMode === 'mock' ? nextValue : await requestAiDetectionSettings(nextValue)
+      setIsCloudAiMonitoringEnabled(enabled)
+      setCloudConnectionNotice('')
+    } catch (error) {
+      setCloudConnectionNotice(error instanceof Error ? error.message : 'Не удалось сохранить настройку AI-детекции.')
+    } finally {
+      aiToggleInFlight.current = false
+      setIsAiMonitoringBusy(false)
     }
-
-    setIsCloudConnected((prevValue) => {
-      const nextValue = !prevValue
-      setCloudConnectionNotice(
-        nextValue
-          ? 'Подключение к сервису AI-контроля ошибок активно.'
-          : 'Сервис облака отключен.',
-      )
-      if (!nextValue) {
-        setIsCloudAiMonitoringEnabled(false)
-      }
-      return nextValue
-    })
-  }
-
-  function handleCloudAiMonitoringToggle(nextValue: boolean): void {
-    if (!isCloudCapabilityAvailable) {
-      setCloudConnectionNotice(cloudCapabilityNotice)
-      return
-    }
-
-    if (!isCloudConnected) {
-      setCloudConnectionNotice('Сначала подключите облачный сервис.')
-      return
-    }
-    setIsCloudAiMonitoringEnabled(nextValue)
   }
 
   async function handleCheckUpdates(): Promise<void> {
@@ -927,8 +949,8 @@ export function useSettingsController({
       isCapabilityAvailable: isCloudCapabilityAvailable,
       isConnected: isCloudConnected,
       isAiMonitoringEnabled: isCloudAiMonitoringEnabled,
+      isBusy: isAiMonitoringBusy,
       notice: cloudCapabilityNotice,
-      onConnectionToggle: handleCloudConnectionToggle,
       onAiMonitoringToggle: handleCloudAiMonitoringToggle,
     },
     updates: {

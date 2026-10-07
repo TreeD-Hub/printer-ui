@@ -306,7 +306,6 @@ function App() {
   const connectionLabel = CONNECTION_LABELS[connection]
   const snapshotWifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
   const snapshotWifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
-  const isCloudCapabilityAvailable = snapshot.capabilities.cloud
   const hostNetworkClient = useMemo(() => createHostNetworkClient(), [])
   const hostUpdateClient = useMemo(() => createHostUpdateClient(), [])
   const handleUpdateApplied = useCallback(() => {
@@ -329,6 +328,7 @@ function App() {
     closeKeyboard: () => setActiveKeyboardTarget(null),
   })
   const settingsPageProps = settingsController.pageProps
+  const isCloudCapabilityAvailable = settingsPageProps.cloud.isCapabilityAvailable
   const wifiSsidLabel = settingsPageProps.network.currentSsid ?? snapshotWifiSsidLabel
   const wifiIpLabel = settingsPageProps.network.wifiIpLabel !== '—'
     ? settingsPageProps.network.wifiIpLabel
@@ -399,7 +399,9 @@ function App() {
   const handleKeyboardClose = useCallback(() => {
     setActiveKeyboardTarget(null)
   }, [])
-  const cloudStatusLabel = isCloudCapabilityAvailable && connection === 'online' ? 'В сети' : 'Недоступно'
+  const cloudStatusLabel = isCloudCapabilityAvailable && connection === 'online'
+    ? settingsPageProps.cloud.isAiMonitoringEnabled ? 'AI вкл.' : 'AI выкл.'
+    : 'Недоступно'
   const cloudCapabilityNotice = settingsPageProps.cloud.notice
   const isMaxPerformanceModeEnabled = settingsPageProps.interfaceSettings.isMaxPerformanceModeEnabled
   const printerDisplayStatus = usePrinterDisplayStatus()

@@ -8,6 +8,7 @@
 - `store/` - внешний printer snapshot store и hook lifecycle.
 - `commands/` - shell-side command client, hook состояния выполнения и re-export command contract.
 - `hostNetwork.ts` - Moonraker host-network client для `/server/treed/network/*` и shared host-network helpers.
+- `hostDetection.ts` — чтение и сохранение настройки AI через локальный `/server/treed/detection/settings`; ключ классификатора хранится на принтере.
 
 ## Контракт
 

@@ -4,6 +4,7 @@
 
 - `SettingsPage.tsx` — экран настроек и подключение update controls.
 - `settingsController.ts` — состояние формы, статуса и повторный опрос durable update operation через Moonraker.
+- В разделе «Облако» переключатель AI читает сохраняемую настройку принтера и меняется после подтверждения POST. На паузе настройка сохраняется, автоотмена блокируется контуром принтера.
 - `UpdateOperationScreen.tsx` и `updateOperation.css` — полноэкранное состояние операции внутри React UI.
 - `updateReleaseClient.ts` — проверка доступных UI/Core релизов и mock сценарии успеха/ошибки/отката.
 
