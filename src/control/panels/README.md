@@ -1,6 +1,18 @@
 # Панели управления
 
-Компоненты разделов `ControlPage`; команды, допуск и pending-состояние приходят из core приложения.
+Компоненты разделов `ControlPage`. Команды, допуск и состояние выполнения
+поступают от контроллеров приложения; панели не определяют доменные правила.
+
+## Состав
+
+- `MovementControlPanel.tsx` — движение и парковка.
+- `HeatingControlPanel.tsx`, `FanControlPanel.tsx` — нагрев и обдув.
+- `LightingControlPanel.tsx` — свет и сохраняемые настройки автосвета.
+- `FilamentSensorControlPanel.tsx` — настройки датчика филамента.
+- `MaintenanceControlPanel.tsx` — сервисные действия.
+- `DriverModeControlPanel.tsx` — режимы XYZ и обдува драйверов.
+
+## Режимы драйверов
 
 `DriverModeControlPanel` показывает независимые режимы XYZ (раздел движения) и
 обдува драйверов (раздел драйверов), если core публикует совместимый контракт.
@@ -26,3 +38,6 @@
 Адресные проверки: `DriverModeControlPanel.test.tsx` и
 `DriverModeRecovery.test.tsx`. Последняя проверяет shutdown, получение fault и
 ручной перезапуск с mock-транспортом; сборку, browser и устройство они не проверяют.
+
+Контракты команд и блокировок: [общая логика](../../../packages/printer-logic/README.md),
+[командный клиент](../../core/commands/README.md).

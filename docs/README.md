@@ -1,24 +1,25 @@
 # `docs`
 
-Документация проекта `treed-shell`.
+Дизайн и контракты TreeD Shell из репозитория `printer-ui`.
 
 ## Состав
 
-- `00_FOUNDATION.md` - foundation-токены, визуальные правила и Nothing-inspired UI-инварианты.
-- `01_ADR_TAURI_ONLY_V2_RUNTIME.md` - решение по Tauri-only V2 runtime и hardware matrix.
-- `host-network-runtime-contract.md` - контракт Wi-Fi/host-network между UI и `treed-mainshellOS`.
-- `system-power-runtime-contract.md` - контракт reboot/shutdown/service commands и confirmation-only wiring.
-- `ui-runtime-delivery/README.md` - production delivery printer UI через release artifact и loader.
-- `update-display-lifecycle.md` - целевое разделение постоянного системного экрана обновления и заменяемого UI bundle.
+- [00_FOUNDATION.md](00_FOUNDATION.md) — токены и визуальные правила экранного UI.
+- [01_ADR_TAURI_ONLY_V2_RUNTIME.md](01_ADR_TAURI_ONLY_V2_RUNTIME.md) — ADR о Tauri и составе оборудования; текущая доставка браузерного UI описана отдельно ниже.
+- [host-network-runtime-contract.md](host-network-runtime-contract.md) — Wi-Fi и сеть хоста.
+- [system-power-runtime-contract.md](system-power-runtime-contract.md) — перезапуски, питание хоста и подтверждение действий.
+- [ui-runtime-delivery](ui-runtime-delivery/README.md) — доставка готового UI из релиза через loader.
+- [update-display-lifecycle.md](update-display-lifecycle.md) — проект постоянного экрана обновления и заменяемого UI bundle.
+- `superpowers/plans/`, `superpowers/specs/` — планы и спецификации отдельных задач; статус реализации нужно сверять с кодом.
 
 ## Инварианты
 
-- Документы описывают фактический контракт `treed-shell`, а не host-side реализацию `treed-mainshellOS`.
+- Runtime-контракты описывают границу UI и хоста; планы и ADR сами по себе не подтверждают реализацию. Хостом и доставкой управляет `printer-core` (в прежних документах — `treed-mainshellOS`).
 - Новые Moonraker/host-runtime сценарии сначала фиксируются как контракт, затем подключаются в UI.
-- Если документ меняет loader, fallback, provider switch или OS-side command surface, синхронная задача должна быть в `treed-mainshellOS`.
+- Изменение loader, резервного UI, переключения провайдера или команд хоста требует согласованного контракта в `printer-core`.
 
 ## Смежные точки
 
-- Корневой обзор: `../README.md`.
-- UI shell: `../src/README.md`.
-- Shared domain logic: `../packages/printer-logic/README.md`.
+- [Корневой обзор](../README.md).
+- [Экранный UI](../src/README.md).
+- [Общая доменная логика](../packages/printer-logic/README.md).

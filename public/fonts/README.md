@@ -1,6 +1,6 @@
 # `public/fonts`
 
-Vendored шрифты и лицензии для UI.
+Локальные файлы шрифтов и лицензии экранного UI.
 
 ## Подключено сейчас
 
@@ -21,7 +21,7 @@ Vendored шрифты и лицензии для UI.
 - `handjet-readme.txt`
 - `handjet-license.txt`
 
-`Handjet` сейчас сохранен как vendored font asset, но не подключен в `foundation.css`.
+`Handjet` хранится в репозитории, но не подключён в `foundation.css`.
 
 ## Лицензии
 
@@ -30,3 +30,6 @@ Vendored шрифты и лицензии для UI.
 - `Handjet`: см. `handjet-license.txt`.
 
 При распространении шрифтов и модификаций сохранять соответствующие тексты лицензий.
+
+Настройка `@font-face`: [`foundation.css`](../../src/styles/foundation.css).
+Общий порядок работы со стилями: [README стилей](../../src/styles/README.md).

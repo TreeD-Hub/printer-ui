@@ -8,6 +8,7 @@
 - `catalog.ts` - re-export `TREE_D_COMMAND_CATALOG`, risk/capability helpers и block reasons.
 - `moonrakerCommandClient.ts` - live command client для Moonraker HTTP и `/printer/gcode/script`.
 - `usePrinterCommands.ts` - React hook состояния выполнения: `pending`, `error`, `lastResult`.
+- `useSystemCommandRecovery.ts` — состояние восстановления после подтверждённой системной команды.
 - `index.ts` - публичные экспорты слоя.
 
 Mock-команды живут вне production graph в `mocks/runtime.ts` и подключаются только через `vite --mode mock`.
@@ -17,6 +18,8 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 - Печать: `start`, `pause`, `resume`, `cancel`, `emergencyStop`.
 - Парковка и движение: `home`, `homeAll`, `homeX`, `homeY`, `homeXY`, `homeZ`, `parkZBottom`, `moveAxis`, `disableMotors`.
 - Нагрев, обдув и свет: `setNozzleTarget`, `setBedTarget`, `setHeatingTargets`, `turnOffHeaters`, `setFanPercent`, `setMainLightEnabled`.
+- Сохраняемые настройки света: `setLightPreference`.
+- Режимы драйверов и обдува: `setDriverMode`, `setDriverFanMode`.
 - Runtime tune: speed factor, flow factor, accel, pressure advance, retraction length, Z-offset.
 - Филамент: `loadFilament`, `unloadFilament`, `setFilamentSensorMode`, `setFilamentEncoderSensitivity`.
 - V2/Eddy/shaper: `zParkZeroEddy`, `shaperCalibrateLight`, `shaperCalibrateFull`, `xyMotionTest`.
@@ -33,6 +36,9 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 - Runtime block reasons берутся из `getTreeDCommandBlockReason`.
 - Аргументы команд валидируются через `getTreeDCommandArgumentError`; границы движения берутся из `toolhead.axis_minimum/axis_maximum`, а температурные потолки — из совместимого UI-контракта.
 - Риск команды и требование confirmation хранятся в общем `TREE_D_COMMAND_CATALOG`, а не выводятся из текста кнопки.
-- Стандартные Moonraker system actions требуют совместимого UI-контракта, online-транспорта Moonraker и повторного подтверждения. Перезапуск Klipper/Moonraker и питание host дополнительно блокируются во время печати, подготовки, восстановления и калибровки.
+- Системные команды требуют совместимого UI-контракта, online-транспорта Moonraker и подтверждения. Перезапуски и `rebootHost` разрешены при активном задании и могут его прервать; `shutdownHost` при печати и подготовке заблокирован. Ограничения восстановления, калибровки, автосъёма и прочистки задаёт общий каталог; `restartUi` имеет отдельный допуск.
 - Ошибка Moonraker или timeout возвращается как явный failed result/error, без silent-fail.
 - Новые общие command types/rules сначала добавляются в `packages/printer-logic`, затем подключаются здесь.
+
+Полные правила системных команд: [общий пакет](../../../packages/printer-logic/README.md).
+Получение состояния принтера: [транспорт](../transport/README.md).

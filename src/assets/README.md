@@ -1,6 +1,6 @@
 # `src/assets`
 
-Статичные брендовые ассеты, импортируемые TypeScript/CSS кодом shell.
+Графические ресурсы TreeD, которые импортируют TypeScript и CSS приложения.
 
 ## Состав
 
@@ -16,3 +16,6 @@
 - Брендовые SVG используются как source assets; цвет и состояние задаются через CSS/currentColor.
 - Цвета визуального слоя живут в `src/styles/foundation.css`, а не внутри SVG.
 - Runtime/public assets, которые должны копироваться Vite без обработки, кладутся в `public/**`, а не сюда.
+
+Контракт иконок: [`icons/`](icons/README.md).
+Ресурсы, доступные напрямую по URL: [`public/`](../../public/README.md).

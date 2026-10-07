@@ -43,7 +43,7 @@ export function describePrinterEvent(event: PrinterEvent): PrinterNotification {
     clog_aborted: ['Прочистка остановлена', 'Автоматическая прочистка прервана командой управления.', 'warning'],
     print_preparing: ['Подготовка печати', 'Выполняется стартовый цикл принтера.', 'info'],
     print_resumed: ['Печать продолжена', 'Принтер вернулся к выполнению задания.', 'info'],
-    print_cancelled: ['Печать отменена', event.detail === 'spaghetti' ? 'Камера обнаружила дефект типа спагетти на трёх последовательных кадрах. Нагрев отключён.' : 'Задание остановлено, нагрев отключён.', 'warning'],
+    print_cancelled: [event.detail === 'spaghetti' ? 'Печать отменена: спагетти' : 'Печать отменена', event.detail === 'spaghetti' ? 'Камера обнаружила дефект типа спагетти на трёх последовательных кадрах. Нагрев отключён.' : 'Задание остановлено, нагрев отключён.', 'warning'],
     print_complete: ['Печать завершена', 'Завершён конечный цикл принтера.', 'info'],
   }
   const [title, details, severity] = messages[event.code] ?? ['Событие принтера', `${event.code}: ${event.detail}`, 'info']

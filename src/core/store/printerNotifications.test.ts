@@ -3,6 +3,18 @@ import { normalizeMoonrakerRuntimeSnapshot } from '../transport/moonrakerNormali
 
 describe('центр уведомлений', () => {
   beforeEach(() => vi.resetModules())
+  it('показывает причину автоотмены один раз для RESPOND и snapshot', async () => {
+    const store = await import('./printerNotifications')
+    store.receivePrinterGcodeResponse('treed_event v1|7|print_cancelled|spaghetti')
+    const snapshot = normalizeMoonrakerRuntimeSnapshot({ eventtime: 20, status: {
+      webhooks: { state: 'ready' }, print_stats: { state: 'cancelled' },
+      'gcode_macro _TREED_EVENT': { sequence: 7, code: 'print_cancelled', detail: 'spaghetti' },
+    } })
+    store.receivePrinterNotificationSnapshot(snapshot)
+    expect(store.getPrinterNotifications().history).toHaveLength(1)
+    expect(store.getPrinterNotifications().popup?.title).toBe('Печать отменена: спагетти')
+    expect(store.getPrinterNotifications().popup?.details).toContain('трёх последовательных кадрах')
+  })
   it('дедуплицирует RESPOND и snapshot, хранит историю и закрывает окно', async () => {
     const store = await import('./printerNotifications')
     store.receivePrinterGcodeResponse('treed_event v1|1|clog_started|')
