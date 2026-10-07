@@ -7259,6 +7259,10 @@ select {
   z-index: 1;
 }
 
+.screen-shell > .content-grid:has(.system-reset-layer) {
+  z-index: auto;
+}
+
 .bottom-nav {
   background:
     linear-gradient(180deg, rgba(244, 244, 240, 0.055), transparent 46%),
