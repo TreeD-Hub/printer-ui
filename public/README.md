@@ -1,10 +1,10 @@
 # `public`
 
-Статические ресурсы Vite-приложения, которые копируются в build без обработки bundler.
+Статические ресурсы, которые Vite копирует в сборку без обработки.
 
 ## Состав
 
-- `fonts/` - vendored font files и лицензии.
+- [`fonts/`](fonts/README.md) — файлы шрифтов и лицензии.
 - `vite.svg` - стандартный Vite asset, не часть printer UI contract.
 
 ## Правила
@@ -12,3 +12,6 @@
 - Класть сюда только файлы, которые должны быть доступны по URL в runtime.
 - Не хранить здесь runtime config, secrets или device-specific состояние.
 - Шрифты подключаются из `src/styles/foundation.css` через `/fonts/...`.
+
+Ресурсы, импортируемые кодом: [`src/assets`](../src/assets/README.md).
+Подключение шрифтов и дизайн-токены: [README стилей](../src/styles/README.md).

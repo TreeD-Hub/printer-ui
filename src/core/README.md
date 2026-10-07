@@ -1,6 +1,7 @@
 # `src/core`
 
-Клиентское ядро `treed-shell`: transport, store, host-network и command execution.
+Клиентское ядро TreeD Shell: состояние принтера, транспорт Moonraker,
+управляющие команды, сеть и обновления.
 
 ## Состав
 
@@ -8,7 +9,8 @@
 - `store/` - внешний printer snapshot store и hook lifecycle.
 - `commands/` - shell-side command client, hook состояния выполнения и re-export command contract.
 - `hostNetwork.ts` - Moonraker host-network client для `/server/treed/network/*` и shared host-network helpers.
-- `hostDetection.ts` — чтение и сохранение настройки AI через локальный `/server/treed/detection/settings`; ключ классификатора хранится на принтере.
+- `hostUpdate.ts` — клиент статуса и очереди обновлений, firmware inventory и сброса переопределений.
+- `hostDetection.ts` — чтение и запись настройки AI через `/server/treed/detection/settings`; UI передаёт только `enabled`, ключ классификатора в запрос не входит. Нужен Core с поддержкой endpoint.
 
 ## Контракт
 
@@ -20,6 +22,7 @@
 
 ## Смежные слои
 
-- Shared logic: `../../packages/printer-logic/README.md`.
-- Live runtime adapter: `../runtime/live.ts`.
-- Mock runtime adapter: `../../mocks/README.md`.
+- [Общая доменная логика](../../packages/printer-logic/README.md).
+- [Адаптер live](../runtime/live.ts).
+- [Адаптер mock](../../mocks/README.md).
+- [Команды](commands/README.md), [состояние](store/README.md), [транспорт](transport/README.md).

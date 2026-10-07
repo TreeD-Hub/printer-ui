@@ -1,6 +1,7 @@
 # `treed-web-ui`
 
-Ручной Vite/React playground будущей вебморды TreeD.
+Стенд будущего веб-интерфейса TreeD на Vite и React.
+Использует mock-состояния для проверки общей доменной логики без Tauri и принтера.
 
 ## Назначение
 
@@ -29,6 +30,9 @@ npm run build:web-ui
 
 Из каталога `apps/web-ui`:
 
+Сначала установите зависимости и соберите общую логику из корня
+(`npm ci`, `npm run build:logic`); пакет импортируется из `dist`.
+
 ```powershell
 npm run dev
 npm run typecheck
@@ -36,7 +40,7 @@ npm run build
 npm run preview
 ```
 
-## Release
+## Релиз
 
 Workflow `.github/workflows/release-web-ui.yml` запускается только вручную через `workflow_dispatch`.
 
@@ -50,3 +54,6 @@ Workflow `.github/workflows/release-web-ui.yml` запускается толь�
 - Не копировать rules/capabilities из `src/**`.
 - Не переносить Tauri, 5-дюймовый canvas `960x544` и shell-only touch layout как обязательную основу web UI.
 - Полноценная вебморда добавляется отдельной задачей после стабилизации общей доменной логики.
+
+Публичный контракт: [README общего пакета](../../packages/printer-logic/README.md).
+Экранный UI принтера: [корневой README](../../README.md).

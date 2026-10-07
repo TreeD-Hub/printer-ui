@@ -1,27 +1,30 @@
 # `src`
 
-Основная Tauri/UI-shell оболочка TreeD Shell.
+Исходники экранного UI TreeD Shell. Этот React UI используется и в браузере
+на принтере, и в локальной оболочке Tauri.
 
 ## Состав
 
-- `main.tsx` - React entrypoint, diagnostics и error boundary.
-- `App.tsx` - root composition, wiring snapshot/commands/controllers/runtime state.
-- `app/` - выбор активного экрана и bottom navigation composition.
-- `dashboard/` - главный экран, idle/print views, status dock, temperature widgets.
-- `control/` - экран управления движением, нагревом, обдувом, светом и maintenance-группами.
-- `files/` - библиотека G-code файлов, выбор, старт и удаление файла.
-- `settings/` - настройки устройства, интерфейса, Wi-Fi, облака, операция обновления и виртуальная клавиатура.
-- `shell/` - top-status popups, notification/power/network status wiring.
-- `printSession/` - controller активной печати и файловой сессии.
-- `printTune/` - runtime-tune modal, numeric controls и keyboard helpers.
-- `heating/` - controller нагрева и обдува.
-- `maintenance/` - maintenance action controller.
-- `core/` - transport, store, host-network и command clients.
-- `ui/` - переиспользуемые primitives/widgets/icons.
-- `styles/` - foundation tokens и общий UI-kit CSS.
-- `assets/` - брендовые SVG и icon source files.
-- `runtime/live.ts` - live runtime adapter для Vite alias `#runtime`.
-- `config.ts` - `VITE_MOONRAKER_URL`.
+- `main.tsx` — точка входа React, диагностика и обработчик ошибок приложения.
+- `App.tsx` — композиция приложения: состояние принтера, команды и контроллеры.
+- `app/` — выбор активного экрана и нижняя навигация.
+- `dashboard/` — главный экран, состояния ожидания/печати, статус и температуры.
+- `control/` — управление движением, нагревом, обдувом, светом и сервисными действиями.
+- `files/` — библиотека G-code файлов, выбор, запуск и удаление файла.
+- `macros/` — мастер калибровки Eddy и связанное сервисное состояние.
+- `excludeObject/` — выбор исключаемого объекта в активной печати.
+- `settings/` — настройки устройства, интерфейса, Wi-Fi, облака и обновлений.
+- `shell/` — верхняя строка статуса, всплывающие окна уведомлений, питания и сети.
+- `printSession/` — контроллер активной печати и файловой сессии.
+- `printTune/` — окно настройки во время печати, числовые поля и клавиатура.
+- `heating/` — контроллер нагрева и обдува.
+- `maintenance/` — контроллер сервисных действий.
+- `core/` — транспорт, состояние, клиенты сети и команд.
+- `ui/` — общие компоненты и иконки.
+- `styles/` — дизайн-токены и общие стили компонентов.
+- `assets/` — графические ресурсы и исходники иконок.
+- `runtime/live.ts` — адаптер live для Vite alias `#runtime`.
+- `config.ts` — URL Moonraker и API релизов.
 
 ## Инварианты
 
@@ -33,10 +36,17 @@
 - Ошибки транспорта и команд поднимаются в UI явно, без silent-fail.
 - Mock/live выбирается только через Vite alias `#runtime`.
 
+## Запуск
+
+Команды выполняются из корня: `npm run dev:mock` для симуляции,
+`npm run dev:live` для Moonraker. Сборка для принтера: `npm run build:ui:printer`.
+Предусловия и проверки описаны в [корневом README](../README.md).
+
 ## Смежные README
 
-- `core/README.md`
-- `dashboard/README.md`
-- `ui/README.md`
-- `styles/README.md`
-- `assets/README.md`
+- [Клиентское ядро](core/README.md).
+- [Главный экран](dashboard/README.md).
+- [Настройки](settings/README.md).
+- [Общие компоненты](ui/README.md).
+- [Стили](styles/README.md).
+- [Графические ресурсы](assets/README.md).

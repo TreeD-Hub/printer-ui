@@ -1,23 +1,23 @@
-# UI runtime delivery
+# Доставка экранного UI
 
-Production-контур для экранного UI принтера.
+Сборка, публикация и установка готового UI на принтер.
 
 ## Цепочка
 
 1. После `push main`, включая merge PR, `.github/workflows/release-ui.yml` один раз запускает `npm run quality:pr`: проверки, сборки UI и E2E. Протокол `printer-core` ветки `treed-v2` обязателен и проверяется в общем наборе тестов; отсутствующий fixture или несовместимый протокол останавливают публикацию. Отдельных автоматических workflow для PR-проверки и сборки логики нет.
 2. Этот же workflow использует готовый live UI из `dist`, сохраняет архив уже собранной логики как Actions artifact, добавляет manifest и публикует GitHub Release. Повторной сборки UI перед упаковкой нет. Ручной `workflow_dispatch` запускает тот же процесс.
 3. Release содержит asset `treed-shell-ui.zip`.
-4. `treed-mainshellOS` loader скачивает asset, проверяет `treed-shell-ui-manifest.json`, распаковывает bundle в managed runtime dir и запускает его через OS-owned kiosk/browser service.
+4. Loader из `printer-core` скачивает артефакт, проверяет `treed-shell-ui-manifest.json`, распаковывает bundle в управляемый runtime-каталог и запускает браузерный киоск.
 5. KlipperScreen остается fallback UI и переключается через `treed-ui`.
 
 ## Границы ответственности
 
-- `treed-shell` - React UI, mock/live runtime selection, Moonraker-facing client code, release artifact `treed-shell-ui.zip`.
-- `packages/printer-logic` - shared domain contract для types, capabilities, file/network helpers и command catalog; отдельно на принтер не ставится.
-- `apps/web-ui` - ручной playground будущей вебморды, не production UI и не loader artifact.
-- `treed-mainshellOS` - установка artifact, managed runtime dir, systemd/kiosk runtime, fallback на KlipperScreen, provider switch, Moonraker/host contracts.
+- `printer-ui` — React UI, выбор mock/live, клиент Moonraker и артефакт `treed-shell-ui.zip`.
+- `packages/printer-logic` — общие типы, правила доступности действий, работа с файлами/сетью и каталог команд; отдельно на принтер не устанавливается.
+- `apps/web-ui` — стенд будущего веб-интерфейса; его архив не используется loader принтера.
+- `printer-core` — установка архива, runtime-каталог, systemd, браузерный киоск, резервный KlipperScreen, переключение UI и host-контракты.
 
-## Artifact Contract
+## Контракт артефакта
 
 - Release asset: `treed-shell-ui.zip`.
 - Archive content: файлы из `dist/**`.
@@ -31,16 +31,18 @@ Vite встраивает заданный workflow `UI_RELEASE_TAG` в live bun
 tag с последним релизом по номеру запуска, затем по номеру попытки. Без tag сборки
 он возвращает `unknown`; версию `package.json` для этого сравнения не использует.
 
-## Не production path
+## Ограничения доставки
 
 - Сборка `treed-shell` из исходников на принтере.
 - `npm ci`, Rust или Tauri build внутри loader.
 - Mock bundle как printer UI.
 - Автоматический release `apps/web-ui` при `push main`.
 - Отдельная установка `@treed/printer-logic` на устройство.
-- Замена fallback на KlipperScreen без изменения provider contract в `treed-mainshellOS`.
+- Замена резервного KlipperScreen без изменения контракта провайдера в `printer-core`.
 
-## Local commands
+## Локальные команды
+
+Выполняются из корня репозитория после `npm ci`:
 
 ```powershell
 npm run build
@@ -61,4 +63,9 @@ npm run test:e2e
 
 ## Остаточный риск
 
-Локальная сборка создает `dist`, но production loader берет только опубликованный GitHub Release asset. Готовность к машине подтверждается не наличием локального `dist`, а опубликованным `treed-shell-ui.zip` с manifest и host-side проверкой loader в `treed-mainshellOS`.
+Локальная сборка создаёт `dist`. Loader устанавливает опубликованный
+`treed-shell-ui.zip` с manifest; готовность на устройстве проверяет `printer-core`.
+Наличие локального `dist` не подтверждает ни публикацию, ни работу на принтере.
+
+Смежная документация: [корневой README](../../README.md),
+[контракты UI](../README.md).

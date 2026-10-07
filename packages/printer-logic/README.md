@@ -1,14 +1,15 @@
 # `@treed/printer-logic`
 
-Общий TypeScript-пакет доменной логики принтера для `treed-shell` и будущей вебморды.
+Общие типы и чистые функции принтера для TreeD Shell и веб-стенда.
+Пакет `@treed/printer-logic` подключён как npm workspace и импортируется из `dist`.
 
 ## Назначение
 
-Пакет хранит только стабильную общую логику:
+Пакет содержит:
 
 - типы printer snapshot, connection state, limits, files, host-network и BTT SFS runtime state;
-- pure helpers для файлов печати: normalize id/path/name/directory и sort;
-- pure helpers для Wi-Fi/host-network статусов и выбора сети;
+- функции нормализации идентификаторов, путей, имён и каталогов файлов печати, а также сортировки;
+- функции нормализации Wi-Fi/host-network статусов и выбора сети;
 - нормализацию homed axes;
 - расчет capabilities для групп действий;
 - каталог TreeD-команд с risk/capability metadata и `pendingDomain`; `getPrinterCommandPendingDomain` читает домен из каталога;
@@ -45,11 +46,11 @@ capability и `DriverModeSnapshot`; XYZ заблокирован при печа
 - `PrinterEvent`, `parsePrinterEvent`, `readPrinterEvent`, `describePrinterEvent` задают общий для shell/web формат `treed_event v1|sequence|code|detail` и его отображение. Последнее событие доступно из `_TREED_EVENT` в Klipper.
 - Ручной филамент запрещён при печати, подготовке, калибровке, автосъёме и `clogRecoveryActive`. На паузе разрешён при нагретом сопле; движение осей и парковка остаются заблокированы.
 
-- Runtime types экспортируются из `src/index.ts`.
-- Сборочный entrypoint: `dist/index.js`.
-- Type declarations: `dist/index.d.ts`.
-- Package export: `"."`.
-- Публикуемые файлы: `dist`, `README.md`.
+- Типы и функции экспортируются из `src/index.ts`.
+- Точка входа собранного пакета: `dist/index.js`.
+- Объявления типов: `dist/index.d.ts`.
+- Экспорт пакета: `"."`.
+- В архив пакета включаются `dist` и `README.md`; пакет помечен `private: true`.
 
 ## Инварианты
 
@@ -79,6 +80,6 @@ npm run build:logic
 
 ## Смежные слои
 
-- Shell-side command transport: `../../src/core/commands/README.md`.
-- Shell-side state/transport: `../../src/core/README.md`.
-- Web playground: `../../apps/web-ui/README.md`.
+- [Командный клиент UI](../../src/core/commands/README.md).
+- [Состояние и транспорт UI](../../src/core/README.md).
+- [Веб-стенд](../../apps/web-ui/README.md).
