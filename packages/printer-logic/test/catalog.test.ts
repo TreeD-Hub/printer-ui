@@ -24,6 +24,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'homeXY',
   'homeZ',
   'parkZBottom',
+  'serviceMode',
   'moveAxis',
   'setNozzleTarget',
   'setBedTarget',

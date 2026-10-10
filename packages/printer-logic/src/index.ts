@@ -23,6 +23,7 @@ export type PrinterCommandId =
   | 'homeXY'
   | 'homeZ'
   | 'parkZBottom'
+  | 'serviceMode'
   | 'moveAxis'
   | 'setNozzleTarget'
   | 'setBedTarget'
@@ -140,6 +141,7 @@ export type ExecuteCommandArgs =
         | 'homeXY'
         | 'homeZ'
         | 'parkZBottom'
+        | 'serviceMode'
         | 'turnOffHeaters'
         | 'disableMotors'
         | 'zParkZeroEddy'
@@ -897,6 +899,7 @@ export interface TreeDCommandCatalogItem {
 }
 
 export interface TreeDCommandRuntimeContext {
+  serviceModeSupported?: boolean
   driverMode?: DriverModeSnapshot
   driverFanMode?: DriverModeSnapshot
   lightPreferences?: LightPreferences
@@ -1057,6 +1060,14 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     id: 'parkZBottom',
     risk: 'caution',
     label: 'Парковка Z по нижнему DIAG',
+    capability: 'motion',
+    requiresConfirmation: false,
+    pendingDomain: 'motion',
+  },
+  serviceMode: {
+    id: 'serviceMode',
+    risk: 'caution',
+    label: 'Сервисный режим',
     capability: 'motion',
     requiresConfirmation: false,
     pendingDomain: 'motion',
@@ -1485,6 +1496,7 @@ const MOTION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'homeXY',
   'homeZ',
   'parkZBottom',
+  'serviceMode',
   'moveAxis',
   'disableMotors',
   'zParkZeroEddy',
@@ -1587,6 +1599,20 @@ function getCommandSpecificBlockReason(
   }
   const activePrint = hasActivePrint(context)
   const pausedPrint = hasPausedPrint(context)
+
+  if (command === 'serviceMode') {
+    if (context.serviceModeSupported !== true) {
+      return `${item.label}: требуется обновление core принтера.`
+    }
+    if (context.transportState !== 'online' || context.klippyState !== 'ready'
+      || context.uiContractStatus !== 'compatible') {
+      return `${item.label}: готовое состояние устройства не подтверждено.`
+    }
+    if (context.operationPhase !== 'idle' || context.clogRecoveryActive === true
+      || ['recovery', 'calibration', 'error', 'unknown'].includes(normalizeState(context.printJob?.state))) {
+      return `${item.label}: принтер занят или его состояние не подтверждено.`
+    }
+  }
 
   if (command === 'setDriverMode' || command === 'setDriverFanMode') {
     const state = command === 'setDriverMode' ? context.driverMode : context.driverFanMode

@@ -284,6 +284,16 @@ export const MovementControlPanel = memo(function MovementControlPanel({
     setIsMotorsReleaseConfirmOpen(true)
   }
 
+  async function handleServiceModeClick(): Promise<void> {
+    if (commandBlockReasons.serviceMode !== null) {
+      showParkingLockPopup(commandBlockReasons.serviceMode)
+      return
+    }
+    if (!await onServiceModeToggle()) {
+      showParkingLockPopup(getLastCommandError() || 'Сервисная парковка не выполнена.')
+    }
+  }
+
   async function confirmMotorsRelease(): Promise<void> {
     if (isMotionBusy || commandBlockReasons.disableMotors !== null) {
       setIsMotorsReleaseConfirmOpen(false)
@@ -385,9 +395,11 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           className="control-service-btn"
           data-testid="service-mode-button"
           aria-pressed={activeControlFlashKey === 'service-mode'}
-          onClick={onServiceModeToggle}
+          aria-disabled={commandBlockReasons.serviceMode !== null || undefined}
+          disabled={isMotionBusy}
+          onClick={() => void handleServiceModeClick()}
         >
-          Сервисный режим
+          {pendingCommand === 'serviceMode' ? 'Парковка…' : 'Сервисный режим'}
         </button>
         <button
           type="button"

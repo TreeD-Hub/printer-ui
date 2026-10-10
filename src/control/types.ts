@@ -32,6 +32,7 @@ export type MoveStepOption = ControlOption<MoveStepKey> & {
 }
 
 export type MovementCommandBlockReasons = {
+  serviceMode: string | null
   parking: {
     all: string | null
     axis: Record<AxisId, string | null>
@@ -126,7 +127,7 @@ export type MovementControlPanelProps = {
     nextAxis?: AxisId,
     zSensor?: ZParkingSensor,
   ) => Promise<boolean>
-  onServiceModeToggle: () => void
+  onServiceModeToggle: () => Promise<boolean>
   onMotorsDisable: () => Promise<boolean>
   onMovementModeChange: (nextMode: MovementMode) => void
   onMoveStepChange: (nextStep: MoveStepKey) => void

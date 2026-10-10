@@ -22,6 +22,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'homeXY',
   'homeZ',
   'parkZBottom',
+  'serviceMode',
   'moveAxis',
   'setNozzleTarget',
   'setBedTarget',
@@ -91,6 +92,9 @@ const ALL_CAPABILITIES: PrinterCapabilitiesSnapshot = {
 }
 
 const IDLE_CONTEXT: TreeDCommandRuntimeContext = {
+  serviceModeSupported: true,
+  operationPhase: 'idle',
+  klippyState: 'ready',
   capabilities: ALL_CAPABILITIES,
   uiContractStatus: 'compatible',
   connection: 'online',
@@ -164,6 +168,30 @@ const PAUSED_CONTEXT: TreeDCommandRuntimeContext = {
     state: 'paused',
   },
 }
+
+describe('service mode', () => {
+  it('uses the motion domain and admits an idle ready device without Eddy homing', () => {
+    expect(getTreeDCommandCatalogItem('serviceMode').pendingDomain).toBe('motion')
+    expect(getTreeDCommandBlockReason('serviceMode', { ...IDLE_CONTEXT, homedAxes: '', eddyStatus: 'uncalibrated' })).toBeNull()
+  })
+
+  it.each(['preparing', 'printing', 'paused'])('blocks active print state %s', (state) => {
+    expect(getTreeDCommandBlockReason('serviceMode', {
+      ...IDLE_CONTEXT, printJob: { state },
+    })).not.toBeNull()
+  })
+
+  it.each(['preparing', 'calibrating', 'auto_remove', 'unknown'])('blocks operation phase %s', (phase) => {
+    expect(getTreeDCommandBlockReason('serviceMode', { ...IDLE_CONTEXT, operationPhase: phase })).not.toBeNull()
+  })
+
+  it('blocks an old core, an unready device and automatic unclogging', () => {
+    expect(getTreeDCommandBlockReason('serviceMode', { ...IDLE_CONTEXT, serviceModeSupported: false })).toContain('обновление core')
+    expect(getTreeDCommandBlockReason('serviceMode', { ...IDLE_CONTEXT, klippyState: 'shutdown' })).not.toBeNull()
+    expect(getTreeDCommandBlockReason('serviceMode', { ...IDLE_CONTEXT, operationPhase: undefined })).not.toBeNull()
+    expect(getTreeDCommandBlockReason('serviceMode', { ...IDLE_CONTEXT, clogRecoveryActive: true })).not.toBeNull()
+  })
+})
 
 describe('TREE_D_COMMAND_CATALOG', () => {
   it('defines metadata for every executable printer command', () => {

@@ -67,6 +67,34 @@ afterEach(() => {
 })
 
 describe('App', () => {
+  it('service mode reports a device failure without a success flash', async () => {
+    setMockCommandFailure('serviceMode', 'DIAG не сработал')
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+    fireEvent.click(screen.getByTestId('service-mode-button'))
+    await waitFor(() => {
+      expect(screen.getByTestId('movement-lock-popup')).toHaveTextContent('DIAG не сработал')
+    })
+    expect(screen.getByTestId('service-mode-button')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('service mode stays blocked until the core publishes its macro', async () => {
+    const snapshot = createMockSnapshot()
+    snapshot.macros.available = []
+    applyPrinterSnapshot(snapshot)
+    await act(async () => {
+      render(<App />)
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Управление' }))
+    })
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('service-mode-button'))
+    })
+    expect(screen.getByTestId('movement-lock-popup')).toHaveTextContent('обновление core')
+    expect(getMockCommandOperations()).not.toContainEqual({ command: 'serviceMode' })
+  })
+
   it('renders idle placeholder on dashboard before print start', async () => {
     render(<App />)
 
@@ -883,10 +911,19 @@ describe('App', () => {
     })
 
     const serviceModeButton = screen.getByTestId('service-mode-button')
+    await waitFor(() => expect(serviceModeButton).toBeEnabled())
     fireEvent.click(serviceModeButton)
-    expect(serviceModeButton).toHaveAttribute('aria-pressed', 'true')
+    expect(serviceModeButton).toBeDisabled()
     await waitFor(() => {
-      expect(serviceModeButton).toHaveAttribute('aria-pressed', 'false')
+      expect(getMockCommandOperations()).toContainEqual({ command: 'serviceMode' })
+      expect(screen.queryByTestId('movement-lock-popup')).not.toBeInTheDocument()
+      expect(getPrinterSnapshot().toolhead.rawX).toBe(122.5)
+      expect(getPrinterSnapshot().toolhead.rawY).toBe(122.5)
+      expect(getPrinterSnapshot().toolhead.rawZ).toBe(198)
+      expect(screen.getByTestId('service-mode-button')).toHaveAttribute('aria-pressed', 'true')
+    })
+    await waitFor(() => {
+      expect(screen.getByTestId('service-mode-button')).toHaveAttribute('aria-pressed', 'false')
     }, { timeout: 1500 })
 
     fireEvent.click(screen.getByTestId('control-group-heating'))

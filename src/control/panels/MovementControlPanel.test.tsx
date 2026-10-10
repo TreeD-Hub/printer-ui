@@ -15,6 +15,7 @@ function createProps(overrides: Partial<MovementControlPanelProps> = {}): Moveme
     movementMode: 'buttons',
     moveStepKey: '50',
     commandBlockReasons: {
+      serviceMode: null,
       parking: {
         all: null,
         axis: {
@@ -47,7 +48,7 @@ function createProps(overrides: Partial<MovementControlPanelProps> = {}): Moveme
       max: 255,
     },
     onParkingTargetSelect: vi.fn().mockResolvedValue(true),
-    onServiceModeToggle: vi.fn(),
+    onServiceModeToggle: vi.fn().mockResolvedValue(true),
     onMotorsDisable: vi.fn().mockResolvedValue(true),
     onMovementModeChange: vi.fn(),
     onMoveStepChange: vi.fn(),
@@ -65,6 +66,41 @@ beforeEach(() => {
 })
 
 describe('MovementControlPanel', () => {
+  it('runs service parking and locks the button while motion is pending', async () => {
+    const onServiceModeToggle = vi.fn().mockResolvedValue(true)
+    const { rerender } = render(<MovementControlPanel {...createProps({ onServiceModeToggle })} />)
+    fireEvent.click(screen.getByTestId('service-mode-button'))
+    expect(onServiceModeToggle).toHaveBeenCalledTimes(1)
+
+    rerender(<MovementControlPanel {...createProps({
+      onServiceModeToggle, isMotionBusy: true, pendingCommand: 'serviceMode',
+    })} />)
+    expect(screen.getByTestId('service-mode-button')).toBeDisabled()
+    expect(screen.getByTestId('service-mode-button')).toHaveTextContent('Парковка')
+    fireEvent.click(screen.getByTestId('service-mode-button'))
+    expect(onServiceModeToggle).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the service lock reason without sending a command', () => {
+    const props = createProps()
+    props.commandBlockReasons.serviceMode = 'Сервисный режим недоступен во время печати.'
+    render(<MovementControlPanel {...props} />)
+    fireEvent.click(screen.getByTestId('service-mode-button'))
+    expect(props.onServiceModeToggle).not.toHaveBeenCalled()
+    expect(screen.getByTestId('movement-lock-popup')).toHaveTextContent('во время печати')
+  })
+
+  it('shows a failed service parking instead of success', async () => {
+    render(<MovementControlPanel {...createProps({
+      onServiceModeToggle: vi.fn().mockResolvedValue(false),
+      getLastCommandError: () => 'DIAG не сработал',
+    })} />)
+    fireEvent.click(screen.getByTestId('service-mode-button'))
+    await waitFor(() => {
+      expect(screen.getByTestId('movement-lock-popup')).toHaveTextContent('DIAG не сработал')
+    })
+  })
+
   it('maps Z up and down buttons to inverted bed movement commands', () => {
     const onAxisMove = vi.fn().mockResolvedValue(true)
 
