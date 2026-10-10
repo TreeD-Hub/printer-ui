@@ -253,6 +253,7 @@ describe('createMoonrakerCommandClient', () => {
   it.each([
     ['home', { command: 'home' }, 'G28\nM400'],
     ['homeAll', { command: 'homeAll' }, 'G28\nM400'],
+    ['serviceMode', { command: 'serviceMode' }, 'TREED_UI_SERVICE_MODE\nM400'],
     ['unloadFilament', { command: 'unloadFilament', lengthMm: 80, speedMmS: 6 }, 'UNLOAD_FILAMENT LENGTH=80 SPEED=6\nM400'],
     ['shaperCalibrateLight', { command: 'shaperCalibrateLight' }, 'TREED_SHAPER_CALIBRATE_LIGHT'],
     ['shaperCalibrateFull', { command: 'shaperCalibrateFull' }, 'TREED_SHAPER_CALIBRATE_FULL'],

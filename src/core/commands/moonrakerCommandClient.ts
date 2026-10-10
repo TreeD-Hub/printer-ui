@@ -37,6 +37,7 @@ const MOTION_COMMANDS = new Set<ExecuteCommandArgs['command']>([
   'homeXY',
   'homeZ',
   'parkZBottom',
+  'serviceMode',
   'moveAxis',
   'loadFilament',
   'unloadFilament',
@@ -202,6 +203,8 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'G28 Z sent'
     case 'parkZBottom':
       return 'TREED_Z_PARK_BOTTOM_MANUAL sent'
+    case 'serviceMode':
+      return 'Сервисная парковка выполнена'
     case 'moveAxis':
       return `Move ${args.axis}${args.distanceMm}mm sent`
     case 'setNozzleTarget':
@@ -356,6 +359,8 @@ function executeMoonrakerCommand(
       return sendScript('G28 Z\nM400', options, args.command)
     case 'parkZBottom':
       return sendScript('TREED_Z_PARK_BOTTOM_MANUAL\nM400', options, args.command)
+    case 'serviceMode':
+      return sendScript('TREED_UI_SERVICE_MODE\nM400', options, args.command)
     case 'moveAxis': {
       const feedRateMmPerMin = args.feedRateMmPerMin ?? (args.speedMmS === undefined ? undefined : args.speedMmS * 60)
       const feedRate = feedRateMmPerMin !== undefined ? ` FEEDRATE=${feedRateMmPerMin}` : ''

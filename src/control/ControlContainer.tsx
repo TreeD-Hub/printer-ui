@@ -64,7 +64,7 @@ export type ControlContainerProps = {
     nextAxis?: AxisId,
     zSensor?: ZParkingSensor,
   ) => Promise<boolean>
-  onServiceModeToggle: () => void
+  onServiceModeToggle: () => Promise<boolean>
   onMotorsDisable: () => Promise<boolean>
   onMovementModeChange: (nextMode: MovementMode) => void
   onMoveStepChange: (nextStep: MoveStepKey) => void
@@ -121,6 +121,7 @@ export function ControlContainer({
   const isFilamentBusy = (pendingCommands.filament ?? null) !== null
   const isLightBusy = (pendingCommands.light ?? null) !== null
   const movementCommandBlockReasons = useMemo<MovementCommandBlockReasons>(() => ({
+    serviceMode: getCommandBlockReason('serviceMode'),
     parking: {
       all: getCommandBlockReason('homeAll'),
       axis: {

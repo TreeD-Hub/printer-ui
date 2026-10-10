@@ -116,6 +116,7 @@ function App() {
     () => ({
       source: snapshot.source,
       capabilities: snapshot.capabilities,
+      serviceModeSupported: snapshot.macros.available.includes('TREED_UI_SERVICE_MODE'),
       uiContractStatus: snapshot.uiContract.status,
       connection,
       transportState: snapshot.transport.state,
@@ -145,6 +146,7 @@ function App() {
       printSessionController.commandRuntimePrintJob,
       snapshot.source,
       snapshot.capabilities,
+      snapshot.macros.available,
       snapshot.uiContract.status,
       connection,
       snapshot.extruderTemp,
@@ -566,8 +568,14 @@ function App() {
     return true
   }
 
-  function handleServiceModeToggle(): void {
+  async function handleServiceModeToggle(): Promise<boolean> {
+    const ok = await executeCommand({ command: 'serviceMode' })
+    if (!ok) {
+      return false
+    }
+    await refreshMotionState()
     flashControlAction('service-mode')
+    return true
   }
 
   function handleAxisMove(axis: AxisId, distanceMm: number): Promise<boolean> {

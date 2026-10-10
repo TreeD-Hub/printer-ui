@@ -89,6 +89,8 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
       return 'Mock: G28 X Y sent'
     case 'homeZ':
       return 'Mock: _TREED_EDDY_HOME_Z sent'
+    case 'serviceMode':
+      return 'Mock: сервисная парковка выполнена'
     case 'moveAxis':
       return `Mock: move ${args.axis}${args.distanceMm} sent`
     case 'setNozzleTarget':
@@ -164,6 +166,21 @@ function updateMockSnapshot(mutator: (snapshot: PrinterSnapshot) => void): void 
 
 function applyMockCommandEffect(args: ExecuteCommandArgs): void {
   switch (args.command) {
+    case 'serviceMode':
+      updateMockSnapshot((snapshot) => {
+        const { X, Y, Z } = snapshot.limits.axis
+        const bottomZ = createMockSnapshot().limits.axis.Z
+        if (!X || !Y || !Z || !bottomZ) throw new Error('Mock: границы сервисной парковки не заданы.')
+        snapshot.homedAxes = 'xyz'
+        snapshot.toolhead.rawX = (X.min + X.max) / 2
+        snapshot.toolhead.rawY = (Y.min + Y.max) / 2
+        snapshot.toolhead.rawZ = bottomZ.max - 5
+        Z.max = snapshot.toolhead.rawZ
+        snapshot.toolheadX = snapshot.toolhead.rawX
+        snapshot.toolheadY = snapshot.toolhead.rawY
+        snapshot.toolheadZ = snapshot.toolhead.rawZ
+      })
+      return
     case 'setFanPercent':
       updateMockSnapshot((snapshot) => {
         snapshot.modelFanPercent = args.percent
@@ -379,6 +396,7 @@ export function clearMockNetworkRuntime(): void {
 export function createMockSnapshot(): PrinterSnapshot {
   return {
     source: 'mock',
+    operationPhase: 'idle',
     revisions: {
       printerObjects: {
         eventtime: null,
@@ -553,7 +571,7 @@ export function createMockSnapshot(): PrinterSnapshot {
       appliedBabystepMm: 0,
     },
     macros: {
-      available: [],
+      available: ['TREED_UI_SERVICE_MODE'],
       values: {},
     },
     printFiles: [],

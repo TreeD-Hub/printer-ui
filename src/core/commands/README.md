@@ -16,7 +16,7 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 ## Поддерживаемые группы команд
 
 - Печать: `start`, `pause`, `resume`, `cancel`, `emergencyStop`.
-- Парковка и движение: `home`, `homeAll`, `homeX`, `homeY`, `homeXY`, `homeZ`, `parkZBottom`, `moveAxis`, `disableMotors`.
+- Парковка и движение: `home`, `homeAll`, `homeX`, `homeY`, `homeXY`, `homeZ`, `parkZBottom`, `serviceMode`, `moveAxis`, `disableMotors`.
 - Нагрев, обдув и свет: `setNozzleTarget`, `setBedTarget`, `setHeatingTargets`, `turnOffHeaters`, `setFanPercent`, `setMainLightEnabled`.
 - Сохраняемые настройки света: `setLightPreference`.
 - Режимы драйверов и обдува: `setDriverMode`, `setDriverFanMode`.
@@ -30,6 +30,13 @@ Mock-команды живут вне production graph в `mocks/runtime.ts` и 
 - Console G-code: `consoleGcode`, с обязательной risk/confirmation политикой на UI-слое.
 
 `disableMotors` отправляет `M84` и требует подтверждения в UI из-за риска просадки Z/портала.
+
+`serviceMode` отправляет `TREED_UI_SERVICE_MODE` и ждёт завершения движения.
+Стол паркуется у нижнего DIAG с отходом на 5 мм, сопло — в центре полного хода
+X/Y. Кнопка доступна только при наличии макроса, готовом совместимом core и фазе
+`idle`; печать, пауза и сервисные операции блокируют запуск. Команда относится
+к домену `motion`, ошибки отображаются в панели парковки, координаты обновляются
+после успеха.
 
 ## Контракт
 
