@@ -5,6 +5,7 @@
 ## Состав
 
 - [00_FOUNDATION.md](00_FOUNDATION.md) — токены и визуальные правила экранного UI.
+- [calibration-layout.md](calibration-layout.md) — стандартный шаблон расположения блоков и кнопок калибровки.
 - [01_ADR_TAURI_ONLY_V2_RUNTIME.md](01_ADR_TAURI_ONLY_V2_RUNTIME.md) — ADR о Tauri и составе оборудования; текущая доставка браузерного UI описана отдельно ниже.
 - [host-network-runtime-contract.md](host-network-runtime-contract.md) — Wi-Fi и сеть хоста.
 - [system-power-runtime-contract.md](system-power-runtime-contract.md) — перезапуски, питание хоста и подтверждение действий.

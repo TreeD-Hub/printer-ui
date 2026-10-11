@@ -1508,10 +1508,12 @@ body {
 
 .settings-update-versions {
   display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(32px, 1fr) minmax(0, max-content);
+  grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr);
   align-items: end;
   gap: var(--space-md);
   margin: var(--space-md) 0;
+  padding-inline: var(--space-sm);
+  text-align: center;
 }
 
 .settings-update-versions div {
@@ -1529,6 +1531,7 @@ body {
 .settings-update-versions strong {
   display: flex;
   align-items: center;
+  justify-content: center;
   font-family: var(--font-family-accent);
   font-size: var(--font-size-heading-medium);
   font-weight: var(--font-weight-regular);
@@ -1547,14 +1550,6 @@ body {
   color: var(--color-text-highlight);
 }
 
-.settings-update-versions.has-update > div:first-child {
-  text-align: right;
-}
-
-.settings-update-versions.has-update > div:first-child strong {
-  justify-content: flex-end;
-}
-
 .settings-update-arrow,
 .settings-update-check {
   width: 32px;
@@ -1568,11 +1563,13 @@ body {
 }
 
 .settings-update-versions.is-current {
-  grid-template-columns: minmax(0, 1fr) auto;
+  display: flex;
+  justify-content: center;
+  text-align: center;
 }
 
 .settings-update-check {
-  margin-right: var(--space-sm);
+  flex-shrink: 0;
 }
 
 .settings-update-status {
@@ -3724,6 +3721,10 @@ body {
   background: var(--color-temperature-bed);
 }
 
+.control-heating-chart-legend-marker.is-neutral {
+  background: var(--color-text-primary);
+}
+
 .control-heating-chart-legend-label {
   overflow: hidden;
   font-size: var(--font-size-tiny);
@@ -5785,6 +5786,11 @@ body {
   opacity: 0.1;
 }
 
+.print-temp-chart-area.is-neutral {
+  fill: var(--color-text-primary);
+  opacity: 0.06;
+}
+
 .print-temp-chart-line {
   fill: none;
   stroke-width: 2.2;
@@ -5816,6 +5822,12 @@ body {
 .print-temp-chart-target.is-green,
 .print-temp-chart-marker.is-green {
   stroke: var(--color-temperature-bed);
+}
+
+.print-temp-chart-line.is-neutral,
+.print-temp-chart-target.is-neutral,
+.print-temp-chart-marker.is-neutral {
+  stroke: var(--color-text-primary);
 }
 
 .print-temp-chart-marker {
@@ -7361,30 +7373,6 @@ select {
 .print-cancel-modal-dialog,
 .print-tune-modal-dialog {
   position: relative;
-}
-
-.idle-mini-widget::after,
-.dashboard-idle-notes::after,
-.stats-card::after,
-.process-card::after,
-.zoffset-card::after,
-.control-card::after,
-.settings-description-card::after,
-.settings-info-card::after,
-.macros-manager-workflow::after,
-.print-file-card::after,
-.top-popup-dialog::after,
-.file-modal-dialog::after,
-.print-cancel-modal-dialog::after,
-.print-tune-modal-dialog::after {
-  content: '::';
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  color: var(--color-text-soft);
-  font-size: var(--font-size-small);
-  line-height: 1;
-  pointer-events: none;
 }
 
 .label,

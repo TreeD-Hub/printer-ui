@@ -134,6 +134,7 @@ it('высота показывает один заголовок, шесть TE
   expect(screen.getAllByRole('heading', { name: 'Высота по бумаге' })).toHaveLength(1)
   expect(screen.getByRole('img')).toHaveAttribute('data-delta', '0')
   expect(view.container.querySelectorAll('.eddy-testz button')).toHaveLength(6)
+  expect(Array.from(view.container.querySelectorAll('.eddy-testz button'), (button) => button.textContent)).toEqual(['-1 мм', '-0.1 мм', '-0.05 мм', '+1 мм', '+0.1 мм', '+0.05 мм'])
   await act(async () => fireEvent.click(screen.getByRole('button', { name: '+0.1 мм' })))
   expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyTestZ', deltaMm: 0.1 })
   expect(screen.getByRole('img')).toHaveAttribute('data-delta', '0')
@@ -177,64 +178,138 @@ it.each(['manual', 'temperature'] as const)('обзор оставляет от�
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
 })
 
+it('температурный график справа показывает три реальных ряда и сохраняет превью слева', () => {
+  vi.useFakeTimers()
+  const timestamp = Date.parse('2026-10-11T20:00:00Z')
+  vi.setSystemTime(timestamp)
+  const snapshot = readySnapshot()
+  snapshot.extruderTemp = 100
+  snapshot.bedTemp = 50
+  snapshot.thermalTargets = { ...snapshot.thermalTargets, nozzle: 210, bed: 60 }
+  snapshot.calibration!.eddy.temperatureC = 24
+  const { props, view } = renderScreen({ initialProcedure: 'temperature', snapshot })
+  expect(view.container.querySelector('.eddy-instrument > .eddy-subject')).toHaveTextContent('Схема температурной компенсации')
+  expect(screen.getByRole('region', { name: 'График температурной калибровки' }).closest('.eddy-instrument-controls')).not.toBeNull()
+  expect(view.container.querySelector('.eddy-workflow')).toHaveClass('eddy-workflow--tall-controls')
+  expect(screen.getByTestId('eddy-temperature-chart').querySelector('svg')).toHaveAttribute('preserveAspectRatio', 'xMidYMid meet')
+  expect(screen.getByTestId('eddy-temperature-chart').querySelector('svg')).toHaveAttribute('viewBox', '0 0 520 280')
+  expect(screen.getByTestId('chart-current-nozzle')).toHaveClass('is-orange')
+  expect(screen.getByTestId('chart-current-bed')).toHaveClass('is-green')
+  expect(screen.getByTestId('chart-current-eddy')).toHaveClass('is-neutral')
+  expect(screen.getByTestId('chart-target-nozzle')).toBeInTheDocument()
+  expect(screen.getByTestId('chart-target-bed')).toBeInTheDocument()
+  expect(screen.queryByTestId('chart-target-eddy')).not.toBeInTheDocument()
+  vi.setSystemTime(timestamp + 1000)
+  const changed = { ...snapshot, updatedAt: 'temperature-history', extruderTemp: 110, bedTemp: 55, calibration: { ...snapshot.calibration!, eddy: { ...snapshot.calibration!.eddy, temperatureC: 26 } } }
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={changed} />)
+  expect(screen.getByTestId('chart-current-eddy').getAttribute('points')?.split(' ')).toHaveLength(2)
+  vi.setSystemTime(timestamp + 2000)
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...changed, updatedAt: 'eddy-unavailable', calibration: { ...changed.calibration, eddy: { ...changed.calibration.eddy, temperatureC: null } } }} />)
+  expect(screen.getByTestId('chart-current-eddy').getAttribute('points')?.split(' ')).toHaveLength(2)
+  expect(screen.getByText('Eddy').parentElement).toHaveTextContent('—')
+})
+
 it('принимает температурную точку отдельно от завершения серии и блокирует выход из активной сессии', async () => {
   const snapshot = readySnapshot()
   snapshot.calibration!.eddy.inTemperatureCalibration = true
   snapshot.calibration!.eddy.temperatureSeriesActive = true
+  snapshot.calibration!.manualProbe = { active: true, zMm: 0.12, zMinimumMm: -0.2, zMaximumMm: 0.5 }
   snapshot.v2.eddy.calibration.operatorPrompt = 'temperature_points'
   const { executeCommand } = renderScreen({ initialProcedure: 'temperature', snapshot })
   expect(screen.getByRole('button', { name: 'К списку' })).toBeDisabled()
   expect(screen.queryByRole('button', { name: 'К обзору' })).not.toBeInTheDocument()
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Принять текущую точку' })))
+  expect(screen.queryByRole('region', { name: 'График температурной калибровки' })).not.toBeInTheDocument()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: '-0.05 мм' })))
+  expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyTestZ', deltaMm: -0.05 })
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подтвердить зазор' })))
   expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyTemperatureAccept' })
   expect(executeCommand).not.toHaveBeenCalledWith({ command: 'eddyTemperatureComplete' })
-  expect(screen.getByText(/Принято точек:/)).toBeInTheDocument()
-  expect(screen.getByText('0')).toBeInTheDocument()
+  expect(screen.getByText('0.120 мм')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Завершить серию и сохранить' })).not.toBeInTheDocument()
 })
 
-it('не завершает температурную серию, если capability завершения не объявлена', () => {
+it('не сохраняет температурную серию, если capability завершения не объявлена', () => {
   const snapshot = readySnapshot()
-  snapshot.calibration!.eddy.inTemperatureCalibration = true
   snapshot.calibration!.eddy.temperatureSeriesActive = true
   snapshot.calibration!.eddy.temperaturePoints = 3
+  snapshot.calibration!.config = { savePending: true, pendingSections: ['temperature_probe btt_eddy'] }
   snapshot.capabilities.calibrationCommands!.temperatureComplete = false
   const { executeCommand } = renderScreen({ initialProcedure: 'temperature', snapshot })
   expect(screen.queryByRole('button', { name: 'Завершить серию и сохранить' })).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Принять текущую точку' })).toBeDisabled()
-  expect(screen.getByText('Klipper ещё не запросил температурную точку.')).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Подтвердить зазор' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Серия остановлена' })).toBeDisabled()
   expect(executeCommand).not.toHaveBeenCalled()
 })
 
 it('показывает понятное ожидание температуры, сохраняя блокировку неподтверждённого manual_probe', () => {
   const snapshot = readySnapshot()
   snapshot.calibration!.eddy.temperatureSeriesActive = true
+  snapshot.calibration!.eddy.inTemperatureCalibration = true
   snapshot.v2.eddy.calibration.operatorPrompt = 'temperature_points'
   const reason = 'Принять точку температуры Eddy: активная температурная точка manual_probe не подтверждена.'
   renderScreen({ initialProcedure: 'temperature', snapshot, getCommandBlockReason: (command) => command === 'eddyTemperatureAccept' ? reason : null })
 
-  const accept = screen.getByRole('button', { name: 'Принять текущую точку' })
-  expect(accept).toBeDisabled()
-  expect(accept).toHaveAttribute('title', reason)
+  expect(screen.getByRole('button', { name: 'Ожидаем бумажный замер…' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Подтвердить зазор' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '-0.05 мм' })).not.toBeInTheDocument()
   expect(document.querySelector('.eddy-status')).toHaveTextContent('Принтер готовит точку измерения. Дождитесь готовности.')
-  expect(screen.getByText('Дождитесь готовности принтера к измерению.')).toBeInTheDocument()
+  expect(screen.queryByText('Дождитесь готовности принтера к измерению.')).not.toBeInTheDocument()
+  expect(screen.queryByText('Сплошная — температура; пунктир — цель.')).not.toBeInTheDocument()
 })
 
-it('завершает температурную серию только при реальных трёх точках и активном сеансе', async () => {
+it('сохраняет температурную серию автоматически один раз после готовой кривой', async () => {
   const snapshot = readySnapshot()
   snapshot.calibration!.eddy.temperatureSeriesActive = true
   snapshot.calibration!.eddy.temperaturePoints = 3
-  const { executeCommand } = renderScreen({ initialProcedure: 'temperature', snapshot })
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Завершить серию и сохранить' })))
+  snapshot.calibration!.config = { savePending: true, pendingSections: ['temperature_probe btt_eddy'] }
+  const { props, view, executeCommand } = renderScreen({ initialProcedure: 'temperature', snapshot })
+  await act(async () => {})
   expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyTemperatureComplete' })
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, updatedAt: 'same-curve' }} />)
+  expect(executeCommand).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('button', { name: 'Завершить серию и сохранить' })).not.toBeInTheDocument()
+})
+
+it.each(['нагрев', 'замер', 'нет кривой', 'другая секция', 'мало точек', 'связи нет'] as const)('не сохраняет температурную серию преждевременно: %s', async (state) => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.eddy.temperatureSeriesActive = true
+  snapshot.calibration!.eddy.temperaturePoints = 3
+  snapshot.calibration!.config = { savePending: true, pendingSections: ['temperature_probe btt_eddy'] }
+  if (state === 'нагрев') snapshot.calibration!.eddy.inTemperatureCalibration = true
+  if (state === 'замер') snapshot.calibration!.manualProbe.active = true
+  if (state === 'нет кривой') snapshot.calibration!.config = { savePending: false, pendingSections: [] }
+  if (state === 'другая секция') snapshot.calibration!.config.pendingSections = ['input_shaper']
+  if (state === 'мало точек') snapshot.calibration!.eddy.temperaturePoints = 2
+  if (state === 'связи нет') snapshot.klippy.state = 'disconnected'
+  const { executeCommand } = renderScreen({ initialProcedure: 'temperature', snapshot })
+  await act(async () => {})
+  expect(executeCommand).not.toHaveBeenCalled()
+  if (state === 'нет кривой') expect(screen.getByRole('alert')).toHaveTextContent('Klipper не сформировал температурную кривую.')
+})
+
+it('не повторяет автосохранение температурной серии после неподтверждённой команды', async () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.eddy.temperatureSeriesActive = true
+  snapshot.calibration!.eddy.temperaturePoints = 3
+  snapshot.calibration!.config = { savePending: true, pendingSections: ['temperature_probe btt_eddy'] }
+  const executeCommand = vi.fn<(args: ExecuteCommandArgs) => Promise<boolean>>().mockResolvedValue(false)
+  const { props, view } = renderScreen({ initialProcedure: 'temperature', snapshot, executeCommand })
+  await act(async () => {})
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, updatedAt: 'after-failed-save' }} />)
+  await act(async () => {})
+  expect(executeCommand).toHaveBeenCalledTimes(1)
+  expect(screen.getByText(/Принтер не подтвердил выполнение команды/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'К списку' })).toBeDisabled()
+  expect(screen.queryByRole('heading', { name: 'Z0' })).not.toBeInTheDocument()
 })
 
 it('не подтверждает сохранение температурной серии без установленного temperatureDone', async () => {
   const snapshot = readySnapshot()
   snapshot.calibration!.eddy.temperatureSeriesActive = true
   snapshot.calibration!.eddy.temperaturePoints = 3
+  snapshot.calibration!.config = { savePending: true, pendingSections: ['temperature_probe btt_eddy'] }
   const { props, view, executeCommand } = renderScreen({ initialProcedure: 'temperature', snapshot })
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Завершить серию и сохранить' })))
+  await act(async () => {})
   expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyTemperatureComplete' })
   const restarting = { ...snapshot, klippy: { ...snapshot.klippy, state: 'startup' as const } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={restarting} />)
@@ -250,7 +325,9 @@ it('не подтверждает сохранение температурно�
   expect(screen.getByRole('region', { name: 'График температурной калибровки' })).toBeInTheDocument()
   const confirmed = { ...readyWithoutSavedFlag, updatedAt: 'temperature-ready', v2: { ...readyWithoutSavedFlag.v2, eddy: { ...readyWithoutSavedFlag.v2.eddy, calibration: { ...readyWithoutSavedFlag.v2.eddy.calibration, temperatureDone: true, activeStep: 'z0' as const } } } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={confirmed} />)
-  expect(screen.getByText('Серия сохранена. Можно продолжить.')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Z0' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Проверить Z0' })).toBeEnabled()
+  expect(executeCommand).toHaveBeenCalledTimes(1)
 })
 
 it('показывает PROBE_ACCURACY только после настоящего ответа Klipper', async () => {
@@ -620,7 +697,7 @@ it('блокирует переход к карте, если Eddy стал не
   expect(executeCommand).not.toHaveBeenCalledWith({ command: 'eddyScanMesh', save: false })
 })
 
-it('старый код катушки не открывает Далее без принятой команды, перезапуска и подтверждения', async () => {
+it('старый код катушки не вызывает автопереход без принятой команды, перезапуска и подтверждения', async () => {
   const snapshot = readySnapshot()
   snapshot.calibration!.eddy.driveCurrent = 7
   snapshot.v2.eddy.calibration.driveCurrentDone = true
@@ -631,25 +708,29 @@ it('старый код катушки не открывает Далее без
   expect(screen.queryByRole('button', { name: 'Далее: высота по бумаге' })).not.toBeInTheDocument()
   view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, klippy: { ...snapshot.klippy, state: 'startup' } }} />)
   view.rerender(<EddyCalibrationScreen {...props} snapshot={snapshot} />)
-  expect(screen.getByRole('button', { name: 'Далее: высота по бумаге' })).toBeEnabled()
+  expect(screen.getByRole('heading', { name: 'Высота по бумаге' })).toBeInTheDocument()
+  expect(props.executeCommand).not.toHaveBeenCalledWith({ command: 'eddyPrimaryHeightStart' })
 })
 
-it('Далее после высоты появляется только после записи, перезапуска и перехода device к температуре', async () => {
+it('переходит после высоты только после записи, перезапуска и перехода device к температуре', async () => {
   const snapshot = readySnapshot()
   snapshot.v2.eddy.calibration.primaryDone = false
   snapshot.calibration!.manualProbe = { active: true, zMm: 0.1, zMinimumMm: 0, zMaximumMm: 2 }
   const { props, view } = renderScreen({ initialProcedure: 'height', snapshot })
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Принять высоту и сохранить' })))
   expect(screen.getByRole('img')).toBeInTheDocument()
+  expect(screen.queryByText('Бумага')).not.toBeInTheDocument()
   expect(screen.getByText('Ожидаем сохранения и перезапуска принтера.')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Далее: температурная серия' })).not.toBeInTheDocument()
   view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, klippy: { ...snapshot.klippy, state: 'startup' } }} />)
   const saved = { ...snapshot, calibration: { ...snapshot.calibration!, manualProbe: { ...snapshot.calibration!.manualProbe, active: false }, eddy: { ...snapshot.calibration!.eddy, heightCalibrated: true } } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={saved} />)
   expect(screen.queryByRole('button', { name: 'Далее: температурная серия' })).not.toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Высота по бумаге' })).toBeInTheDocument()
   view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...saved, v2: { ...snapshot.v2, eddy: { ...snapshot.v2.eddy, calibration: { ...snapshot.v2.eddy.calibration, primaryDone: true, activeStep: 'temperature' } } } }} />)
-  expect(screen.getByRole('button', { name: 'Далее: температурная серия' })).toBeEnabled()
-  expect(screen.getByText('Высота сохранена. Можно продолжить.')).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Температурная серия' })).toBeInTheDocument()
+  expect(screen.queryByText('Высота сохранена. Можно продолжить.')).not.toBeInTheDocument()
+  expect(props.executeCommand).not.toHaveBeenCalledWith({ command: 'eddyTemperatureStart' })
 })
 
 it('подробности и длинная ошибка не убирают TESTZ и аварийную остановку', async () => {
@@ -665,7 +746,7 @@ it('подробности и длинная ошибка не убирают TE
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
 })
 
-it('удерживает активность от запуска через результат и Далее до Готово', async () => {
+it('удерживает активность от запуска через автопереход до Готово', async () => {
   const onCalibrationActivityChange = vi.fn<(active: boolean) => void>()
   const snapshot = readySnapshot()
   const { props, view } = renderScreen({ initialProcedure: 'driveCurrent', snapshot, onCalibrationActivityChange })
@@ -676,7 +757,6 @@ it('удерживает активность от запуска через р�
   const saved = { ...snapshot, calibration: { ...snapshot.calibration!, eddy: { ...snapshot.calibration!.eddy, driveCurrent: 7 } }, v2: { ...snapshot.v2, eddy: { ...snapshot.v2.eddy, calibration: { ...snapshot.v2.eddy.calibration, driveCurrentDone: true } } } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={saved} />)
   expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
-  fireEvent.click(screen.getByRole('button', { name: 'Далее: высота по бумаге' }))
   expect(screen.getByRole('heading', { name: 'Высота по бумаге' })).toBeInTheDocument()
   expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
   view.rerender(<EddyCalibrationScreen {...props} initialProcedure="accuracy" snapshot={saved} />)

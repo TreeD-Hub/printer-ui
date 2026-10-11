@@ -15,6 +15,8 @@ export const runtimeMode: PrinterSource = 'mock'
 let mockCommandFailure: { command: PrinterCommandId; message: string } | null = null
 let mockCommandOperations: ExecuteCommandArgs[] = []
 let mockTransportSnapshot: PrinterSnapshot | null = null
+let mockTemperatureUpdatedAt = Date.now()
+let mockNextTemperaturePoint: number | null = null
 const MOCK_MESH_MATRIX = Array.from({ length: 7 }, (_, y) => Array.from({ length: 7 }, (_, x) => (
   Math.round((0.08 * ((x - 3) ** 2 + (y - 3) ** 2) / 18 + (x - 3) * 0.006 - (y - 3) * 0.004) * 1000) / 1000
 )))
@@ -203,6 +205,33 @@ function updateMockSnapshot(mutator: (snapshot: PrinterSnapshot) => void): void 
   mockTransportSnapshot = snapshot
 }
 
+function advanceMockTemperatures(): void {
+  const timestamp = Date.now()
+  const elapsedSeconds = Math.max(0, timestamp - mockTemperatureUpdatedAt) / 1000
+  mockTemperatureUpdatedAt = timestamp
+  const eddy = mockTransportSnapshot?.calibration?.eddy
+  if (mockTransportSnapshot?.klippy.state !== 'ready' || eddy?.inTemperatureCalibration !== true || elapsedSeconds === 0) return
+
+  updateMockSnapshot((snapshot) => {
+    const approach = (current: number, target: number, timeConstant: number) => Number.isFinite(current) && Number.isFinite(target)
+      ? current + (target - current) * (1 - Math.exp(-elapsedSeconds / timeConstant))
+      : current
+    snapshot.extruderTemp = approach(snapshot.extruderTemp, snapshot.thermalTargets.nozzle || 24, 20)
+    snapshot.bedTemp = approach(snapshot.bedTemp, snapshot.thermalTargets.bed || 24, 60)
+    const sensor = snapshot.calibration?.eddy
+    if (typeof sensor?.temperatureC === 'number') {
+      // Условный прогрев датчика в моке; параметры не моделируют физику реального принтера.
+      const sensorTarget = 24 + Math.max(0, snapshot.bedTemp - 24) * 0.65 + Math.max(0, snapshot.extruderTemp - 24) * 0.08
+      sensor.temperatureC = approach(sensor.temperatureC, sensorTarget, 90)
+      if (snapshot.calibration && !snapshot.calibration.manualProbe.active
+          && sensor.temperatureC >= (mockNextTemperaturePoint ?? sensor.temperatureC)
+          && Math.abs(snapshot.extruderTemp - snapshot.thermalTargets.nozzle) < 3) {
+        snapshot.calibration.manualProbe = { active: true, zMm: 0.12, zMinimumMm: -0.2, zMaximumMm: 0.5 }
+      }
+    }
+  })
+}
+
 function applyMockCommandEffect(args: ExecuteCommandArgs): void {
   switch (args.command) {
     case 'serviceMode':
@@ -322,7 +351,10 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
       })
       return
     case 'eddyTemperatureStart':
+      mockTemperatureUpdatedAt = Date.now()
       updateMockSnapshot((snapshot) => {
+        mockNextTemperaturePoint = snapshot.calibration?.eddy.temperatureC ?? 24
+        snapshot.thermalTargets = { nozzle: 160, bed: 0 }
         if (snapshot.calibration) {
           snapshot.calibration.eddy.inTemperatureCalibration = true
           snapshot.calibration.eddy.temperatureSeriesActive = true
@@ -331,24 +363,41 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
         }
         snapshot.v2.eddy.calibration.activeStep = 'temperature'
         snapshot.v2.eddy.calibration.operatorPrompt = 'temperature_points'
+        snapshot.v2.eddy.calibration.temperatureDone = false
       })
       return
     case 'eddyTemperatureAccept':
       updateMockSnapshot((snapshot) => {
-        if (snapshot.calibration) {
-          snapshot.calibration.eddy.temperaturePoints = (snapshot.calibration.eddy.temperaturePoints ?? 0) + 1
+        const calibration = snapshot.calibration
+        if (!calibration?.manualProbe.active || calibration.eddy.temperatureSeriesActive !== true
+            || calibration.eddy.inTemperatureCalibration !== true || calibration.eddy.temperatureC === null) {
+          throw new Error('Mock: Klipper ещё не запросил бумажный замер температуры.')
         }
+        calibration.eddy.temperaturePoints = (calibration.eddy.temperaturePoints ?? 0) + 1
+        calibration.manualProbe.active = false
+        mockNextTemperaturePoint = calibration.eddy.temperatureC + 4
+        if (calibration.eddy.temperatureC >= 56 && calibration.eddy.temperaturePoints >= 3) {
+          calibration.eddy.inTemperatureCalibration = false
+          calibration.config.savePending = true
+          calibration.config.pendingSections = ['temperature_probe btt_eddy']
+          snapshot.thermalTargets = { nozzle: 0, bed: 0 }
+        } else snapshot.thermalTargets.bed = 60
       })
       return
     case 'eddyTemperatureComplete':
     case 'eddyTemperatureAcceptSave':
       updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration?.manualProbe.active || snapshot.calibration?.eddy.temperatureSeriesActive !== true
+            || (snapshot.calibration.eddy.temperaturePoints ?? 0) < 3
+            || snapshot.calibration.eddy.inTemperatureCalibration !== true && !snapshot.calibration.config.pendingSections.includes('temperature_probe btt_eddy')) {
+          throw new Error('Mock: температурная кривая не готова к сохранению.')
+        }
         if (snapshot.calibration) snapshot.calibration.eddy.inTemperatureCalibration = false
         if (snapshot.calibration) {
           snapshot.calibration.eddy.temperatureSeriesActive = false
           snapshot.calibration.manualProbe.active = false
           snapshot.calibration.config.savePending = true
-          snapshot.calibration.config.pendingSections = ['eddy_temperature']
+          snapshot.calibration.config.pendingSections = ['temperature_probe btt_eddy']
         }
         snapshot.v2.eddy.calibration.temperatureDone = true
         snapshot.v2.eddy.calibration.activeStep = 'z0'
@@ -356,6 +405,7 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
       })
       return
     case 'eddyAbort':
+      mockNextTemperaturePoint = null
       updateMockSnapshot((snapshot) => {
         if (snapshot.calibration) {
           snapshot.calibration.eddy.inTemperatureCalibration = false
@@ -539,10 +589,13 @@ export function getMockCommandOperations(): ExecuteCommandArgs[] {
 
 export function setMockTransportSnapshot(snapshot: PrinterSnapshot | null): void {
   mockTransportSnapshot = snapshot === null ? null : structuredClone(snapshot)
+  mockTemperatureUpdatedAt = Date.now()
 }
 
 export function clearMockTransportSnapshot(): void {
   mockTransportSnapshot = null
+  mockTemperatureUpdatedAt = Date.now()
+  mockNextTemperaturePoint = null
   mockResonanceRevision = 0
   mockResonanceReports = {
     full: { mode: 'full', axes: { x: null, y: null } },
@@ -886,9 +939,11 @@ export function createMockSnapshot(): PrinterSnapshot {
 export function createTransportClient(): TransportClient {
   return {
     async fetchSnapshot(): Promise<PrinterSnapshot> {
+      advanceMockTemperatures()
       return mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
     },
     async fetchRuntimeSnapshot(): Promise<PrinterSnapshot> {
+      advanceMockTemperatures()
       return mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
     },
     async fetchUsage() {
@@ -902,6 +957,7 @@ export function createTransportClient(): TransportClient {
       return snapshot.filamentSensor
     },
     async fetchEddyState() {
+      advanceMockTemperatures()
       const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
 
       return {

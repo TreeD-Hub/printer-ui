@@ -15,7 +15,7 @@ export function EddyNozzleDiagram({ paper = false, delta = null, sensor = false,
       <Nozzle y={35 - position} />
       {sensor && <g fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="1 4" strokeLinecap="round"><rect x="194" y="42" width="44" height="58" /><path d="M202 54h28m-28 12h28m-28 12h28" /></g>}
       <path d="M30 151h255m-255 8h255" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="1 5" strokeLinecap="round" />
-      {paper && <><path d="M83 143h128" stroke="currentColor" strokeWidth="2" /><text x="88" y="185">Бумага</text></>}
+      {paper && <path d="M83 143h128" stroke="currentColor" strokeWidth="2" />}
       {firstLayer && <><path d="M76 140h152m-152-8h152m-152-8h152" stroke="currentColor" strokeWidth="2" strokeDasharray="1 4" strokeLinecap="round" /><text x="76" y="185">Дорожки первого слоя</text></>}
       <path d="M268 112v-60m-5 6 5-6 5 6" fill="none" stroke="currentColor" strokeWidth="1.5" />
       <text x="256" y="36">Z+</text>

@@ -37,6 +37,45 @@ describe('mock calibration runtime', () => {
     })
   })
 
+  it('simulates gradual temperatures while polling an active Eddy series', async () => {
+    vi.useFakeTimers()
+    const snapshot = createMockSnapshot()
+    snapshot.extruderTemp = 100
+    snapshot.bedTemp = 40
+    setMockTransportSnapshot(snapshot)
+    const transport = createTransportClient()
+    const client = createCommandClient()
+    const start = client.execute({ command: 'eddyTemperatureStart' })
+    await vi.advanceTimersByTimeAsync(220)
+    expect((await start).ok).toBe(true)
+    const before = await transport.fetchSnapshot()
+    await vi.advanceTimersByTimeAsync(2_000)
+    const after = await transport.fetchRuntimeSnapshot()
+    expect(after.extruderTemp).toBeGreaterThan(before.extruderTemp)
+    expect(after.extruderTemp).toBeLessThan(after.thermalTargets.nozzle)
+    expect(after.bedTemp).toBeLessThan(before.bedTemp)
+    expect(after.thermalTargets).toEqual({ nozzle: 160, bed: 0 })
+    expect(after.calibration!.eddy.temperatureC).toBeGreaterThan(before.calibration!.eddy.temperatureC!)
+    expect(after.updatedAt).not.toBe(before.updatedAt)
+    expect(after.calibration!.eddy.temperaturePoints).toBe(0)
+    expect(after.calibration!.manualProbe.active).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+    expect(await transport.fetchSnapshot()).toEqual(after)
+
+    const unavailable = structuredClone(after)
+    unavailable.calibration!.eddy.temperatureC = null
+    setMockTransportSnapshot(unavailable)
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect((await transport.fetchEddyState()).calibrationState?.eddy.temperatureC).toBeNull()
+
+    const abort = client.execute({ command: 'eddyAbort' })
+    await vi.advanceTimersByTimeAsync(220)
+    expect((await abort).ok).toBe(true)
+    const stopped = await transport.fetchSnapshot()
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(await transport.fetchRuntimeSnapshot()).toEqual(stopped)
+  })
+
   it('publishes new resonance revisions only after a successful shaper command', async () => {
     vi.useFakeTimers()
     const transport = createTransportClient()
@@ -139,15 +178,36 @@ describe('mock calibration runtime', () => {
     })
 
     await execute({ command: 'eddyTemperatureStart' })
-    await execute({ command: 'eddyTemperatureAccept' })
-    await execute({ command: 'eddyTemperatureAccept' })
-    await execute({ command: 'eddyTemperatureAccept' })
+    const premature = client.execute({ command: 'eddyTemperatureAccept' })
+    const rejected = expect(premature).rejects.toThrow('ещё не запросил бумажный замер')
+    await vi.runAllTimersAsync()
+    await rejected
+    let acceptedPoints = 0
+    for (let poll = 0; poll < 1000; poll += 1) {
+      await vi.advanceTimersByTimeAsync(2_000)
+      const current = await transport.fetchSnapshot()
+      if (current.calibration?.eddy.inTemperatureCalibration === false) break
+      if (current.calibration?.manualProbe.active) {
+        await execute({ command: 'eddyTestZ', deltaMm: -0.05 })
+        await execute({ command: 'eddyTemperatureAccept' })
+        acceptedPoints += 1
+        expect((await transport.fetchSnapshot()).calibration?.manualProbe.active).toBe(false)
+      }
+    }
+    expect(acceptedPoints).toBeGreaterThanOrEqual(3)
+    expect(await transport.fetchSnapshot()).toMatchObject({
+      calibration: {
+        eddy: { temperatureSeriesActive: true, inTemperatureCalibration: false },
+        config: { savePending: true, pendingSections: ['temperature_probe btt_eddy'] },
+      },
+      v2: { eddy: { calibration: { temperatureDone: false } } },
+    })
     await execute({ command: 'eddyTemperatureComplete' })
     expect(await transport.fetchSnapshot()).toMatchObject({
       klippy: { state: 'ready' },
       calibration: {
         manualProbe: { active: false },
-        eddy: { temperaturePoints: 3, temperatureSeriesActive: false, inTemperatureCalibration: false },
+        eddy: { temperaturePoints: acceptedPoints, temperatureSeriesActive: false, inTemperatureCalibration: false },
         config: { savePending: false, pendingSections: [] },
       },
       v2: { eddy: { calibration: { temperatureDone: true } } },

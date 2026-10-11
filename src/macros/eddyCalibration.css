@@ -1,5 +1,5 @@
 .eddy-workflow { min-height: 0; display: grid; grid-template-rows: var(--control-height) minmax(0, 1fr) 40px var(--control-height); gap: var(--space-xs); padding: var(--space-xs); position: relative; font: var(--font-size-body)/1.3 var(--font-family-ui); font-variant-numeric: tabular-nums; }
-.eddy-header { display: grid; grid-template-columns: 112px minmax(0, 1fr) 112px; align-items: center; gap: var(--space-sm); min-width: 0; }
+.eddy-header { display: grid; grid-template-columns: 112px minmax(0, 1fr) 240px; align-items: center; gap: var(--space-sm); min-width: 0; }
 .eddy-header > div { min-width: 0; }
 .eddy-workflow .eddy-header > button { height: var(--control-height); padding: var(--space-xxs) var(--space-xs); line-height: 1.25; text-align: center; }
 .eddy-header p, .eddy-header h2, .eddy-body h2, .eddy-body p { margin: 0; }
@@ -21,12 +21,21 @@
 .eddy-body p { color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: 1.35; }
 .eddy-procedure-content { min-height: 0; flex: 1 1 auto; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; gap: var(--space-xs); scrollbar-color: var(--color-border-default) transparent; }
 .eddy-instrument { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: var(--space-sm); height: 100%; min-height: 0; }
-.eddy-instrument-controls { min-height: 0; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--space-xs); justify-content: flex-start; }
+.eddy-instrument-controls { min-height: 0; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--space-sm); justify-content: safe center; }
+.eddy-instrument-controls > * { flex-shrink: 0; }
+.eddy-instrument-controls > p { font-size: var(--font-size-heading); }
 .eddy-details, .eddy-state-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: var(--space-sm); overflow: auto; overflow-wrap: anywhere; }
 .eddy-details > p { font-size: var(--font-size-small); }
 .eddy-body .eddy-block-reason { flex-shrink: 0; font-size: var(--font-size-small); }
 .eddy-testz-labels { display: flex; justify-content: space-between; color: var(--color-text-secondary); font-size: var(--font-size-small); }
 .eddy-instrument > .eddy-instrument-controls { border-left: var(--border-width) solid var(--color-border-default); padding-left: var(--space-sm); }
+.eddy-workflow--tall-controls > * { grid-column: 1; }
+.eddy-workflow--tall-controls > .eddy-header { grid-row: 1; }
+.eddy-workflow--tall-controls > .eddy-body { grid-row: 2 / 4; }
+.eddy-workflow--tall-controls > .eddy-status { grid-row: 3; max-width: 320px; position: relative; }
+.eddy-workflow--tall-controls > .eddy-footer { grid-row: 4; }
+.eddy-workflow--tall-controls .eddy-instrument > :first-child { height: calc(100% - 40px - var(--space-xs)); }
+.eddy-workflow--tall-controls .eddy-instrument-controls { overflow: visible; }
 .eddy-subject { min-width: 0; min-height: 0; height: 100%; margin: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; align-items: center; justify-items: center; gap: var(--space-xs); }
 .eddy-subject .calibration-preview { grid-area: auto; width: 224px; height: 184px; }
 .eddy-subject figcaption { justify-self: stretch; font-size: var(--font-size-small); line-height: 1.35; color: var(--color-text-secondary); }
@@ -41,18 +50,28 @@
 .eddy-action-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--space-xs); }
 .eddy-action-row > .eddy-command > button { width: 100%; }
 .eddy-action-grid { display: grid; gap: var(--space-xs); }
-.eddy-testz { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, var(--control-height)); }
-.eddy-metric { min-height: 0; display: grid; align-content: center; gap: var(--space-xxs); }
+.eddy-testz { position: relative; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, var(--control-height)); grid-auto-flow: column; column-gap: calc(2 * var(--space-sm)); }
+.eddy-testz::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: var(--border-width); background: var(--color-border-default); pointer-events: none; }
+.eddy-metric { min-height: 0; display: grid; align-content: center; gap: var(--space-xs); }
 .eddy-metric > span, .eddy-metric small { color: var(--color-text-secondary); font-size: var(--font-size-small); }
 .eddy-metric > strong { font: var(--font-weight-regular) var(--font-size-heading-large)/1.2 var(--font-family-accent); font-variant-numeric: tabular-nums; }
-.eddy-temperature-layout { display: grid; grid-template-columns: 560px minmax(0, 1fr); gap: var(--space-sm); height: 100%; min-height: 0; }
-.eddy-chart-area { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; align-items: center; gap: var(--space-xs); }
+.eddy-chart-area { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); align-items: center; gap: var(--space-xs); }
 .eddy-chart-readings { display: grid; gap: var(--space-sm); }
 .eddy-chart-readings strong { font: var(--font-size-metric) var(--font-family-ui); }
 .eddy-chart-readings span, .eddy-chart-area > p { color: var(--color-text-secondary); font-size: var(--font-size-small); }
 .eddy-chart-area .print-temp-chart { min-height: 0; height: 100%; border: 0; border-radius: 0; background: none; }
 .eddy-chart-area .print-temp-chart-svg { height: 100%; }
 .eddy-chart-area > p { margin: 0; font-size: var(--font-size-small); }
+.eddy-temperature-controls { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: var(--space-xs); overflow: hidden; }
+.eddy-temperature-controls--manual { grid-template-rows: auto minmax(0, 1fr); }
+.eddy-temperature-paper { min-height: 0; display: flex; flex-direction: column; justify-content: safe center; gap: var(--space-xs); }
+.eddy-temperature-paper > * { flex-shrink: 0; }
+.eddy-temperature-paper > p { font-size: var(--font-size-heading); }
+.eddy-temperature-controls .eddy-temperature-legend { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
+.eddy-temperature-legend .control-heating-chart-legend-btn { cursor: default; }
+.eddy-temperature-summary { display: grid; gap: var(--space-xxs); }
+.eddy-temperature-summary > p:first-child { font-size: var(--font-size-small); }
+.eddy-temperature-summary > p + p { font-size: var(--font-size-heading); }
 .eddy-table-wrap { max-height: 176px; overflow: auto; border-top: var(--border-width) solid var(--color-border-default); border-bottom: var(--border-width) solid var(--color-border-default); }
 .eddy-table-wrap table { width: 100%; border-collapse: collapse; font-size: var(--font-size-small); }
 .eddy-table-wrap caption { padding: var(--space-xxs) 0; text-align: left; color: var(--color-text-secondary); }
@@ -101,14 +120,14 @@
 .eddy-message { padding: var(--space-xs) var(--space-sm); border-left: calc(2 * var(--border-width)) solid var(--color-border-default); flex-shrink: 0; }
 .eddy-message.is-error { border-color: var(--color-selection); color: var(--color-selection); }
 .eddy-overview-grid { min-height: 0; flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
-.eddy-workflow .eddy-overview-card { min-width: 0; min-height: 88px; padding: var(--space-xs); display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: minmax(48px, auto) auto; grid-template-areas: "preview title" "state state"; align-content: center; align-items: center; gap: var(--space-xxs) var(--space-xs); text-align: left; background: var(--color-block-surface); }
+.eddy-workflow .eddy-overview-card { min-width: 0; min-height: 88px; padding: var(--space-xs); padding-left: var(--space-sm); display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: minmax(48px, auto) auto; grid-template-areas: "preview title" "state state"; align-content: center; align-items: center; gap: var(--space-xxs) var(--space-xs); text-align: left; background: var(--color-block-surface); }
 .eddy-overview-card .calibration-preview { width: 40px; height: 40px; }
 .eddy-overview-card strong { grid-area: title; font-size: var(--font-size-body); font-weight: var(--font-weight-regular); }
 .eddy-overview-card .eddy-card-state { grid-area: state; color: var(--color-text-secondary); font-size: var(--font-size-small); }
 .eddy-status { min-width: 0; min-height: 40px; max-height: 40px; overflow: auto; color: var(--color-text-secondary); font-size: var(--font-size-small); }
 .eddy-status.is-error { color: var(--color-selection); }
 .eddy-footer { display: grid; grid-template-columns: 240px minmax(0, 1fr) 240px; gap: var(--space-xs); align-items: center; min-width: 0; }
-.eddy-footer-emergency, .eddy-footer-secondary, .eddy-footer-primary { min-width: 0; }
+.eddy-footer-details, .eddy-footer-secondary, .eddy-footer-primary { min-width: 0; }
 .eddy-footer button { height: var(--control-height); padding: var(--space-xxs) var(--space-xs); line-height: 1.25; text-align: center; }
 .eddy-footer-secondary { display: flex; justify-content: center; gap: var(--space-xs); }
 .eddy-footer-secondary > * { min-width: 0; flex: 1 1 0; }
@@ -116,7 +135,7 @@
 .eddy-footer-secondary button { width: 100%; padding-inline: var(--space-xs); font-size: var(--font-size-body); line-height: 1.25; overflow-wrap: anywhere; }
 .eddy-footer-primary { display: flex; }
 .eddy-footer-primary > button, .eddy-footer-primary .eddy-command, .eddy-footer-primary .eddy-command > button { width: 100%; }
-.eddy-footer-emergency > button { width: 100%; }
+.eddy-footer-details > button { width: 100%; }
 .eddy-workflow .is-primary { border-color: var(--color-control-active-border); background: var(--color-control-active-surface); color: var(--color-text-primary); }
 .eddy-workflow .is-primary:disabled { opacity: .55; }
 .eddy-footer .eddy-command-reason { display: none; }

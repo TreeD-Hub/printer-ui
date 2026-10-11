@@ -27,7 +27,7 @@ type EddyCalibrationScreenProps = {
 const PROCEDURES: Array<{ id: Exclude<ProcedureId, 'overview'>; title: string; detail: string }> = [
   { id: 'driveCurrent', title: 'Ток катушки', detail: 'Код настройки Eddy' },
   { id: 'height', title: 'Высота по бумаге', detail: 'Ручной TESTZ и подтверждение Z' },
-  { id: 'temperature', title: 'Температурная серия', detail: 'Точки, график и отдельное завершение' },
+  { id: 'temperature', title: 'Температурная серия', detail: 'Бумажные замеры и автоматическое сохранение' },
   { id: 'z0', title: 'Z0', detail: 'Проверка нулевой высоты' },
   { id: 'offsets', title: 'Смещение Z', detail: 'Изменение Z-offset с сохранением' },
   { id: 'accuracy', title: 'Повторяемость', detail: 'Результат PROBE_ACCURACY' },
@@ -105,7 +105,7 @@ export function EddyCalibrationScreen({
   const [z0RefreshRunId, setZ0RefreshRunId] = useState<number | null>(null)
   const [accuracyRunning, setAccuracyRunning] = useState(false)
   const [z0Running, setZ0Running] = useState(false)
-  const [temperaturePoints, setTemperaturePoints] = useState({ nozzle: [] as TemperatureChartPoint[], bed: [] as TemperatureChartPoint[] })
+  const [temperaturePoints, setTemperaturePoints] = useState({ nozzle: [] as TemperatureChartPoint[], bed: [] as TemperatureChartPoint[], eddy: [] as TemperatureChartPoint[] })
   const [screwsRefreshRunId, setScrewsRefreshRunId] = useState<number | null>(null)
   const [meshCommandFinished, setMeshCommandFinished] = useState(false)
   const [meshScanCommandAccepted, setMeshScanCommandAccepted] = useState(false)
@@ -131,6 +131,7 @@ export function EddyCalibrationScreen({
   const heightBaseRef = useRef<number | null>(null)
   const emergencyButtonRef = useRef<HTMLButtonElement>(null)
   const commandRunIdRef = useRef(0)
+  const temperatureAutoSaveAttemptedRef = useRef(false)
   const screwsDialogRef = useModalFocus<HTMLDivElement>(screwsRawVisible, () => setScrewsRawVisible(false))
   const accuracyRunningRef = useRef(false)
   const z0RunningRef = useRef(false)
@@ -191,11 +192,20 @@ export function EddyCalibrationScreen({
   const zSaveCapability = snapshot.capabilities.calibrationCommands?.zOffsetSave === true
   const temperatureAcceptReason = commandReason({ command: 'eddyTemperatureAccept' }, temperatureAcceptCapability)
     ?? (eddy?.temperatureSeriesActive !== true ? 'Температурная серия не подтверждена в текущем статусе принтера.' : null)
+    ?? (eddy?.inTemperatureCalibration !== true ? 'Активная температурная калибровка не подтверждена.' : null)
+    ?? (!activeManualSession ? 'Klipper ещё не запросил бумажный замер.' : null)
     ?? (snapshot.v2.eddy.calibration.operatorPrompt !== 'temperature_points' ? 'Klipper ещё не запросил температурную точку.' : null)
   const temperatureCompleteReason = commandReason({ command: 'eddyTemperatureComplete' }, temperatureCompleteCapability)
     ?? (eddy?.temperatureSeriesActive !== true ? 'Температурная серия не подтверждена в текущем статусе принтера.' : null)
     ?? (eddy?.temperaturePoints == null ? 'Количество точек неизвестно; обновите состояние принтера.' : eddy.temperaturePoints < 3 ? 'Нужно принять не менее трёх температурных точек.' : null)
     ?? (calibration?.manualProbe.active !== false ? 'Статус ручного измерения неизвестен или оно ещё активно.' : null)
+  const temperatureSeriesFinished = eddy?.temperatureSeriesActive === true && eddy.inTemperatureCalibration === false
+    && calibration?.manualProbe.active === false
+  const temperatureCurveReady = temperatureSeriesFinished && calibration?.config.savePending === true
+    && calibration.config.pendingSections.includes('temperature_probe btt_eddy')
+  const temperatureCompletionIssue = temperatureSeriesFinished
+    ? !temperatureCurveReady ? 'Klipper не сформировал температурную кривую. Отмените серию и проверьте сообщения принтера.' : temperatureCompleteReason
+    : null
 
   useEffect(() => {
     setProcedure(initialProcedure)
@@ -256,19 +266,32 @@ export function EddyCalibrationScreen({
   }, [saveKind])
 
   useEffect(() => {
-    if (procedure !== 'temperature' || !activeTemperatureSession || !ready) return
+    if (!ready || isBusy || operationUncertain || saveKind !== null) return
+    const next = procedure === 'driveCurrent' && completedSaveKind === 'driveCurrent' && snapshot.v2.eddy.calibration.driveCurrentDone && typeof eddy?.driveCurrent === 'number' && Number.isFinite(eddy.driveCurrent)
+      ? 'height'
+      : procedure === 'height' && completedSaveKind === 'height' && snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature' ? 'temperature'
+        : procedure === 'temperature' && completedSaveKind === 'temperature' && snapshot.v2.eddy.calibration.temperatureDone && snapshot.v2.eddy.calibration.activeStep === 'z0' ? 'z0' : null
+    if (next === null) return
+    setMessage('')
+    setDetailsVisible(false)
+    setProcedure(next)
+  }, [procedure, completedSaveKind, snapshot.v2.eddy.calibration.driveCurrentDone, eddy?.driveCurrent, snapshot.v2.eddy.calibration.primaryDone, snapshot.v2.eddy.calibration.temperatureDone, snapshot.v2.eddy.calibration.activeStep, ready, isBusy, operationUncertain, saveKind])
+
+  useEffect(() => {
+    if (procedure !== 'temperature' || !ready) return
     const timestamp = Date.now()
     setTemperaturePoints((current) => {
       if (timestamp - (current.nozzle.at(-1)?.timestamp ?? 0) < 1000) return current
-      const keep = (points: TemperatureChartPoint[], temperature: number, target: number) => Number.isFinite(temperature)
+      const keep = (points: TemperatureChartPoint[], temperature: number | null | undefined, target: number) => typeof temperature === 'number' && Number.isFinite(temperature)
         ? [...points.slice(-899), { timestamp, current: temperature, target }]
         : points
       return {
         nozzle: keep(current.nozzle, snapshot.extruderTemp, snapshot.thermalTargets.nozzle),
         bed: keep(current.bed, snapshot.bedTemp, snapshot.thermalTargets.bed),
+        eddy: keep(current.eddy, eddy?.temperatureC, 0),
       }
     })
-  }, [procedure, activeTemperatureSession, ready, snapshot.extruderTemp, snapshot.bedTemp, snapshot.thermalTargets.nozzle, snapshot.thermalTargets.bed, snapshot.updatedAt])
+  }, [procedure, ready, snapshot.extruderTemp, snapshot.bedTemp, eddy?.temperatureC, snapshot.thermalTargets.nozzle, snapshot.thermalTargets.bed, snapshot.updatedAt])
 
   useEffect(() => {
     if (firstLayerStartedPath === null || !isPrintJobActive(snapshot.printJob)) return
@@ -311,6 +334,7 @@ export function EddyCalibrationScreen({
       return false
     }
     const commandRunId = ++commandRunIdRef.current
+    if (args.command === 'eddyTemperatureStart') temperatureAutoSaveAttemptedRef.current = false
     if (args.command.startsWith('eddy') && args.command !== 'eddyAbort' || args.command === 'homeXY' || args.command === 'start') {
       setPipelineActive(true)
       setAbortAccepted(false)
@@ -361,6 +385,14 @@ export function EddyCalibrationScreen({
     setSaveKind(null)
     return false
   }
+
+  useEffect(() => {
+    if (procedure !== 'temperature' || !temperatureCurveReady || temperatureCompleteReason !== null
+        || !ready || isBusy || operationUncertain || saveKind !== null || blockCalibration !== null
+        || temperatureAutoSaveAttemptedRef.current) return
+    temperatureAutoSaveAttemptedRef.current = true
+    void beginSave('temperature', { command: 'eddyTemperatureComplete' })
+  }, [procedure, temperatureCurveReady, temperatureCompleteReason, ready, isBusy, operationUncertain, saveKind, blockCalibration, beginSave])
 
   async function runProbe(command: 'eddyProbeAccuracy' | 'eddyCheckZ0') {
     if (blockCalibration !== null) {
@@ -600,6 +632,16 @@ export function EddyCalibrationScreen({
     return visual
   }
 
+  function renderTestZ() {
+    return <>
+      <div className="eddy-testz-labels"><span>− Опустить</span><span>+ Поднять</span></div>
+      <div className="eddy-action-grid eddy-testz">{EDDY_TEST_Z_STEP_OPTIONS.slice().sort((a, b) => Math.sign(a) - Math.sign(b) || Math.abs(b) - Math.abs(a)).map((deltaMm) => {
+        const args: ExecuteCommandArgs = { command: 'eddyTestZ', deltaMm }
+        return <button key={deltaMm} type="button" disabled={isBusy || operationUncertain || !ready || getCommandBlockReason(args.command, args) !== null} onClick={() => void run(args)}>{deltaMm > 0 ? '+' : ''}{deltaMm} мм</button>
+      })}</div>
+    </>
+  }
+
   function renderProcedure() {
     switch (procedure) {
       case 'driveCurrent':
@@ -608,26 +650,40 @@ export function EddyCalibrationScreen({
         </div></div>
       case 'height':
         return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram paper delta={confirmedHeightDelta} />)}<div className="eddy-instrument-controls">
-          <div className="eddy-metric"><span>Координата сопла</span><strong>Z {valueText(manualZ)}</strong></div>
+          <div className="eddy-metric"><span>Зазор сопла</span><strong>{valueText(manualZ)}</strong></div>
           <p>{completedSaveKind === 'height' && snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature' ? 'Высота сохранена. Можно продолжить.' : activeManualSession ? 'Опускайте сопло до лёгкого трения бумаги.' : 'Положите бумагу под сопло.'}</p>
-          {activeManualSession && <>
-            <div className="eddy-testz-labels"><span>− Опустить</span><span>+ Поднять</span></div><div className="eddy-action-grid eddy-testz">{EDDY_TEST_Z_STEP_OPTIONS.map((deltaMm) => {
-              const label = `${deltaMm > 0 ? '+' : ''}${deltaMm}`
-              const args: ExecuteCommandArgs = { command: 'eddyTestZ', deltaMm }
-              return <button key={deltaMm} type="button" disabled={isBusy || operationUncertain || getCommandBlockReason(args.command, args) !== null} onClick={() => void run(args)}>{label} мм</button>
-            })}</div>
-          </>}
+          {activeManualSession && renderTestZ()}
         </div></div>
       case 'temperature':
-        return <div className="eddy-temperature-layout">
-          {visualOrDetails(activeTemperatureSession || temperaturePoints.nozzle.length > 0 ? <section className="eddy-chart-area" aria-label="График температурной калибровки">
-            <TemperatureTrendChart height={220} testId="eddy-temperature-chart" series={[
-              { id: 'nozzle', label: 'Сопло', tone: 'orange', points: temperaturePoints.nozzle },
-              { id: 'bed', label: 'Стол', tone: 'green', points: temperaturePoints.bed },
-            ]} />
-            <p>Сплошная линия — фактическая температура; пунктир — цель.</p>
-          </section> : <figure className="eddy-subject"><CalibrationPreview kind="temperature" /><figcaption>Схема температурной компенсации</figcaption></figure>)}
-          <div className="eddy-instrument-controls"><div className="eddy-metric"><span>Катушка</span><strong>{valueText(eddy?.temperatureC, 1, '°C')}</strong></div><p>Принято точек: <span>{eddy?.temperaturePoints ?? '—'}</span></p><p>{completedSaveKind === 'temperature' && snapshot.v2.eddy.calibration.temperatureDone && snapshot.v2.eddy.calibration.activeStep === 'z0' ? 'Серия сохранена. Можно продолжить.' : activeTemperatureSession ? calibration?.manualProbe.active === true ? 'Подтвердите текущую точку.' : 'Дождитесь готовности принтера к измерению.' : 'Серия измеряет точки при нагреве.'}</p></div>
+        return <div className="eddy-instrument">
+          {visualOrDetails(<figure className="eddy-subject"><CalibrationPreview kind="temperature" /><figcaption>Схема температурной компенсации</figcaption></figure>)}
+          <div className={joinClassNames('eddy-instrument-controls eddy-temperature-controls', activeTemperatureSession && activeManualSession && 'eddy-temperature-controls--manual')}>
+            <div className="control-heating-chart-legend eddy-temperature-legend">
+              {[
+                { id: 'nozzle', label: 'Сопло', tone: 'orange', current: snapshot.extruderTemp, target: snapshot.thermalTargets.nozzle },
+                { id: 'bed', label: 'Стол', tone: 'green', current: snapshot.bedTemp, target: snapshot.thermalTargets.bed },
+                { id: 'eddy', label: 'Eddy', tone: 'neutral', current: eddy?.temperatureC, target: 0 },
+              ].map((series) => <div className="control-heating-chart-legend-btn is-active" key={series.id}>
+                <span className={`control-heating-chart-legend-marker is-${series.tone}`} aria-hidden="true" />
+                <span className="control-heating-chart-legend-label">{series.label}</span>
+                <span className="control-heating-chart-legend-value">{valueText(series.current, 1, '°C')}{series.target > 0 ? ` / ${valueText(series.target, 0, '°C')}` : ''}</span>
+              </div>)}
+            </div>
+            {activeTemperatureSession && activeManualSession ? <div className="eddy-temperature-paper">
+              <div className="eddy-metric"><span>Зазор сопла · бумажный замер</span><strong>{valueText(manualZ)}</strong></div>
+              <p>Опускайте до лёгкого трения бумаги.</p>
+              {renderTestZ()}
+            </div> : <>
+            <section className="eddy-chart-area" aria-label="График температурной калибровки">
+              <TemperatureTrendChart height={280} testId="eddy-temperature-chart" series={[
+                { id: 'nozzle', label: 'Сопло', tone: 'orange', points: temperaturePoints.nozzle },
+                { id: 'bed', label: 'Стол', tone: 'green', points: temperaturePoints.bed },
+                { id: 'eddy', label: 'Eddy', tone: 'neutral', points: temperaturePoints.eddy },
+              ]} />
+            </section>
+            <div className="eddy-temperature-summary"><p>Принято точек: <span>{eddy?.temperaturePoints ?? '—'}</span></p>{!activeTemperatureSession && <p>Калибровка тепловой погрешности датчика.</p>}</div>
+            </>}
+          </div>
         </div>
       case 'z0':
         return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram sensor />)}<div className="eddy-instrument-controls">
@@ -710,10 +766,10 @@ export function EddyCalibrationScreen({
             ? commandButton('Подготовить оси', { command: 'homeXY' }, { primary: true, reason: commandReason({ command: 'homeXY' }), onClick: () => void run({ command: 'homeXY' }) })
             : commandButton('Начать проверку по бумаге', { command: 'eddyPrimaryHeightStart' }, { primary: true, reason: blockCalibration }))
       case 'temperature':
-        if (completedSaveKind === 'temperature' && snapshot.v2.eddy.calibration.temperatureDone && snapshot.v2.eddy.calibration.activeStep === 'z0') return actions(next('Далее: проверка Z0', 'z0'))
-        return activeTemperatureSession ? temperatureCompleteReason === null
-          ? actions(commandButton('Завершить серию и сохранить', { command: 'eddyTemperatureComplete' }, { primary: true, reason: temperatureCompleteReason, onClick: () => void beginSave('temperature', { command: 'eddyTemperatureComplete' }) }), commandButton('Принять текущую точку', { command: 'eddyTemperatureAccept' }, { secondary: true, reason: temperatureAcceptReason }))
-          : actions(commandButton('Принять текущую точку', { command: 'eddyTemperatureAccept' }, { primary: true, reason: temperatureAcceptReason }))
+        return activeTemperatureSession
+          ? actions(activeManualSession
+            ? commandButton('Подтвердить зазор', { command: 'eddyTemperatureAccept' }, { primary: true, reason: temperatureAcceptReason })
+            : <button type="button" className="eddy-btn is-primary" disabled>{temperatureSeriesFinished ? temperatureCompletionIssue === null ? 'Сохранение…' : 'Серия остановлена' : 'Ожидаем бумажный замер…'}</button>)
           : actions(commandButton('Начать температурную серию', { command: 'eddyTemperatureStart' }, { primary: true, reason: blockCalibration }))
       case 'z0':
         if (z0Confirmed) return actions(next('Далее: винты стола', 'screws'))
@@ -778,7 +834,7 @@ export function EddyCalibrationScreen({
   const emergencyActionVisible = pipelineActive || activeSession || isBusy || saveKind !== null || accuracyRunning || z0Running || operationUncertain
   const primaryBlockReason = procedureCompleted ? null : procedure === 'driveCurrent' ? commandReason({ command: 'eddyDriveCurrentCalibrate' })
     : procedure === 'height' ? !allAxesHomed ? 'Сначала привяжите X, Y и Z безопасной командой G28 X Y.' : commandReason({ command: activeManualSession ? 'eddyPrimaryAcceptSave' : 'eddyPrimaryHeightStart' })
-      : procedure === 'temperature' ? activeTemperatureSession ? temperatureAcceptReason ?? temperatureCompleteReason : commandReason({ command: 'eddyTemperatureStart' })
+      : procedure === 'temperature' ? activeTemperatureSession ? activeManualSession ? temperatureAcceptReason : temperatureCompletionIssue : commandReason({ command: 'eddyTemperatureStart' })
         : procedure === 'z0' ? commandReason({ command: 'eddyCheckZ0' })
           : procedure === 'accuracy' ? commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability)
             : procedure === 'mesh' ? commandReason({ command: 'eddyScanMesh', save: false })
@@ -786,18 +842,20 @@ export function EddyCalibrationScreen({
                   : procedure === 'screws' ? commandReason({ command: 'eddyScrewsTiltStart' }) ?? (screwsDoneRefreshRunId !== null && !screwsConfirmed ? 'Ожидаем подтверждение настройки винтов.' : screws?.results.length && !screwsFresh ? 'Нужен повторный замер четырёх винтов.' : null)
                     : procedure === 'firstLayer' && printStartArgs && !activePrint ? getCommandBlockReason('start', printStartArgs) : null
   const visibleBlockReason = procedure === 'overview' || procedure === 'firstLayer' ? primaryBlockReason : blockCalibration ?? (procedure === 'screws' && screwsConfirmed ? commandReason({ command: 'eddyScanMesh', save: false }) : primaryBlockReason)
-  const visibleStatusReason = visibleBlockReason === 'Принять точку температуры Eddy: активная температурная точка manual_probe не подтверждена.'
+  const visibleStatusReason = procedure === 'temperature' && activeTemperatureSession && !activeManualSession && !temperatureSeriesFinished && visibleBlockReason === null
+    ? 'Принтер готовит точку измерения. Дождитесь готовности.'
+    : visibleBlockReason === 'Принять точку температуры Eddy: активная температурная точка manual_probe не подтверждена.'
     ? 'Принтер готовит точку измерения. Дождитесь готовности.' : visibleBlockReason
   const procedureMessageInBody = procedure !== 'overview' && Boolean(saveError || operationUncertain)
-  const statusIsError = !procedureMessageInBody && Boolean(saveError || operationUncertain)
+  const statusIsError = !procedureMessageInBody && Boolean(saveError || operationUncertain || procedure === 'temperature' && temperatureCompletionIssue)
   const footerActions = renderProcedureActions()
 
   return (
-    <article className="eddy-workflow">
+    <article className={joinClassNames('eddy-workflow', (procedure === 'temperature' || procedure === 'height' && activeManualSession) && 'eddy-workflow--tall-controls')}>
       <header className="eddy-header">
         <button type="button" disabled={backBlocked} onClick={onBackToList}>{pipelineActive && !backBlocked ? 'Завершить' : 'К списку'}</button>
         <div>{snapshot.source === 'mock' && <p>Симуляция</p>}<h2>{procedure === 'overview' ? 'Обзор калибровок' : activeTitle}</h2></div>
-        {procedure !== 'overview' && <button type="button" className="is-secondary" aria-expanded={detailsVisible} onClick={() => setDetailsVisible((visible) => !visible)}>{detailsVisible ? 'Скрыть' : 'Подробнее'}</button>}
+        {emergencyActionVisible && <button type="button" className="eddy-danger" disabled={!emergencyAllowed || emergencyPending} onClick={() => setConfirmEmergency(true)}>Аварийная остановка</button>}
       </header>
       <main className="eddy-body">
         {procedure !== 'overview' && <section className="eddy-procedure-content">{renderProcedure()}</section>}
@@ -805,7 +863,7 @@ export function EddyCalibrationScreen({
       </main>
       <div className={joinClassNames('eddy-status', statusIsError && 'is-error')} role={statusIsError ? 'alert' : 'status'} aria-hidden={procedureMessageInBody || undefined}>{procedureMessageInBody ? '' : saveError || (operationUncertain ? 'Операция принтера остаётся неопределённой. Продолжение заблокировано.' : saveKind !== null ? 'Ожидаем сохранения и перезапуска принтера.' : message || (!ready ? 'Связи нет · показаны последние данные.' : visibleStatusReason ?? procedureStatus))}</div>
       <footer className="eddy-footer">
-        <div className="eddy-footer-emergency">{emergencyActionVisible && <button type="button" className="eddy-danger" disabled={!emergencyAllowed || emergencyPending} onClick={() => setConfirmEmergency(true)}>Аварийная остановка</button>}</div>
+        <div className="eddy-footer-details">{procedure !== 'overview' && <button type="button" className="is-secondary" aria-expanded={detailsVisible} onClick={() => setDetailsVisible((visible) => !visible)}>{detailsVisible ? 'Скрыть' : 'Подробнее'}</button>}</div>
         <div className="eddy-footer-secondary">
           {activeSession && abortCapability && commandButton(procedure === 'height' ? 'Отменить ручное измерение' : procedure === 'temperature' ? 'Отменить серию' : 'Отменить текущий этап', { command: 'eddyAbort' }, { secondary: true, reason: commandReason({ command: 'eddyAbort' }, abortCapability) })}
           {footerActions.secondary}
