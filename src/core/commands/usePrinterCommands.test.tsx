@@ -5,12 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { usePrinterCommands } from './usePrinterCommands'
 import type { CommandResult, ExecuteCommandArgs } from './types'
 import type { TreeDCommandRuntimeContext } from './catalog'
+import { FALLBACK_PRINTER_SNAPSHOT, setPrinterSnapshot } from '../store/printerStore'
 
 const runtimeMocks = vi.hoisted(() => ({
   execute: vi.fn(),
 }))
 
 vi.mock('#runtime', () => ({
+  runtimeMode: 'live',
   createCommandClient: () => ({
     execute: runtimeMocks.execute,
   }),
@@ -129,6 +131,87 @@ describe('usePrinterCommands', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    setPrinterSnapshot(structuredClone(FALLBACK_PRINTER_SNAPSHOT))
+  })
+
+  it('hydrates command guards from the current calibration snapshot and resets missing state to idle', async () => {
+    const snapshot = structuredClone(FALLBACK_PRINTER_SNAPSHOT)
+    snapshot.calibration = {
+      manualProbe: { active: true, zMm: 0, zMinimumMm: -0.5, zMaximumMm: 0.5 },
+      eddy: {
+        available: true,
+        heightCalibrated: true,
+        driveCurrent: 15,
+        temperatureC: 24,
+        temperaturePoints: 0,
+        temperatureSeriesActive: false,
+        compensationEnabled: false,
+        inTemperatureCalibration: false,
+        estimatedExpansionMm: null,
+        xOffsetMm: 0,
+        yOffsetMm: 0,
+        zOffsetMm: 0,
+      },
+      config: { savePending: false, pendingSections: [] },
+      mesh: { profile: null, min: null, max: null, probedMatrix: [], meshMatrix: [], savedProfiles: {} },
+      screws: { error: null, maxDeviationMm: null, results: [] },
+      shaper: { typeX: null, typeY: null, freqXHz: null, freqYHz: null },
+      extruder: { rotationDistanceMm: null },
+    }
+    snapshot.capabilities.calibrationCommands = {
+      temperatureAccept: true,
+      temperatureComplete: true,
+      abort: true,
+      probeAccuracy: true,
+      setOffsets: true,
+      zOffsetAdjust: true,
+      zOffsetSave: true,
+      extruderCalibrationExtrude: true,
+      extruderRotationDistance: true,
+      accelerometerQuery: true,
+      accelerometerMeasureNoise: true,
+      adxlConfigured: true,
+      meshScan: true,
+    }
+    setPrinterSnapshot(snapshot)
+    runtimeMocks.execute.mockResolvedValue(success('eddyPrimaryAcceptSave'))
+    let api: PrinterCommandsApi | null = null
+    const legacyIdleContext: TreeDCommandRuntimeContext = {
+      ...RUNTIME_CONTEXT,
+      printJob: { filename: '', state: 'standby' },
+      manualProbeActive: false,
+      eddyTemperatureCalibrationActive: false,
+      eddyTemperatureSeriesActive: false,
+    }
+    const { rerender } = render(<Harness context={legacyIdleContext} onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+
+    await waitFor(() => expect(api).not.toBeNull())
+    await act(async () => {
+      expect(await api!.executeCommand({ command: 'homeXY' })).toBe(false)
+    })
+    expect(runtimeMocks.execute).not.toHaveBeenCalled()
+
+    await act(async () => {
+      expect(await api!.executeCommand({ command: 'eddyPrimaryAcceptSave' })).toBe(true)
+    })
+    expect(runtimeMocks.execute).toHaveBeenCalledWith({ command: 'eddyPrimaryAcceptSave' })
+
+    setPrinterSnapshot(structuredClone(FALLBACK_PRINTER_SNAPSHOT))
+    runtimeMocks.execute.mockResolvedValue(success('start'))
+    rerender(<Harness context={{
+      ...legacyIdleContext,
+      manualProbeActive: true,
+      eddyTemperatureCalibrationActive: true,
+      eddyTemperatureSeriesActive: true,
+    }} onReady={(nextApi) => {
+      api = nextApi
+    }} />)
+    await act(async () => {
+      expect(await api!.executeCommand({ command: 'start', filename: 'jobs/benchy.gcode' })).toBe(true)
+    })
+    expect(runtimeMocks.execute).toHaveBeenLastCalledWith({ command: 'start', filename: 'jobs/benchy.gcode' })
   })
 
   it('coalesces repeated fan commands while a previous command is in flight', async () => {

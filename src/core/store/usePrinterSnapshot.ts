@@ -29,6 +29,7 @@ const selectPrinterSnapshot = (snapshot: PrinterSnapshot) => snapshot
 function mergeRuntimeSnapshot(previous: PrinterSnapshot, next: PrinterSnapshot): PrinterSnapshot {
   return {
     ...next,
+    calibration: next.calibration ?? previous.calibration,
     usage: next.usage.state === 'ready' ? next.usage : previous.usage,
     printFiles: next.printFiles.length > 0 ? next.printFiles : previous.printFiles,
     fileList: next.fileList?.state === 'unknown' ? previous.fileList : next.fileList ?? previous.fileList,
@@ -189,6 +190,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   const runtimeEpochRef = useRef(0)
   const refreshSequenceRef = useRef(0)
   const targetedRefreshSequenceRef = useRef(new Map<string, number>())
+  const isDisposedRef = useRef(false)
 
   const client = useMemo(() => {
     return createTransportClient()
@@ -304,23 +306,28 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     action: string,
     fetchValue: () => Promise<T>,
     mergeValue: (previous: PrinterSnapshot, value: T) => PrinterSnapshot,
-    guardRuntimeRevision = false,
-  ): Promise<void> => {
-    if (guardRuntimeRevision && runtimeSourceRef.current === 'websocket') {
-      return
+    guardRuntimeRevision: boolean | 'epoch' = false,
+  ): Promise<boolean> => {
+    if (isDisposedRef.current) {
+      return false
+    }
+    if (guardRuntimeRevision === true && runtimeSourceRef.current === 'websocket') {
+      return false
     }
     const requestSequence = (targetedRefreshSequenceRef.current.get(action) ?? 0) + 1
     targetedRefreshSequenceRef.current.set(action, requestSequence)
     const runtimeEpoch = runtimeEpochRef.current
     const isRequestCurrent = (): boolean => {
       return targetedRefreshSequenceRef.current.get(action) === requestSequence
-        && (!guardRuntimeRevision || (runtimeSourceRef.current !== 'websocket' && runtimeEpochRef.current === runtimeEpoch))
+        && !isDisposedRef.current
+        && (guardRuntimeRevision === false || (runtimeEpochRef.current === runtimeEpoch
+          && (guardRuntimeRevision === 'epoch' || runtimeSourceRef.current !== 'websocket')))
     }
 
     try {
       const value = await fetchValue()
       if (!isRequestCurrent()) {
-        return
+        return false
       }
 
       updatePrinterSnapshot((prev) => mergeValue(prev, value))
@@ -328,14 +335,16 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
         runtimeEpochRef.current += 1
       }
       setError('')
+      return true
     } catch (err) {
       if (!isRequestCurrent()) {
-        return
+        return false
       }
 
       const message = getErrorMessage(err)
       recordOperationalDiagnostic('transport-error', `${action}: ${message}`)
       setError(message)
+      return false
     }
   }, [])
 
@@ -362,12 +371,13 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     )
   }, [applyTargetedRefresh, client.fetchFilamentSensor])
 
-  const refreshEddyState = useCallback(async (): Promise<void> => {
-    await applyTargetedRefresh(
+  const refreshEddyState = useCallback(async (): Promise<boolean> => {
+    return applyTargetedRefresh(
       'refresh-eddy-state',
       client.fetchEddyState,
       (prev, eddyState: PrinterEddyStateSnapshot) => ({
         ...prev,
+        ...(eddyState.calibrationState !== undefined ? { calibration: eddyState.calibrationState } : {}),
         v2: {
           ...prev.v2,
           eddy: {
@@ -378,7 +388,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
           },
         },
       }),
-      true,
+      'epoch',
     )
   }, [applyTargetedRefresh, client.fetchEddyState])
 
@@ -474,6 +484,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
   }, [applyTargetedRefresh, client.fetchMotionState])
 
   useEffect(() => {
+    isDisposedRef.current = false
     let isDisposed = false
     let runtimeTimer: number | null = null
     runtimeSourceRef.current = 'polling'
@@ -584,6 +595,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
 
     return () => {
       isDisposed = true
+      isDisposedRef.current = true
       subscription?.close()
       window.clearTimeout(firstTick)
       if (runtimeTimer !== null) {

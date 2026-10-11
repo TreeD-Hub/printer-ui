@@ -51,6 +51,17 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'eddyPrimaryHeightStart',
   'eddyPrimaryAcceptSave',
   'eddyTemperatureStart',
+  'eddyTemperatureAccept',
+  'eddyTemperatureComplete',
+  'eddyScanMesh',
+  'eddyAbort',
+  'eddyProbeAccuracy',
+  'eddySetOffsets',
+  'eddyZOffsetAdjust',
+  'eddyZOffsetSave',
+  'extruderCalibrationExtrude',
+  'extruderRotationDistanceApply',
+  'extruderRotationDistanceSave',
   'eddyTemperatureAcceptSave',
   'eddyCheckZ0',
   'eddyScrewsTiltStart',
@@ -60,6 +71,8 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'eddyTestZ',
   'shaperCalibrateLight',
   'shaperCalibrateFull',
+  'accelerometerQuery',
+  'accelerometerMeasureNoise',
   'xyMotionTest',
   'disableMotors',
   'consoleGcode',
@@ -335,6 +348,139 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     })).toContain('во время печати')
     expect(getTreeDCommandBlockReason('disableMotors', PRINTING_CONTEXT)).toContain('во время печати')
     expect(getTreeDCommandBlockReason('eddyBedMeshCalibrate', PRINTING_CONTEXT)).toContain('во время печати')
+  })
+
+  it('requires calibration support, a confirmed idle state and no pending config for saved calibration changes', () => {
+    const supportedContext: TreeDCommandRuntimeContext = {
+      ...IDLE_CONTEXT,
+      operationPhase: 'idle',
+      calibrationSavePending: false,
+      manualProbeActive: true,
+      eddyTemperatureCalibrationActive: true,
+      eddyTemperatureSeriesActive: true,
+      eddyTemperaturePoints: 3,
+      eddyHeightCalibrated: true,
+      capabilities: {
+        ...ALL_CAPABILITIES,
+        calibrationCommands: {
+          temperatureAccept: true,
+          temperatureComplete: true,
+          abort: true,
+          probeAccuracy: true,
+          setOffsets: true,
+          zOffsetAdjust: true,
+          zOffsetSave: true,
+          extruderCalibrationExtrude: true,
+          extruderRotationDistance: true,
+          accelerometerQuery: true,
+          accelerometerMeasureNoise: true,
+          adxlConfigured: true,
+          meshScan: true,
+        },
+      },
+    }
+    const supportedIdleContext = {
+      ...supportedContext,
+      manualProbeActive: false,
+      eddyTemperatureCalibrationActive: false,
+      eddyTemperatureSeriesActive: false,
+    }
+
+    expect(getTreeDCommandBlockReason('eddyTemperatureAccept', supportedContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('eddySetOffsets', supportedIdleContext, {
+      command: 'eddySetOffsets', xOffsetMm: 0.1, yOffsetMm: -0.1,
+    })).toBeNull()
+    expect(getTreeDCommandBlockReason('eddyZOffsetSave', {
+      ...supportedIdleContext,
+      calibrationSavePending: null,
+    }))
+      .toContain('подтвердите отсутствие ожидающих изменений')
+    expect(getTreeDCommandBlockReason('extruderRotationDistanceSave', {
+      ...supportedIdleContext,
+      operationPhase: 'calibrating',
+    }, { command: 'extruderRotationDistanceSave', distanceMm: 22.5 })).toContain('состоянии простоя')
+    expect(getTreeDCommandBlockReason('eddyTemperatureComplete', {
+      ...supportedContext,
+      manualProbeActive: false,
+      eddyTemperatureSeriesActive: false,
+    })).toContain('не активна')
+    expect(getTreeDCommandBlockReason('eddyTemperatureComplete', {
+      ...supportedContext,
+      manualProbeActive: false,
+      eddyTemperaturePoints: 2,
+    })).toContain('трёх подтверждённых')
+    expect(getTreeDCommandBlockReason('eddySetOffsets', {
+      ...supportedContext,
+      capabilities: ALL_CAPABILITIES,
+    }, { command: 'eddySetOffsets', xOffsetMm: 0, yOffsetMm: 0 })).toContain('не поддерживается')
+    expect(getTreeDCommandBlockReason('eddyScanMesh', supportedIdleContext, {
+      command: 'eddyScanMesh', save: false,
+    })).toBeNull()
+    expect(getTreeDCommandBlockReason('eddyScanMesh', {
+      ...supportedIdleContext,
+      calibrationSavePending: true,
+    }, { command: 'eddyScanMesh', save: true })).toContain('ожидающие изменения')
+    expect(getTreeDCommandBlockReason('extruderCalibrationExtrude', supportedContext, {
+      command: 'extruderCalibrationExtrude', lengthMm: 121, speedMmPerSec: 2, targetCelsius: 210,
+    })).toContain('1…120')
+  })
+
+  it('limits active calibration sessions to their steps, read-only queries and emergency commands', () => {
+    const sessionContext: TreeDCommandRuntimeContext = {
+      ...IDLE_CONTEXT,
+      operationPhase: 'calibrating',
+      capabilities: {
+        ...ALL_CAPABILITIES,
+        calibrationCommands: {
+          abort: true,
+          temperatureComplete: true,
+          accelerometerQuery: true,
+          adxlConfigured: true,
+        },
+      },
+    }
+    const manualProbeContext = { ...sessionContext, manualProbeActive: true }
+    const temperatureSessionContext = {
+      ...sessionContext,
+      eddyTemperatureCalibrationActive: true,
+      eddyTemperatureSeriesActive: true,
+      eddyTemperaturePoints: 3,
+    }
+
+    for (const context of [manualProbeContext, temperatureSessionContext]) {
+      expect(getTreeDCommandBlockReason('homeXY', context)).toContain('текущую калибровку')
+      expect(getTreeDCommandBlockReason('start', context, { command: 'start', filename: 'part.gcode' }))
+        .toContain('текущую калибровку')
+      expect(getTreeDCommandBlockReason('restartKlipper', context)).toContain('текущую калибровку')
+      expect(getTreeDCommandBlockReason('serviceMode', context)).toContain('текущую калибровку')
+    }
+
+    expect(getTreeDCommandBlockReason('eddyTestZ', manualProbeContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('eddyPrimaryAcceptSave', manualProbeContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('eddyAbort', manualProbeContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('eddyTemperatureComplete', temperatureSessionContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('eddyAbort', temperatureSessionContext)).toBeNull()
+    const temperatureManualProbeContext = { ...temperatureSessionContext, manualProbeActive: true }
+    expect(getTreeDCommandBlockReason('eddyTestZ', temperatureManualProbeContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('eddyPrimaryAcceptSave', temperatureManualProbeContext))
+      .toContain('температурную серию')
+    expect(getTreeDCommandBlockReason('eddyAutosaveStatus', manualProbeContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('accelerometerQuery', temperatureSessionContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('emergencyStop', manualProbeContext)).toBeNull()
+    expect(getTreeDCommandBlockReason('turnOffHeaters', temperatureSessionContext)).toBeNull()
+  })
+
+  it('requires an idle printer without clog recovery before running the input shaper', () => {
+    for (const command of ['shaperCalibrateFull', 'shaperCalibrateLight'] as const) {
+      expect(getTreeDCommandBlockReason(command, { ...IDLE_CONTEXT, operationPhase: 'idle' })).toBeNull()
+      expect(getTreeDCommandBlockReason(command, { ...IDLE_CONTEXT, operationPhase: 'calibrating' }))
+        .toContain('состоянии простоя')
+      expect(getTreeDCommandBlockReason(command, {
+        ...IDLE_CONTEXT,
+        operationPhase: 'idle',
+        clogRecoveryActive: true,
+      })).toContain('состоянии простоя')
+    }
   })
 
   it('allows only lifecycle-valid print commands in each print state', () => {

@@ -127,13 +127,6 @@ const MOONRAKER_FILAMENT_SENSOR_OBJECTS = [
   'gcode_macro _FILAMENT_SENSOR_SENSITIVITY_STATE',
 ] as const
 
-const MOONRAKER_EDDY_STATE_OBJECTS = [
-  'webhooks',
-  'toolhead',
-  'save_variables',
-  'gcode_macro _TREED_EDDY_Z_OFFSET_AUTOSAVE_STATE',
-] as const
-
 const MOONRAKER_PRINT_JOB_OBJECTS = [
   'webhooks',
   'print_stats',
@@ -606,12 +599,18 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
       return snapshot.filamentSensor
     },
     async fetchEddyState(): Promise<PrinterEddyStateSnapshot> {
-      const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_EDDY_STATE_OBJECTS)
+      const { objects, availableObjects } = await fetchRuntimeObjects(context)
+      const snapshot = normalizeMoonrakerRuntimeSnapshot(objects, {
+        moonrakerUrl: context.moonrakerUrl,
+        source: 'live',
+        availableObjects,
+      })
 
       return {
         autosaveEnabled: snapshot.v2.eddy.autosaveEnabled,
         autosavePending: snapshot.v2.eddy.autosavePending,
         calibration: snapshot.v2.eddy.calibration,
+        calibrationState: snapshot.calibration,
       }
     },
     async fetchExcludeObjects(): Promise<PrinterExcludeObjectSnapshot> {

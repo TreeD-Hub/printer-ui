@@ -130,6 +130,12 @@ function App() {
         rawZ: snapshot.toolhead.rawZ,
       },
       eddyStatus: snapshot.v2.eddy.status,
+      manualProbeActive: snapshot.calibration?.manualProbe.active ?? false,
+      eddyTemperatureCalibrationActive: snapshot.calibration?.eddy.inTemperatureCalibration === true,
+      eddyTemperatureSeriesActive: snapshot.calibration?.eddy.temperatureSeriesActive ?? null,
+      eddyTemperaturePoints: snapshot.calibration?.eddy.temperaturePoints ?? null,
+      eddyHeightCalibrated: snapshot.calibration?.eddy.heightCalibrated ?? null,
+      calibrationSavePending: snapshot.calibration?.config.savePending ?? null,
       extruderTemp: snapshot.extruderTemp,
       limits: snapshot.limits,
       thermalTargets: snapshot.thermalTargets,
@@ -168,6 +174,7 @@ function App() {
       snapshot.toolhead.rawY,
       snapshot.toolhead.rawZ,
       snapshot.v2.eddy.status,
+      snapshot.calibration,
     ],
   )
   const {

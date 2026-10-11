@@ -6,6 +6,14 @@ export const MOONRAKER_RUNTIME_OBJECTS = [
   'virtual_sdcard',
   'exclude_object',
   'extruder',
+  'configfile',
+  'manual_probe',
+  'probe_eddy_current btt_eddy',
+  'temperature_probe btt_eddy',
+  'bed_mesh',
+  'screws_tilt_adjust',
+  'input_shaper',
+  'treed_calibration',
   'heater_bed',
   'fan',
   'treed_driver_mode',
@@ -28,15 +36,27 @@ export const MOONRAKER_RUNTIME_OBJECTS = [
   'gcode_macro _TREED_GEOMETRY_CFG',
   'gcode_macro _TREED_CAM_STATE',
   'gcode_macro _TREED_EDDY_Z_OFFSET_AUTOSAVE_STATE',
+  'gcode_macro _TREED_EDDY_TEMPERATURE_STATE',
   'gcode_macro _TREED_SYSTEM_POWER',
   'gcode_macro _TREED_CLOUD',
   'gcode_macro _TREED_UPDATES',
   'gcode_macro _TREED_CAMERA',
   'gcode_macro _TREED_SERVICE_COMMANDS',
   'gcode_macro _TREED_UI_TUNE_STATE',
+  'gcode_macro TREED_EDDY_TEMPERATURE_ACCEPT',
+  'gcode_macro TREED_EDDY_TEMPERATURE_COMPLETE_SAVE',
+  'gcode_macro TREED_EDDY_CALIBRATION_ABORT',
+  'gcode_macro TREED_EDDY_PROBE_ACCURACY',
+  'gcode_macro TREED_EDDY_BED_MESH_CALIBRATE',
+  'gcode_macro TREED_EDDY_SET_OFFSETS',
+  'gcode_macro TREED_EDDY_Z_OFFSET_ADJUST',
+  'gcode_macro TREED_EDDY_Z_OFFSET_SAVE',
 ] as const
 
 export function selectMoonrakerRuntimeObjects(availableObjects: readonly string[]): string[] {
   const available = new Set(availableObjects)
-  return MOONRAKER_RUNTIME_OBJECTS.filter((name) => available.has(name))
+  return [
+    ...MOONRAKER_RUNTIME_OBJECTS.filter((name) => available.has(name)),
+    ...availableObjects.filter((name) => name.startsWith('adxl345 ')),
+  ]
 }

@@ -128,10 +128,40 @@ function buildMockCommandMessage(args: ExecuteCommandArgs): string {
       return `Mock: unload filament ${args.lengthMm ?? 100}mm sent`
     case 'zParkZeroEddy':
       return 'Mock: TREED_Z_PARK_ZERO_EDDY sent'
+    case 'eddyTemperatureAccept':
+      return 'Mock: температурная точка Eddy принята'
+    case 'eddyTemperatureComplete':
+    case 'eddyTemperatureAcceptSave':
+      return 'Mock: температурная калибровка Eddy завершена и сохранена'
+    case 'eddyAbort':
+      return 'Mock: калибровка Eddy прервана'
+    case 'eddyProbeAccuracy':
+      return 'Mock: проверка точности Eddy запущена'
+    case 'eddyScanMesh':
+      return args.save === false
+        ? 'Mock: сетка Eddy рассчитана без сохранения'
+        : 'Mock: сетка Eddy рассчитана и сохранена'
+    case 'eddySetOffsets':
+      return `Mock: смещения Eddy заданы X=${args.xOffsetMm} Y=${args.yOffsetMm}`
+    case 'eddyZOffsetAdjust':
+      return `Mock: Z-offset Eddy изменён на ${args.deltaMm}мм`
+    case 'eddyZOffsetSave':
+      return 'Mock: Z-offset Eddy сохранён'
+    case 'extruderCalibrationExtrude':
+      return `Mock: подача ${args.lengthMm}мм со скоростью ${args.speedMmPerSec}мм/с при ${args.targetCelsius}°C`
+    case 'extruderRotationDistanceApply':
+    case 'extruderRotationDistanceSave':
+      return `Mock: rotation distance ${args.distanceMm}мм ${args.command.endsWith('Save') ? 'сохранён' : 'применён'}`
+    case 'accelerometerQuery':
+      return 'Mock: ACCELEROMETER_QUERY sent'
+    case 'accelerometerMeasureNoise':
+      return 'Mock: MEASURE_AXES_NOISE sent'
     case 'shaperCalibrateLight':
       return 'Mock: shaper calibrate light sent'
     case 'shaperCalibrateFull':
-      return 'Mock: shaper calibrate full sent'
+      return args.save === false
+        ? 'Mock: shaper calibrate full sent without saving'
+        : 'Mock: shaper calibrate full sent'
     case 'xyMotionTest':
       return 'Mock: xy motion test sent'
     case 'consoleGcode':
@@ -275,6 +305,69 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
           ...snapshot.filamentSensor,
           sensitivity: args.sensitivity,
         }
+      })
+      return
+    case 'eddyTemperatureStart':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.eddy.inTemperatureCalibration = true
+          snapshot.calibration.eddy.temperatureSeriesActive = true
+          snapshot.calibration.eddy.temperaturePoints = 0
+          snapshot.calibration.manualProbe.active = true
+        }
+      })
+      return
+    case 'eddyTemperatureAccept':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.eddy.temperaturePoints = (snapshot.calibration.eddy.temperaturePoints ?? 0) + 1
+          snapshot.calibration.manualProbe.active = true
+        }
+      })
+      return
+    case 'eddyTemperatureComplete':
+    case 'eddyTemperatureAcceptSave':
+    case 'eddyAbort':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) snapshot.calibration.eddy.inTemperatureCalibration = false
+        if (snapshot.calibration) {
+          snapshot.calibration.eddy.temperatureSeriesActive = false
+          snapshot.calibration.manualProbe.active = false
+        }
+      })
+      return
+    case 'eddyScanMesh':
+      updateMockSnapshot((snapshot) => {
+        const mesh = snapshot.calibration?.mesh
+        if (mesh === undefined) return
+        mesh.probedMatrix = structuredClone(mesh.meshMatrix)
+        if (args.save !== false && mesh.profile) {
+          mesh.savedProfiles[mesh.profile] = mesh.meshMatrix
+            .filter((row) => row.every((value) => value !== null))
+            .map((row) => row.map((value) => value!))
+        }
+      })
+      return
+    case 'eddySetOffsets':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.eddy.xOffsetMm = args.xOffsetMm
+          snapshot.calibration.eddy.yOffsetMm = args.yOffsetMm
+          snapshot.calibration.eddy.heightCalibrated = false
+        }
+      })
+      return
+    case 'eddyZOffsetAdjust':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.eddy.zOffsetMm = (snapshot.calibration.eddy.zOffsetMm ?? 0) + args.deltaMm
+        }
+      })
+      return
+    case 'extruderRotationDistanceApply':
+    case 'extruderRotationDistanceSave':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) snapshot.calibration.extruder.rotationDistanceMm = args.distanceMm
       })
       return
     case 'excludeObject':
@@ -476,6 +569,21 @@ export function createMockSnapshot(): PrinterSnapshot {
       systemPower: false,
       camera: false,
       serviceCommands: true,
+      calibrationCommands: {
+        temperatureAccept: true,
+        temperatureComplete: true,
+        abort: true,
+        probeAccuracy: true,
+        setOffsets: true,
+        zOffsetAdjust: true,
+        zOffsetSave: true,
+        extruderCalibrationExtrude: true,
+        extruderRotationDistance: true,
+        accelerometerQuery: true,
+        accelerometerMeasureNoise: true,
+        adxlConfigured: true,
+        meshScan: true,
+      },
     },
     filamentSensor: {
       supported: true,
@@ -575,6 +683,42 @@ export function createMockSnapshot(): PrinterSnapshot {
       values: {},
     },
     printFiles: [],
+    calibration: {
+      manualProbe: { active: false, zMm: null, zMinimumMm: null, zMaximumMm: null },
+      eddy: {
+        available: true,
+        heightCalibrated: true,
+        driveCurrent: 15,
+        temperatureC: 24,
+        temperaturePoints: 0,
+        temperatureSeriesActive: false,
+        compensationEnabled: true,
+        inTemperatureCalibration: false,
+        estimatedExpansionMm: 0.018,
+        xOffsetMm: 0,
+        yOffsetMm: 0,
+        zOffsetMm: 0,
+      },
+      config: { savePending: false, pendingSections: [] },
+      mesh: {
+        profile: 'default',
+        min: [20, 20],
+        max: [225, 225],
+        probedMatrix: [[0, 0.01], [-0.01, 0]],
+        meshMatrix: [[0, 0.01], [-0.01, 0]],
+        savedProfiles: { default: [[0, 0.01], [-0.01, 0]] },
+      },
+      screws: {
+        error: false,
+        maxDeviationMm: 0.02,
+        results: [
+          { name: 'screw1', xMm: 30, yMm: 30, zMm: 0, isBase: null, sign: '+', adjust: '00:02' },
+          { name: 'screw2', xMm: 210, yMm: 30, zMm: 0.02, isBase: null, sign: '-', adjust: '00:01' },
+        ],
+      },
+      shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 48.2, freqYHz: 39.6 },
+      extruder: { rotationDistanceMm: 22.678 },
+    },
     v2: {
       branch: 'treed-v2',
       profile: 'treed_v2_corexy_v1',
@@ -623,6 +767,7 @@ export function createTransportClient(): TransportClient {
         autosaveEnabled: snapshot.v2.eddy.autosaveEnabled,
         autosavePending: snapshot.v2.eddy.autosavePending,
         calibration: snapshot.v2.eddy.calibration,
+        calibrationState: snapshot.calibration,
       }
     },
     async fetchExcludeObjects() {
