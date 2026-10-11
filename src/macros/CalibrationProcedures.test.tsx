@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createMockSnapshot } from '../../mocks/runtime'
 import { receivePrinterGcodeResponse } from '../core/store/printerNotifications'
@@ -6,7 +6,7 @@ import { MacrosContainer } from './MacrosContainer'
 import type { PrinterCalibrationSnapshot, PrinterShaperResonanceReport } from '../core/transport/types'
 
 vi.mock('./EddyCalibrationScreen', () => ({
-  EddyCalibrationScreen: ({ initialProcedure, onBackToList }: { initialProcedure: string; onBackToList: () => void }) => <div data-testid="eddy-initial-procedure">{initialProcedure}<button type="button" onClick={onBackToList}>В папку Eddy</button></div>,
+  EddyCalibrationScreen: ({ initialProcedure, onBackToList }: { initialProcedure: string; onBackToList: () => void }) => <div data-testid="eddy-initial-procedure">{initialProcedure}<button type="button" onClick={onBackToList}>К списку</button></div>,
 }))
 
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks() })
@@ -23,8 +23,8 @@ function calibration(): PrinterCalibrationSnapshot {
   }
 }
 
-function renderCatalog(snapshot = createMockSnapshot(), executeCommand = vi.fn().mockResolvedValue(true)) {
-  render(<MacrosContainer snapshot={snapshot} pendingCommand={null} executeCommand={executeCommand} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
+function renderCatalog(snapshot = createMockSnapshot(), executeCommand = vi.fn().mockResolvedValue(true), onCalibrationViewChange = vi.fn()) {
+  render(<MacrosContainer snapshot={snapshot} pendingCommand={null} executeCommand={executeCommand} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} onCalibrationViewChange={onCalibrationViewChange} />)
   return executeCommand
 }
 
@@ -32,105 +32,47 @@ it('открывает разделы Eddy через папку и возвра
   const execute = renderCatalog()
   expect(screen.getByRole('heading', { name: 'Выберите процедуру' })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /Винты стола/ })).not.toBeInTheDocument()
-  expect(screen.getByTestId('calibration-catalog').querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(6)
+  expect(screen.getByTestId('calibration-catalog').querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(3)
   fireEvent.click(screen.getByRole('button', { name: 'Датчик Eddy' }))
   expect(screen.getByRole('heading', { name: 'Eddy' })).toBeInTheDocument()
   expect(screen.getByTestId('calibration-catalog').querySelectorAll('svg[aria-hidden="true"]')).toHaveLength(4)
   expect(execute).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: /Винты стола/ }))
   expect(screen.getByTestId('eddy-initial-procedure')).toHaveTextContent('screws')
-  fireEvent.click(screen.getByRole('button', { name: 'В папку Eddy' }))
+  fireEvent.click(screen.getByRole('button', { name: 'К списку' }))
   expect(screen.getByRole('heading', { name: 'Eddy' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: /Винты стола/ })).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: 'Назад' }))
   expect(screen.getByRole('button', { name: 'Датчик Eddy' })).toBeInTheDocument()
 })
 
-it('открывает обзор Eddy из отдельной карточки калибровки', () => {
+it('включает полноэкранный режим при открытии Eddy и шейпера, но не при открытии PID', () => {
+  const onViewChange = vi.fn()
+  renderCatalog(createMockSnapshot(), vi.fn().mockResolvedValue(true), onViewChange)
+  fireEvent.click(screen.getByRole('button', { name: /PID-калибровка/ }))
+  expect(onViewChange).not.toHaveBeenCalled()
+  cleanup()
+  renderCatalog(createMockSnapshot(), vi.fn().mockResolvedValue(true), onViewChange)
+  fireEvent.click(screen.getByRole('button', { name: 'Датчик Eddy' }))
+  expect(onViewChange).not.toHaveBeenCalled()
+  fireEvent.click(screen.getByRole('button', { name: /Калибровка Eddy/ }))
+  expect(onViewChange).toHaveBeenLastCalledWith(true)
+  fireEvent.click(screen.getByRole('button', { name: 'К списку' }))
+  expect(onViewChange).toHaveBeenLastCalledWith(false)
+  fireEvent.click(screen.getByRole('button', { name: 'Назад' }))
+  fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  expect(onViewChange).toHaveBeenLastCalledWith(true)
+  fireEvent.click(screen.getByRole('button', { name: 'К списку' }))
+  expect(onViewChange).toHaveBeenLastCalledWith(false)
+})
+
+it('открывает обзор Eddy из отдельной карточки папки', () => {
   renderCatalog()
   fireEvent.click(screen.getByRole('button', { name: 'Датчик Eddy' }))
   fireEvent.click(screen.getByRole('button', { name: /Калибровка Eddy/ }))
   expect(screen.getByTestId('eddy-initial-procedure')).toHaveTextContent('overview')
-  fireEvent.click(screen.getByRole('button', { name: 'В папку Eddy' }))
+  fireEvent.click(screen.getByRole('button', { name: 'К списку' }))
   expect(screen.getByRole('heading', { name: 'Eddy' })).toBeInTheDocument()
-})
-
-it('не запускает экструдерную подачу при отсутствующем calibration snapshot', () => {
-  const execute = vi.fn().mockResolvedValue(true)
-  const snapshot = createMockSnapshot()
-  snapshot.calibration = undefined
-  renderCatalog(snapshot, execute)
-  fireEvent.click(screen.getByRole('button', { name: /Подача экструдера/ }))
-  expect(screen.getByRole('button', { name: 'Выполнить подачу' })).toBeDisabled()
-  expect(screen.getAllByRole('status').some((status) => status.textContent?.includes('недоступны в снимке'))).toBe(true)
-  expect(execute).not.toHaveBeenCalled()
-})
-
-it('отправляет ограниченную подачу, рассчитывает rotation distance и ждёт effective snapshot до успеха', async () => {
-  const snapshot = createMockSnapshot()
-  snapshot.capabilities.calibrationCommands = {
-    temperatureAccept: false, temperatureComplete: false, abort: false, probeAccuracy: false, setOffsets: false,
-    zOffsetAdjust: false, zOffsetSave: false, extruderCalibrationExtrude: true, extruderRotationDistance: true,
-    accelerometerQuery: false, accelerometerMeasureNoise: false, adxlConfigured: false, meshScan: false,
-  }
-  snapshot.calibration = calibration()
-  const execute = vi.fn().mockResolvedValue(true)
-  const view = render(<MacrosContainer snapshot={snapshot} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  fireEvent.click(screen.getByRole('button', { name: /Подача экструдера/ }))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Выполнить подачу' })))
-  expect(execute).toHaveBeenCalledWith({ command: 'extruderCalibrationExtrude', lengthMm: 100, speedMmPerSec: 2, targetCelsius: 200 })
-  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
-  fireEvent.click(screen.getByRole('button', { name: 'Фактическая длина, мм' }))
-  const digitOne = screen.getByTestId('calibration-field-digit-1')
-  fireEvent.click(digitOne)
-  fireEvent.click(digitOne)
-  fireEvent.click(screen.getByTestId('calibration-field-digit-0'))
-  fireEvent.click(screen.getByTestId('calibration-field-submit'))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Рассчитать и применить' })))
-  expect(execute).toHaveBeenLastCalledWith({ command: 'extruderRotationDistanceApply', distanceMm: 7.92 })
-  expect(screen.getByText('Применяем рассчитанное значение.')).toHaveAttribute('role', 'status')
-  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
-  const updated = { ...snapshot, updatedAt: 'next-snapshot', calibration: { ...snapshot.calibration!, extruder: { rotationDistanceMm: 7.92 } } }
-  view.rerender(<MacrosContainer snapshot={updated} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  await waitFor(() => expect(screen.getByText('Применено · не сохранено')).toBeInTheDocument())
-  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
-  expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
-  expect(screen.getByLabelText('Расчёт rotation distance')).toHaveTextContent('Расчётный результат7.9200 мм')
-})
-
-it('связывает завершение material test с наблюдавшимся точным путём, не с устаревшим complete или basename', async () => {
-  const snapshot = createMockSnapshot()
-  snapshot.printFiles = [
-    { id: 'file-a', path: 'tests/first/cube.gcode', name: 'cube.gcode', directory: 'tests/first', printTime: '', weight: '', material: '', addedAt: '' },
-    { id: 'file-b', path: 'tests/second/cube.gcode', name: 'cube.gcode', directory: 'tests/second', printTime: '', weight: '', material: '', addedAt: '' },
-  ]
-  snapshot.printJob = { ...snapshot.printJob, state: 'complete', filename: 'tests/first/cube.gcode' }
-  const execute = vi.fn().mockResolvedValue(true)
-  const view = render(<MacrosContainer snapshot={snapshot} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  fireEvent.click(screen.getByRole('button', { name: /Профиль материала/ }))
-  fireEvent.click(screen.getByRole('button', { name: 'Pressure Advance' }))
-  expect(screen.getByRole('heading', { name: 'Выберите G-code' })).toBeInTheDocument()
-  expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: /tests\/first\/cube\.gcode/ }))
-  fireEvent.click(screen.getByLabelText(/Филамент и температура/))
-  fireEvent.click(screen.getByLabelText(/Я проверил G-code/))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить тестовую печать' })))
-  expect(execute).toHaveBeenCalledWith({ command: 'start', filename: 'tests/first/cube.gcode' })
-  expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
-
-  const otherPathActive = { ...snapshot, printJob: { ...snapshot.printJob, state: 'printing' as const, filename: '/tests/second/cube.gcode' } }
-  view.rerender(<MacrosContainer snapshot={otherPathActive} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  const otherPathComplete = { ...otherPathActive, printJob: { ...otherPathActive.printJob, state: 'complete' as const, filename: 'tests/second/cube.gcode' } }
-  view.rerender(<MacrosContainer snapshot={otherPathComplete} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
-
-  const selectedPathActive = { ...otherPathComplete, printJob: { ...otherPathComplete.printJob, state: 'printing' as const, filename: '/tests/first/cube.gcode' } }
-  view.rerender(<MacrosContainer snapshot={selectedPathActive} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  const selectedPathComplete = { ...selectedPathActive, printJob: { ...selectedPathActive.printJob, state: 'complete' as const, filename: 'tests/first/cube.gcode' } }
-  view.rerender(<MacrosContainer snapshot={selectedPathComplete} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  await waitFor(() => expect(screen.getByText('Найдите участок с ровными углами')).toBeInTheDocument())
-  expect(screen.getByRole('button', { name: 'Готово' })).toBeEnabled()
 })
 
 function shaperSnapshot() {
@@ -149,13 +91,14 @@ it.each([
   const execute = vi.fn().mockResolvedValue(true)
   render(<MacrosContainer snapshot={shaperSnapshot()} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
   fireEvent.click(screen.getByRole('button', { name: action }))
   await act(async () => {
     receivePrinterGcodeResponse(response)
     await Promise.resolve()
   })
 
-  await waitFor(() => expect(screen.getByRole('heading', { name: 'Диагностика ADXL' })).toBeInTheDocument())
+  await waitFor(() => expect(screen.getByRole('region', { name: 'Подробности процедуры' })).toBeInTheDocument())
   expect(screen.getByRole('status', { name: label })).toHaveTextContent(x)
   expect(screen.getByRole('status', { name: label })).toHaveTextContent(y)
   expect(screen.getByRole('status', { name: label })).toHaveTextContent(z)
@@ -172,6 +115,7 @@ it('переключает результат query на новую диагно
   const execute = vi.fn().mockResolvedValue(true)
   renderCatalog(shaperSnapshot(), execute)
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
   fireEvent.click(screen.getByRole('button', { name: 'Считать ADXL' }))
   await act(async () => {
     receivePrinterGcodeResponse('adxl345 values (x, y, z): 0.124, -0.086, 9.812')
@@ -189,6 +133,10 @@ it('переключает результат query на новую диагно
   expect(noise).toHaveTextContent('0.043')
   expect(screen.queryByRole('status', { name: 'Показания акселерометра' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Считать ADXL' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'К тесту резонансов' })).toHaveClass('is-primary')
+  fireEvent.click(screen.getByRole('button', { name: 'К тесту резонансов' }))
+  expect(screen.getByRole('button', { name: 'Измерить резонансы' })).toHaveClass('is-primary')
+  expect(screen.getByRole('button', { name: 'Подробнее' })).toHaveAttribute('aria-expanded', 'false')
   expect(execute.mock.calls.map(([args]) => args.command)).toEqual(['accelerometerQuery', 'accelerometerMeasureNoise'])
 })
 
@@ -217,6 +165,9 @@ it('подтверждает shaper save после раннего restart то�
   await waitFor(() => expect(screen.getByRole('button', { name: 'Сохранить и перезапустить' })).toBeInTheDocument())
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить и перезапустить' }))
   expect(execute).toHaveBeenLastCalledWith({ command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' })
+  expect(document.querySelector('.calibration-procedure-visual')).toBeInTheDocument()
+  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Сохранение…' })).toBeDisabled()
 
   const restart = { ...snapshot, updatedAt: 'restart-started', klippy: { state: 'shutdown' as const, message: 'restarting' } }
   view.rerender(<MacrosContainer snapshot={restart} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
@@ -235,47 +186,6 @@ function currentCalibration(snapshot: ReturnType<typeof createMockSnapshot>): Pr
   return snapshot.calibration
 }
 
-it.each(['Pressure Advance', 'Расход', 'Температура', 'Ретракт', 'Макс. поток'])('показывает учебную схему %s, не результат файла и не автоматический коэффициент', (title) => {
-  const execute = renderCatalog()
-  fireEvent.click(screen.getByRole('button', { name: /Профиль материала/ }))
-  expect(within(screen.getByRole('group', { name: 'Профильная проверка материала' })).getAllByRole('button')).toHaveLength(5)
-  fireEvent.click(screen.getByRole('button', { name: title }))
-  const study = screen.getByRole('figure', { name: `Что оценивать: ${title}` })
-  expect(study).toHaveTextContent('Схема образца')
-  expect(study.querySelector('svg')).toHaveAttribute('aria-hidden', 'true')
-  expect(screen.getByRole('heading', { name: 'Выберите G-code' })).toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
-  expect(screen.getByRole('region', { name: 'Подробности процедуры' })).toHaveTextContent('Учебная схема, не результат печати и не геометрия G-code.')
-  fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
-  expect(execute).not.toHaveBeenCalled()
-  fireEvent.click(screen.getByRole('button', { name: 'Назад к тесту' }))
-  expect(screen.queryByRole('figure')).not.toBeInTheDocument()
-  expect(screen.getByRole('group', { name: 'Профильная проверка материала' })).toBeInTheDocument()
-})
-
-it('различает нулевые, неизвестные и boolean-показания телеметрии и не выполняет команды', () => {
-  const snapshot = createMockSnapshot()
-  snapshot.calibration = calibration()
-  snapshot.calibration.eddy = { ...snapshot.calibration.eddy, temperatureC: 0, driveCurrent: 0, compensationEnabled: false, heightCalibrated: true }
-  const execute = vi.fn().mockResolvedValue(true)
-  const view = render(<MacrosContainer snapshot={snapshot} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  fireEvent.click(screen.getByRole('button', { name: /Сервисная телеметрия/ }))
-  expect(screen.getByText('0.0', { exact: false, selector: '.calibration-primary-readout strong' })).toHaveTextContent('0.0 °C')
-  expect(screen.getByText('0', { selector: 'dd' })).toBeInTheDocument()
-  expect(screen.getByText('Выключена')).toBeInTheDocument()
-  expect(screen.getByText('Подтверждена')).toBeInTheDocument()
-  snapshot.calibration.eddy = { ...snapshot.calibration.eddy, temperatureC: null, driveCurrent: null, compensationEnabled: true, heightCalibrated: false }
-  view.rerender(<MacrosContainer snapshot={{ ...snapshot }} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  expect(screen.getByText('Включена')).toBeInTheDocument()
-  expect(screen.getByText('Не настроена')).toBeInTheDocument()
-  expect(screen.queryByText('0.0', { exact: false, selector: '.calibration-primary-readout strong' })).not.toBeInTheDocument()
-  snapshot.calibration.eddy = { ...snapshot.calibration.eddy, compensationEnabled: null, heightCalibrated: null }
-  view.rerender(<MacrosContainer snapshot={{ ...snapshot }} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  expect(screen.getAllByText('Нет данных').length).toBeGreaterThanOrEqual(4)
-  expect(screen.queryByText(/Неизвестно.*°C/)).not.toBeInTheDocument()
-  expect(execute).not.toHaveBeenCalled()
-})
-
 it('сравнивает текущие настройки шейпера с реальными рекомендациями X/Y', async () => {
   const snapshot = shaperSnapshot()
   renderCatalog(snapshot)
@@ -289,11 +199,27 @@ it('сравнивает текущие настройки шейпера с р�
   const result = await screen.findByRole('status', { name: 'Рекомендация по шейперу' })
   expect(result).toHaveTextContent('Рекомендовано')
   expect(result).toHaveTextContent('EI45.0 Гц')
-  expect(result).toHaveTextContent('Y · MZV · 55.0 Гц')
+  fireEvent.click(screen.getByRole('tab', { name: 'Y' }))
+  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('Рекомендовано · YMZV55.0 Гц')
   fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
   expect(screen.getByLabelText('Сейчас и рекомендовано')).toHaveTextContent('mzv · 40.0 Гц')
   expect(screen.getByLabelText('Сейчас и рекомендовано')).toHaveTextContent('ei · 45.0 Гц')
   expect(screen.getByLabelText('Сейчас и рекомендовано')).toHaveTextContent('mzv · 55.0 Гц')
+})
+
+it('блокирует сохранение, пока принтер не передал частоту второй оси', async () => {
+  const snapshot = shaperSnapshot()
+  const props = { snapshot, pendingCommand: null, executeCommand: vi.fn().mockResolvedValue(true), refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
+  const view = render(<MacrosContainer {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' }))
+  await act(async () => { shaperResponses(); await Promise.resolve() })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Сохранить и перезапустить' })).toBeInTheDocument())
+
+  const incomplete = { ...snapshot, calibration: { ...currentCalibration(snapshot), shaper: { ...currentCalibration(snapshot).shaper, freqYHz: null } } }
+  view.rerender(<MacrosContainer {...props} snapshot={incomplete} />)
+  expect(screen.getByRole('button', { name: 'Сохранить и перезапустить' })).toBeDisabled()
+  expect(screen.getByText('Принтер ещё не передал настройки обеих осей. Дождитесь обновления данных.')).toBeInTheDocument()
 })
 
 it('при непринятом измерении отдаёт место сообщению и сохраняет аварийную остановку', async () => {
@@ -301,9 +227,9 @@ it('при непринятом измерении отдаёт место со�
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' }))
   expect(await screen.findByRole('alert')).toHaveTextContent('Команда не подтверждена')
-  expect(document.querySelector('.motion-study')).not.toBeInTheDocument()
+  expect(document.querySelector('.motion-study')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Завершить' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Ожидаем завершения' })).toBeDisabled()
 })
 
 it.each([
@@ -325,7 +251,8 @@ it.each([
   view.rerender(<MacrosContainer snapshot={ready} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
   await act(async () => Promise.resolve())
   expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
-  expect(screen.getByText('Команда выполняется')).toBeInTheDocument()
+  const expectedError = result instanceof Error ? 'RPC failed' : 'Команда не подтверждена'
+  expect(screen.getAllByRole('alert').some((alert) => alert.textContent?.includes(expectedError))).toBe(true)
 })
 
 it('после таймаута save показывает неопределённый результат и оставляет только аварийную остановку', async () => {
@@ -341,9 +268,9 @@ it('после таймаута save показывает неопределён
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить и перезапустить' }))
   await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
 
-  expect(screen.getByText('Нужна проверка принтера')).toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent('Состояние принтера неизвестно')
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Завершить' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Ожидаем завершения' })).toBeDisabled()
 })
 
 function spectrumReport(revision: string, peak = 6): PrinterShaperResonanceReport {
@@ -363,6 +290,7 @@ it('проходит ADXL → подготовка → свежие X/Y спек
   })
   render(<MacrosContainer snapshot={shaperSnapshot()} pendingCommand={null} executeCommand={execute} fetchShaperResonances={fetch} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Считать ADXL' })))
   fireEvent.click(screen.getByRole('button', { name: 'К тесту резонансов' }))
   await act(async () => { receivePrinterGcodeResponse('Recommended shaper_type_y = zv, shaper_freq_y = 99.0 Hz') })
@@ -421,40 +349,6 @@ it('повторно проверяет готовность после асин
   expect(screen.getByRole('alert')).toHaveTextContent('Нужно подключение к готовому принтеру')
 })
 
-it.each([
-  ['Pressure Advance', 'Найдите участок с ровными углами'], ['Расход', 'Сравните равномерность поверхности'], ['Температура', 'Выберите лучший участок башни'], ['Ретракт', 'Сравните нити между столбиками'], ['Макс. поток', 'Найдите начало ухудшения поверхности'],
-])('завершает %s только после наблюдаемой печати и показывает задачу оценки', async (title, task) => {
-  const snapshot = createMockSnapshot()
-  snapshot.printFiles = [{ id: 'test', path: 'tests/material.gcode', name: 'material.gcode', directory: 'tests', printTime: '', weight: '', material: '', addedAt: '' }]
-  const activity = vi.fn()
-  const props = { pendingCommand: null, executeCommand: vi.fn().mockResolvedValue(true), onCalibrationActivityChange: activity, refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
-  const view = render(<MacrosContainer snapshot={snapshot} {...props} />)
-  fireEvent.click(screen.getByRole('button', { name: /Профиль материала/ }))
-  fireEvent.click(screen.getByRole('button', { name: title }))
-  fireEvent.click(screen.getByRole('button', { name: /tests\/material.gcode/ }))
-  expect(activity).toHaveBeenLastCalledWith(false)
-  expect(screen.getByRole('button', { name: 'Запустить тестовую печать' })).toBeDisabled()
-  fireEvent.click(screen.getByLabelText(/Филамент и температура/))
-  expect(screen.getByRole('button', { name: 'Запустить тестовую печать' })).toBeDisabled()
-  fireEvent.click(screen.getByLabelText(/Я проверил G-code/))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить тестовую печать' })))
-  expect(activity).toHaveBeenLastCalledWith(true)
-  expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
-  const printing = { ...snapshot, printJob: { ...snapshot.printJob, filename: 'tests/material.gcode', state: 'printing' as const, progressPercent: 37 } }
-  view.rerender(<MacrosContainer snapshot={printing} {...props} />)
-  expect(screen.getByText('37', { exact: false, selector: '.calibration-primary-readout strong' })).toHaveTextContent('37 %')
-  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
-  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
-  fireEvent.click(screen.getByRole('button', { name: 'Закрыть' }))
-  view.rerender(<MacrosContainer snapshot={{ ...printing, printJob: { ...printing.printJob, state: 'complete' } }} {...props} />)
-  expect(await screen.findByText(task)).toBeInTheDocument()
-  expect(activity).toHaveBeenLastCalledWith(true)
-  expect(screen.getByText('Результат внесите в слайсер')).toBeInTheDocument()
-  fireEvent.click(screen.getByRole('button', { name: 'Готово' }))
-  expect(activity).toHaveBeenLastCalledWith(false)
-  expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
-})
-
 it('удерживает активность ADXL → подготовка → результат → перезапуск до явного Готово', async () => {
   const snapshot = shaperSnapshot()
   const activity = vi.fn()
@@ -467,6 +361,7 @@ it('удерживает активность ADXL → подготовка → 
   const view = render(<MacrosContainer snapshot={snapshot} {...props} />)
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
   expect(activity.mock.calls).toEqual([[false]])
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Считать ADXL' })))
   expect(activity).toHaveBeenLastCalledWith(true)
   fireEvent.click(screen.getByRole('button', { name: 'К тесту резонансов' }))
@@ -492,7 +387,7 @@ it.each([true, false])('завершает активность только п�
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' })))
   expect(activity).toHaveBeenLastCalledWith(true)
-  expect(screen.getByRole('button', { name: 'Завершить' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Ожидаем завершения' })).toBeDisabled()
   // Смена callback при обновлении snapshot не завершает активный сеанс.
   const replacement = vi.fn()
   view.rerender(<MacrosContainer snapshot={shaperSnapshot()} {...props} onCalibrationActivityChange={replacement} />)
@@ -502,59 +397,6 @@ it.each([true, false])('завершает активность только п�
   else { expect(replacement).not.toHaveBeenCalled(); expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled() }
   view.unmount()
   expect(replacement).toHaveBeenLastCalledWith(false)
-})
-
-it('освобождает активность после наблюдаемой отмены именно выбранной печати', async () => {
-  const snapshot = createMockSnapshot()
-  snapshot.printFiles = [{ id: 'test', path: 'tests/material.gcode', name: 'material.gcode', directory: 'tests', printTime: '', weight: '', material: '', addedAt: '' }]
-  const activity = vi.fn()
-  const props = { pendingCommand: null, executeCommand: vi.fn().mockResolvedValue(true), onCalibrationActivityChange: activity, refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
-  const view = render(<MacrosContainer snapshot={snapshot} {...props} />)
-  fireEvent.click(screen.getByRole('button', { name: /Профиль материала/ }))
-  fireEvent.click(screen.getByRole('button', { name: 'Расход' }))
-  fireEvent.click(screen.getByRole('button', { name: /tests\/material.gcode/ }))
-  fireEvent.click(screen.getByLabelText(/Филамент и температура/))
-  fireEvent.click(screen.getByLabelText(/Я проверил G-code/))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить тестовую печать' })))
-  const printing = { ...snapshot, printJob: { ...snapshot.printJob, filename: 'tests/material.gcode', state: 'printing' as const } }
-  view.rerender(<MacrosContainer snapshot={printing} {...props} />)
-  expect(activity).toHaveBeenLastCalledWith(true)
-  view.rerender(<MacrosContainer snapshot={{ ...printing, printJob: { ...printing.printJob, state: 'cancelled' } }} {...props} />)
-  expect(await screen.findByText('Тест отменён')).toBeInTheDocument()
-  expect(activity).toHaveBeenLastCalledWith(false)
-})
-
-it('оставляет остановку на результате горячей подачи и не завершает сеанс при неподтверждённой остановке', async () => {
-  const activity = vi.fn()
-  const execute = vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false).mockResolvedValueOnce(true)
-  render(<MacrosContainer snapshot={shaperSnapshot()} pendingCommand={null} executeCommand={execute} onCalibrationActivityChange={activity} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  fireEvent.click(screen.getByRole('button', { name: /Подача экструдера/ }))
-  expect(screen.queryByRole('button', { name: 'Аварийная остановка' })).not.toBeInTheDocument()
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Выполнить подачу' })))
-  expect(screen.getByRole('button', { name: 'Рассчитать и применить' })).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' })))
-  expect(activity).toHaveBeenLastCalledWith(true)
-  expect(screen.getByRole('button', { name: 'Завершить' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' })))
-  expect(activity).toHaveBeenLastCalledWith(false)
-  expect(screen.queryByRole('button', { name: 'Аварийная остановка' })).not.toBeInTheDocument()
-})
-
-it('предлагает явное Завершить после запуска, сохраняя К списку только для подготовки', async () => {
-  const activity = vi.fn()
-  const execute = vi.fn().mockResolvedValue(true)
-  render(<MacrosContainer snapshot={shaperSnapshot()} pendingCommand={null} executeCommand={execute} onCalibrationActivityChange={activity} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  fireEvent.click(screen.getByRole('button', { name: /Подача экструдера/ }))
-  expect(screen.getByRole('button', { name: 'К списку' })).toBeEnabled()
-  expect(screen.queryByRole('button', { name: 'Завершить' })).not.toBeInTheDocument()
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Выполнить подачу' })))
-  expect(screen.getByRole('button', { name: 'Завершить' })).toBeEnabled()
-  fireEvent.click(screen.getByRole('button', { name: 'Завершить' }))
-  expect(activity).toHaveBeenLastCalledWith(false)
-  expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
-  expect(execute).toHaveBeenCalledTimes(1)
 })
 
 it('ждёт websocket-рекомендации X и Y после раннего accepted RPC, затем читает свежий CSV', async () => {

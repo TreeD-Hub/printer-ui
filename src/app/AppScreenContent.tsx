@@ -34,7 +34,8 @@ export function AppScreenContent({
   onScreenSelect,
 }: AppScreenContentProps) {
   const [calibrationActive, setCalibrationActive] = useState(false)
-  const calibrationFullScreen = activeScreen === 'macros' && calibrationActive
+  const [calibrationViewActive, setCalibrationViewActive] = useState(false)
+  const calibrationFullScreen = activeScreen === 'macros' && (calibrationActive || calibrationViewActive)
   const activeNavIndex = Math.max(
     0,
     BOTTOM_NAV_ITEMS.findIndex((item) => item.id === activeScreen),
@@ -59,7 +60,7 @@ export function AppScreenContent({
           </section>
         )}
         <div style={{ display: activeScreen === 'macros' ? 'contents' : 'none' }}>
-          <MacrosContainer {...macros} onCalibrationActivityChange={setCalibrationActive} />
+          <MacrosContainer {...macros} onCalibrationActivityChange={setCalibrationActive} onCalibrationViewChange={setCalibrationViewActive} />
         </div>
       </div>
 

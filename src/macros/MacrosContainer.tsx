@@ -12,6 +12,7 @@ export type MacrosContainerProps = {
   refreshEddyState: () => Promise<boolean>
   fetchShaperResonances?: (mode: 'full' | 'light') => Promise<PrinterShaperResonanceReport>
   onCalibrationActivityChange?: (active: boolean) => void
+  onCalibrationViewChange?: (active: boolean) => void
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
 }
 
@@ -19,30 +20,33 @@ export function MacrosContainer(props: MacrosContainerProps) {
   const [workflow, setWorkflow] = useState<'eddy' | 'pid' | null>(null)
   const [catalogFolder, setCatalogFolder] = useState<'root' | 'eddy'>('root')
   const [eddyProcedure, setEddyProcedure] = useState<'overview' | 'screws' | 'mesh' | 'firstLayer'>('overview')
-  const calibration = props.snapshot.v2.eddy.calibration
-  const completedRequiredCount = [
-    calibration.primaryDone,
-    calibration.temperatureDone,
-    calibration.z0Done,
-    calibration.screwsDone,
-    calibration.meshDone,
-  ].filter(Boolean).length
+  const closeWorkflow = () => {
+    props.onCalibrationViewChange?.(false)
+    setWorkflow(null)
+  }
+  const openPid = () => {
+    setWorkflow('pid')
+  }
+  const openEddy = (procedure: typeof eddyProcedure) => {
+    props.onCalibrationViewChange?.(true)
+    setEddyProcedure(procedure)
+    setWorkflow('eddy')
+  }
 
   return (
     <section className="macros-screen" data-testid="screen-macros">
       <div className="macros-manager" data-testid="macros-manager">
         {workflow === 'pid' ? (
-          <PidCalibrationScreen {...props} onBackToList={() => setWorkflow(null)} />
+          <PidCalibrationScreen {...props} onBackToList={closeWorkflow} />
         ) : workflow === 'eddy' ? (
-          <EddyCalibrationScreen {...props} initialProcedure={eddyProcedure} onBackToList={() => setWorkflow(null)} />
+          <EddyCalibrationScreen {...props} initialProcedure={eddyProcedure} onBackToList={closeWorkflow} />
         ) : (
           <CalibrationProcedures
             {...props}
-            completedRequiredCount={completedRequiredCount}
             catalogFolder={catalogFolder}
             onCatalogFolderChange={setCatalogFolder}
-            onOpenPid={() => setWorkflow('pid')}
-            onOpenEddy={(procedure) => { setEddyProcedure(procedure); setWorkflow('eddy') }}
+            onOpenPid={openPid}
+            onOpenEddy={openEddy}
           />
         )}
       </div>

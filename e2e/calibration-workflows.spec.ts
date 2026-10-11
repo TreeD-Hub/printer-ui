@@ -17,10 +17,14 @@ async function expectTouchControl(control: Locator) {
   expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(544)
 }
 
-async function expectFullCalibration(page: Page) {
+async function expectCalibrationOpen(page: Page) {
   await expect(page.getByRole('navigation', { name: 'Основная навигация' })).toHaveCount(0)
   const screen = await page.getByTestId('screen-macros').boundingBox()
   expect(screen!.height).toBeGreaterThanOrEqual(528)
+}
+
+async function expectFullCalibration(page: Page) {
+  await expectCalibrationOpen(page)
   for (const control of await page.getByTestId('screen-macros').locator('header button, footer button').all()) {
     await expectTouchControl(control)
   }
@@ -32,8 +36,8 @@ test('каталог с превью и папка Eddy помещаются н�
   const catalog = page.getByTestId('calibration-catalog')
   const cards = catalog.locator('.macros-manager-workflow')
   const nav = await page.locator('.bottom-nav').boundingBox()
-  await expect(cards).toHaveCount(6)
-  await expect(cards.locator('svg.calibration-preview[aria-hidden="true"]')).toHaveCount(6)
+  await expect(cards).toHaveCount(3)
+  await expect(cards.locator('svg.calibration-preview[aria-hidden="true"]')).toHaveCount(3)
   for (const card of await cards.all()) {
     await expectTouchControl(card)
     const rect = await card.boundingBox()
@@ -43,97 +47,60 @@ test('каталог с превью и папка Eddy помещаются н�
   await page.screenshot({ path: testInfo.outputPath('calibration-catalog.png'), animations: 'disabled' })
   await page.getByRole('button', { name: 'Датчик Eddy', exact: true }).click()
   await expect(catalog.getByRole('heading', { name: 'Eddy', exact: true })).toBeVisible()
-  await expect(cards).toHaveCount(4)
-  await expect(cards.locator('svg.calibration-preview[aria-hidden="true"]')).toHaveCount(4)
+  await expect(cards).toHaveCount(9)
+  await expect(cards.locator('svg.calibration-preview[aria-hidden="true"]')).toHaveCount(9)
   for (const card of await cards.all()) await expectTouchControl(card)
   await page.screenshot({ path: testInfo.outputPath('calibration-eddy-folder.png'), animations: 'disabled' })
   await catalog.getByRole('button', { name: /^Карта стола/ }).click()
-  await page.getByRole('button', { name: 'В папку Eddy', exact: true }).click()
+  await page.getByRole('button', { name: 'К списку', exact: true }).click()
   await expect(catalog.getByRole('heading', { name: 'Eddy', exact: true })).toBeVisible()
   await catalog.getByRole('button', { name: 'Назад', exact: true }).click()
-  await expect(cards).toHaveCount(6)
+  await expect(cards).toHaveCount(3)
 })
 
-for (const title of ['PID-калибровка', 'Шейпер и ADXL', 'Подача экструдера', 'Профиль материала', 'Сервисная телеметрия']) {
+for (const title of ['PID-калибровка', 'Шейпер и ADXL']) {
   test(`${title}: шапка и действия доступны на touch canvas`, async ({ page }, testInfo) => {
     await openCatalog(page)
     await page.getByTestId('calibration-catalog').getByRole('button', { name: new RegExp(`^${title}`) }).click()
     const screen = page.getByTestId('screen-macros')
+    const nav = title === 'PID-калибровка' ? await page.locator('.bottom-nav').boundingBox() : null
+    if (title === 'PID-калибровка') await expect(page.locator('.bottom-nav')).toBeVisible()
+    else await expectCalibrationOpen(page)
     for (const control of await screen.locator('header button, footer button').all()) {
       await expectTouchControl(control)
-      const rect = await control.boundingBox()
-      const nav = await page.locator('.bottom-nav').boundingBox()
-      expect(rect!.y + rect!.height).toBeLessThanOrEqual(nav!.y)
+      if (nav) {
+        const rect = (await control.boundingBox())!
+        expect(rect.y + rect.height).toBeLessThanOrEqual(nav.y)
+      }
     }
     await page.screenshot({ path: testInfo.outputPath('procedure-prepare.png'), animations: 'disabled' })
   })
 }
 
-for (const title of ['Код тока катушки', 'Высота по бумаге', 'Температурная серия', 'Z0', 'Смещения Z', 'Повторяемость', 'Винты стола', 'Карта стола', 'XY-смещение', 'Первый слой']) {
+for (const title of ['Ток катушки', 'Высота по бумаге', 'Температурная серия', 'Z0', 'Смещение Z', 'Повторяемость', 'Винты стола', 'Карта стола', 'Первый слой']) {
   test(`Eddy ${title}: подготовка и подробности не закрывают действия`, async ({ page }, testInfo) => {
     await openCatalog(page)
     await page.getByRole('button', { name: 'Датчик Eddy', exact: true }).click()
     await page.getByRole('button', { name: /^Калибровка Eddy/ }).click()
+    await expect(page.getByRole('button', { name: /^(Начать калибровку|Продолжить: .+)$/ })).toBeVisible()
     const cardTitle = title === 'Высота по бумаге' ? 'Высота Eddy' : title === 'Температурная серия' ? 'Температура' : title
     await page.getByRole('region', { name: 'Фактическое состояние калибровок', exact: true }).getByRole('button', { name: new RegExp(cardTitle) }).click()
     const screen = page.getByTestId('screen-macros')
+    await expectCalibrationOpen(page)
     await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
-    await expect(page.locator('.bottom-nav')).toBeVisible()
-    const nav = (await page.locator('.bottom-nav').boundingBox())!
     const footer = screen.locator('footer')
     expect((await footer.getByRole('button').count())).toBeGreaterThan(0)
     for (const control of await screen.locator('header button, footer button').all()) {
       await expectTouchControl(control)
-      const rect = (await control.boundingBox())!
-      expect(rect.y + rect.height).toBeLessThanOrEqual(nav.y)
     }
     await page.screenshot({ path: testInfo.outputPath('eddy-prepare.png'), animations: 'disabled' })
     await page.getByRole('button', { name: 'Подробнее', exact: true }).click()
     for (const control of await footer.getByRole('button').all()) {
       await expectTouchControl(control)
-      const rect = (await control.boundingBox())!
-      expect(rect.y + rect.height).toBeLessThanOrEqual(nav.y)
     }
-    await page.getByRole('button', { name: 'Закрыть подробности', exact: true }).click()
+    await page.getByRole('button', { name: 'Скрыть', exact: true }).click()
   })
 }
-
-test('ввод экструдера сохраняет доступность при ошибке диапазона', async ({ page }) => {
-  await openCatalog(page)
-  await page.getByRole('button', { name: /^Подача экструдера/ }).click()
-  await page.getByRole('button', { name: 'Запрошенная длина, мм', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Изменить: Запрошенная длина', exact: true })
-  await expect(dialog).toBeVisible()
-  await dialog.getByRole('button', { name: 'Цифра 1', exact: true }).click()
-  await dialog.getByRole('button', { name: 'Цифра 2', exact: true }).click()
-  await dialog.getByRole('button', { name: 'Цифра 1', exact: true }).click()
-  await expect(dialog.getByText('Значение вне допустимого диапазона.', { exact: true })).toBeVisible()
-  for (const control of await dialog.getByRole('button').all()) await expectTouchControl(control)
-  await dialog.getByRole('button', { name: 'Ввод', exact: true }).click()
-  await expect(dialog).toBeVisible()
-  await dialog.getByRole('button', { name: 'Назад', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Запрошенная длина, мм', exact: true })).toHaveText('100')
-})
-
-test('пять тестов материала выбирают файл касанием и требуют обе проверки', async ({ page }, testInfo) => {
-  for (const [index, title] of ['Pressure Advance', 'Расход', 'Температура', 'Ретракт', 'Макс. поток'].entries()) {
-    await openCatalog(page)
-    await page.getByRole('button', { name: /^Профиль материала/ }).click()
-    await page.getByRole('button', { name: title, exact: true }).click()
-    await expect(page.getByRole('combobox')).toHaveCount(0)
-    const files = page.getByRole('group', { name: 'Загруженные тестовые файлы', exact: true }).getByRole('button')
-    await expect(files.first()).toBeVisible()
-    await files.first().click()
-    const start = page.getByRole('button', { name: 'Запустить тестовую печать', exact: true })
-    await expect(start).toBeDisabled()
-    await page.getByRole('checkbox', { name: 'Филамент и температура соответствуют тесту.', exact: true }).check()
-    await expect(start).toBeDisabled()
-    await page.getByRole('checkbox', { name: 'Я проверил G-code и буду наблюдать за печатью.', exact: true }).check()
-    await expect(start).toBeEnabled()
-    await expectTouchControl(start)
-    await page.screenshot({ path: testInfo.outputPath(`material-prepare-${index}.png`), animations: 'disabled' })
-  }
-})
 
 test('четыре винта → карта → сохранение → первый слой сохраняют полный canvas', async ({ page }, testInfo) => {
   await openCatalog(page)
@@ -141,14 +108,14 @@ test('четыре винта → карта → сохранение → пер
   await page.getByRole('button', { name: /^Винты стола/ }).click()
   const screwControls = page.getByRole('group', { name: 'Выбор винта', exact: true }).getByRole('button')
   await expect(screwControls).toHaveCount(4)
-  await expect(page.locator('.bottom-nav')).toBeVisible()
+  await expectCalibrationOpen(page)
   await page.getByRole('button', { name: 'Измерить винты', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Подтвердить после повторного замера', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Проверить выравнивание', exact: true })).toBeEnabled()
   await expectFullCalibration(page)
-  await page.getByRole('button', { name: '2 · P2 probe X220 Y70', exact: true }).click()
+  await page.getByRole('button', { name: 'Винт 2', exact: true }).click()
   await expect(page.getByText('Против часовой стрелки', { exact: true })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('screws-fullscreen.png'), animations: 'disabled' })
-  await page.getByRole('button', { name: 'Подтвердить после повторного замера', exact: true }).click()
+  await page.getByRole('button', { name: 'Проверить выравнивание', exact: true }).click()
   await page.getByRole('button', { name: 'Далее: карта стола', exact: true }).click()
   const mesh = page.getByRole('img', { name: 'Трёхмерная карта фактических высот стола', exact: true })
   await expect(mesh.getByTestId('mesh-measured-point')).toHaveCount(49)
@@ -164,12 +131,13 @@ test('четыре винта → карта → сохранение → пер
   await expect(mesh).not.toHaveAttribute('data-yaw', '60')
   await page.getByRole('button', { name: 'Сброс вида', exact: true }).click()
   await expect(mesh).toHaveAttribute('data-yaw', '45')
-  await expect(page.getByRole('button', { name: 'Сохранить профиль и перезапустить', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Сохранить карту и перезапустить', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Повторить сканирование', exact: true })).toBeVisible()
   await page.screenshot({ path: testInfo.outputPath('mesh-fullscreen.png'), animations: 'disabled' })
   await page.getByRole('button', { name: 'Значения', exact: true }).click()
   await expect(page.getByRole('table')).toBeVisible()
   await page.getByRole('button', { name: '3D-карта', exact: true }).click()
-  await page.getByRole('button', { name: 'Сохранить профиль и перезапустить', exact: true }).click()
+  await page.getByRole('button', { name: 'Сохранить карту и перезапустить', exact: true }).click()
   const next = page.getByRole('button', { name: 'Далее: первый слой', exact: true })
   await expect(next).toBeEnabled({ timeout: 15_000 })
   await next.click()
@@ -182,11 +150,16 @@ test('четыре винта → карта → сохранение → пер
 test('ADXL → реальные спектры X/Y → сохранение → Готово возвращает навигацию', async ({ page }, testInfo) => {
   await openCatalog(page)
   await page.getByRole('button', { name: /^Шейпер и ADXL/ }).click()
-  await expect(page.locator('.bottom-nav')).toBeVisible()
+  await expectCalibrationOpen(page)
+  await expect(page.getByRole('button', { name: 'К списку', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Подробнее', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Скрыть', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Считать ADXL', exact: true }).click()
   await expect(page.getByRole('status', { name: 'Показания акселерометра', exact: true })).toBeVisible()
   await expectFullCalibration(page)
   await page.getByRole('button', { name: 'К тесту резонансов', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Подробнее', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Измерение резонансов', exact: true })).toBeVisible()
   await expectFullCalibration(page)
   await page.getByRole('button', { name: 'Измерить резонансы', exact: true }).click()
   await expect(page.getByRole('img', { name: 'Измеренный спектр резонансов X', exact: true })).toBeVisible()

@@ -5,11 +5,10 @@ import { CalibrationPreview, type CalibrationPreviewKind } from './CalibrationPr
 afterEach(cleanup)
 
 const kinds: CalibrationPreviewKind[] = [
-  'pid', 'eddyFolder', 'eddy', 'shaper', 'extruder', 'material', 'service',
+  'pid', 'eddyFolder', 'eddy', 'shaper',
   'driveCurrent', 'height', 'temperature', 'z0', 'offsets', 'accuracy',
-  'screws', 'mesh', 'xyOffset', 'firstLayer',
-  'pidNozzle', 'pidBed', 'adxlQuery', 'adxlNoise', 'pa', 'flow', 'retraction', 'maxFlow',
-  'materialTemperature',
+  'screws', 'mesh', 'firstLayer',
+  'pidNozzle', 'pidBed', 'adxlQuery', 'adxlNoise',
 ]
 
 it.each(kinds)('%s: оба размера имеют только точки внутри своей матрицы', (kind) => {

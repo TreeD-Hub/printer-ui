@@ -8,17 +8,19 @@ vi.mock('../files', () => ({ FilesContainer: () => null }))
 vi.mock('../settings', () => ({ SettingsContainer: () => null }))
 vi.mock('../ui', () => ({ NavItemButton: ({ label }: { label: string }) => <button>{label}</button> }))
 vi.mock('../macros', () => ({
-  MacrosContainer: ({ onCalibrationActivityChange }: { onCalibrationActivityChange: (active: boolean) => void }) => (
+  MacrosContainer: ({ onCalibrationActivityChange, onCalibrationViewChange }: { onCalibrationActivityChange: (active: boolean) => void; onCalibrationViewChange: (active: boolean) => void }) => (
     <section>
-      <button onClick={() => onCalibrationActivityChange(true)}>Запустить</button>
-      <button onClick={() => onCalibrationActivityChange(false)}>Готово</button>
+      <button onClick={() => onCalibrationActivityChange(true)}>Начать активность</button>
+      <button onClick={() => onCalibrationActivityChange(false)}>Завершить активность</button>
+      <button onClick={() => onCalibrationViewChange(true)}>Открыть калибровку</button>
+      <button onClick={() => onCalibrationViewChange(false)}>Выйти из калибровки</button>
     </section>
   ),
 }))
 
 afterEach(cleanup)
 
-it('hides navigation and fills both canvas rows only during a calibration', () => {
+it('supports immediate workflow fullscreen and preserves activity-based fullscreen', () => {
   const props = {
     activeScreen: 'macros', isFilesScreenActive: false, hasActivePrint: false,
     dashboard: {}, control: {}, files: {}, settings: {}, macros: {}, onScreenSelect: vi.fn(),
@@ -27,13 +29,19 @@ it('hides navigation and fills both canvas rows only during a calibration', () =
   const content = view.container.querySelector('.content-grid')!
   expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument()
   expect(content).not.toHaveStyle({ gridRow: '1 / -1' })
-  fireEvent.click(screen.getByRole('button', { name: 'Запустить' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Открыть калибровку' }))
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   expect(content).toHaveStyle({ gridRow: '1 / -1' })
-  fireEvent.click(screen.getByRole('button', { name: 'Готово' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Выйти из калибровки' }))
   expect(screen.getByRole('navigation')).toBeInTheDocument()
   expect(content).not.toHaveStyle({ gridRow: '1 / -1' })
-  fireEvent.click(screen.getByRole('button', { name: 'Запустить' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Начать активность' }))
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  expect(content).toHaveStyle({ gridRow: '1 / -1' })
+  fireEvent.click(screen.getByRole('button', { name: 'Завершить активность' }))
+  expect(screen.getByRole('navigation', { name: 'Основная навигация' })).toBeInTheDocument()
+  expect(content).not.toHaveStyle({ gridRow: '1 / -1' })
+  fireEvent.click(screen.getByRole('button', { name: 'Открыть калибровку' }))
   view.rerender(<AppScreenContent {...props} activeScreen="dashboard" />)
   expect(screen.getByRole('navigation')).toBeInTheDocument()
   expect(content).not.toHaveStyle({ gridRow: '1 / -1' })

@@ -25,20 +25,6 @@ export function EddyNozzleDiagram({ paper = false, delta = null, sensor = false,
   </figure>
 }
 
-export function EddyXYDiagram({ savedX, savedY, draftX, draftY }: { savedX?: number | null; savedY?: number | null; draftX: number | null; draftY: number | null }) {
-  const savedKnown = Number.isFinite(savedX) && Number.isFinite(savedY)
-  const draftKnown = draftX !== null && draftY !== null && Number.isFinite(draftX) && Number.isFinite(draftY)
-  const scale = 90 / Math.max(1, ...[savedX, savedY, draftX, draftY].filter((value): value is number => typeof value === 'number' && Number.isFinite(value)).map(Math.abs))
-  const sensor = (x: number, y: number, draft: boolean) => <g className={draft ? 'eddy-xy-draft' : ''}><rect x={154 + x * scale - 12} y={105 - y * scale - 16} width="24" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray={draft ? '4 4' : undefined} /><path d={`M154 105H${154 + x * scale}V${105 - y * scale}`} fill="none" stroke="currentColor" strokeDasharray={draft ? '3 4' : undefined} /></g>
-  return <figure className="eddy-diagram"><svg viewBox="0 0 320 220" role="img" aria-label="XY-смещение датчика относительно сопла">
-    <path d="M25 105h267m-7-5 7 5-7 5M154 195V15m-5 7 5-7 5 7" fill="none" stroke="currentColor" />
-    <text x="284" y="94">X+</text><text x="166" y="25">Y+</text>
-    <circle cx="154" cy="105" r="5" fill="currentColor" /><text x="24" y="211">Сопло · начало координат</text>
-    {savedKnown && sensor(savedX as number, savedY as number, false)}
-    {draftKnown && sensor(draftX as number, draftY as number, true)}
-  </svg><figcaption>{savedKnown ? 'Сплошной контур — сохранено' : 'Положение сохранённого датчика неизвестно'}<span>Пунктирный контур — будет записано; масштаб условный</span></figcaption></figure>
-}
-
 type ScrewPoint = { name: string; xMm: number | null; yMm: number | null; zMm: number | null; sign: string | null; adjust: string | null; isBase: boolean | null }
 
 export function EddyScrewsDiagram({ screws, selected }: { screws: ScrewPoint[]; selected: number }) {

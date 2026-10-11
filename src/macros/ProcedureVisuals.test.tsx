@@ -1,26 +1,9 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
-import { ExtruderStudy, ShaperSpectrum } from './ProcedureVisuals'
+import { ShaperSpectrum } from './ProcedureVisuals'
 import { parseShaperSpectrumCsv } from './shaperResonanceCsv'
 
 afterEach(cleanup)
-
-it('не рисует измеренную длину до ручного ввода, сравнивает известные длины без бесконечной геометрии', () => {
-  const view = render(<ExtruderStudy requestedMm={100} measuredMm={null} />)
-  const study = screen.getByRole('figure', { name: 'Сравнение длины подачи' })
-  expect(study).toHaveTextContent('Запрошено100.0 мм')
-  expect(study).toHaveTextContent('Измерено вручную—')
-  expect(study.querySelectorAll('line')[1]).toHaveAttribute('x2', '0')
-  view.rerender(<ExtruderStudy requestedMm={100} measuredMm={110} />)
-  expect(study).toHaveTextContent('Измерено вручную110.0 мм')
-  const lengths = [...study.querySelectorAll('line')].map((line) => Number(line.getAttribute('x2')))
-  expect(lengths.every(Number.isFinite)).toBe(true)
-  expect(lengths[0] / lengths[1]).toBeCloseTo(100 / 110)
-  view.rerender(<ExtruderStudy requestedMm={NaN} measuredMm={121} />)
-  expect(study).toHaveTextContent('Запрошено—')
-  expect(study).toHaveTextContent('Измерено вручную—')
-  expect([...study.querySelectorAll('line')].every((line) => line.getAttribute('x2') === '0')).toBe(true)
-})
 
 const csvHeader = 'freq,psd_x,psd_y,psd_z,psd_xyz,shapers:,mzv(42.2)'
 

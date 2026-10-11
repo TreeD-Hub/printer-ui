@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
-import { EddyMeshDiagram, EddyScrewsDiagram, EddyScrewTurn, EddyXYDiagram } from './EddyCalibrationVisuals'
+import { EddyMeshDiagram, EddyScrewsDiagram, EddyScrewTurn } from './EddyCalibrationVisuals'
 
 afterEach(cleanup)
 
@@ -112,18 +112,4 @@ it('не придумывает положения винтов без коор�
   const { container } = render(<EddyScrewsDiagram screws={[{ name: 'A', xMm: null, yMm: null, zMm: 0, sign: null, adjust: null, isBase: null }]} selected={0} />)
   expect(container.querySelectorAll('circle')).toHaveLength(0)
   expect(screen.getByText('Положение винтов не передано полностью')).toBeInTheDocument()
-})
-
-it('отделяет измеренный draft от неизвестного сохранённого положения', () => {
-  const { container } = render(<EddyXYDiagram savedX={null} savedY={null} draftX={10} draftY={-20} />)
-  expect(container.querySelectorAll('rect')).toHaveLength(1)
-  expect(container.querySelector('.eddy-xy-draft')).toBeInTheDocument()
-  expect(screen.getByText('Положение сохранённого датчика неизвестно')).toBeInTheDocument()
-})
-
-it('сохранённое XY рисуется сплошным контуром, draft пунктирным', () => {
-  const { container } = render(<EddyXYDiagram savedX={10} savedY={-20} draftX={20} draftY={-10} />)
-  const outlines = container.querySelectorAll('rect')
-  expect(outlines[0]).not.toHaveAttribute('stroke-dasharray')
-  expect(outlines[1]).toHaveAttribute('stroke-dasharray', '4 4')
 })

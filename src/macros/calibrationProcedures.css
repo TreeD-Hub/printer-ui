@@ -1,112 +1,73 @@
-.calibration-catalog { min-height: 0; height: 100%; padding: 8px; grid-template-rows: 56px minmax(0, 1fr); gap: 16px; }
-.calibration-catalog-header { min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: 16px; }
-.calibration-catalog-header > button { min-width: 112px; min-height: 56px; padding: 8px 16px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; cursor: pointer; }
-.calibration-catalog-header > button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-.calibration-catalog-cards { min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.calibration-catalog.is-eddy-folder .calibration-catalog-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.calibration-catalog .macros-manager-workflow { min-height: 56px; padding: 12px; grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "preview title" "preview meta" "preview count"; align-items: center; align-content: center; column-gap: 12px; row-gap: 8px; background: var(--color-block-surface); box-shadow: none; }
-.calibration-catalog .macros-manager-workflow .calibration-preview { width: 96px; height: 80px; align-self: center; }
-.calibration-catalog.is-eddy-folder .macros-manager-workflow { grid-template-columns: 112px minmax(0, 1fr); column-gap: 16px; }
-.calibration-catalog.is-eddy-folder .macros-manager-workflow .calibration-preview { width: 112px; height: 96px; }
-.calibration-catalog .macros-manager-workflow span { font-family: var(--font-family-ui); font-size: var(--font-size-body-large); line-height: 1.2; }
+.calibration-catalog { min-height: 0; height: 100%; padding: var(--space-xs); grid-template-rows: var(--control-height) minmax(0, 1fr); gap: var(--space-xs); }
+.calibration-catalog-header { min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: var(--space-sm); }
+.calibration-catalog-header > button { min-width: 112px; min-height: var(--control-height); padding: var(--space-xs) var(--space-sm); border: var(--border-width) solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; cursor: pointer; }
+.calibration-catalog-header > button:focus-visible { outline: var(--focus-width) solid var(--color-focus-ring); outline-offset: var(--focus-offset); }
+.calibration-catalog-cards { min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: var(--space-xs); }
+.calibration-catalog.is-eddy-folder .calibration-catalog-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.calibration-catalog .macros-manager-workflow { min-height: var(--control-height); padding: var(--space-sm); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "preview" "title" "meta"; justify-items: center; align-items: center; align-content: center; gap: var(--space-sm); text-align: center; background: var(--color-block-surface); box-shadow: none; }
+.calibration-catalog .macros-manager-workflow .calibration-preview { width: 160px; height: 144px; }
+.calibration-catalog.is-eddy-folder .macros-manager-workflow { grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "preview title"; justify-items: start; text-align: left; }
+.calibration-catalog.is-eddy-folder .macros-manager-workflow .calibration-preview { width: 96px; height: 80px; }
+.calibration-catalog .macros-manager-workflow span { font-family: var(--font-family-ui); font-size: var(--font-size-heading); line-height: 1.2; }
 .calibration-catalog .macros-manager-workflow em { font-size: var(--font-size-small); line-height: 1.25; }
-.calibration-catalog .macros-manager-workflow strong { font-family: var(--font-family-ui); font-size: var(--font-size-small); line-height: 1.3; font-weight: 400; justify-self: start; color: var(--color-text-secondary); }
-.calibration-catalog .macros-manager-workflow:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-.calibration-catalog .macros-manager-title h1 { font: 400 var(--font-size-heading)/1.2 var(--font-family-ui); }
+.calibration-catalog .macros-manager-workflow:focus-visible { outline: var(--focus-width) solid var(--color-focus-ring); outline-offset: var(--focus-offset); }
+.calibration-catalog .macros-manager-title h1 { font: var(--font-weight-regular) var(--font-size-heading)/1.2 var(--font-family-ui); }
 .calibration-catalog .macros-manager-title p { font-family: var(--font-family-ui); }
 .calibration-catalog .macros-manager-workflow::after { content: none; }
-.calibration-procedure { min-height: 0; display: grid; grid-template-rows: 56px minmax(0, 1fr) 56px; gap: 8px; padding: 8px; font-family: var(--font-family-ui); font-variant-numeric: tabular-nums; }
-.calibration-procedure:has(> .calibration-workflow-steps) { grid-template-rows: 56px 24px minmax(0, 1fr) 56px; }
-.calibration-workflow-steps { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: 8px; list-style: none; margin: 0; padding: 0; color: var(--color-text-secondary); font-size: var(--font-size-small); }
-.calibration-workflow-steps li { min-width: 0; padding-bottom: 8px; border-bottom: 1px solid var(--color-border-default); }
+.calibration-procedure { min-height: 0; display: grid; grid-template-rows: var(--control-height) var(--space-lg) minmax(0, 1fr) 40px var(--control-height); gap: var(--space-xs); padding: var(--space-xs); font-family: var(--font-family-ui); font-variant-numeric: tabular-nums; }
+.calibration-workflow-steps { display: grid; grid-auto-columns: minmax(0, 1fr); grid-auto-flow: column; gap: var(--space-xs); list-style: none; margin: 0; padding: 0; color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.calibration-workflow-steps li { min-width: 0; padding-bottom: var(--space-xs); border-bottom: var(--border-width) solid var(--color-border-default); }
 .calibration-workflow-steps li[aria-current] { border-color: var(--color-selection); color: var(--color-text-primary); }
-.calibration-procedure-stage { min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; }
+.calibration-procedure-stage { min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; gap: var(--space-xs); }
 .calibration-procedure-stage h3, .calibration-procedure-stage p { margin: 0; }
-.calibration-procedure-stage h3 { font-size: var(--font-size-heading); font-weight: 400; }
+.calibration-procedure-stage h3 { font-size: var(--font-size-heading); font-weight: var(--font-weight-regular); }
 .calibration-procedure-stage p { font-size: var(--font-size-body); line-height: 1.35; color: var(--color-text-secondary); }
-.calibration-test-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, 88px); gap: 8px; }
-.calibration-test-option { text-align: left; display: flex; align-items: center; gap: 16px; }
-.calibration-test-option .calibration-preview { width: 40px; height: 40px; flex: none; }
-.calibration-file-list { max-height: 148px; min-height: 56px; overflow-y: auto; overflow-x: hidden; display: grid; gap: 8px; overscroll-behavior: contain; touch-action: pan-y; }
-.calibration-file-option { min-width: 0; display: grid; gap: 4px; text-align: left; }
-.calibration-file-option span, .calibration-file-option small { min-width: 0; overflow-wrap: anywhere; }
-.calibration-file-option small { font-size: var(--font-size-small); color: var(--color-text-secondary); }
-.calibration-data-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.calibration-data-group { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.calibration-data-group h3 { margin: 0; display: flex; align-items: center; gap: 12px; font-size: var(--font-size-body-large); font-weight: 400; }
-.calibration-data-group h3 .calibration-preview { width: 40px; height: 40px; }
-.calibration-data-group p { margin: 0; font-size: var(--font-size-small); color: var(--color-text-secondary); line-height: 1.35; }
-.calibration-procedure-header { min-width: 0; display: grid; grid-template-columns: 112px minmax(0, 1fr) auto 112px; align-items: center; gap: 16px; }
+.calibration-procedure-header { min-width: 0; display: grid; grid-template-columns: 112px minmax(0, 1fr) 112px; align-items: center; gap: var(--space-sm); }
 .calibration-procedure-header > div { min-width: 0; }
 .calibration-procedure-header p, .calibration-procedure-header h2 { margin: 0; }
 .calibration-procedure-header p, .calibration-procedure-header > span { color: var(--color-text-secondary); font-size: var(--font-size-small); }
-.calibration-procedure-header h2 { font-size: var(--font-size-heading); font-weight: 400; overflow-wrap: anywhere; }
-.calibration-procedure button, .calibration-procedure input, .calibration-number-dialog button { min-width: 48px; min-height: 56px; padding: 8px 12px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; }
-.calibration-procedure button, .calibration-number-dialog button { cursor: pointer; touch-action: manipulation; }
+.calibration-procedure-header h2 { font-size: var(--font-size-heading); font-weight: var(--font-weight-regular); overflow-wrap: anywhere; }
+.calibration-procedure button { min-width: var(--control-min-width); min-height: var(--control-height); padding: var(--space-xs) var(--space-sm); border: var(--border-width) solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; }
+.calibration-procedure button { cursor: pointer; touch-action: manipulation; }
+.calibration-procedure-header > button { height: var(--control-height); padding: var(--space-xxs) var(--space-xs); line-height: 1.25; text-align: center; }
 .calibration-procedure button:disabled { opacity: .45; cursor: not-allowed; }
-.calibration-procedure button:focus-visible, .calibration-procedure input:focus-visible, .calibration-number-dialog button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.calibration-procedure button:focus-visible { outline: var(--focus-width) solid var(--color-focus-ring); outline-offset: var(--focus-offset); }
 .calibration-procedure button[aria-pressed="true"] { border-color: var(--color-selection); background: var(--color-selection-surface); }
 .calibration-procedure .is-danger { border-color: var(--color-selection); color: var(--color-selection); }
-.calibration-procedure-body { min-height: 0; overflow: auto; display: flex; flex-direction: column; justify-content: flex-start; gap: 16px; }
-.calibration-procedure-body.has-study { display: grid; grid-template-columns: 320px minmax(0, 1fr); }
-.calibration-procedure-body.has-spectrum { grid-template-columns: minmax(0, 620fr) minmax(0, 292fr); }
-.calibration-technical-details { min-height: 0; min-width: 0; overflow: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; }
+.calibration-procedure-body { min-height: 0; overflow: hidden; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--space-sm); }
+.calibration-procedure-visual { min-width: 0; min-height: 0; display: grid; }
+.calibration-procedure-visual .procedure-motion-subject > .calibration-preview { left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.calibration-technical-details { grid-column: 1 / -1; min-height: 0; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--space-sm); }
 .calibration-technical-details p { margin: 0; font-size: var(--font-size-body); line-height: 1.4; color: var(--color-text-secondary); }
-.calibration-primary-readout { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.calibration-primary-readout { min-width: 0; display: flex; flex-direction: column; gap: var(--space-xs); }
 .calibration-primary-readout > span { font-size: var(--font-size-body); color: var(--color-text-secondary); }
-.calibration-primary-readout > strong { font-size: 32px; line-height: 1.1; font-weight: 400; }
-.calibration-primary-readout small { font: 400 var(--font-size-body)/1.3 var(--font-family-ui); }
-.calibration-procedure-stage .calibration-evaluation-task { font-size: var(--font-size-heading); color: var(--color-text-primary); }
-.has-spectrum .calibration-procedure-stage > h3 { display: none; }
-.calibration-procedure-body.is-material-prepare { grid-template-columns: 240px minmax(0, 1fr); }
-.calibration-procedure-body.is-material-prepare .calibration-procedure-stage { gap: 4px; }
-.calibration-procedure-details { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-.has-study .calibration-procedure-details { border-left: 1px solid var(--color-border-default); padding-left: 16px; }
+.calibration-primary-readout > strong { font-size: var(--font-size-heading-large); line-height: 1.1; font-weight: var(--font-weight-regular); }
+.calibration-primary-readout small { font: var(--font-weight-regular) var(--font-size-body)/1.3 var(--font-family-ui); }
+.calibration-procedure-details { min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--space-xs); }
+.has-study .calibration-procedure-details { border-left: var(--border-width) solid var(--color-border-default); padding-left: var(--space-sm); }
 .calibration-procedure-details > p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: 1.35; }
-.calibration-procedure-details > [role="alert"] { color: var(--color-text-primary); border-left: 2px solid var(--color-selection); padding-left: 12px; }
+.calibration-procedure-details > [role="alert"] { color: var(--color-text-primary); border-left: 2px solid var(--color-selection); padding-left: var(--space-sm); }
 .calibration-procedure-details .calibration-blocked-diagnostics { font-size: var(--font-size-small); }
-.calibration-choice-row, .calibration-action-row { display: flex; flex-wrap: wrap; gap: 8px; }
-.calibration-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.calibration-fields:has(> label:only-child) { grid-template-columns: minmax(0, 1fr); }
-.calibration-fields label, .calibration-file-select { min-width: 0; display: grid; gap: 4px; color: var(--color-text-secondary); font-size: var(--font-size-small); }
-.calibration-fields .calibration-field-value, .calibration-file-select select { width: 100%; font-size: var(--font-size-body); text-align: left; }
-.calibration-check { min-height: 56px; display: flex; align-items: center; gap: 12px; color: var(--color-text-primary); font-size: var(--font-size-body); }
-.calibration-check input { width: 24px; height: 24px; min-width: 24px; min-height: 24px; accent-color: var(--color-selection); }
-.calibration-result { display: grid; grid-template-columns: auto 1fr 1fr; gap: 12px; align-items: center; padding: 12px 0; border-block: 1px solid var(--color-border-default); font-variant-numeric: tabular-nums; }
-.calibration-result span { font-family: var(--font-family-ui); font-size: var(--font-size-body); }
-.calibration-service-grid { display: grid; gap: 0; margin: 0; }
-.calibration-service-grid div { min-width: 0; min-height: 36px; display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: center; gap: 12px; border-bottom: 1px solid var(--color-border-subtle); padding: 4px 0; }
-.calibration-service-grid dt { color: var(--color-text-secondary); font-size: var(--font-size-small); }
-.calibration-service-grid dd { margin: 0; overflow-wrap: anywhere; font-size: var(--font-size-body); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.calibration-service-grid dd small { font-size: var(--font-size-small); color: var(--color-text-secondary); }
-.calibration-adxl-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 8px 0; }
-.calibration-adxl-values div { min-width: 0; display: grid; gap: 8px; }
+.calibration-choice-row, .calibration-action-row { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
+.calibration-choice-row { display: grid; }
+.calibration-choice-row > button { width: 100%; }
+.calibration-adxl-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-sm); margin: var(--space-xs) 0; }
+.calibration-adxl-values div { min-width: 0; display: grid; gap: var(--space-xs); }
 .calibration-adxl-values dt { font-size: var(--font-size-body); color: var(--color-text-secondary); }
-.calibration-adxl-values dd { font-size: 26px; line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
-.calibration-shaper-current { display: flex; gap: 24px; margin: 0; }
-.calibration-shaper-current dt { color: var(--color-text-secondary); font-size: var(--font-size-small); }
-.calibration-shaper-current dd { margin: 4px 0 0; font-size: var(--font-size-body); }
-.calibration-shaper-comparison { display: grid; gap: 8px; padding: 8px 0; }
-.calibration-shaper-comparison > div { display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: center; min-height: 32px; font-size: var(--font-size-body); }
-.calibration-shaper-comparison strong { font-weight: 400; }
+.calibration-adxl-values dd { font-size: var(--font-size-metric); line-height: 1.15; margin: 0; overflow-wrap: anywhere; }
+.calibration-shaper-comparison { display: grid; gap: var(--space-xs); padding: var(--space-xs) 0; }
+.calibration-shaper-comparison > div { display: grid; grid-template-columns: 32px minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-xs); align-items: center; min-height: 32px; font-size: var(--font-size-body); }
+.calibration-shaper-comparison strong { font-weight: var(--font-weight-regular); }
 .calibration-shaper-comparison > .calibration-comparison-head { min-height: 20px; font-size: var(--font-size-small); color: var(--color-text-secondary); }
-.calibration-rotation-comparison { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr); gap: 8px; align-items: center; margin: 0; }
-.calibration-rotation-comparison dt { color: var(--color-text-secondary); font-size: var(--font-size-small); }
-.calibration-rotation-comparison dd { margin: 4px 0 0; font-size: 26px; }
-.calibration-procedure-stage .calibration-formula { font-size: var(--font-size-small); }
-.calibration-selected-file { overflow-wrap: anywhere; }
-.calibration-procedure-footer { min-width: 0; display: flex; align-items: center; gap: 8px; }
-.calibration-procedure-footer > span { min-width: 0; flex: 1; font-size: var(--font-size-small); overflow-wrap: anywhere; }
-.calibration-procedure-footer > button { flex-shrink: 0; }
-.calibration-procedure-footer > button:last-child { margin-left: auto; }
-.calibration-number-dialog.tune-value-workspace { position: fixed; inset: 0; z-index: 100; background: var(--color-background); display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 24px; padding: 16px; }
-.calibration-number-editor { min-height: 0; min-width: 0; display: grid; grid-template-rows: minmax(0, 1fr); grid-auto-rows: auto; gap: 16px; }
-.calibration-number-input { grid-column: 1 / -1; min-height: 64px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); display: flex; align-items: center; padding: 16px; gap: 8px; }
-.calibration-number-input:focus-within { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-.calibration-number-input input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--color-text-primary); font: inherit; font-size: 32px; }
-.calibration-number-editor p { margin: 0; color: var(--color-text-secondary); }
-.calibration-number-dialog .numeric-keypad { min-height: 0; display: grid; grid-template-rows: 1fr 56px; gap: 8px; }
-.calibration-number-dialog .print-temp-keyboard-key { height: 100%; }
+.calibration-procedure-status { min-width: 0; min-height: 40px; max-height: 40px; overflow: auto; font-size: var(--font-size-small); color: var(--color-text-secondary); }
+.calibration-procedure-footer { min-width: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr) 240px; align-items: center; gap: var(--space-xs); }
+.calibration-procedure-footer button { height: var(--control-height); padding: var(--space-xxs) var(--space-xs); line-height: 1.25; text-align: center; }
+.calibration-footer-secondary { min-width: 0; display: flex; justify-content: center; }
+.calibration-footer-primary { min-width: 0; }
+.calibration-footer-primary > button { width: 100%; background: var(--color-text-primary); color: var(--color-background); }
+.calibration-procedure .is-primary { border-color: var(--color-text-primary); background: var(--color-text-primary); color: var(--color-background); }
+.calibration-procedure .is-primary:disabled { opacity: .55; }
+.calibration-footer-emergency { min-width: 0; }
 @media (prefers-reduced-motion: reduce) {
   .calibration-procedure *, .calibration-catalog * { scroll-behavior: auto; transition-duration: 0.01ms !important; }
 }
