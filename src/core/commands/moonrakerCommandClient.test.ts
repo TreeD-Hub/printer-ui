@@ -5,6 +5,20 @@ import type { ExecuteCommandArgs } from './types'
 let consoleDebug: ReturnType<typeof vi.spyOn>
 let consoleError: ReturnType<typeof vi.spyOn>
 
+it.each(['scan', 'rapid_scan', 'automatic'] as const)('передаёт метод карты %s в core', async (method) => {
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ result: 'ok' }) })
+  const client = createMoonrakerCommandClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock })
+  await client.execute({ command: 'eddyScanMesh', save: false, method })
+  expect(JSON.parse(String(fetchMock.mock.calls[0][1].body)).script).toBe(`TREED_EDDY_BED_MESH_CALIBRATE SAVE=0 METHOD=${method}`)
+})
+
+it('отклоняет посторонний метод карты до отправки', async () => {
+  const fetchMock = vi.fn()
+  const client = createMoonrakerCommandClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock })
+  await expect(client.execute({ command: 'eddyScanMesh', method: 'scan\nG28' } as ExecuteCommandArgs)).rejects.toThrow('Неизвестный метод')
+  expect(fetchMock).not.toHaveBeenCalled()
+})
+
 function createDeferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (reason?: unknown) => void

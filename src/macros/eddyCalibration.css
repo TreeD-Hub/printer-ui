@@ -1,4 +1,5 @@
 .eddy-workflow { min-height: 0; display: grid; grid-template-rows: var(--control-height) minmax(0, 1fr) 40px var(--control-height); gap: var(--space-xs); padding: var(--space-xs); position: relative; font: var(--font-size-body)/1.3 var(--font-family-ui); font-variant-numeric: tabular-nums; }
+.eddy-workflow--mesh-expanded { grid-template-rows: var(--control-height) minmax(0, 1fr) var(--control-height); }
 .eddy-header { display: grid; grid-template-columns: 112px minmax(0, 1fr) 240px; align-items: center; gap: var(--space-sm); min-width: 0; }
 .eddy-header > div { min-width: 0; }
 .eddy-workflow .eddy-header > button { height: var(--control-height); padding: var(--space-xxs) var(--space-xs); line-height: 1.25; text-align: center; }

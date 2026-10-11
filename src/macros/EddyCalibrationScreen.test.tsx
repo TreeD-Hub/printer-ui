@@ -8,6 +8,34 @@ import { EddyCalibrationScreen } from './EddyCalibrationScreen'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers() })
 
+it.each([['Rapid', 'rapid_scan'], ['Точки', 'automatic'], ['Обычный', 'scan']])('передаёт режим сканирования %s и блокирует переключение во время команды', async (label, method) => {
+  const snapshot = readySnapshot()
+  snapshot.capabilities.calibrationCommands!.meshScanMethods = true
+  const { executeCommand, view, props } = renderScreen({ initialProcedure: 'mesh', snapshot })
+  fireEvent.click(screen.getByRole('button', { name: label, exact: true }))
+  expect(screen.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить карту стола' })))
+  expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyScanMesh', save: false, method })
+  view.rerender(<EddyCalibrationScreen {...props} pendingCommand="eddyScanMesh" />)
+  expect(screen.getByRole('button', { name: label, exact: true })).toBeDisabled()
+})
+
+it('скрывает режимы сканирования без поддержки core', () => {
+  renderScreen({ initialProcedure: 'mesh' })
+  expect(screen.queryByRole('group', { name: 'Режим сканирования' })).not.toBeInTheDocument()
+})
+
+it('на карте убирает обычную строку статуса, но сохраняет причину блокировки', () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.mesh.probedMatrix = [[0, 0.01], [0.02, 0.03]]
+  const { view, props } = renderScreen({ initialProcedure: 'mesh', snapshot })
+  expect(view.container.querySelector('.eddy-status')).toBeNull()
+  expect(view.container.querySelector('.eddy-workflow--mesh-expanded')).not.toBeNull()
+  view.rerender(<EddyCalibrationScreen {...props} getCommandBlockReason={(command) => command === 'eddyScanMesh' ? 'Датчик недоступен' : null} />)
+  expect(screen.getByText('Датчик недоступен')).toBeInTheDocument()
+  expect(view.container.querySelector('.eddy-workflow--mesh-expanded')).toBeNull()
+})
+
 function calibrationSnapshot(): PrinterCalibrationSnapshot {
   return {
     manualProbe: { active: false, zMm: null, zMinimumMm: null, zMaximumMm: null },

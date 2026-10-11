@@ -416,6 +416,13 @@ describe('TREE_D_COMMAND_CATALOG', () => {
     expect(getTreeDCommandBlockReason('eddyScanMesh', supportedIdleContext, {
       command: 'eddyScanMesh', save: false,
     })).toBeNull()
+    expect(getTreeDCommandBlockReason('eddyScanMesh', supportedIdleContext, {
+      command: 'eddyScanMesh', save: false, method: 'rapid_scan',
+    })).toContain('обновления core')
+    expect(getTreeDCommandBlockReason('eddyScanMesh', {
+      ...supportedIdleContext,
+      capabilities: { ...supportedIdleContext.capabilities, calibrationCommands: { ...supportedIdleContext.capabilities.calibrationCommands!, meshScanMethods: true } },
+    }, { command: 'eddyScanMesh', save: false, method: 'rapid_scan' })).toBeNull()
     expect(getTreeDCommandBlockReason('eddyScanMesh', {
       ...supportedIdleContext,
       calibrationSavePending: true,

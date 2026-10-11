@@ -35,7 +35,7 @@ it('вращает фактические высоты кнопками и кл�
   const points = screen.getAllByTestId('mesh-measured-point')
   const initial = points.map((point) => [point.getAttribute('cx'), point.getAttribute('cy')])
   fireEvent.click(screen.getByRole('button', { name: 'Повернуть карту вправо' }))
-  expect(svg).toHaveAttribute('data-yaw', '60')
+  expect(svg).toHaveAttribute('data-yaw', '330')
   expect(points.map((point) => [point.getAttribute('cx'), point.getAttribute('cy')])).not.toEqual(initial)
   expect(points.map((point) => point.getAttribute('data-z'))).toEqual(['0', '1', '1', '0'])
   fireEvent.keyDown(svg, { key: 'ArrowUp' })
@@ -55,15 +55,15 @@ it('оси X и Y совпадают с проекциями столбцов и
 it('ограничивает наклон карты и сохраняет конечные координаты', () => {
   const { container } = render(<EddyMeshDiagram matrix={[[0, 0]]} row={0} column={0} />)
   for (let index = 0; index < 20; index++) fireEvent.keyDown(screen.getByRole('img'), { key: 'ArrowUp' })
-  expect(screen.getByRole('img')).toHaveAttribute('data-pitch', '75')
+  expect(screen.getByRole('img')).toHaveAttribute('data-pitch', '65')
   expect(container.innerHTML).not.toMatch(/NaN|Infinity/)
   for (let turn = 0; turn < 24; turn++) {
     fireEvent.keyDown(screen.getByRole('img'), { key: 'ArrowRight' })
     for (const point of screen.getAllByTestId('mesh-measured-point')) {
       expect(Number(point.getAttribute('cx'))).toBeGreaterThanOrEqual(16)
-      expect(Number(point.getAttribute('cx'))).toBeLessThanOrEqual(424)
+      expect(Number(point.getAttribute('cx'))).toBeLessThanOrEqual(414)
       expect(Number(point.getAttribute('cy'))).toBeGreaterThanOrEqual(16)
-      expect(Number(point.getAttribute('cy'))).toBeLessThanOrEqual(220)
+      expect(Number(point.getAttribute('cy'))).toBeLessThanOrEqual(312)
     }
   }
 })
@@ -73,12 +73,35 @@ it('вращает карту одним указателем и прекращ�
   const svg = screen.getByRole('img')
   const pointer = (name: string, x: number, y: number) => fireEvent(svg, Object.assign(new Event(name, { bubbles: true }), { pointerId: 1, isPrimary: true, button: 0, clientX: x, clientY: y }))
   pointer('pointerdown', 100, 100)
-  pointer('pointermove', 140, 80)
-  expect(svg).toHaveAttribute('data-yaw', '65')
-  expect(svg).toHaveAttribute('data-pitch', '40')
-  pointer('pointercancel', 140, 80)
+  pointer('pointermove', 143, 132)
+  expect(svg).toHaveAttribute('data-yaw', '333')
+  expect(svg).toHaveAttribute('data-pitch', '39')
+  pointer('pointercancel', 143, 132)
   pointer('pointermove', 200, 50)
-  expect(svg).toHaveAttribute('data-yaw', '65')
+  expect(svg).toHaveAttribute('data-yaw', '333')
+})
+
+it('заполняет только полные ячейки и сохраняет реальную высоту относительно нуля', () => {
+  const view = render(<EddyMeshDiagram matrix={[[0.02, 0.02], [0.02, 0.02]]} row={0} column={0} />)
+  expect(screen.getAllByTestId('mesh-surface-cell')).toHaveLength(1)
+  const lowY = Number(screen.getAllByTestId('mesh-measured-point')[0].getAttribute('cy'))
+  view.rerender(<EddyMeshDiagram matrix={[[0.04, 0.04], [0.04, 0.04]]} row={0} column={0} />)
+  expect(Number(screen.getAllByTestId('mesh-measured-point')[0].getAttribute('cy'))).toBeLessThan(lowY)
+  view.rerender(<EddyMeshDiagram matrix={[[0.04, null], [0.04, 0.04]]} row={0} column={0} />)
+  expect(screen.queryAllByTestId('mesh-surface-cell')).toHaveLength(0)
+})
+
+it('масштаб не меняется при вращении; приближение и сброс не меняют замеры', () => {
+  render(<EddyMeshDiagram matrix={[[0, 0.02], [0.04, 0.06]]} row={0} column={0} />)
+  const svg = screen.getByRole('img')
+  fireEvent.click(screen.getByRole('button', { name: 'Приблизить карту' }))
+  expect(svg).toHaveAttribute('data-zoom', '1.25')
+  fireEvent.click(screen.getByRole('button', { name: 'Повернуть карту вправо' }))
+  expect(svg).toHaveAttribute('data-zoom', '1.25')
+  expect(screen.getAllByTestId('mesh-measured-point').map((point) => point.getAttribute('data-z'))).toEqual(['0', '0.02', '0.04', '0.06'])
+  fireEvent.keyDown(svg, { key: 'Home' })
+  expect(svg).toHaveAttribute('data-zoom', '1')
+  expect(svg).toHaveAttribute('data-yaw', '315')
 })
 
 it.each(['+', '-', null, 'unknown', ''])('не рисует направление винта из %s', (sign) => {

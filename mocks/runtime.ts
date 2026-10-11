@@ -775,6 +775,7 @@ export function createMockSnapshot(): PrinterSnapshot {
         accelerometerMeasureNoise: true,
         adxlConfigured: true,
         meshScan: true,
+        meshScanMethods: true,
       },
     },
     filamentSensor: {

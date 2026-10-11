@@ -121,6 +121,9 @@ export function EddyCalibrationScreen({
   const [meshRow, setMeshRow] = useState(0)
   const [meshColumn, setMeshColumn] = useState(0)
   const [meshTableVisible, setMeshTableVisible] = useState(false)
+  const [meshMethod, setMeshMethod] = useState<NonNullable<Extract<ExecuteCommandArgs, { command: 'eddyScanMesh' }>['method']>>('scan')
+  const meshScanMethods = snapshot.capabilities.calibrationCommands?.meshScanMethods === true
+  const meshScanArgs: ExecuteCommandArgs = { command: 'eddyScanMesh', save: false, ...(meshScanMethods ? { method: meshMethod } : {}) }
   const [detailsVisible, setDetailsVisible] = useState(false)
   const [completedSaveKind, setCompletedSaveKind] = useState<SaveKind | null>(null)
   const [screwsDoneRefreshRunId, setScrewsDoneRefreshRunId] = useState<number | null>(null)
@@ -460,7 +463,7 @@ export function EddyCalibrationScreen({
     setMeshScanRefreshRunId(null)
     setMeshCommandFinished(false)
     setMeshSaveTarget(null)
-    if (!await run({ command: 'eddyScanMesh', save: false }, false) || commandRunIdRef.current !== runId) return
+    if (!await run(meshScanArgs, false) || commandRunIdRef.current !== runId) return
     setMeshScanCommandAccepted(true)
     const refreshed = await refreshEddyState()
     if (commandRunIdRef.current !== runId) return
@@ -713,7 +716,9 @@ export function EddyCalibrationScreen({
       case 'mesh':
         return detailsVisible || saveError || operationUncertain ? <div className="eddy-instrument">{visualOrDetails(null)}<div className="eddy-instrument-controls"><div className="eddy-metric"><span>Размах карты</span><strong>{valueText(measuredMeshMin === null || measuredMeshMax === null ? null : measuredMeshMax - measuredMeshMin)}</strong></div><p>{meshCommandFinished ? 'Профиль сохранён' : meshScanHasNewMatrix ? 'Новый замер · не сохранено' : matrix.length > 0 ? 'Последний замер' : 'Карта не подтверждена'}</p></div></div> : <EddyMeshDiagram matrix={matrix} row={selectedMeshRow} column={selectedMeshColumn} min={calibration?.mesh.min} max={calibration?.mesh.max}
           table={meshTableVisible ? <div className="eddy-mesh-table"><div className="eddy-table-wrap eddy-mesh-values"><table><caption>Строки Y / столбцы X · Z, мм</caption><thead><tr><th scope="col">Y / X</th>{Array.from({ length: meshColumns }, (_, c) => <th key={c} scope="col">{c + 1}</th>)}</tr></thead><tbody>{matrix.map((line, row) => <tr key={row}><th scope="row">{row + 1}</th>{Array.from({ length: meshColumns }, (_, column) => <td key={column} className={selectedMeshRow === row && selectedMeshColumn === column ? 'is-selected' : ''}>{valueText(line[column], 3, '')}</td>)}</tr>)}</tbody></table>{matrix.length === 0 && <p>Измерений пока нет</p>}</div><div className="eddy-mesh-selectors"><div><button type="button" aria-label="Предыдущая строка" disabled={selectedMeshRow === 0 || matrix.length === 0} onClick={() => setMeshRow(selectedMeshRow - 1)}>−</button><span>Y {matrix.length ? selectedMeshRow + 1 : '—'}</span><button type="button" aria-label="Следующая строка" disabled={selectedMeshRow >= matrix.length - 1} onClick={() => setMeshRow(selectedMeshRow + 1)}>+</button></div><div><button type="button" aria-label="Предыдущий столбец" disabled={selectedMeshColumn === 0 || meshColumns === 0} onClick={() => setMeshColumn(selectedMeshColumn - 1)}>−</button><span>X {meshColumns ? selectedMeshColumn + 1 : '—'}</span><button type="button" aria-label="Следующий столбец" disabled={selectedMeshColumn >= meshColumns - 1} onClick={() => setMeshColumn(selectedMeshColumn + 1)}>+</button></div></div><p>Выбранная точка Z {valueText(matrix[selectedMeshRow]?.[selectedMeshColumn])}</p></div> : undefined}
-          controls={<><div className="eddy-metric"><span>Размах</span><strong>{valueText(measuredMeshMin === null || measuredMeshMax === null ? null : measuredMeshMax - measuredMeshMin)}</strong></div><p>{!ready ? 'Последние данные · связи нет' : meshScanHasNewMatrix ? 'Новый замер' : matrix.length > 0 ? 'Последний замер' : `Профиль: ${calibration?.mesh.profile ?? '—'}`}</p><button type="button" className="is-secondary" onClick={() => setMeshTableVisible((visible) => !visible)}>{meshTableVisible ? '3D-карта' : 'Значения'}</button></>} />
+          controls={<><div className="eddy-metric"><span>Размах · {!ready ? 'нет связи' : meshScanHasNewMatrix ? 'новый замер' : matrix.length > 0 ? 'последний замер' : 'нет данных'}</span><strong>{valueText(measuredMeshMin === null || measuredMeshMax === null ? null : measuredMeshMax - measuredMeshMin)}</strong></div>
+            {meshScanMethods && <div className="eddy-mesh-method"><span>Сканирование</span><div role="group" aria-label="Режим сканирования">{([['scan', 'Обычный'], ['rapid_scan', 'Rapid'], ['automatic', 'Точки']] as const).map(([method, label]) => <button key={method} type="button" aria-pressed={meshMethod === method} disabled={!ready || isBusy || activeSession || saveKind !== null} onClick={() => setMeshMethod(method)}>{label}</button>)}</div></div>}
+            <button type="button" className="is-secondary" onClick={() => setMeshTableVisible((visible) => !visible)}>{meshTableVisible ? '3D-карта' : 'Значения'}</button></>} />
       case 'firstLayer':
         return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram firstLayer />)}<div className="eddy-instrument-controls">
           {!activePrint && <><p>Выберите подготовленный G-code первого слоя и проверьте файл.</p>
@@ -783,13 +788,13 @@ export function EddyCalibrationScreen({
         if (accuracyResult !== null && !accuracyRunning) return actions(done, commandButton('Повторить замер', { command: 'eddyProbeAccuracy' }, { secondary: true, blocked: !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => { setAccuracyResult(null); void runProbe('eddyProbeAccuracy') } }))
         return actions(commandButton('Проверить повторяемость', { command: 'eddyProbeAccuracy' }, { primary: true, blocked: accuracyRunning || !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => void runProbe('eddyProbeAccuracy') }))
       case 'screws':
-        if (screwsConfirmed) return actions(commandButton('Далее: карта стола', { command: 'eddyScanMesh', save: false }, { primary: true, blocked: backBlocked || blockCalibration !== null, reason: blockCalibration ?? commandReason({ command: 'eddyScanMesh', save: false }), onClick: () => { if (backBlocked || blockCalibration !== null || commandReason({ command: 'eddyScanMesh', save: false }) !== null) return; openProcedure('mesh'); void runMeshScan() } }))
+        if (screwsConfirmed) return actions(commandButton('Далее: карта стола', meshScanArgs, { primary: true, blocked: backBlocked || blockCalibration !== null, reason: blockCalibration ?? commandReason(meshScanArgs), onClick: () => { if (backBlocked || blockCalibration !== null || commandReason(meshScanArgs) !== null) return; openProcedure('mesh'); void runMeshScan() } }))
         if (!screwsFresh) return actions(commandButton('Измерить винты', { command: 'eddyScrewsTiltStart' }, { primary: true, reason: blockCalibration, onClick: () => void runScrewsMeasurement() }))
         return actions(commandButton('Проверить выравнивание', { command: 'eddyScrewsTiltDone' }, { primary: true, blocked: !screwsFresh || screws?.error !== false || screws.results.length < 4, reason: !screwsFresh ? 'Нужен принятый повторный замер с четырьмя обновлёнными точками.' : screws?.error !== false ? 'Проверьте ошибки винтового замера.' : null, onClick: () => void finishScrews() }), commandButton('Измерить винты', { command: 'eddyScrewsTiltStart' }, { secondary: true, reason: blockCalibration, onClick: () => void runScrewsMeasurement() }))
       case 'mesh':
         if (meshCommandFinished && snapshot.v2.eddy.calibration.meshDone && snapshot.v2.eddy.calibration.requiredDone) return actions(next('Далее: первый слой', 'firstLayer'))
-        if (meshScanHasNewMatrix) return actions(commandButton('Сохранить карту и перезапустить', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }, { primary: true, blocked: saveKind !== null || blockCalibration !== null, reason: blockCalibration, onClick: () => { setMeshSaveTarget(probedMatrix); void beginSave('mesh', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }) } }), commandButton('Повторить сканирование', { command: 'eddyScanMesh', save: false }, { secondary: true, reason: blockCalibration, onClick: () => void runMeshScan() }))
-        return actions(commandButton('Измерить карту стола', { command: 'eddyScanMesh', save: false }, { primary: true, reason: blockCalibration, onClick: () => void runMeshScan() }))
+        if (meshScanHasNewMatrix) return actions(commandButton('Сохранить карту и перезапустить', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }, { primary: true, blocked: saveKind !== null || blockCalibration !== null, reason: blockCalibration, onClick: () => { setMeshSaveTarget(probedMatrix); void beginSave('mesh', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }) } }), commandButton('Повторить сканирование', meshScanArgs, { secondary: true, reason: blockCalibration, onClick: () => void runMeshScan() }))
+        return actions(commandButton('Измерить карту стола', meshScanArgs, { primary: true, reason: blockCalibration, onClick: () => void runMeshScan() }))
       case 'firstLayer':
         if (!activePrint && firstLayerObservedPath !== null && firstLayerObservedPath === firstLayerStartedPath && observedPrintPath === firstLayerObservedPath && (snapshot.printJob.state === 'complete' || snapshot.printJob.state === 'cancelled')) return actions(done)
         if (activePrint) return actions(<button type="button" className="eddy-btn is-primary" disabled>Печать выполняется</button>)
@@ -837,21 +842,23 @@ export function EddyCalibrationScreen({
       : procedure === 'temperature' ? activeTemperatureSession ? activeManualSession ? temperatureAcceptReason : temperatureCompletionIssue : commandReason({ command: 'eddyTemperatureStart' })
         : procedure === 'z0' ? commandReason({ command: 'eddyCheckZ0' })
           : procedure === 'accuracy' ? commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability)
-            : procedure === 'mesh' ? commandReason({ command: 'eddyScanMesh', save: false })
+            : procedure === 'mesh' ? commandReason(meshScanArgs)
               : procedure === 'offsets' ? zOffsetSaveReason
                   : procedure === 'screws' ? commandReason({ command: 'eddyScrewsTiltStart' }) ?? (screwsDoneRefreshRunId !== null && !screwsConfirmed ? 'Ожидаем подтверждение настройки винтов.' : screws?.results.length && !screwsFresh ? 'Нужен повторный замер четырёх винтов.' : null)
                     : procedure === 'firstLayer' && printStartArgs && !activePrint ? getCommandBlockReason('start', printStartArgs) : null
-  const visibleBlockReason = procedure === 'overview' || procedure === 'firstLayer' ? primaryBlockReason : blockCalibration ?? (procedure === 'screws' && screwsConfirmed ? commandReason({ command: 'eddyScanMesh', save: false }) : primaryBlockReason)
+  const visibleBlockReason = procedure === 'overview' || procedure === 'firstLayer' ? primaryBlockReason : blockCalibration ?? (procedure === 'screws' && screwsConfirmed ? commandReason(meshScanArgs) : primaryBlockReason)
   const visibleStatusReason = procedure === 'temperature' && activeTemperatureSession && !activeManualSession && !temperatureSeriesFinished && visibleBlockReason === null
     ? 'Принтер готовит точку измерения. Дождитесь готовности.'
     : visibleBlockReason === 'Принять точку температуры Eddy: активная температурная точка manual_probe не подтверждена.'
     ? 'Принтер готовит точку измерения. Дождитесь готовности.' : visibleBlockReason
   const procedureMessageInBody = procedure !== 'overview' && Boolean(saveError || operationUncertain)
   const statusIsError = !procedureMessageInBody && Boolean(saveError || operationUncertain || procedure === 'temperature' && temperatureCompletionIssue)
+  const hideMeshStatus = procedure === 'mesh' && ready && !isBusy && !activeSession && saveKind === null
+    && !saveError && !operationUncertain && !message && visibleStatusReason === null
   const footerActions = renderProcedureActions()
 
   return (
-    <article className={joinClassNames('eddy-workflow', (procedure === 'temperature' || procedure === 'height' && activeManualSession) && 'eddy-workflow--tall-controls')}>
+    <article className={joinClassNames('eddy-workflow', (procedure === 'temperature' || procedure === 'height' && activeManualSession) && 'eddy-workflow--tall-controls', hideMeshStatus && 'eddy-workflow--mesh-expanded')}>
       <header className="eddy-header">
         <button type="button" disabled={backBlocked} onClick={onBackToList}>{pipelineActive && !backBlocked ? 'Завершить' : 'К списку'}</button>
         <div>{snapshot.source === 'mock' && <p>Симуляция</p>}<h2>{procedure === 'overview' ? 'Обзор калибровок' : activeTitle}</h2></div>
@@ -861,7 +868,7 @@ export function EddyCalibrationScreen({
         {procedure !== 'overview' && <section className="eddy-procedure-content">{renderProcedure()}</section>}
         {procedure === 'overview' && <>{renderOverview()}</>}
       </main>
-      <div className={joinClassNames('eddy-status', statusIsError && 'is-error')} role={statusIsError ? 'alert' : 'status'} aria-hidden={procedureMessageInBody || undefined}>{procedureMessageInBody ? '' : saveError || (operationUncertain ? 'Операция принтера остаётся неопределённой. Продолжение заблокировано.' : saveKind !== null ? 'Ожидаем сохранения и перезапуска принтера.' : message || (!ready ? 'Связи нет · показаны последние данные.' : visibleStatusReason ?? procedureStatus))}</div>
+      {!hideMeshStatus && <div className={joinClassNames('eddy-status', statusIsError && 'is-error')} role={statusIsError ? 'alert' : 'status'} aria-hidden={procedureMessageInBody || undefined}>{procedureMessageInBody ? '' : saveError || (operationUncertain ? 'Операция принтера остаётся неопределённой. Продолжение заблокировано.' : saveKind !== null ? 'Ожидаем сохранения и перезапуска принтера.' : message || (!ready ? 'Связи нет · показаны последние данные.' : visibleStatusReason ?? procedureStatus))}</div>}
       <footer className="eddy-footer">
         <div className="eddy-footer-details">{procedure !== 'overview' && <button type="button" className="is-secondary" aria-expanded={detailsVisible} onClick={() => setDetailsVisible((visible) => !visible)}>{detailsVisible ? 'Скрыть' : 'Подробнее'}</button>}</div>
         <div className="eddy-footer-secondary">
