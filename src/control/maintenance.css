@@ -192,14 +192,6 @@
   background: var(--color-block-surface);
 }
 
-.maintenance-overview-progress::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: none;
-  pointer-events: none;
-}
-
 .maintenance-overview-progress > * {
   position: relative;
   z-index: 1;

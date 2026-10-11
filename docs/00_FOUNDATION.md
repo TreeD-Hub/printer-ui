@@ -45,7 +45,7 @@
 - `Border Default`: `#3A3A3A`
 - `Surface Track`: `#101010`
 - `Text Soft`: `#818181`
-- `Overlay`: `rgba(2, 3, 4, 0.78)`
+- `Overlay`: `rgba(0, 0, 0, 0.78)`
 - `Terminal Grid Dot`: `rgba(244, 244, 240, 0.11)`
 - `Terminal Border Active`: `rgba(244, 244, 240, 0.36)`
 

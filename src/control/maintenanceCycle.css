@@ -129,8 +129,8 @@
 
 .maintenance-complete-dialog button.is-primary {
   border-color: var(--color-primary);
-  background: var(--color-primary);
-  color: var(--color-background);
+  background: var(--color-control-active-surface);
+  color: var(--color-text-primary);
 }
 
 .maintenance-complete-dialog button:disabled {
