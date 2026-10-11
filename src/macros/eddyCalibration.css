@@ -117,7 +117,7 @@
 .eddy-footer-primary { display: flex; }
 .eddy-footer-primary > button, .eddy-footer-primary .eddy-command, .eddy-footer-primary .eddy-command > button { width: 100%; }
 .eddy-footer-emergency > button { width: 100%; }
-.eddy-workflow .is-primary { border-color: var(--color-text-primary); background: var(--color-text-primary); color: var(--color-background); }
+.eddy-workflow .is-primary { border-color: var(--color-control-active-border); background: var(--color-control-active-surface); color: var(--color-text-primary); }
 .eddy-workflow .is-primary:disabled { opacity: .55; }
 .eddy-footer .eddy-command-reason { display: none; }
 .eddy-dialog-layer { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: var(--space-sm); background: var(--color-overlay); }

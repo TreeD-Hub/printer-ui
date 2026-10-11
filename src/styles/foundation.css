@@ -14,15 +14,15 @@
 
 :root {
   /* 00_Foundation: colors */
-  --color-window-background: #11161c; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
+  --color-window-background: #101010; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
   --color-update-background: #000000; /* Чисто чёрная полноэкранная заставка обновления. */
-  --color-background: #101213; /* Основной почти чёрный фон интерфейса. */
-  --color-surface: #101213; /* Фон системных баров и крупных зон. */
-  --color-block-surface: #131517; /* Карточки и панели в Nothing terminal стиле. */
-  --color-surface-elevated: #14181b; /* Вложенные контролы и активные поверхности. */
-  --color-border-subtle: #24282b; /* Мягкие пиксельные разделители. */
-  --color-border-default: #3a3f43; /* Основные рамки карточек, popup и контролов. */
-  --color-surface-track: #030405; /* Фон дорожек прогресса и графиков. */
+  --color-background: #101010; /* Основной почти чёрный фон интерфейса. */
+  --color-surface: var(--color-background); /* Фон системных баров и крупных зон. */
+  --color-block-surface: #161616; /* Однотонные карточки и панели. */
+  --color-surface-elevated: #1c1c1c; /* Вложенные контролы и приподнятые поверхности. */
+  --color-border-subtle: #282828; /* Мягкие разделители и активная заливка. */
+  --color-border-default: #3a3a3a; /* Основные рамки карточек, popup и контролов. */
+  --color-surface-track: var(--color-background); /* Фон дорожек прогресса и графиков. */
   --color-primary: #ff2a2a; /* Красный Nothing-сигнал опасности, нагрева и ошибок. */
   --color-primary-light: #ff5a5a; /* Светлый красный для активного текста. */
   --color-primary-dark: #b91414; /* Тёмный красный для нажатых состояний. */
@@ -37,20 +37,16 @@
   --color-text-soft: #818181; /* Units, meta и muted-информация. */
   --color-overlay: rgba(2, 3, 4, 0.78); /* Затемнение контента под popup. */
   --color-shadow-strong: rgba(0, 0, 0, 0.58); /* Жёсткая тень popup и всплывающих слоёв. */
-  --color-primary-surface: rgba(255, 42, 42, 0.14); /* Активная красная подложка. */
-  --color-primary-surface-soft: rgba(255, 42, 42, 0.09); /* Мягкая активная подложка у контролов. */
+  --color-primary-surface: var(--color-control-active-surface); /* Нейтральная подложка сигнальных действий. */
+  --color-primary-surface-soft: var(--color-control-surface); /* Нейтральная подложка сигнальных контролов. */
   --color-primary-ring: rgba(255, 42, 42, 0.72); /* Красный пиксельный контур. */
   --color-primary-glow: rgba(255, 42, 42, 0.22); /* Сдержанное красное свечение. */
   --color-power-active-ring: rgba(255, 42, 42, 0.58); /* Контур активной кнопки питания. */
   --color-preview-frame-stroke: rgba(244, 244, 240, 0.52); /* Внешняя линия превью модели. */
   --color-preview-cube-stroke: rgba(244, 244, 240, 0.72); /* Основная линия куба в превью модели. */
-  --gradient-progress-print: linear-gradient(90deg, #ff2a2a 0%, #f4f4f0 56%, #8b8f8a 100%); /* Терминальная шкала прогресса. */
-  --gradient-meter-heat: linear-gradient(90deg, #f4f4f0 0%, color-mix(in srgb, var(--color-primary) 58%, #f4f4f0) 55%, var(--color-primary) 100%); /* Единая шкала нагрева от белого к заданному красному. */
   --terminal-red: #ff2a2a;
   --terminal-grid-dot: rgba(244, 244, 240, 0.11);
   --terminal-grid-line: rgba(244, 244, 240, 0.055);
-  --terminal-scanline: rgba(244, 244, 240, 0.035);
-  --terminal-panel-sheen: rgba(244, 244, 240, 0.05);
   --terminal-border-active: rgba(244, 244, 240, 0.36);
 
   /* 00_Foundation: typography */
@@ -81,11 +77,11 @@
 
   /* Общие состояния и геометрия контролов. */
   --color-control-active-border: var(--terminal-border-active);
-  --color-control-surface: rgba(244, 244, 240, 0.025);
-  --color-control-active-surface: rgba(244, 244, 240, 0.06);
+  --color-control-surface: var(--color-surface-elevated);
+  --color-control-active-surface: var(--color-border-subtle);
   --color-control-active-text: var(--color-text-primary);
   --color-selection: var(--color-primary);
-  --color-selection-surface: var(--color-primary-surface-soft);
+  --color-selection-surface: var(--color-control-active-surface);
   --color-focus-ring: var(--color-text-primary);
   --control-min-width: 48px;
   --control-height: 56px;

@@ -109,7 +109,7 @@
   align-items: center;
   justify-content: center;
   color: var(--color-text-secondary);
-  background: color-mix(in srgb, var(--color-surface-elevated) 86%, transparent);
+  background: var(--color-surface-elevated);
   font-size: var(--font-size-tiny);
   line-height: 1;
   white-space: nowrap;
@@ -120,19 +120,19 @@
 .system-status-badge.is-ok {
   border-color: color-mix(in srgb, var(--color-success) 58%, var(--color-border-default));
   color: var(--color-success);
-  background: color-mix(in srgb, var(--color-success) 10%, var(--color-surface-elevated));
+  background: var(--color-surface-elevated);
 }
 
 .system-status-badge.is-warning {
   border-color: color-mix(in srgb, var(--color-warning) 62%, var(--color-border-default));
   color: var(--color-warning);
-  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface-elevated));
+  background: var(--color-surface-elevated);
 }
 
 .system-status-badge.is-error {
   border-color: color-mix(in srgb, var(--color-error) 62%, var(--color-border-default));
   color: var(--color-error);
-  background: color-mix(in srgb, var(--color-error) 10%, var(--color-surface-elevated));
+  background: var(--color-surface-elevated);
 }
 
 .system-status-badge.is-muted {
@@ -161,11 +161,8 @@
   min-width: 0;
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, var(--terminal-panel-sheen), transparent 42%),
-    var(--color-block-surface);
+  background: var(--color-block-surface);
   box-shadow:
-    inset 0 0 0 1px rgba(244, 244, 240, 0.035),
     0 10px 24px rgba(0, 0, 0, 0.2);
 }
 
@@ -326,7 +323,7 @@
   min-height: 40px;
   border: 1px solid color-mix(in srgb, var(--color-border-default) 72%, transparent);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--color-surface-elevated) 72%, var(--color-block-surface));
+  background: var(--color-surface-elevated);
   padding: 6px 7px;
   display: flex;
   align-items: center;

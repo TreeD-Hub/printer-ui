@@ -62,8 +62,8 @@
 .calibration-procedure-footer button { height: var(--control-height); padding: var(--space-xxs) var(--space-xs); line-height: 1.25; text-align: center; }
 .calibration-footer-secondary { min-width: 0; display: flex; justify-content: center; }
 .calibration-footer-primary { min-width: 0; }
-.calibration-footer-primary > button { width: 100%; background: var(--color-text-primary); color: var(--color-background); }
-.calibration-procedure .is-primary { border-color: var(--color-text-primary); background: var(--color-text-primary); color: var(--color-background); }
+.calibration-footer-primary > button { width: 100%; background: var(--color-control-active-surface); color: var(--color-text-primary); }
+.calibration-procedure .is-primary { border-color: var(--color-control-active-border); background: var(--color-control-active-surface); color: var(--color-text-primary); }
 .calibration-procedure .is-primary:disabled { opacity: .55; }
 .calibration-footer-emergency { min-width: 0; }
 @media (prefers-reduced-motion: reduce) {

@@ -31,8 +31,8 @@ body {
   min-height: 100vh;
   place-items: center;
   padding: 24px;
-  background: #050505;
-  color: #f4f4f0;
+  background: var(--color-background);
+  color: var(--color-text-primary);
 }
 
 .runtime-error-panel {
@@ -40,7 +40,7 @@ body {
   border: 1px solid rgba(244, 244, 240, 0.24);
   border-radius: 8px;
   padding: 24px;
-  background: #0d0f12;
+  background: var(--color-surface-elevated);
 }
 
 .runtime-error-kicker {
