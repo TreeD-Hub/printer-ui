@@ -65,14 +65,16 @@ function renderScreen({
   executeCommand = vi.fn<(args: ExecuteCommandArgs) => Promise<boolean>>().mockResolvedValue(true),
   refreshEddyState = vi.fn<() => Promise<boolean>>().mockResolvedValue(true),
   getCommandBlockReason = () => null,
+  onCalibrationActivityChange,
 }: {
   initialProcedure?: 'overview' | 'screws' | 'mesh' | 'firstLayer' | 'xyOffset' | 'accuracy' | 'temperature' | 'height' | 'driveCurrent' | 'z0' | 'offsets'
   snapshot?: ReturnType<typeof readySnapshot>
   executeCommand?: (args: ExecuteCommandArgs) => Promise<boolean>
   refreshEddyState?: () => Promise<boolean>
   getCommandBlockReason?: () => string | null
+  onCalibrationActivityChange?: (active: boolean) => void
 } = {}) {
-  const props = { snapshot, pendingCommand: null, executeCommand, refreshEddyState, getCommandBlockReason, onBackToList: vi.fn(), initialProcedure }
+  const props = { snapshot, pendingCommand: null, executeCommand, refreshEddyState, getCommandBlockReason, onCalibrationActivityChange, onBackToList: vi.fn(), initialProcedure }
   const view = render(<EddyCalibrationScreen {...props} />)
   return { props, view, executeCommand }
 }
@@ -86,18 +88,69 @@ it('обзор показывает неизвестное состояние в
   expect(screen.queryByText('обязательные шаги готовы')).not.toBeInTheDocument()
 })
 
+it('высота показывает один заголовок, шесть TESTZ и меняет схему только по подтверждённому Z', async () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.manualProbe = { active: true, zMm: 1, zMinimumMm: 0, zMaximumMm: 2 }
+  const { props, view, executeCommand } = renderScreen({ initialProcedure: 'height', snapshot })
+  expect(screen.getAllByRole('heading', { name: 'Высота по бумаге' })).toHaveLength(1)
+  expect(screen.getByRole('img')).toHaveAttribute('data-delta', '0')
+  expect(view.container.querySelectorAll('.eddy-testz button')).toHaveLength(6)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: '+0.1 мм' })))
+  expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyTestZ', deltaMm: 0.1 })
+  expect(screen.getByRole('img')).toHaveAttribute('data-delta', '0')
+  const changed = { ...snapshot, calibration: { ...snapshot.calibration!, manualProbe: { ...snapshot.calibration!.manualProbe, zMm: 1.1 } } }
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={changed} />)
+  expect(Number(screen.getByRole('img').getAttribute('data-delta'))).toBeCloseTo(0.1)
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...changed, calibration: { ...changed.calibration, manualProbe: { ...changed.calibration.manualProbe, active: false } } }} />)
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...changed, calibration: { ...changed.calibration, manualProbe: { ...changed.calibration.manualProbe, zMm: 5 } } }} />)
+  expect(screen.getByRole('img')).toHaveAttribute('data-delta', '0')
+})
+
+it('выбор строки и столбца карты сохраняется при переключении таблицы', () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.mesh.probedMatrix = [[0.1, null], [0.2, 0.3]]
+  renderScreen({ initialProcedure: 'mesh', snapshot })
+  fireEvent.click(screen.getByRole('button', { name: 'Значения' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Следующая строка' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Следующий столбец' }))
+  expect(screen.getByText('Выбранная точка Z 0.300 мм')).toBeInTheDocument()
+  expect(screen.getByRole('table')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: '3D-карта' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Значения' }))
+  expect(screen.getByText('Выбранная точка Z 0.300 мм')).toBeInTheDocument()
+})
+
+it.each([[[0.1, null], [0.2, 0.3]], [[0.1, 0.2], [0.3]]])('не разрешает запись неполной карты после принятого сканирования', async (...rows) => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.mesh.probedMatrix = rows
+  renderScreen({ initialProcedure: 'mesh', snapshot })
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Сканировать карту без записи' })))
+  expect(screen.queryByRole('button', { name: 'Сохранить профиль и перезапустить' })).not.toBeInTheDocument()
+})
+
+it.each(['manual', 'temperature'] as const)('обзор оставляет отмену и аварийную остановку при активной сессии %s', (session) => {
+  const snapshot = readySnapshot()
+  if (session === 'manual') snapshot.calibration!.manualProbe.active = true
+  else snapshot.calibration!.eddy.temperatureSeriesActive = true
+  renderScreen({ snapshot })
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Отменить текущий этап' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
+})
+
 it('принимает температурную точку отдельно от завершения серии и блокирует выход из активной сессии', async () => {
   const snapshot = readySnapshot()
   snapshot.calibration!.eddy.inTemperatureCalibration = true
   snapshot.calibration!.eddy.temperatureSeriesActive = true
   snapshot.v2.eddy.calibration.operatorPrompt = 'temperature_points'
   const { executeCommand } = renderScreen({ initialProcedure: 'temperature', snapshot })
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'К обзору' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'К обзору' })).not.toBeInTheDocument()
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Принять текущую точку' })))
   expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyTemperatureAccept' })
   expect(executeCommand).not.toHaveBeenCalledWith({ command: 'eddyTemperatureComplete' })
-  expect(screen.getByText('Измерено точек: 0')).toBeInTheDocument()
+  expect(screen.getByText(/Принято точек:/)).toBeInTheDocument()
+  expect(screen.getByText('0')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Завершить серию и сохранить' })).toBeDisabled()
 })
 
@@ -146,8 +199,18 @@ it('показывает PROBE_ACCURACY только после настояще
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить PROBE_ACCURACY' })))
   expect(screen.getByText('Ожидаем ответ Klipper…')).toBeInTheDocument()
   act(() => receivePrinterGcodeResponse('probe accuracy: probe at X: 10.000 Y: 10.000 Z: 0.100: range 0.012, average 0.040, median 0.040, standard deviation 0.004'))
-  expect(screen.getByText('Размах 0.012 мм · среднее 0.040 мм · σ 0.004 мм')).toBeInTheDocument()
+  expect(screen.getByText('0.012 мм')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Готово' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
+  expect(screen.getByText('Среднее 0.040 мм')).toBeInTheDocument()
+  expect(screen.getByText('σ 0.004 мм')).toBeInTheDocument()
   expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyProbeAccuracy' })
+})
+
+it('показывает причину блокировки рядом с недоступной командой', () => {
+  renderScreen({ initialProcedure: 'accuracy', getCommandBlockReason: () => 'Дождитесь готовности принтера.' })
+  expect(screen.getByRole('button', { name: 'Запустить PROBE_ACCURACY' })).toBeDisabled()
+  expect(screen.getByText('Дождитесь готовности принтера.')).toBeInTheDocument()
 })
 
 it('запрашивает отдельное подтверждение перед аварийной остановкой', async () => {
@@ -167,10 +230,10 @@ it('отменяет ручную проверку только штатным E
   const { props, view, executeCommand } = renderScreen({ initialProcedure: 'height', snapshot })
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Отменить ручное измерение' })))
   expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyAbort' })
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
   const idle = { ...snapshot, calibration: { ...snapshot.calibration!, manualProbe: { ...snapshot.calibration!.manualProbe, active: false } } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={idle} />)
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeEnabled()
 })
 
 it('пускает аварийную остановку поверх незавершённой команды и игнорирует её поздний успех', async () => {
@@ -189,7 +252,7 @@ it('пускает аварийную остановку поверх незав
   await act(async () => resolveHeightCommand(true))
   expect(screen.queryByText(/Ждём перезапуск, готовность Klipper/)).not.toBeInTheDocument()
   expect(screen.queryByText('Настройки подтверждены после перезапуска принтера.')).not.toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
 })
 
 it('оставляет сохранение заблокированным после неопределённого timeout и игнорирует поздний ответ', async () => {
@@ -202,11 +265,11 @@ it('оставляет сохранение заблокированным по�
   fireEvent.click(screen.getByRole('button', { name: 'Принять высоту и сохранить' }))
   await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
   expect(screen.getByRole('alert')).toHaveTextContent('Операция остаётся неопределённой')
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'К обзору' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'К обзору' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
   await act(async () => resolveCommand(true))
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
   expect(screen.queryByText('Настройки подтверждены после перезапуска принтера.')).not.toBeInTheDocument()
 })
 
@@ -223,8 +286,8 @@ it('блокирует повтор и выход после deferred RPC false,
   expect(refreshEddyState).not.toHaveBeenCalled()
   expect(screen.getByRole('alert')).toHaveTextContent('Итог неизвестен')
   expect(screen.getByRole('button', { name: 'Сканировать карту без записи' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'К обзору' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'К обзору' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
 })
 
@@ -236,7 +299,7 @@ it('оставляет блокировку и emergency-stop при rejected п
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подготовить XY и нижнюю Z-опору' })))
   expect(screen.getByRole('alert')).toHaveTextContent('Итог неизвестен')
   expect(screen.getByRole('button', { name: 'Подготовить XY и нижнюю Z-опору' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
 })
 
@@ -253,7 +316,7 @@ it('снимает неопределённость только после пр
   fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подтвердить остановку' })))
   expect(command).toHaveBeenCalledWith({ command: 'emergencyStop' })
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
 
   const recovered = {
     ...uncertainWithManualSession,
@@ -261,7 +324,7 @@ it('снимает неопределённость только после пр
   }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={recovered} />)
   expect(screen.getByText(/Аварийная остановка подтверждена/)).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeEnabled()
 })
 
 it('не снимает блокировку после неподтверждённого emergency-stop', async () => {
@@ -272,7 +335,7 @@ it('не снимает блокировку после неподтверждё
   fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подтвердить остановку' })))
   expect(executeCommand).toHaveBeenCalledWith({ command: 'emergencyStop' })
-  expect(screen.getByRole('button', { name: 'К списку макросов' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
 })
 
@@ -280,7 +343,8 @@ it('показывает drive_current как код регистра без ф�
   const snapshot = readySnapshot()
   snapshot.calibration!.eddy.driveCurrent = 7
   renderScreen({ initialProcedure: 'driveCurrent', snapshot })
-  expect(screen.getByText('Значение регистра 0–31 без единиц измерения.')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
+  expect(screen.getByText(/Регистр 0–31 · без единиц измерения/)).toBeInTheDocument()
   expect(screen.getByText('7')).toBeInTheDocument()
   expect(screen.queryByText(/мА/)).not.toBeInTheDocument()
 })
@@ -321,15 +385,16 @@ it('вводит XY-смещения через touch-клавиатуру, вк
   expect(screen.queryByText('Настройки подтверждены после перезапуска принтера.')).not.toBeInTheDocument()
   const ready = { ...starting, klippy: { ...starting.klippy, state: 'ready' as const } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={ready} />)
-  expect(screen.getByText('Настройки подтверждены после перезапуска принтера.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Далее: высота по бумаге' })).toBeEnabled()
 })
 
 it('сопоставляет тест первого слоя по полному пути и открывает babystep только для наблюдавшегося файла', async () => {
   const snapshot = readySnapshot()
   snapshot.printFiles = [{ id: 'first-layer', path: 'tests/bed.gcode', name: 'bed.gcode', directory: 'tests', printTime: '', weight: '', material: '', addedAt: '' }]
   const { props, view, executeCommand } = renderScreen({ initialProcedure: 'firstLayer', snapshot })
-  fireEvent.change(screen.getByRole('combobox', { name: 'Файл теста' }), { target: { value: 'tests/bed.gcode' } })
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить выбранный тест' })))
+  expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: 'Выбрать bed.gcode, каталог tests' }))
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить тест первого слоя' })))
   expect(executeCommand).toHaveBeenCalledWith({ command: 'start', filename: 'tests/bed.gcode' })
 
   const duplicateBasename = { ...snapshot, printJob: { ...snapshot.printJob, state: 'printing' as const, filename: 'production/bed.gcode' } }
@@ -350,6 +415,23 @@ it('старое completed-состояние не помечает тест п�
   expect(screen.queryByText('Тест завершён')).not.toBeInTheDocument()
 })
 
+it('завершает подготовку первого слоя без файла и не предлагает Готово при активной печати', () => {
+  const snapshot = readySnapshot()
+  snapshot.printFiles = []
+  const onCalibrationActivityChange = vi.fn<(active: boolean) => void>()
+  const { view, executeCommand } = renderScreen({ initialProcedure: 'firstLayer', snapshot, onCalibrationActivityChange })
+  expect(screen.getByRole('button', { name: 'Готово' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Готово' }))
+  expect(view.container.querySelector('.eddy-overview-grid')).toBeInTheDocument()
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(false)
+  expect(executeCommand).not.toHaveBeenCalled()
+  view.unmount()
+
+  snapshot.printJob = { ...snapshot.printJob, state: 'printing', filename: 'tests/bed.gcode' }
+  renderScreen({ initialProcedure: 'firstLayer', snapshot })
+  expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
+})
+
 it('показывает координаты Z0 отдельно и подтверждает успех после обновления этапа без ожидания перезапуска', async () => {
   const snapshot = readySnapshot()
   snapshot.v2.eddy.calibration.z0Done = false
@@ -359,11 +441,15 @@ it('показывает координаты Z0 отдельно и подтв�
   })
   const { props, view } = renderScreen({ initialProcedure: 'z0', snapshot, executeCommand })
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Проверить Z0' })))
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
   expect(screen.getByText(/Датчик \(125.0,128.5\)/)).toBeInTheDocument()
-  expect(screen.queryByText('Подтверждено после команды')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Далее: винты стола' })).not.toBeInTheDocument()
   const confirmed = { ...snapshot, v2: { ...snapshot.v2, eddy: { ...snapshot.v2.eddy, calibration: { ...snapshot.v2.eddy.calibration, z0Done: true, activeStep: 'screws' as const, operatorPrompt: 'verify_z0' as const } } } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={confirmed} />)
-  expect(screen.getByText('Подтверждено после команды')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Далее: винты стола' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Далее: винты стола' }))
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить винты' })))
+  expect(screen.getByRole('button', { name: 'Завершить' })).toBeEnabled()
 })
 
 it('не подтверждает Z0 по координатному RESPOND и неуспешной команде', async () => {
@@ -375,11 +461,11 @@ it('не подтверждает Z0 по координатному RESPOND и 
   })
   const { props, view } = renderScreen({ initialProcedure: 'z0', snapshot, executeCommand })
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Проверить Z0' })))
-  expect(screen.getByText(/Датчик \(125.0,128.5\)/)).toBeInTheDocument()
-  expect(screen.queryByText('Подтверждено после команды')).not.toBeInTheDocument()
+  expect(screen.getByRole('alert')).toHaveTextContent('Итог неизвестен')
+  expect(screen.queryByRole('button', { name: 'Далее: винты стола' })).not.toBeInTheDocument()
   const reported = { ...snapshot, v2: { ...snapshot.v2, eddy: { ...snapshot.v2.eddy, calibration: { ...snapshot.v2.eddy.calibration, z0Done: true, activeStep: 'screws' as const, operatorPrompt: 'verify_z0' as const } } } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={reported} />)
-  expect(screen.queryByText('Подтверждено после команды')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Далее: винты стола' })).not.toBeInTheDocument()
 })
 
 it('готовит XY и нижнюю Z-опору перед первичной высотной калибровкой', async () => {
@@ -411,7 +497,13 @@ it('принимает повторную идентичную mesh-матриц
   expect(screen.queryByText('Сохранённый профиль default совпадает с картой после перезапуска.')).not.toBeInTheDocument()
   const ready = { ...measured, calibration: { ...measured.calibration!, config: { savePending: false, pendingSections: [] }, mesh: { ...measured.calibration!.mesh, savedProfiles: { default: [[0.1, 0.2], [0.3, 0.4]] } } } }
   view.rerender(<EddyCalibrationScreen {...props} snapshot={ready} />)
-  expect(screen.getByText('Сохранённый профиль default совпадает с картой после перезапуска.')).toBeInTheDocument()
+  expect(screen.getByText('Результат подтверждён')).toBeInTheDocument()
+  const completed = { ...ready, v2: { ...ready.v2, eddy: { ...ready.v2.eddy, calibration: { ...ready.v2.eddy.calibration, meshDone: true, requiredDone: true } } } }
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={completed} />)
+  expect(screen.getByRole('button', { name: 'Далее: первый слой' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Далее: первый слой' }))
+  expect(screen.getByRole('heading', { name: 'Первый слой' })).toBeInTheDocument()
+  expect(executeCommand).not.toHaveBeenCalledWith(expect.objectContaining({ command: 'start' }))
 })
 
 it('не позволяет сохранять mesh, если target refresh сообщил об ошибке', async () => {
@@ -435,4 +527,142 @@ it('принимает идентичный результат винтов пр
   renderScreen({ initialProcedure: 'screws', snapshot, refreshEddyState: vi.fn<() => Promise<boolean>>().mockResolvedValue(false) })
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить винты' })))
   expect(screen.getByRole('button', { name: 'Подтвердить после повторного замера' })).toBeDisabled()
+})
+
+it('ведёт от четырёх подтверждённых винтов к явному сканированию карты', async () => {
+  const snapshot = readySnapshot()
+  snapshot.v2.eddy.calibration.screwsDone = false
+  snapshot.calibration!.screws = { error: false, maxDeviationMm: 0.1, results: [[55, 40], [235, 40], [55, 222], [235, 222]].map(([xMm, yMm], index) => ({ name: `Винт ${index + 1}`, xMm, yMm, zMm: 0.1, isBase: index === 0, sign: index === 0 ? null : 'CW', adjust: '00:15' })) }
+  const { props, view, executeCommand } = renderScreen({ initialProcedure: 'screws', snapshot })
+  expect(view.container.querySelectorAll('.eddy-diagram circle')).toHaveLength(4)
+  expect(screen.getByRole('button', { name: 'Далее: карта стола' })).toBeDisabled()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить винты' })))
+  expect(screen.getByText('Результат замера')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Далее: карта стола' })).toBeDisabled()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подтвердить после повторного замера' })))
+  expect(screen.getByRole('button', { name: 'Далее: карта стола' })).toBeDisabled()
+  const confirmed = { ...snapshot, v2: { ...snapshot.v2, eddy: { ...snapshot.v2.eddy, calibration: { ...snapshot.v2.eddy.calibration, screwsDone: true, activeStep: 'mesh' as const } } } }
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={confirmed} />)
+  expect(screen.getByRole('button', { name: 'Далее: карта стола' })).toBeEnabled()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Далее: карта стола' })))
+  expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyScanMesh', save: false })
+  expect(screen.getByRole('heading', { name: 'Карта стола' })).toBeInTheDocument()
+})
+
+it('старый код катушки не открывает Далее без принятой команды, перезапуска и подтверждения', async () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.eddy.driveCurrent = 7
+  snapshot.v2.eddy.calibration.driveCurrentDone = true
+  const { props, view } = renderScreen({ initialProcedure: 'driveCurrent', snapshot })
+  expect(screen.queryByRole('button', { name: 'Далее: высота по бумаге' })).not.toBeInTheDocument()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Настроить код тока катушки' })))
+  expect(screen.getByRole('button', { name: 'Сохраняем · ждём перезапуск' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Далее: высота по бумаге' })).not.toBeInTheDocument()
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, klippy: { ...snapshot.klippy, state: 'startup' } }} />)
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={snapshot} />)
+  expect(screen.getByRole('button', { name: 'Далее: высота по бумаге' })).toBeEnabled()
+})
+
+it('Далее после высоты появляется только после записи, перезапуска и перехода device к температуре', async () => {
+  const snapshot = readySnapshot()
+  snapshot.v2.eddy.calibration.primaryDone = false
+  snapshot.calibration!.manualProbe = { active: true, zMm: 0.1, zMinimumMm: 0, zMaximumMm: 2 }
+  const { props, view } = renderScreen({ initialProcedure: 'height', snapshot })
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Принять высоту и сохранить' })))
+  expect(screen.queryByRole('button', { name: 'Далее: температурная серия' })).not.toBeInTheDocument()
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, klippy: { ...snapshot.klippy, state: 'startup' } }} />)
+  const saved = { ...snapshot, calibration: { ...snapshot.calibration!, manualProbe: { ...snapshot.calibration!.manualProbe, active: false }, eddy: { ...snapshot.calibration!.eddy, heightCalibrated: true } } }
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={saved} />)
+  expect(screen.queryByRole('button', { name: 'Далее: температурная серия' })).not.toBeInTheDocument()
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...saved, v2: { ...snapshot.v2, eddy: { ...snapshot.v2.eddy, calibration: { ...snapshot.v2.eddy.calibration, primaryDone: true, activeStep: 'temperature' } } } }} />)
+  expect(screen.getByRole('button', { name: 'Далее: температурная серия' })).toBeEnabled()
+})
+
+it('подробности и длинная ошибка не убирают TESTZ и аварийную остановку', async () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.manualProbe = { active: true, zMm: 1, zMinimumMm: 0, zMaximumMm: 2 }
+  const { view } = renderScreen({ initialProcedure: 'height', snapshot, executeCommand: vi.fn<() => Promise<boolean>>().mockRejectedValue(new Error('Длинная ошибка '.repeat(40))) })
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
+  expect(screen.getByText(/ΔZ 0.000 мм с начала проверки/)).toBeInTheDocument()
+  expect(view.container.querySelectorAll('.eddy-testz button')).toHaveLength(6)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: '+0.1 мм' })))
+  expect(screen.getByRole('alert')).toBeInTheDocument()
+  expect(view.container.querySelectorAll('.eddy-testz button')).toHaveLength(6)
+  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
+})
+
+it('удерживает активность от запуска через результат и Далее до Готово', async () => {
+  const onCalibrationActivityChange = vi.fn<(active: boolean) => void>()
+  const snapshot = readySnapshot()
+  const { props, view } = renderScreen({ initialProcedure: 'driveCurrent', snapshot, onCalibrationActivityChange })
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(false)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Настроить код тока катушки' })))
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, klippy: { ...snapshot.klippy, state: 'startup' } }} />)
+  const saved = { ...snapshot, calibration: { ...snapshot.calibration!, eddy: { ...snapshot.calibration!.eddy, driveCurrent: 7 } }, v2: { ...snapshot.v2, eddy: { ...snapshot.v2.eddy, calibration: { ...snapshot.v2.eddy.calibration, driveCurrentDone: true } } } }
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={saved} />)
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
+  fireEvent.click(screen.getByRole('button', { name: 'Далее: высота по бумаге' }))
+  expect(screen.getByRole('heading', { name: 'Высота по бумаге' })).toBeInTheDocument()
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
+  view.rerender(<EddyCalibrationScreen {...props} initialProcedure="accuracy" snapshot={saved} />)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить PROBE_ACCURACY' })))
+  act(() => receivePrinterGcodeResponse('probe accuracy results: maximum 0.052, minimum 0.040, range 0.012, average 0.045, median 0.045, standard deviation 0.004'))
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
+  fireEvent.click(screen.getByRole('button', { name: 'Готово' }))
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(false)
+})
+
+it('активная device-сессия скрывает навигацию до принятой и наблюдаемой отмены', async () => {
+  const onCalibrationActivityChange = vi.fn<(active: boolean) => void>()
+  const snapshot = readySnapshot()
+  snapshot.calibration!.manualProbe.active = true
+  const { props, view } = renderScreen({ initialProcedure: 'height', snapshot, onCalibrationActivityChange })
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Отменить ручное измерение' })))
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, calibration: { ...snapshot.calibration!, manualProbe: { ...snapshot.calibration!.manualProbe, active: false } } }} />)
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(false)
+})
+
+it('не снимает активность при неопределённом запуске; уход очищает callback', async () => {
+  const onCalibrationActivityChange = vi.fn<(active: boolean) => void>()
+  const { view } = renderScreen({ initialProcedure: 'screws', onCalibrationActivityChange, executeCommand: vi.fn<() => Promise<boolean>>().mockResolvedValue(false) })
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(false)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить винты' })))
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
+  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
+  view.unmount()
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(false)
+})
+
+it('не возвращает навигацию после неподтверждённой отмены даже при inactive-снимке', async () => {
+  const onCalibrationActivityChange = vi.fn<(active: boolean) => void>()
+  const snapshot = readySnapshot()
+  snapshot.calibration!.manualProbe.active = true
+  const { props, view } = renderScreen({ initialProcedure: 'height', snapshot, onCalibrationActivityChange, executeCommand: vi.fn<() => Promise<boolean>>().mockResolvedValue(false) })
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Отменить ручное измерение' })))
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, calibration: { ...snapshot.calibration!, manualProbe: { ...snapshot.calibration!.manualProbe, active: false } } }} />)
+  expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
+  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
+})
+
+it('сохраняет доступную аварийную остановку после результата винтов и при открытых подробностях', async () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.screws = { error: false, maxDeviationMm: 0.1, results: [[55, 40], [235, 40], [55, 222], [235, 222]].map(([xMm, yMm], index) => ({ name: `Винт ${index + 1}`, xMm, yMm, zMm: 0.1, isBase: index === 0, sign: index === 0 ? null : 'CW', adjust: '00:15' })) }
+  const { props, view } = renderScreen({ initialProcedure: 'screws', snapshot })
+  expect(screen.getByRole('button', { name: 'В папку Eddy' })).toBeEnabled()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить винты' })))
+  expect(screen.getByText('Результат замера')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Завершить' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Завершить' }))
+  expect(props.onBackToList).toHaveBeenCalledOnce()
+  expect(view.container.querySelectorAll('.eddy-footer button')).toHaveLength(4)
+  expect(screen.getByRole('button', { name: 'Подтвердить после повторного замера' })).toBeEnabled()
+  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
+  expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
+  fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' }))
+  expect(screen.getByRole('alertdialog', { name: 'Аварийная остановка' })).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Подтвердить остановку' })).toBeEnabled()
 })

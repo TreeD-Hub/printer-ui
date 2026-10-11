@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import {
   BOTTOM_NAV_ITEMS,
   type ScreenId,
@@ -33,6 +33,8 @@ export function AppScreenContent({
   settings,
   onScreenSelect,
 }: AppScreenContentProps) {
+  const [calibrationActive, setCalibrationActive] = useState(false)
+  const calibrationFullScreen = activeScreen === 'macros' && calibrationActive
   const activeNavIndex = Math.max(
     0,
     BOTTOM_NAV_ITEMS.findIndex((item) => item.id === activeScreen),
@@ -40,7 +42,7 @@ export function AppScreenContent({
 
   return (
     <>
-      <div className={`content-grid ${isFilesScreenActive ? 'is-files-active' : ''} ${activeScreen === 'control' ? 'is-control-active' : ''}`}>
+      <div className={`content-grid ${isFilesScreenActive ? 'is-files-active' : ''} ${activeScreen === 'control' ? 'is-control-active' : ''}`} style={calibrationFullScreen ? { gridRow: '1 / -1' } : undefined}>
         {activeScreen === 'dashboard' ? (
           <DashboardContainer {...dashboard} />
         ) : isFilesScreenActive ? (
@@ -57,11 +59,11 @@ export function AppScreenContent({
           </section>
         )}
         <div style={{ display: activeScreen === 'macros' ? 'contents' : 'none' }}>
-          <MacrosContainer {...macros} />
+          <MacrosContainer {...macros} onCalibrationActivityChange={setCalibrationActive} />
         </div>
       </div>
 
-      <nav
+      {!calibrationFullScreen && <nav
         className="bottom-nav"
         aria-label="Основная навигация"
         style={{ '--nav-active-index': String(activeNavIndex) } as CSSProperties}
@@ -77,7 +79,7 @@ export function AppScreenContent({
             onClick={() => onScreenSelect(item.id)}
           />
         ))}
-      </nav>
+      </nav>}
     </>
   )
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getPrinterFileNameFromPath,
   normalizePrinterFilePath,
@@ -80,6 +80,7 @@ export function usePrintSessionController({
   const [mockActivePrintFile, setMockActivePrintFile] = useState<PrintFileItem | null>(null)
   const [activePrintUiState, setActivePrintUiState] = useState<ActivePrintUiState | null>(null)
   const [isPrintCancelConfirmOpen, setIsPrintCancelConfirmOpen] = useState<boolean>(false)
+  const previousPrintState = useRef(snapshot.printJob.state)
 
   const files = snapshot.source === 'live' ? snapshot.printFiles : filesLibrary
   const jobActive = isPrintJobActive(snapshot.printJob)
@@ -297,6 +298,17 @@ export function usePrintSessionController({
     selectedPrintFile,
     snapshot.source,
   ])
+
+  useEffect(() => {
+    const wasActive = isPrintJobActive({ state: previousPrintState.current })
+    previousPrintState.current = snapshot.printJob.state
+    if (snapshot.source === 'mock' && wasActive &&
+      ['complete', 'cancelled', 'error'].includes(snapshot.printJob.state)) {
+      setActivePrintFileName(null)
+      setMockActivePrintFile(null)
+      setActivePrintUiState(null)
+    }
+  }, [snapshot.printJob.state, snapshot.source])
 
   useEffect(() => {
     if (!hasActivePrint || activePrintUiState === null) {

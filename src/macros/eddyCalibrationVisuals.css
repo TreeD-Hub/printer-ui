@@ -1,0 +1,17 @@
+.eddy-diagram { margin: 0; min-width: 0; display: grid; align-content: center; gap: 8px; color: var(--color-text-primary); }
+.eddy-diagram svg { display: block; width: 100%; max-height: 208px; }
+.eddy-diagram svg text { fill: currentColor; font: 14px var(--font-family-ui); }
+.eddy-diagram figcaption { color: var(--color-text-secondary); font: 14px/1.35 var(--font-family-ui); }
+.eddy-diagram figcaption span { display: block; }
+.eddy-selected-point, .eddy-xy-draft { color: var(--color-selection); }
+.eddy-screw-turn { display: flex; align-items: center; gap: 8px; font: 16px var(--font-family-ui); }
+.eddy-screw-turn svg { width: 72px; height: 72px; flex: 0 0 72px; }
+.eddy-mesh-diagram { height: 100%; grid-template-columns: minmax(0, 1fr) 224px; gap: 16px; }
+.eddy-mesh-viewport { min-height: 0; min-width: 0; }
+.eddy-mesh-viewport > svg { height: 100%; max-height: none; touch-action: none; cursor: grab; }
+.eddy-mesh-viewport > svg:active { cursor: grabbing; }
+.eddy-mesh-viewport > svg:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.eddy-mesh-view-controls { min-width: 0; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.eddy-mesh-diagram > figcaption { grid-column: 1 / -1; }
+.eddy-mesh-rotation { display: flex; justify-content: center; gap: 8px; }
+.eddy-mesh-rotation button { min-width: 48px; min-height: 56px; padding: 4px 8px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); color: var(--color-text-primary); background: var(--color-block-surface); font: 14px var(--font-family-ui); cursor: pointer; }

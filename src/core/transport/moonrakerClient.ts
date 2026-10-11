@@ -16,6 +16,7 @@ import type {
   PrinterPrintFilesStateSnapshot,
   PrinterPrintJobStateSnapshot,
   PrinterSnapshot,
+  PrinterShaperResonanceReport,
   PrinterUsageSnapshot,
   TransportClient,
 } from './types'
@@ -612,6 +613,31 @@ export function createMoonrakerClient(options: MoonrakerClientOptions = {}): Tra
         calibration: snapshot.v2.eddy.calibration,
         calibrationState: snapshot.calibration,
       }
+    },
+    async fetchShaperResonances(mode): Promise<PrinterShaperResonanceReport> {
+      if (mode !== 'full' && mode !== 'light') {
+        throw new MoonrakerTransportError('invalid-result', 'Режим резонансов должен быть full или light')
+      }
+      const result = await fetchMoonraker<unknown>(`/server/treed/resonances?mode=${mode}`, context)
+      if (result === null || typeof result !== 'object' || !('mode' in result) || result.mode !== mode
+        || !('axes' in result) || result.axes === null || typeof result.axes !== 'object') {
+        throw new MoonrakerTransportError('invalid-result', 'Некорректный ответ резонансов Moonraker')
+      }
+      const axes: PrinterShaperResonanceReport['axes'] = { x: null, y: null }
+      for (const axis of ['x', 'y'] as const) {
+        const value = (result.axes as Record<string, unknown>)[axis]
+        if (value === null) continue
+        if (value === undefined || typeof value !== 'object'
+          || !('revision' in value) || typeof value.revision !== 'string'
+          || value.revision.length === 0 || value.revision.length > 160
+          || !('csv' in value) || typeof value.csv !== 'string' || value.csv.length === 0
+          || value.csv.length > 2 * 1024 * 1024
+          || new TextEncoder().encode(value.csv).byteLength > 2 * 1024 * 1024) {
+          throw new MoonrakerTransportError('invalid-result', `Некорректные данные резонансов оси ${axis.toUpperCase()}`)
+        }
+        axes[axis] = { revision: value.revision, csv: value.csv }
+      }
+      return { mode, axes }
     },
     async fetchExcludeObjects(): Promise<PrinterExcludeObjectSnapshot> {
       const snapshot = await fetchObjectsSnapshot(context, MOONRAKER_PRINT_JOB_OBJECTS)

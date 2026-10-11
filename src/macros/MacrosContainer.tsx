@@ -3,18 +3,21 @@ import { EddyCalibrationScreen } from './EddyCalibrationScreen'
 import { CalibrationProcedures } from './CalibrationProcedures'
 import { PidCalibrationScreen } from './PidCalibrationScreen'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
-import type { PrinterSnapshot } from '../core/transport/types'
+import type { PrinterSnapshot, PrinterShaperResonanceReport } from '../core/transport/types'
 
 export type MacrosContainerProps = {
   snapshot: PrinterSnapshot
   pendingCommand: PrinterCommandId | null
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
   refreshEddyState: () => Promise<boolean>
+  fetchShaperResonances?: (mode: 'full' | 'light') => Promise<PrinterShaperResonanceReport>
+  onCalibrationActivityChange?: (active: boolean) => void
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
 }
 
 export function MacrosContainer(props: MacrosContainerProps) {
   const [workflow, setWorkflow] = useState<'eddy' | 'pid' | null>(null)
+  const [catalogFolder, setCatalogFolder] = useState<'root' | 'eddy'>('root')
   const [eddyProcedure, setEddyProcedure] = useState<'overview' | 'screws' | 'mesh' | 'firstLayer'>('overview')
   const calibration = props.snapshot.v2.eddy.calibration
   const completedRequiredCount = [
@@ -36,6 +39,8 @@ export function MacrosContainer(props: MacrosContainerProps) {
           <CalibrationProcedures
             {...props}
             completedRequiredCount={completedRequiredCount}
+            catalogFolder={catalogFolder}
+            onCatalogFolderChange={setCatalogFolder}
             onOpenPid={() => setWorkflow('pid')}
             onOpenEddy={(procedure) => { setEddyProcedure(procedure); setWorkflow('eddy') }}
           />

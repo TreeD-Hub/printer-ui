@@ -95,6 +95,22 @@ function TestHarness({
 }
 
 describe('usePrintSessionController', () => {
+  it('после завершения mock-печати снимает блокировку повторного запуска', async () => {
+    const snapshot = createMockSnapshot()
+    const { rerender } = render(<TestHarness snapshot={snapshot} />)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'select first' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'start selected' })) })
+    const activeSnapshot = { ...snapshot, printJob: { ...snapshot.printJob, state: 'printing' as const } }
+    rerender(<TestHarness snapshot={activeSnapshot} />)
+    expect(screen.getByTestId('runtime-state')).toHaveTextContent('printing')
+    rerender(<TestHarness snapshot={{ ...activeSnapshot, printJob: { ...activeSnapshot.printJob, state: 'complete' } }} />)
+    expect(screen.getByTestId('runtime-state')).toHaveTextContent('complete')
+    expect(screen.getByTestId('has-active-print')).toHaveTextContent('false')
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'select first' })) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'start selected' })) })
+    expect(screen.getByTestId('runtime-state')).toHaveTextContent('printing')
+  })
+
   it.each(['live', 'mock'] as const)('обновляет слой из snapshot в режиме %s', (source) => {
     const snapshot = createMockSnapshot()
     snapshot.source = source

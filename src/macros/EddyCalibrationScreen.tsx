@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import type { TemperatureChartPoint } from '../control/types'
@@ -6,12 +6,14 @@ import type { PrinterSnapshot } from '../core/transport/types'
 import { subscribePrinterGcodeResponses } from '../core/store/printerNotifications'
 import { isPrintJobActive } from '../core/transport/types'
 import { BABYSTEP_STEP_OPTIONS } from '../dashboard/config'
+import { CalibrationPreview } from './CalibrationPreview'
+import { EddyMeshDiagram, EddyNozzleDiagram, EddyScrewsDiagram, EddyScrewTurn, EddyXYDiagram } from './EddyCalibrationVisuals'
 import { EDDY_TEST_Z_STEP_OPTIONS } from '@treed/printer-logic'
 import { NumericKeypad, TemperatureTrendChart, TuneValueEditor, joinClassNames, useModalFocus } from '../ui'
 import './eddyCalibration.css'
 
 type ProcedureId = 'overview' | 'driveCurrent' | 'height' | 'temperature' | 'z0' | 'offsets' | 'accuracy' | 'screws' | 'mesh' | 'xyOffset' | 'firstLayer'
-type SaveKind = 'height' | 'temperature' | 'mesh' | 'xyOffset' | 'zOffset'
+type SaveKind = 'driveCurrent' | 'height' | 'temperature' | 'mesh' | 'xyOffset' | 'zOffset'
 type EddyCalibrationScreenProps = {
   snapshot: PrinterSnapshot
   pendingCommand: PrinterCommandId | null
@@ -19,6 +21,7 @@ type EddyCalibrationScreenProps = {
   refreshEddyState: () => Promise<boolean>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   onBackToList: () => void
+  onCalibrationActivityChange?: (active: boolean) => void
   initialProcedure?: ProcedureId
 }
 
@@ -38,20 +41,22 @@ const PROCEDURES: Array<{ id: Exclude<ProcedureId, 'overview'>; title: string; d
 const READY = (snapshot: PrinterSnapshot) => snapshot.transport.state === 'online' && snapshot.klippy.state === 'ready'
 
 function valueText(value: number | null | undefined, digits = 3, unit = 'мм'): string {
-  return typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(digits)} ${unit}` : 'Неизвестно'
+  return typeof value === 'number' && Number.isFinite(value) ? `${value.toFixed(digits)} ${unit}` : '—'
 }
 
 function statusText(value: boolean | null | undefined): string {
   return value === true ? 'Подтверждено' : value === false ? 'Не настроено' : 'Неизвестно'
 }
 
-function parseAccuracyResponse(message: string): string | null {
+type AccuracyResult = { range: number; average: number; deviation: number }
+
+function parseAccuracyResponse(message: string): AccuracyResult | null {
   if (!/probe accuracy/i.test(message)) return null
   const range = message.match(/\brange\s+([+-]?[\d.]+)/i)?.[1]
   const average = message.match(/\baverage\s+([+-]?[\d.]+)/i)?.[1]
   const deviation = message.match(/\bstandard deviation\s+([+-]?[\d.]+)/i)?.[1]
   if (!range || !average || !deviation || ![range, average, deviation].every((value) => Number.isFinite(Number(value)))) return null
-  return `Размах ${Number(range).toFixed(3)} мм · среднее ${Number(average).toFixed(3)} мм · σ ${Number(deviation).toFixed(3)} мм`
+  return { range: Number(range), average: Number(average), deviation: Number(deviation) }
 }
 
 function parseZ0Response(message: string): string | null {
@@ -79,6 +84,7 @@ export function EddyCalibrationScreen({
   refreshEddyState,
   getCommandBlockReason,
   onBackToList,
+  onCalibrationActivityChange,
   initialProcedure = 'overview',
 }: EddyCalibrationScreenProps) {
   const calibration = snapshot.calibration
@@ -100,7 +106,7 @@ export function EddyCalibrationScreen({
   const [yOffsetDraft, setYOffsetDraft] = useState(() => eddy?.yOffsetMm?.toString() ?? '')
   const [editingOffsetField, setEditingOffsetField] = useState<'x' | 'y' | null>(null)
   const [offsetFieldDraft, setOffsetFieldDraft] = useState('')
-  const [accuracyResult, setAccuracyResult] = useState<string | null>(null)
+  const [accuracyResult, setAccuracyResult] = useState<AccuracyResult | null>(null)
   const [z0Result, setZ0Result] = useState<string | null>(null)
   const [z0CommandAccepted, setZ0CommandAccepted] = useState(false)
   const [z0RefreshRunId, setZ0RefreshRunId] = useState<number | null>(null)
@@ -117,10 +123,24 @@ export function EddyCalibrationScreen({
   const [firstLayerObservedPath, setFirstLayerObservedPath] = useState<string | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(BABYSTEP_STEP_OPTIONS[1])
   const [zOffsetDelta, setZOffsetDelta] = useState(0)
+  const [selectedScrew, setSelectedScrew] = useState(0)
+  const [screwsRawVisible, setScrewsRawVisible] = useState(false)
+  const [meshRow, setMeshRow] = useState(0)
+  const [meshColumn, setMeshColumn] = useState(0)
+  const [meshTableVisible, setMeshTableVisible] = useState(false)
+  const [detailsVisible, setDetailsVisible] = useState(false)
+  const [completedSaveKind, setCompletedSaveKind] = useState<SaveKind | null>(null)
+  const [screwsDoneRefreshRunId, setScrewsDoneRefreshRunId] = useState<number | null>(null)
+  const [pipelineActive, setPipelineActive] = useState(() => calibration?.manualProbe.active === true || eddy?.temperatureSeriesActive === true || eddy?.inTemperatureCalibration === true)
+  const [abortAccepted, setAbortAccepted] = useState(false)
+  const activityCallbackRef = useRef(onCalibrationActivityChange)
+  useEffect(() => { activityCallbackRef.current = onCalibrationActivityChange }, [onCalibrationActivityChange])
+  const heightBaseRef = useRef<number | null>(null)
   const emergencyButtonRef = useRef<HTMLButtonElement>(null)
   const commandRunIdRef = useRef(0)
   const replaceOffsetDraftRef = useRef(true)
   const offsetDialogRef = useModalFocus<HTMLDivElement>(editingOffsetField !== null, () => setEditingOffsetField(null))
+  const screwsDialogRef = useModalFocus<HTMLDivElement>(screwsRawVisible, () => setScrewsRawVisible(false))
   const accuracyRunningRef = useRef(false)
   const z0RunningRef = useRef(false)
 
@@ -128,6 +148,20 @@ export function EddyCalibrationScreen({
   const activeManualSession = calibration?.manualProbe.active === true
   const activeTemperatureSession = eddy?.temperatureSeriesActive === true || eddy?.inTemperatureCalibration === true
   const activeSession = activeManualSession || activeTemperatureSession
+  useEffect(() => {
+    if (activeSession) setPipelineActive(true)
+  }, [activeSession])
+  useEffect(() => {
+    onCalibrationActivityChange?.(pipelineActive || activeSession)
+  }, [pipelineActive, activeSession, onCalibrationActivityChange])
+  useEffect(() => () => activityCallbackRef.current?.(false), [])
+  const manualZ = calibration?.manualProbe.zMm
+  useEffect(() => {
+    if (!activeManualSession) heightBaseRef.current = null
+    else if (heightBaseRef.current === null && typeof manualZ === 'number' && Number.isFinite(manualZ)) heightBaseRef.current = manualZ
+  }, [activeManualSession, manualZ])
+  const confirmedHeightDelta = activeManualSession && typeof manualZ === 'number' && Number.isFinite(manualZ)
+    ? manualZ - (heightBaseRef.current ?? manualZ) : null
   const allAxesHomed = ['x', 'y', 'z'].every((axis) => snapshot.homedAxes.toLowerCase().includes(axis))
   const z0Confirmed = z0CommandAccepted
     && z0RefreshRunId === commandRunIdRef.current
@@ -141,7 +175,13 @@ export function EddyCalibrationScreen({
     && calibration?.config.savePending === false
     && calibration.config.pendingSections.length === 0
   const isBusy = pendingCommand !== null || localCommandPending
-  const backBlocked = isBusy || activeSession || saveKind !== null || operationUncertain
+  useEffect(() => {
+    if (!abortAccepted || isBusy || operationUncertain || saveKind !== null || !ready) return
+    if (calibration?.manualProbe.active !== false || eddy?.inTemperatureCalibration !== false || eddy?.temperatureSeriesActive !== false) return
+    setAbortAccepted(false)
+    setPipelineActive(false)
+  }, [abortAccepted, isBusy, operationUncertain, saveKind, ready, calibration?.manualProbe.active, eddy?.inTemperatureCalibration, eddy?.temperatureSeriesActive])
+  const backBlocked = isBusy || activeSession || saveKind !== null || operationUncertain || accuracyRunning || z0Running || procedure === 'z0' && z0CommandAccepted && !z0Confirmed
   const calibrationAvailable = snapshot.capabilities.eddy === true && eddy?.available === true
   const blockCalibration = !calibrationAvailable
     ? 'Калибровка Eddy недоступна или её состояние неизвестно.'
@@ -194,6 +234,7 @@ export function EddyCalibrationScreen({
       && ready
       && calibration?.config.savePending === false
       && calibration.config.pendingSections.length === 0
+      && (saveKind !== 'driveCurrent' || (snapshot.v2.eddy.calibration.driveCurrentDone && typeof eddy?.driveCurrent === 'number' && Number.isFinite(eddy.driveCurrent)))
       && (saveKind !== 'height' || (calibration?.manualProbe.active === false && eddy?.heightCalibrated === true))
       && (saveKind !== 'temperature' || (eddy?.inTemperatureCalibration === false && eddy?.temperatureSeriesActive === false && snapshot.v2.eddy.calibration.temperatureDone === true))
       && (saveKind !== 'mesh' || (meshSaveTarget !== null && savedMeshMatches(meshSaveTarget, calibration?.mesh.savedProfiles.default)))
@@ -201,9 +242,12 @@ export function EddyCalibrationScreen({
       && (saveKind !== 'zOffset' || eddy?.heightCalibrated === true)
     if (saveFinished) {
       const completedKind = saveKind
+      setCompletedSaveKind(completedKind)
       setSaveKind(null)
       setSaveAccepted(false)
       setSaveError('')
+      if (completedKind === 'xyOffset') setConfirmOffsets(false)
+      if (completedKind === 'zOffset') setConfirmZOffsetSave(false)
       if (saveKind === 'zOffset') setZOffsetDelta(0)
       setMessage(completedKind === 'mesh'
         ? 'Команда карты завершена; ниже показано последнее состояние, полученное от принтера.'
@@ -211,7 +255,7 @@ export function EddyCalibrationScreen({
       if (completedKind === 'mesh') setMeshCommandFinished(true)
       void refreshEddyState()
     }
-  }, [saveAccepted, saveKind, restartSeen, ready, calibration?.config.savePending, calibration?.config.pendingSections.length, calibration?.manualProbe.active, eddy?.heightCalibrated, eddy?.inTemperatureCalibration, eddy?.temperatureSeriesActive, snapshot.v2.eddy.calibration.temperatureDone, snapshot.v2.eddy.calibration.z0Done, snapshot.v2.eddy.calibration.activeStep, snapshot.v2.eddy.calibration.operatorPrompt, calibration?.mesh.savedProfiles, eddy?.xOffsetMm, eddy?.yOffsetMm, eddy?.zOffsetMm, xOffsetDraft, yOffsetDraft, eddy?.temperaturePoints, zOffsetDelta, meshSaveTarget, refreshEddyState])
+  }, [saveAccepted, saveKind, restartSeen, ready, calibration?.config.savePending, calibration?.config.pendingSections.length, calibration?.manualProbe.active, eddy?.driveCurrent, eddy?.heightCalibrated, eddy?.inTemperatureCalibration, eddy?.temperatureSeriesActive, snapshot.v2.eddy.calibration.driveCurrentDone, snapshot.v2.eddy.calibration.temperatureDone, snapshot.v2.eddy.calibration.z0Done, snapshot.v2.eddy.calibration.activeStep, snapshot.v2.eddy.calibration.operatorPrompt, calibration?.mesh.savedProfiles, eddy?.xOffsetMm, eddy?.yOffsetMm, eddy?.zOffsetMm, xOffsetDraft, yOffsetDraft, eddy?.temperaturePoints, zOffsetDelta, meshSaveTarget, refreshEddyState])
 
   useEffect(() => {
     if (saveKind === null) return
@@ -241,7 +285,7 @@ export function EddyCalibrationScreen({
   useEffect(() => {
     if (firstLayerStartedPath === null || !isPrintJobActive(snapshot.printJob)) return
     if (canonicalPrintPath(snapshot.printJob.filename) === firstLayerStartedPath) setFirstLayerObservedPath(firstLayerStartedPath)
-  }, [firstLayerStartedPath, snapshot.printJob.filename, snapshot.printJob.state])
+  }, [firstLayerStartedPath, snapshot.printJob])
 
   useEffect(() => {
     if (!accuracyRunning && !z0Running) return
@@ -263,6 +307,7 @@ export function EddyCalibrationScreen({
   useEffect(() => {
     if (!emergencyRecoveryPending || !emergencyRecoveryConfirmed) return
     setEmergencyRecoveryPending(false)
+    setPipelineActive(false)
     setOperationUncertain(false)
     setSaveError('')
     setMessage('Аварийная остановка подтверждена. Принтер готов; проверьте результат предыдущей операции перед продолжением.')
@@ -278,6 +323,11 @@ export function EddyCalibrationScreen({
       return false
     }
     const commandRunId = ++commandRunIdRef.current
+    if (args.command.startsWith('eddy') && args.command !== 'eddyAbort' || args.command === 'homeXY' || args.command === 'start') {
+      setPipelineActive(true)
+      setAbortAccepted(false)
+    }
+    setCompletedSaveKind(null)
     setMessage('')
     setSaveError('')
     setLocalCommandPending(true)
@@ -285,6 +335,7 @@ export function EddyCalibrationScreen({
       const accepted = await executeCommand(args)
       if (commandRunId !== commandRunIdRef.current) return false
       if (accepted) {
+        if (args.command === 'eddyAbort') setAbortAccepted(true)
         if (refreshOnAccept) void refreshEddyState()
       } else {
         setOperationUncertain(true)
@@ -308,6 +359,7 @@ export function EddyCalibrationScreen({
       return false
     }
     setSaveKind(kind)
+    setCompletedSaveKind(null)
     setSaveAccepted(false)
     setRestartSeen(false)
     setSaveError('')
@@ -364,11 +416,22 @@ export function EddyCalibrationScreen({
   async function runScrewsMeasurement() {
     const runId = commandRunIdRef.current + 1
     setScrewsRefreshRunId(null)
+    setScrewsDoneRefreshRunId(null)
     if (!await run({ command: 'eddyScrewsTiltStart' }, false) || commandRunIdRef.current !== runId) return
     const refreshed = await refreshEddyState()
     if (commandRunIdRef.current !== runId) return
     if (refreshed) setScrewsRefreshRunId(runId)
     else setMessage('Команда винтов принята, но актуальный снимок результата не обновился.')
+  }
+
+  async function finishScrews() {
+    if (!screwsFresh || blockCalibration !== null) return
+    const runId = commandRunIdRef.current + 1
+    setScrewsDoneRefreshRunId(null)
+    if (!await run({ command: 'eddyScrewsTiltDone' }, false) || commandRunIdRef.current !== runId) return
+    const refreshed = await refreshEddyState()
+    if (refreshed && commandRunIdRef.current === runId) setScrewsDoneRefreshRunId(runId)
+    else if (commandRunIdRef.current === runId) setMessage('Подтверждение винтов принято, но актуальный статус не получен.')
   }
 
   async function runMeshScan() {
@@ -421,21 +484,27 @@ export function EddyCalibrationScreen({
 
   function commandButton(label: string, args: ExecuteCommandArgs, options: { secondary?: boolean; blocked?: boolean; reason?: string | null; onClick?: () => void } = {}) {
     const reason = options.reason ?? commandReason(args)
+    const disabledReason = reason
+      ?? (operationUncertain ? 'Сначала проверьте состояние принтера.' : isBusy ? 'Дождитесь завершения текущей команды.' : options.blocked ? 'Действие пока недоступно. Проверьте состояние этапа.' : null)
     return (
-      <button
-        type="button"
-        className={joinClassNames('eddy-btn', options.secondary && 'is-secondary')}
-        disabled={options.blocked || isBusy || operationUncertain || reason !== null}
-        title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : reason ?? undefined}
-        onClick={options.onClick ?? (() => void run(args))}
-      >
-        {label}
-      </button>
+      <span className="eddy-command">
+        <button
+          type="button"
+          className={joinClassNames('eddy-btn', options.secondary && 'is-secondary')}
+          disabled={options.blocked || isBusy || operationUncertain || reason !== null}
+          title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : reason ?? undefined}
+          onClick={options.onClick ?? (() => void run(args))}
+        >
+          {label}
+        </button>
+        {disabledReason && args.command === 'eddyZOffsetAdjust' && <small className="eddy-command-reason">{disabledReason}</small>}
+      </span>
     )
   }
 
   function openProcedure(next: ProcedureId) {
     setMessage('')
+    setDetailsVisible(false)
     setProcedure(next)
     if (next === 'xyOffset') {
       setXOffsetDraft(eddy?.xOffsetMm?.toString() ?? '')
@@ -445,6 +514,7 @@ export function EddyCalibrationScreen({
   }
 
   function openOffsetEditor(field: 'x' | 'y') {
+    setCompletedSaveKind(null)
     const value = field === 'x' ? xOffsetDraft : yOffsetDraft
     setOffsetFieldDraft(value)
     replaceOffsetDraftRef.current = true
@@ -520,24 +590,40 @@ export function EddyCalibrationScreen({
     && meshScanRefreshRunId !== null
     && meshScanRefreshRunId === commandRunIdRef.current
     && probedMatrix.length > 0
-    && probedMatrix.every((row) => row.length > 0 && row.every((value) => typeof value === 'number' && Number.isFinite(value)))
+    && probedMatrix.every((row) => row.length > 0 && row.length === probedMatrix[0]?.length && row.every((value) => typeof value === 'number' && Number.isFinite(value)))
   const measuredMeshValues = matrix.flatMap((row) => row.filter((value): value is number => typeof value === 'number' && Number.isFinite(value)))
   const measuredMeshMin = measuredMeshValues.length > 0 ? Math.min(...measuredMeshValues) : null
   const measuredMeshMax = measuredMeshValues.length > 0 ? Math.max(...measuredMeshValues) : null
   const screws = calibration?.screws
+  const selectedScrewIndex = Math.min(selectedScrew, Math.max(0, (screws?.results.length ?? 0) - 1))
+  const screw = screws?.results[selectedScrewIndex]
+  const meshColumns = Math.max(0, ...matrix.map((row) => row.length))
+  const selectedMeshRow = Math.min(meshRow, Math.max(0, matrix.length - 1))
+  const selectedMeshColumn = Math.min(meshColumn, Math.max(0, meshColumns - 1))
   const screwsFresh = screwsRefreshRunId !== null
     && screwsRefreshRunId === commandRunIdRef.current
     && (screws?.results.length ?? 0) >= 4
     && screws?.error === false
+  const screwsConfirmed = screwsDoneRefreshRunId !== null && screwsDoneRefreshRunId === commandRunIdRef.current && snapshot.v2.eddy.calibration.screwsDone && snapshot.v2.eddy.calibration.activeStep === 'mesh' && screws?.error === false && screws.results.length >= 4
+  const driveCurrentConfirmed = completedSaveKind === 'driveCurrent' && snapshot.v2.eddy.calibration.driveCurrentDone && typeof eddy?.driveCurrent === 'number' && Number.isFinite(eddy.driveCurrent)
+  const recommendation: ProcedureId = saveKind === 'height' || activeManualSession ? 'height'
+    : saveKind === 'temperature' || activeTemperatureSession ? 'temperature'
+      : saveKind === 'mesh' ? 'mesh'
+        : !snapshot.v2.eddy.calibration.driveCurrentDone ? 'driveCurrent'
+          : !snapshot.v2.eddy.calibration.primaryDone ? 'height'
+            : !snapshot.v2.eddy.calibration.temperatureDone ? 'temperature'
+              : !snapshot.v2.eddy.calibration.z0Done ? 'z0'
+                : !snapshot.v2.eddy.calibration.screwsDone ? 'screws'
+                  : !snapshot.v2.eddy.calibration.meshDone || !snapshot.v2.eddy.calibration.requiredDone ? 'mesh' : 'firstLayer'
 
   function renderOverview() {
     const cards = [
       { id: 'driveCurrent' as const, label: 'Код тока катушки', value: eddy?.driveCurrent == null ? 'Неизвестно' : String(eddy.driveCurrent), state: eddy?.driveCurrent == null ? 'Неизвестно' : 'Значение регистра' },
       { id: 'height' as const, label: 'Высота Eddy', value: statusText(eddy?.heightCalibrated), state: statusText(eddy?.heightCalibrated) },
-      { id: 'temperature' as const, label: 'Компенсация температуры', value: statusText(eddy?.compensationEnabled), state: statusText(eddy?.compensationEnabled) },
+      { id: 'temperature' as const, label: 'Температура', value: statusText(eddy?.compensationEnabled), state: statusText(eddy?.compensationEnabled) },
       { id: 'z0' as const, label: 'Z0', value: statusText(snapshot.v2.eddy.calibration.z0Done), state: snapshot.v2.eddy.calibration.z0Done ? 'Подтверждено Klipper' : 'Не подтверждено' },
-      { id: 'offsets' as const, label: 'Смещения Z', value: eddy?.zOffsetMm == null ? 'Числовое значение не публикуется' : valueText(eddy.zOffsetMm), state: statusText(eddy?.heightCalibrated) },
-      { id: 'accuracy' as const, label: 'Повторяемость', value: accuracyResult ?? 'Измерение не запускалось', state: accuracyResult === null ? 'Нет замера в этой сессии' : 'Есть результат' },
+      { id: 'offsets' as const, label: 'Смещения Z', value: valueText(eddy?.zOffsetMm), state: statusText(eddy?.heightCalibrated) },
+      { id: 'accuracy' as const, label: 'Повторяемость', value: accuracyResult === null ? 'Измерение не запускалось' : 'Есть результат', state: accuracyResult === null ? 'Нет замера в этой сессии' : 'Есть результат' },
       { id: 'screws' as const, label: 'Винты стола', value: valueText(screws?.maxDeviationMm), state: screws?.error == null ? 'Неизвестно' : screws.error ? 'Есть ошибка' : 'Есть результат' },
       { id: 'mesh' as const, label: 'Карта стола', value: measuredMeshValues.length > 0 ? `${valueText(measuredMeshMin)} … ${valueText(measuredMeshMax)}` : 'Нет измеренной карты', state: calibration?.mesh.profile ?? 'Профиль неизвестен' },
       { id: 'xyOffset' as const, label: 'XY-смещение', value: `X ${valueText(eddy?.xOffsetMm)} · Y ${valueText(eddy?.yOffsetMm)}`, state: eddy?.xOffsetMm == null || eddy?.yOffsetMm == null ? 'Неизвестно' : 'В конфигурации' },
@@ -548,6 +634,7 @@ export function EddyCalibrationScreen({
         <section className="eddy-overview-grid" aria-label="Фактическое состояние калибровок">
           {cards.map((card) => (
             <button className="eddy-overview-card" key={card.id} type="button" onClick={() => openProcedure(card.id)}>
+              <CalibrationPreview kind={card.id} compact />
               <span className="eddy-card-state">{card.state}</span>
               <strong>{card.label}</strong>
               <span className="eddy-card-value">{card.value}</span>
@@ -555,126 +642,114 @@ export function EddyCalibrationScreen({
           ))}
         </section>
         <section className="eddy-sequence" aria-label="Полная последовательность калибровки">
-          <p>Полная настройка</p>
-          <ol>{PROCEDURES.map((item, index) => <li key={item.id}><span>{String(index + 1).padStart(2, '0')}</span>{item.title}</li>)}</ol>
-          <button type="button" className="eddy-btn" onClick={() => openProcedure('driveCurrent')}>Начать последовательность</button>
+          <button type="button" className="eddy-btn" disabled={isBusy || operationUncertain || saveKind !== null} onClick={() => openProcedure(recommendation)}>{recommendation === 'driveCurrent' ? 'Начать калибровку' : `Продолжить: ${PROCEDURES.find((item) => item.id === recommendation)?.title}`}</button>
         </section>
       </>
     )
   }
 
+  function renderDetails() {
+    const content = procedure === 'driveCurrent' ? <p>Регистр 0–31 · без единиц измерения. Значение настройки получено от Klipper.</p>
+      : procedure === 'height' ? <><p>min {valueText(calibration?.manualProbe.zMinimumMm)} · max {valueText(calibration?.manualProbe.zMaximumMm)}</p><p>ΔZ {confirmedHeightDelta === null ? '—' : `${confirmedHeightDelta > 0 ? '+' : ''}${confirmedHeightDelta.toFixed(3)} мм`} с начала проверки, по статусу Klipper.</p><p>Схема положения; фактический зазор не измеряется. Оси: {snapshot.homedAxes.toUpperCase() || 'Нет'}.</p></>
+        : procedure === 'temperature' ? <><p>Расширение {valueText(eddy?.estimatedExpansionMm)}</p><p>Компенсация: {statusText(eddy?.compensationEnabled)}. Точки принимаются отдельно, завершение записывает результат и перезапускает Klipper.</p></>
+          : procedure === 'z0' ? <><p>Команда выполняет G28 и проверку Z0. Подтверждение — по обновлённому этапу Klipper, не по предварительным координатам.</p>{z0Result && <p>{z0Result}</p>}</>
+            : procedure === 'offsets' ? <><p>Сумма принятых UI-команд, не абсолютный Z-offset. В конфиге: {valueText(eddy?.zOffsetMm)}.</p><p>Высота: {statusText(eddy?.heightCalibrated)}. Запись подтверждается после перезапуска и очистки несохранённых изменений.</p></>
+              : procedure === 'accuracy' ? <><p>Среднее {valueText(accuracyResult?.average)}</p><p>σ {valueText(accuracyResult?.deviation)}</p><p>Значения из ответа PROBE_ACCURACY этой сессии. Порог качества не задан.</p></>
+                : procedure === 'screws' ? <><p>Z выбранного винта {valueText(screw?.zMm)} · отклонение {valueText(screws?.maxDeviationMm)}</p><p>{screwsFresh ? 'Принятый замер и обновлённый снимок.' : 'Последние доступные данные.'} Направление показано со стороны головки винта. Поворот — обороты:минуты, не время.</p><button type="button" onClick={() => setScrewsRawVisible(true)}>Все данные замера</button></>
+                  : procedure === 'mesh' ? <><p>min {valueText(measuredMeshMin)} · max {valueText(measuredMeshMax)}</p><p>X {calibration?.mesh.min?.[0] ?? '—'}…{calibration?.mesh.max?.[0] ?? '—'} мм · Y {calibration?.mesh.min?.[1] ?? '—'}…{calibration?.mesh.max?.[1] ?? '—'} мм</p><p>{matrix.length} строк × {meshColumns} столбцов · {matrixIsLatestProbe ? 'последние доступные значения сканирования' : 'загруженный профиль стола'}. Z увеличен для наглядности; пропуски не являются нулями.</p></>
+                    : procedure === 'xyOffset' ? <><p>Измерьте положение датчика относительно сопла по инструкции профиля. Схема использует условный масштаб.</p><p>Сохранено: X {valueText(eddy?.xOffsetMm)} · Y {valueText(eddy?.yOffsetMm)}</p><p>Запись изменит локальный конфиг и перезапустит Klipper.</p></>
+                      : <><p>Слой {snapshot.printJob.currentLayer ?? '—'} / {snapshot.printJob.totalLayer ?? '—'} · координата Z {valueText(snapshot.toolheadZ)}</p><p>Качество слоя оценивает оператор; завершение печати не подтверждает качество.</p></>
+    return <aside className="eddy-details" aria-label="Подробности процедуры">{content}</aside>
+  }
+
+  function visualOrDetails(visual: ReactNode) {
+    const critical = saveError || (operationUncertain ? 'Операция принтера остаётся неопределённой. Продолжение заблокировано до проверки состояния принтера.' : '')
+    if (critical) return <aside className="eddy-state-panel"><p className="eddy-message is-error" role="alert">{critical}</p></aside>
+    if (saveKind !== null) return <aside className="eddy-state-panel"><p className="eddy-message" role="status">Команда принята. Ждём перезапуск, готовность Klipper и подтверждение конфигурации…</p></aside>
+    if (message && completedSaveKind === null) return <aside className="eddy-state-panel"><p className="eddy-message" role="status">{message}</p></aside>
+    if (detailsVisible) return renderDetails()
+    return visual
+  }
+
   function renderProcedure() {
     switch (procedure) {
       case 'driveCurrent':
-        return <>
-          <p>Убедитесь, что сопло и стол остыли, а датчик и кабель закреплены. Запустите настройку тока катушки и дождитесь ответа Klipper.</p>
-          <div className="eddy-metric"><span>Код настройки тока</span><strong>{eddy?.driveCurrent == null ? 'Неизвестно' : String(eddy.driveCurrent)}</strong><small>Значение регистра 0–31 без единиц измерения.</small></div>
-          {commandButton('Настроить код тока катушки', { command: 'eddyDriveCurrentCalibrate' }, { reason: blockCalibration })}
-        </>
+        return <div className="eddy-instrument">{visualOrDetails(<figure className="eddy-subject"><CalibrationPreview kind="driveCurrent" /><figcaption>Схема катушки</figcaption></figure>)}<div className="eddy-instrument-controls">
+          <div className="eddy-metric"><span>Код тока</span><strong>{eddy?.driveCurrent == null ? '—' : String(eddy.driveCurrent)}</strong></div>
+          <p>Остудите сопло и стол. Проверьте крепление датчика.</p>
+        </div></div>
       case 'height':
-        return <>
-          <p>Поставьте чистую бумагу на стол. Команды TESTZ перемещают сопло малыми шагами; измерение и сохранение выполняются отдельно.</p>
-          <div className="eddy-metric"><span>Привязанные оси</span><strong>{snapshot.homedAxes.toUpperCase() || 'Нет'}</strong><small>Перед ручной проверкой нужны X, Y и безопасная нижняя Z-опора.</small></div>
-          {!allAxesHomed && commandButton('Подготовить XY и нижнюю Z-опору', { command: 'homeXY' }, { reason: commandReason({ command: 'homeXY' }), onClick: () => void run({ command: 'homeXY' }) })}
-          <div className="eddy-metric"><span>Текущая высота</span><strong>{valueText(calibration?.manualProbe.zMm)}</strong><small>Диапазон измерения: {valueText(calibration?.manualProbe.zMinimumMm)} … {valueText(calibration?.manualProbe.zMaximumMm)}</small></div>
-          {!activeManualSession && commandButton('Начать проверку по бумаге', { command: 'eddyPrimaryHeightStart' }, { reason: blockCalibration ?? (!allAxesHomed ? 'Сначала привяжите X, Y и Z безопасной командой G28 X Y.' : null) })}
+        return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram paper delta={confirmedHeightDelta} />)}<div className="eddy-instrument-controls">
+          <div className="eddy-metric"><span>Координата сопла</span><strong>Z {valueText(manualZ)}</strong></div>
+          <p>{activeManualSession ? 'Опускайте сопло до лёгкого трения бумаги.' : 'Положите бумагу под сопло.'}</p>
           {activeManualSession && <>
-            <div className="eddy-action-grid eddy-testz">{EDDY_TEST_Z_STEP_OPTIONS.map((deltaMm) => {
+            <div className="eddy-testz-labels"><span>− Опустить</span><span>+ Поднять</span></div><div className="eddy-action-grid eddy-testz">{EDDY_TEST_Z_STEP_OPTIONS.map((deltaMm) => {
               const label = `${deltaMm > 0 ? '+' : ''}${deltaMm}`
               const args: ExecuteCommandArgs = { command: 'eddyTestZ', deltaMm }
               return <button key={deltaMm} type="button" disabled={isBusy || operationUncertain || getCommandBlockReason(args.command, args) !== null} onClick={() => void run(args)}>{label} мм</button>
             })}</div>
-            <div className="eddy-action-row">
-              {commandButton('Принять высоту и сохранить', { command: 'eddyPrimaryAcceptSave' }, { reason: blockCalibration, onClick: () => void beginSave('height', { command: 'eddyPrimaryAcceptSave' }) })}
-              {abortCapability && commandButton('Отменить ручное измерение', { command: 'eddyAbort' }, { secondary: true, reason: commandReason({ command: 'eddyAbort' }, abortCapability) })}
-            </div>
           </>}
-          {!activeManualSession && <p>Состояние: {statusText(eddy?.heightCalibrated)}</p>}
-        </>
+        </div></div>
       case 'temperature':
-        return <>
-          <p>Запустите температурную серию. Наблюдайте за фактическими температурами сопла и стола и принимайте каждую точку отдельно. Завершение серии записывает результат и перезапускает Klipper.</p>
-          {activeTemperatureSession || temperaturePoints.nozzle.length > 0 ? <section className="eddy-chart-area" aria-label="График температурной калибровки">
-            <div className="eddy-chart-readings"><strong>Катушка {valueText(eddy?.temperatureC, 1, '°C')}</strong><span>Расширение {valueText(eddy?.estimatedExpansionMm)}</span><span>Измерено точек: {eddy?.temperaturePoints ?? 'Неизвестно'}</span></div>
-            <TemperatureTrendChart height={250} testId="eddy-temperature-chart" series={[
+        return <div className="eddy-temperature-layout">
+          {visualOrDetails(activeTemperatureSession || temperaturePoints.nozzle.length > 0 ? <section className="eddy-chart-area" aria-label="График температурной калибровки">
+            <TemperatureTrendChart height={220} testId="eddy-temperature-chart" series={[
               { id: 'nozzle', label: 'Сопло', tone: 'orange', points: temperaturePoints.nozzle },
               { id: 'bed', label: 'Стол', tone: 'green', points: temperaturePoints.bed },
             ]} />
             <p>Сплошная линия — фактическая температура; пунктир — цель.</p>
-          </section> : <div className="eddy-metric"><span>Компенсация температуры</span><strong>{statusText(eddy?.compensationEnabled)}</strong></div>}
-          {!activeTemperatureSession && commandButton('Начать температурную серию', { command: 'eddyTemperatureStart' }, { reason: blockCalibration })}
-          {activeTemperatureSession && <div className="eddy-action-row">
-            {commandButton('Принять текущую точку', { command: 'eddyTemperatureAccept' }, { reason: temperatureAcceptReason })}
-            {commandButton('Завершить серию и сохранить', { command: 'eddyTemperatureComplete' }, { secondary: true, reason: temperatureCompleteReason, onClick: () => void beginSave('temperature', { command: 'eddyTemperatureComplete' }) })}
-            {abortCapability && commandButton('Отменить серию', { command: 'eddyAbort' }, { secondary: true, reason: commandReason({ command: 'eddyAbort' }, abortCapability) })}
-          </div>}
-        </>
+          </section> : <figure className="eddy-subject"><CalibrationPreview kind="temperature" /><figcaption>Схема температурной компенсации</figcaption></figure>)}
+          <div className="eddy-instrument-controls"><div className="eddy-metric"><span>Катушка</span><strong>{valueText(eddy?.temperatureC, 1, '°C')}</strong></div><p>Принято точек: <span>{eddy?.temperaturePoints ?? '—'}</span></p><p>{activeTemperatureSession ? 'Подтвердите текущую точку.' : 'Серия измеряет точки при нагреве.'}</p></div>
+        </div>
       case 'z0':
-        return <>
-          <p>Команда выполнит G28 и проверит Eddy Z0. Координаты из предварительного ответа Klipper показываются отдельно; результат подтверждается только после обновления этапа калибровки.</p>
-          <div className="eddy-metric"><span>Проверка Z0</span><strong>{z0Running ? 'Команда выполняется…' : z0Confirmed ? 'Подтверждено после команды' : z0CommandAccepted ? 'Команда принята; ждём обновления статуса' : statusText(snapshot.v2.eddy.calibration.z0Done)}</strong><small>{z0Confirmed ? 'Klipper перешёл к этапу регулировки винтов.' : 'Одного предварительного сообщения с координатами недостаточно.'}</small></div>
-          {z0Result && <div className="eddy-metric"><span>Координаты до проверки</span><strong>{z0Result}</strong></div>}
-          {commandButton('Проверить Z0', { command: 'eddyCheckZ0' }, { blocked: z0Running || z0CommandAccepted && !z0Confirmed || blockCalibration !== null, reason: blockCalibration ?? getCommandBlockReason('eddyCheckZ0'), onClick: () => void runProbe('eddyCheckZ0') })}
-        </>
+        return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram sensor />)}<div className="eddy-instrument-controls">
+          <div className="eddy-metric"><span>Проверка Z0</span><strong>{z0Running ? 'Проверяем' : z0Confirmed ? 'Подтверждено' : z0CommandAccepted ? 'Ожидаем подтверждение' : 'Не проверено'}</strong></div>
+          <p>Сопло переместится к столу. Освободите зону движения.</p>
+        </div></div>
       case 'offsets':
-        return <>
-          <p>Изменяйте живую поправку шагом ±0,05 мм. Scalar Z-offset датчик не публикует; итог подтверждается проверенной высотной калибровкой после перезапуска.</p>
-          <div className="eddy-metric"><span>Сохранённая калибровка высоты</span><strong>{statusText(eddy?.heightCalibrated)}</strong><small>Поправка этой сессии: {valueText(zOffsetDelta)} · сохранение ожидает подтверждения после перезапуска.</small></div>
+        return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram />)}<div className="eddy-instrument-controls">
+          <div className="eddy-metric"><span>Поправка с начала сеанса</span><strong>{zOffsetDelta > 0 ? '+' : ''}{valueText(zOffsetDelta)}</strong></div>
+          <p>Запись перезапустит Klipper.</p>
           <div className="eddy-action-row">
             {commandButton('− 0,05 мм', { command: 'eddyZOffsetAdjust', deltaMm: -0.05 }, { reason: commandReason({ command: 'eddyZOffsetAdjust', deltaMm: -0.05 }, zAdjustCapability), onClick: async () => { if (await run({ command: 'eddyZOffsetAdjust', deltaMm: -0.05 })) setZOffsetDelta((delta) => delta - 0.05) } })}
             {commandButton('+ 0,05 мм', { command: 'eddyZOffsetAdjust', deltaMm: 0.05 }, { reason: commandReason({ command: 'eddyZOffsetAdjust', deltaMm: 0.05 }, zAdjustCapability), onClick: async () => { if (await run({ command: 'eddyZOffsetAdjust', deltaMm: 0.05 })) setZOffsetDelta((delta) => delta + 0.05) } })}
-            {confirmZOffsetSave
-              ? commandButton('Подтвердить запись и перезапуск', { command: 'eddyZOffsetSave' }, { secondary: true, reason: zOffsetSaveReason, onClick: () => void beginSave('zOffset', { command: 'eddyZOffsetSave' }) })
-              : <button type="button" className="eddy-btn is-secondary" disabled={zOffsetSaveReason !== null || isBusy || operationUncertain} title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : zOffsetSaveReason ?? undefined} onClick={() => setConfirmZOffsetSave(true)}>Проверить сохранение Z-offset</button>}
           </div>
-          <p className="eddy-warning">Подтверждённое числовое смещение принтер не публикует. После записи UI ждёт готовность Klipper, очищенный pending и подтверждённую высотную калибровку.</p>
-        </>
+        </div></div>
       case 'accuracy':
-        return <>
-          <p>PROBE_ACCURACY выполняет измерение датчика в текущей точке. Результат берётся из ответа Klipper: размах, среднее и стандартное отклонение.</p>
-          <div className="eddy-metric"><span>Последний результат</span><strong>{accuracyRunning ? 'Ожидаем ответ Klipper…' : accuracyResult ?? 'Замер не запускался'}</strong></div>
-          {commandButton('Запустить PROBE_ACCURACY', { command: 'eddyProbeAccuracy' }, { blocked: accuracyRunning || !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => void runProbe('eddyProbeAccuracy') })}
-        </>
+        return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram sensor repeated />)}<div className="eddy-instrument-controls"><div className="eddy-metric"><span>Размах</span><strong>{valueText(accuracyResult?.range)}</strong></div><p>Повторные касания в одной точке.</p><p>{accuracyRunning ? 'Ожидаем ответ Klipper…' : accuracyResult ? 'Результат последнего замера этой сессии' : 'Измерений нет'}</p></div></div>
       case 'screws':
-        return <>
-          <p>Измерьте все точки стола, отрегулируйте винты по подсказкам и выполните повторный замер. Подтверждение доступно только после свежего ответа с результатами.</p>
-          {screws?.results.length ? <div className="eddy-table-wrap"><table><caption>Результаты винтового замера</caption><thead><tr><th>Винт</th><th>X / Y</th><th>Z</th><th>Знак</th><th>Поворот</th></tr></thead><tbody>{screws.results.map((item) => <tr key={item.name}><th scope="row">{item.name}{item.isBase === true ? ' · база' : ''}</th><td>{valueText(item.xMm)} / {valueText(item.yMm)}</td><td>{valueText(item.zMm)}</td><td>{item.sign ?? '—'}</td><td>{item.adjust ?? '—'}</td></tr>)}</tbody></table></div> : <p>Данные винтового замера неизвестны.</p>}
-          <div className="eddy-metric"><span>Максимальное отклонение · {screwsFresh ? 'принятый замер и обновлённый снимок' : 'последние доступные данные'}</span><strong>{valueText(screws?.maxDeviationMm)}</strong></div>
-          <div className="eddy-action-row">
-            {commandButton('Измерить винты', { command: 'eddyScrewsTiltStart' }, { reason: blockCalibration, onClick: () => void runScrewsMeasurement() })}
-            {commandButton('Подтвердить после повторного замера', { command: 'eddyScrewsTiltDone' }, { secondary: true, blocked: !screwsFresh || screws?.error !== false || screws.results.length < 4, reason: !screwsFresh ? 'Нужен принятый повторный замер с четырьмя обновлёнными точками.' : screws?.error !== false ? 'Проверьте ошибки винтового замера.' : null })}
-          </div>
-        </>
+        return <div className="eddy-instrument">{visualOrDetails(<EddyScrewsDiagram screws={screws?.results ?? []} selected={selectedScrewIndex} />)}<div className="eddy-instrument-controls">
+          {screws?.results.length ? <><div className="eddy-screw-select" role="group" aria-label="Выбор винта">{screws.results.map((item, index) => <button key={`${item.name}-${index}`} type="button" aria-pressed={selectedScrewIndex === index} onClick={() => setSelectedScrew(index)}>{index + 1} · {item.name}</button>)}</div>
+          {screw && <div className="eddy-screw-detail"><div className="eddy-metric"><span>{screw.name}</span><strong>{screw.isBase === true ? 'Не вращать' : screw.adjust ?? '—'}</strong>{screw.isBase !== true && <small>обороты:минуты</small>}</div><EddyScrewTurn sign={screw.sign} isBase={screw.isBase} /></div>}
+          {!screwsFresh && !screwsConfirmed && <p>Нужен повторный замер</p>}
+          {screwsConfirmed && <p>Начнётся сканирование карты стола.</p>}
+          </> : <p>Данные винтового замера неизвестны.</p>}
+          {screws?.error === true && <p className="eddy-warning">Винтовой замер содержит ошибку. Подтверждение недоступно.</p>}
+        </div></div>
       case 'mesh':
-        return <>
-          <p>Постройте карту стола и проверьте профиль, границы области сканирования и реальные значения измерений.</p>
-          <div className="eddy-mesh-summary"><div><span>Профиль</span><strong>{calibration?.mesh.profile ?? 'Неизвестно'}</strong></div><div><span>Высота min / max</span><strong>{valueText(measuredMeshMin)} / {valueText(measuredMeshMax)}</strong></div><div><span>Границы X</span><strong>{valueText(calibration?.mesh.min?.[0])} … {valueText(calibration?.mesh.max?.[0])}</strong></div><div><span>Границы Y</span><strong>{valueText(calibration?.mesh.min?.[1])} … {valueText(calibration?.mesh.max?.[1])}</strong></div></div>
-          {matrix.length > 0 ? <div className="eddy-heightmap" role="img" aria-label={`Карта высот стола, ${matrix.length} строк, min ${valueText(measuredMeshMin)}, max ${valueText(measuredMeshMax)}`}>
-            {matrix.map((row, rowIndex) => <div key={rowIndex}>{row.map((value, columnIndex) => <span key={columnIndex} title={`${rowIndex + 1}, ${columnIndex + 1}: ${valueText(value)}`}>{value === null ? '—' : value.toFixed(2)}</span>)}</div>)}
-          </div> : <p>Матрица измерений пока неизвестна.</p>}
-          {matrix.length > 0 && <p>Источник матрицы: {matrixIsLatestProbe ? 'последние доступные значения сканирования' : 'загруженный профиль стола'}.</p>}
-          <p>{meshCommandFinished ? 'Сохранённый профиль default совпадает с картой после перезапуска.' : meshScanHasNewMatrix ? 'Команда сканирования принята, целевой снимок обновлён. Проверьте карту перед записью.' : meshScanCommandAccepted ? 'Команда сканирования завершилась, но свежий целевой снимок с полной матрицей не подтверждён.' : 'Сканирование и сохранение разделены: сначала получите карту без записи, затем проверьте результат.'}</p>
-          {commandButton('Сканировать карту без записи', { command: 'eddyScanMesh', save: false }, { reason: blockCalibration, onClick: () => void runMeshScan() })}
-          {meshScanHasNewMatrix && <button type="button" className="eddy-btn is-secondary" disabled={isBusy || operationUncertain || saveKind !== null || blockCalibration !== null} title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : blockCalibration ?? undefined} onClick={() => { setMeshSaveTarget(probedMatrix); void beginSave('mesh', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }) }}>Сохранить профиль и перезапустить</button>}
-        </>
+        return detailsVisible || message && completedSaveKind === null || saveError || saveKind !== null || operationUncertain ? <div className="eddy-instrument">{visualOrDetails(null)}<div className="eddy-instrument-controls"><div className="eddy-metric"><span>Размах карты</span><strong>{valueText(measuredMeshMin === null || measuredMeshMax === null ? null : measuredMeshMax - measuredMeshMin)}</strong></div><p>{meshCommandFinished ? 'Профиль сохранён' : meshScanHasNewMatrix ? 'Новый замер · не сохранено' : 'Карта не подтверждена'}</p></div></div> : <EddyMeshDiagram matrix={matrix} row={selectedMeshRow} column={selectedMeshColumn} min={calibration?.mesh.min} max={calibration?.mesh.max}
+          table={meshTableVisible ? <div className="eddy-mesh-table"><div className="eddy-table-wrap eddy-mesh-values"><table><caption>Строки Y / столбцы X · Z, мм</caption><thead><tr><th scope="col">Y / X</th>{Array.from({ length: meshColumns }, (_, c) => <th key={c} scope="col">{c + 1}</th>)}</tr></thead><tbody>{matrix.map((line, row) => <tr key={row}><th scope="row">{row + 1}</th>{Array.from({ length: meshColumns }, (_, column) => <td key={column} className={selectedMeshRow === row && selectedMeshColumn === column ? 'is-selected' : ''}>{valueText(line[column], 3, '')}</td>)}</tr>)}</tbody></table>{matrix.length === 0 && <p>Измерений пока нет</p>}</div><div className="eddy-mesh-selectors"><div><button type="button" aria-label="Предыдущая строка" disabled={selectedMeshRow === 0 || matrix.length === 0} onClick={() => setMeshRow(selectedMeshRow - 1)}>−</button><span>Y {matrix.length ? selectedMeshRow + 1 : '—'}</span><button type="button" aria-label="Следующая строка" disabled={selectedMeshRow >= matrix.length - 1} onClick={() => setMeshRow(selectedMeshRow + 1)}>+</button></div><div><button type="button" aria-label="Предыдущий столбец" disabled={selectedMeshColumn === 0 || meshColumns === 0} onClick={() => setMeshColumn(selectedMeshColumn - 1)}>−</button><span>X {meshColumns ? selectedMeshColumn + 1 : '—'}</span><button type="button" aria-label="Следующий столбец" disabled={selectedMeshColumn >= meshColumns - 1} onClick={() => setMeshColumn(selectedMeshColumn + 1)}>+</button></div></div><p>Выбранная точка Z {valueText(matrix[selectedMeshRow]?.[selectedMeshColumn])}</p></div> : undefined}
+          controls={<><div className="eddy-metric"><span>Размах</span><strong>{valueText(measuredMeshMin === null || measuredMeshMax === null ? null : measuredMeshMax - measuredMeshMin)}</strong></div><p>{!ready ? 'Последние данные · связи нет' : matrixIsLatestProbe ? 'Новый замер' : `Профиль: ${calibration?.mesh.profile ?? '—'}`}</p><button type="button" className="is-secondary" onClick={() => setMeshTableVisible((visible) => !visible)}>{meshTableVisible ? '3D-карта' : 'Значения'}</button></>} />
       case 'xyOffset':
-        return <>
-          <p>Выполните измерение XY-смещения датчика относительно сопла по инструкции профиля. Введите измеренные значения и проверьте старые и новые параметры перед записью.</p>
+        return <div className="eddy-instrument">{visualOrDetails(<EddyXYDiagram savedX={eddy?.xOffsetMm} savedY={eddy?.yOffsetMm} draftX={offsetsValid ? xValue : null} draftY={offsetsValid ? yValue : null} />)}<div className="eddy-instrument-controls">
           <div className="eddy-offset-fields">
             <div><span>X-смещение, мм</span><button type="button" aria-label="Новое X-смещение, мм" disabled={isBusy || operationUncertain} onClick={() => openOffsetEditor('x')}>{xOffsetDraft || 'Введите значение'} мм</button></div>
             <div><span>Y-смещение, мм</span><button type="button" aria-label="Новое Y-смещение, мм" disabled={isBusy || operationUncertain} onClick={() => openOffsetEditor('y')}>{yOffsetDraft || 'Введите значение'} мм</button></div>
           </div>
-          <div className="eddy-offset-diff"><div><span>Сохранено</span><strong>X {valueText(eddy?.xOffsetMm)} · Y {valueText(eddy?.yOffsetMm)}</strong></div><div><span>Будет записано</span><strong>X {offsetsValid ? valueText(xValue) : '—'} · Y {offsetsValid ? valueText(yValue) : '—'}</strong></div></div>
-          <p className="eddy-warning">Запись изменит локальный конфиг, перезапустит Klipper и потребует повторной калибровки высоты и температуры.</p>
-          {confirmOffsets ? <div className="eddy-confirm-panel" role="group" aria-label="Подтверждение XY-смещения"><strong>Записать новые смещения и перезапустить Klipper?</strong><div className="eddy-action-row"><button type="button" className="eddy-btn" disabled={offsetBlock !== null || !offsetsValid || isBusy || operationUncertain} onClick={() => void beginSave('xyOffset', offsetArgs)}>Подтвердить запись и перезапуск</button><button type="button" className="eddy-btn is-secondary" disabled={operationUncertain} onClick={() => setConfirmOffsets(false)}>Изменить значения</button></div></div> : <button type="button" className="eddy-btn" disabled={!offsetsValid || offsetBlock !== null || isBusy || operationUncertain} title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : offsetBlock ?? undefined} onClick={() => setConfirmOffsets(true)}>Проверить изменения</button>}
-        </>
+          {confirmOffsets && <div className="eddy-offset-diff"><div><span>Сохранено</span><strong>X {valueText(eddy?.xOffsetMm)} · Y {valueText(eddy?.yOffsetMm)}</strong></div><div><span>Будет записано</span><strong>X {offsetsValid ? valueText(xValue) : '—'} · Y {offsetsValid ? valueText(yValue) : '—'}</strong></div></div>}
+          <p className="eddy-warning">Потребуется заново настроить высоту и температуру.</p>
+          {offsetBlock !== null && <small className="eddy-command-reason">{offsetBlock}</small>}
+          {confirmOffsets && <p className="eddy-warning">Записать новые смещения и перезапустить Klipper?</p>}
+        </div></div>
       case 'firstLayer':
-        return <>
-          <p>Выберите заранее подготовленный G-code первого слоя. Экран не генерирует модель и не определяет пригодность файла вместо вас.</p>
-          {snapshot.printFiles.length > 0 ? <label className="eddy-file-picker">Файл теста<select value={selectedFile} onChange={(event) => setSelectedFile(event.target.value)}><option value="">Выберите загруженный G-code</option>{snapshot.printFiles.map((file) => <option key={file.id} value={file.path}>{file.name}</option>)}</select></label> : <p role="status">Список файлов недоступен. Загрузите подготовленный тест первого слоя через раздел файлов.</p>}
-          {selectedCalibrationFile && <div className="eddy-metric"><span>Выбранный файл</span><strong>{selectedCalibrationFile.name}</strong><small>Печать запустится через обычную команду принтера. Следите за первым слоем.</small></div>}
+        return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram firstLayer />)}<div className="eddy-instrument-controls">
+          {!activePrint && <><p>Выберите подготовленный G-code первого слоя и проверьте файл.</p>
+          {snapshot.printFiles.length > 0 ? <section className="eddy-file-list" aria-label="Файлы теста первого слоя">
+            {snapshot.printFiles.map((file) => <button key={file.id} type="button" aria-label={`Выбрать ${file.name}${file.directory ? `, каталог ${file.directory}` : ', корень'}`} aria-pressed={selectedFile === file.path} onClick={() => setSelectedFile(file.path)}><span>{file.name}</span><small>{file.directory || 'Корень'}</small></button>)}
+          </section> : <p role="status">Нет загруженных файлов теста. Откройте раздел файлов и добавьте G-code.</p>}
+          {selectedCalibrationFile && <div className="eddy-file-summary"><span>Проверьте файл перед запуском</span><strong>{selectedCalibrationFile.path}</strong></div>}</>}
           {activePrint && <>
-            <div className="eddy-metric"><span>Печать</span><strong>{snapshot.printJob.filename} · {snapshot.printJob.progressPercent}%</strong><small>Слой {snapshot.printJob.currentLayer ?? '—'} / {snapshot.printJob.totalLayer ?? '—'}{activeCalibrationPrint ? ` · накопленная поправка ${valueText(snapshot.runtimeTune.appliedBabystepMm)}` : ' · выберите этот файл как тест первого слоя для коррекции'}</small></div>
+            <div className="eddy-metric"><span>Текущая печать</span><strong>{snapshot.printJob.filename.split(/[\\/]/).pop()} · {Math.round(snapshot.printJob.progressPercent)}%</strong><small>Слой {snapshot.printJob.currentLayer ?? '—'} / {snapshot.printJob.totalLayer ?? '—'} · Координата Z {valueText(snapshot.toolheadZ)}</small></div>
             {activeCalibrationPrint && <div className="eddy-babystep">
               <span>Шаг, мм</span>
               <div className="eddy-action-row" role="group" aria-label="Шаг babystep">
@@ -689,18 +764,75 @@ export function EddyCalibrationScreen({
                 })}
               </div>
             </div>}
+            {!activeCalibrationPrint && <p>Текущая печать не связана с запуском этого теста. Коррекция первого слоя недоступна.</p>}
           </>}
-          {!activePrint && printStartArgs !== null && commandButton('Запустить выбранный тест', printStartArgs, { blocked: !ready || isBusy, reason: !ready ? 'Нужно подключение к готовому принтеру.' : getCommandBlockReason('start', printStartArgs), onClick: () => void startFirstLayerTest() })}
           {snapshot.printJob.state === 'complete' || snapshot.printJob.state === 'cancelled' ? <div className="eddy-metric"><span>{firstLayerObservedPath !== null && firstLayerObservedPath === firstLayerStartedPath && observedPrintPath === firstLayerObservedPath ? snapshot.printJob.state === 'complete' ? 'Наблюдавшийся тест завершён' : 'Наблюдавшийся тест отменён' : 'Последняя печать'}</span><strong>{firstLayerObservedPath !== null && firstLayerObservedPath === firstLayerStartedPath && observedPrintPath === firstLayerObservedPath
             ? calibration?.config.savePending || calibration?.config.pendingSections.length ? `Есть несохранённые изменения: ${calibration.config.pendingSections.join(', ') || 'разделы неизвестны'}` : 'Конфигурация не ожидает сохранения'
             : 'Статус завершённой печати не связан с наблюдавшимся запуском этого теста.'}</strong></div> : null}
-        </>
+          {(snapshot.printJob.state === 'complete' || snapshot.printJob.state === 'cancelled') && <p>Качество слоя оценивает оператор; завершение печати не подтверждает качество.</p>}
+        </div></div>
+      case 'overview':
+        return null
+    }
+  }
+
+  function renderProcedureActions() {
+    const next = (label: string, destination: ProcedureId) => <button type="button" className="eddy-btn" disabled={backBlocked || !ready || blockCalibration !== null} onClick={() => openProcedure(destination)}>{label}</button>
+    const done = <button type="button" className="eddy-btn" disabled={backBlocked} onClick={() => { setPipelineActive(false); openProcedure('overview') }}>Готово</button>
+    if (saveKind !== null) return <button type="button" disabled>Сохраняем · ждём перезапуск</button>
+    switch (procedure) {
+      case 'driveCurrent':
+        return driveCurrentConfirmed ? next('Далее: высота по бумаге', 'height') : commandButton('Настроить код тока катушки', { command: 'eddyDriveCurrentCalibrate' }, { reason: blockCalibration, onClick: () => void beginSave('driveCurrent', { command: 'eddyDriveCurrentCalibrate' }) })
+      case 'height':
+        if (completedSaveKind === 'height' && snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature') return next('Далее: температурная серия', 'temperature')
+        return activeManualSession
+          ? commandButton('Принять высоту и сохранить', { command: 'eddyPrimaryAcceptSave' }, { reason: blockCalibration, onClick: () => void beginSave('height', { command: 'eddyPrimaryAcceptSave' }) })
+          : !allAxesHomed
+            ? <>{commandButton('Подготовить XY и нижнюю Z-опору', { command: 'homeXY' }, { reason: commandReason({ command: 'homeXY' }), onClick: () => void run({ command: 'homeXY' }) })}{commandButton('Начать проверку по бумаге', { command: 'eddyPrimaryHeightStart' }, { reason: blockCalibration ?? 'Сначала привяжите X, Y и Z безопасной командой G28 X Y.' })}</>
+            : commandButton('Начать проверку по бумаге', { command: 'eddyPrimaryHeightStart' }, { reason: blockCalibration })
+      case 'temperature':
+        if (completedSaveKind === 'temperature' && snapshot.v2.eddy.calibration.temperatureDone && snapshot.v2.eddy.calibration.activeStep === 'z0') return next('Далее: проверка Z0', 'z0')
+        return activeTemperatureSession ? <>{commandButton('Принять текущую точку', { command: 'eddyTemperatureAccept' }, { reason: temperatureAcceptReason })}{commandButton('Завершить серию и сохранить', { command: 'eddyTemperatureComplete' }, { secondary: true, reason: temperatureCompleteReason, onClick: () => void beginSave('temperature', { command: 'eddyTemperatureComplete' }) })}</>
+          : commandButton('Начать температурную серию', { command: 'eddyTemperatureStart' }, { reason: blockCalibration })
+      case 'z0':
+        if (z0Confirmed) return next('Далее: винты стола', 'screws')
+        return commandButton('Проверить Z0', { command: 'eddyCheckZ0' }, { blocked: z0Running || z0CommandAccepted && !z0Confirmed || blockCalibration !== null, reason: blockCalibration ?? getCommandBlockReason('eddyCheckZ0'), onClick: () => void runProbe('eddyCheckZ0') })
+      case 'offsets':
+        if (completedSaveKind === 'zOffset') return done
+        return confirmZOffsetSave
+          ? commandButton('Подтвердить запись и перезапуск', { command: 'eddyZOffsetSave' }, { secondary: true, reason: zOffsetSaveReason, onClick: () => void beginSave('zOffset', { command: 'eddyZOffsetSave' }) })
+          : <button type="button" className="eddy-btn is-secondary" disabled={zOffsetSaveReason !== null || isBusy || operationUncertain} title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : zOffsetSaveReason ?? undefined} onClick={() => setConfirmZOffsetSave(true)}>Проверить сохранение Z-offset</button>
+      case 'accuracy':
+        if (accuracyResult !== null && !accuracyRunning) return <>{done}{commandButton('Повторить PROBE_ACCURACY', { command: 'eddyProbeAccuracy' }, { secondary: true, blocked: !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => { setAccuracyResult(null); void runProbe('eddyProbeAccuracy') } })}</>
+        return commandButton('Запустить PROBE_ACCURACY', { command: 'eddyProbeAccuracy' }, { blocked: accuracyRunning || !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => void runProbe('eddyProbeAccuracy') })
+      case 'screws':
+        return <>{commandButton('Далее: карта стола', { command: 'eddyScanMesh', save: false }, { blocked: !screwsConfirmed, reason: blockCalibration ?? (!screwsConfirmed ? 'Нужно подтвердить повторный замер четырёх винтов.' : commandReason({ command: 'eddyScanMesh', save: false })), onClick: () => { if (!screwsConfirmed || backBlocked || blockCalibration !== null || commandReason({ command: 'eddyScanMesh', save: false }) !== null) return; openProcedure('mesh'); void runMeshScan() } })}{commandButton('Измерить винты', { command: 'eddyScrewsTiltStart' }, { secondary: true, reason: blockCalibration, onClick: () => void runScrewsMeasurement() })}{!screwsConfirmed && commandButton('Подтвердить после повторного замера', { command: 'eddyScrewsTiltDone' }, { secondary: true, blocked: !screwsFresh || screws?.error !== false || screws.results.length < 4, reason: !screwsFresh ? 'Нужен принятый повторный замер с четырьмя обновлёнными точками.' : screws?.error !== false ? 'Проверьте ошибки винтового замера.' : null, onClick: () => void finishScrews() })}</>
+      case 'mesh':
+        if (meshCommandFinished && snapshot.v2.eddy.calibration.meshDone && snapshot.v2.eddy.calibration.requiredDone) return next('Далее: первый слой', 'firstLayer')
+        return <>{commandButton('Сканировать карту без записи', { command: 'eddyScanMesh', save: false }, { reason: blockCalibration, onClick: () => void runMeshScan() })}{meshScanHasNewMatrix && <button type="button" className="eddy-btn is-secondary" disabled={isBusy || operationUncertain || saveKind !== null || blockCalibration !== null} title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : blockCalibration ?? undefined} onClick={() => { setMeshSaveTarget(probedMatrix); void beginSave('mesh', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }) }}>Сохранить профиль и перезапустить</button>}</>
+      case 'xyOffset':
+        if (completedSaveKind === 'xyOffset') return <>{next('Далее: высота по бумаге', 'height')}{done}</>
+        return confirmOffsets ? <><button type="button" className="eddy-btn" disabled={offsetBlock !== null || !offsetsValid || isBusy || operationUncertain} onClick={() => void beginSave('xyOffset', offsetArgs)}>Подтвердить запись и перезапуск</button><button type="button" className="eddy-btn is-secondary" disabled={operationUncertain} onClick={() => setConfirmOffsets(false)}>Изменить значения</button></>
+          : <button type="button" className="eddy-btn" disabled={!offsetsValid || offsetBlock !== null || isBusy || operationUncertain} title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : offsetBlock ?? undefined} onClick={() => setConfirmOffsets(true)}>Проверить изменения</button>
+      case 'firstLayer':
+        if (!activePrint && firstLayerObservedPath !== null && firstLayerObservedPath === firstLayerStartedPath && observedPrintPath === firstLayerObservedPath && (snapshot.printJob.state === 'complete' || snapshot.printJob.state === 'cancelled')) return done
+        if (!activePrint && !backBlocked && printStartArgs === null) return done
+        return !activePrint && printStartArgs !== null ? commandButton('Запустить тест первого слоя', printStartArgs, { blocked: !ready || isBusy, reason: !ready ? 'Нужно подключение к готовому принтеру.' : getCommandBlockReason('start', printStartArgs), onClick: () => void startFirstLayerTest() }) : null
       case 'overview':
         return null
     }
   }
 
   const activeTitle = PROCEDURES.find((item) => item.id === procedure)?.title ?? 'Калибровки Eddy'
+  const procedureCompleted = procedure === 'driveCurrent' ? driveCurrentConfirmed
+    : procedure === 'height' ? completedSaveKind === 'height'
+      : procedure === 'temperature' ? completedSaveKind === 'temperature'
+        : procedure === 'z0' ? z0Confirmed
+          : procedure === 'screws' ? screwsConfirmed
+            : procedure === 'mesh' ? meshCommandFinished
+              : procedure === 'xyOffset' ? completedSaveKind === 'xyOffset'
+                : procedure === 'offsets' ? completedSaveKind === 'zOffset'
+                  : procedure === 'accuracy' ? accuracyResult !== null && !accuracyRunning : false
   const procedureStatus = operationUncertain
     ? 'Операция неизвестна'
     : saveKind !== null
@@ -717,33 +849,45 @@ export function EddyCalibrationScreen({
               ? 'Сохранение не подтверждено'
               : procedure === 'overview'
                 ? 'Состояние принтера'
-                : message.includes('подтверждены')
+                : procedureCompleted
                   ? 'Результат подтверждён'
-                  : 'Подготовка'
+                  : procedure === 'screws' && screwsFresh ? 'Результат замера'
+                    : procedure === 'mesh' && meshScanHasNewMatrix ? 'Новый замер · не сохранено'
+                    : 'Подготовка'
   const emergencyAllowed = snapshot.capabilities.serviceCommands && getCommandBlockReason('emergencyStop') === null
-  const emergencyActionVisible = activeSession || isBusy || saveKind !== null || accuracyRunning || z0Running || operationUncertain
+  const emergencyActionVisible = pipelineActive || activeSession || isBusy || saveKind !== null || accuracyRunning || z0Running || operationUncertain
+  const primaryBlockReason = procedureCompleted ? null : procedure === 'driveCurrent' ? commandReason({ command: 'eddyDriveCurrentCalibrate' })
+    : procedure === 'height' ? !allAxesHomed ? 'Сначала привяжите X, Y и Z безопасной командой G28 X Y.' : commandReason({ command: activeManualSession ? 'eddyPrimaryAcceptSave' : 'eddyPrimaryHeightStart' })
+      : procedure === 'temperature' ? activeTemperatureSession ? temperatureAcceptReason ?? temperatureCompleteReason : commandReason({ command: 'eddyTemperatureStart' })
+        : procedure === 'z0' ? commandReason({ command: 'eddyCheckZ0' })
+          : procedure === 'accuracy' ? commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability)
+            : procedure === 'mesh' ? commandReason({ command: 'eddyScanMesh', save: false })
+              : procedure === 'xyOffset' ? offsetBlock
+                : procedure === 'offsets' ? zOffsetSaveReason
+                  : procedure === 'screws' ? commandReason({ command: 'eddyScrewsTiltStart' }) ?? (screwsDoneRefreshRunId !== null && !screwsConfirmed ? 'Ожидаем подтверждение настройки винтов.' : screws?.results.length && !screwsFresh ? 'Нужен повторный замер четырёх винтов.' : null)
+                    : procedure === 'firstLayer' && printStartArgs && !activePrint ? getCommandBlockReason('start', printStartArgs) : null
+  const visibleBlockReason = procedure === 'overview' || procedure === 'firstLayer' ? primaryBlockReason : blockCalibration ?? (procedure === 'screws' && screwsConfirmed ? commandReason({ command: 'eddyScanMesh', save: false }) : primaryBlockReason)
 
   return (
-    <article className="eddy-workflow">
+    <article className={joinClassNames('eddy-workflow', procedure === 'overview' && !emergencyActionVisible && 'is-overview', emergencyActionVisible && 'has-safety-actions')}>
       <header className="eddy-header">
-        <button type="button" disabled={backBlocked} onClick={onBackToList}>К списку макросов</button>
-        <div><p>Калибровка / Eddy{snapshot.source === 'mock' ? ' / Симуляция' : ''}</p><h2>{procedure === 'overview' ? 'Обзор калибровок' : activeTitle}</h2></div>
-        <span>{procedureStatus}</span>
+        <button type="button" disabled={backBlocked} onClick={onBackToList}>{pipelineActive && !backBlocked ? 'Завершить' : 'В папку Eddy'}</button>
+        <div>{snapshot.source === 'mock' && <p>Симуляция</p>}<h2>{procedure === 'overview' ? 'Обзор калибровок' : activeTitle}</h2></div>
+        <span>{!ready ? 'Связи нет · последние данные' : procedureStatus}</span>
+        {procedure !== 'overview' && <button type="button" className="is-secondary" aria-expanded={detailsVisible} onClick={() => setDetailsVisible((visible) => !visible)}>{detailsVisible ? 'Закрыть подробности' : 'Подробнее'}</button>}
       </header>
       <main className={joinClassNames('eddy-body', procedure === 'overview' && 'is-overview')}>
-        {procedure !== 'overview' && <><h2>{activeTitle}</h2><section className="eddy-procedure-content">{renderProcedure()}</section></>}
+        {procedure === 'overview' && (saveError || message || operationUncertain) && <p className={joinClassNames('eddy-message', (saveError || operationUncertain) && 'is-error')} role={saveError || operationUncertain ? 'alert' : 'status'}>{saveError || message || 'Операция принтера остаётся неопределённой. Продолжение заблокировано.'}</p>}
+        {procedure !== 'overview' && <section className="eddy-procedure-content">{renderProcedure()}</section>}
+        {procedure !== 'overview' && visibleBlockReason && !saveError && !operationUncertain && saveKind === null && <p className="eddy-block-reason" role="status">{visibleBlockReason}</p>}
         {procedure === 'overview' && <>{renderOverview()}</>}
-        {message && <p className="eddy-message" role="status">{message}</p>}
-        {saveError && <p className="eddy-message is-error" role="alert">{saveError}</p>}
-        {saveKind !== null && !operationUncertain && <p className="eddy-message" role="status">Команда принята. Ждём перезапуск, готовность Klipper и подтверждение конфигурации…</p>}
-        {operationUncertain && <p className="eddy-message is-error" role="status">Операция принтера остаётся неопределённой. Продолжение заблокировано до проверки состояния принтера.</p>}
       </main>
-      <footer className="eddy-footer">
-        <button type="button" disabled={backBlocked || procedure === 'overview'} onClick={() => openProcedure('overview')}>К обзору</button>
-        {activeSession && abortCapability && commandButton('Отменить текущий этап', { command: 'eddyAbort' }, { secondary: true, reason: commandReason({ command: 'eddyAbort' }, abortCapability) })}
+      {(procedure !== 'overview' || emergencyActionVisible) && <footer className="eddy-footer">
+        {renderProcedureActions()}
+        {activeSession && abortCapability && commandButton(procedure === 'height' ? 'Отменить ручное измерение' : procedure === 'temperature' ? 'Отменить серию' : 'Отменить текущий этап', { command: 'eddyAbort' }, { secondary: true, reason: commandReason({ command: 'eddyAbort' }, abortCapability) })}
         {emergencyActionVisible && <button type="button" className="eddy-danger" disabled={!emergencyAllowed || emergencyPending} onClick={() => setConfirmEmergency(true)}>Аварийная остановка</button>}
-        {procedure === 'overview' && <span className="eddy-footer-note">Состояния из конфигурации и телеметрии; неизвестные значения отмечены явно.</span>}
-      </footer>
+      </footer>}
+      {screwsRawVisible && <div className="eddy-dialog-layer"><div className="eddy-dialog" role="dialog" aria-modal="true" aria-label="Все данные винтового замера" ref={screwsDialogRef}><div className="eddy-table-wrap eddy-raw-table"><table><caption>Результаты винтового замера</caption><thead><tr><th>Винт</th><th>X / Y</th><th>Z</th><th>Знак</th><th>Поворот</th></tr></thead><tbody>{screws?.results.map((item) => <tr key={item.name}><th scope="row">{item.name}{item.isBase === true ? ' · база' : ''}</th><td>{valueText(item.xMm)} / {valueText(item.yMm)}</td><td>{valueText(item.zMm)}</td><td>{item.sign ?? '—'}</td><td>{item.adjust ?? '—'}</td></tr>)}</tbody></table></div><p>Направление показано со стороны вращаемой головки винта. Поворот — обороты:минуты, не время.</p><button type="button" onClick={() => setScrewsRawVisible(false)}>Закрыть данные замера</button></div></div>}
       {editingOffsetField !== null && createPortal(<div className="eddy-offset-dialog tune-value-workspace is-keyboard-open" role="dialog" aria-modal="true" aria-label={`Изменить ${editingOffsetField.toUpperCase()}-смещение`} ref={offsetDialogRef}>
         <div className="eddy-offset-editor">
           <TuneValueEditor label={`${editingOffsetField.toUpperCase()}-смещение, мм`} icon="metricSpeed">

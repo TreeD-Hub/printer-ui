@@ -7,13 +7,22 @@ import {
 } from '../src/core/hostNetwork'
 import type { HostUpdateClient, HostUpdateOperation, HostUpdateStatus } from '../src/core/hostUpdate'
 import { TREED_V2_COREXY_V1_LIMITS, type PrinterCommandId } from '@treed/printer-logic'
-import type { PrinterSnapshot, PrinterSource, TransportClient } from '../src/core/transport/types'
+import type { PrinterSnapshot, PrinterSource, PrinterShaperResonanceReport, TransportClient } from '../src/core/transport/types'
+import { PRINT_FILE_LIBRARY } from '../src/printFiles'
 
 export const runtimeMode: PrinterSource = 'mock'
 
 let mockCommandFailure: { command: PrinterCommandId; message: string } | null = null
 let mockCommandOperations: ExecuteCommandArgs[] = []
 let mockTransportSnapshot: PrinterSnapshot | null = null
+const MOCK_MESH_MATRIX = Array.from({ length: 7 }, (_, y) => Array.from({ length: 7 }, (_, x) => (
+  Math.round((0.08 * ((x - 3) ** 2 + (y - 3) ** 2) / 18 + (x - 3) * 0.006 - (y - 3) * 0.004) * 1000) / 1000
+)))
+let mockResonanceRevision = 0
+let mockResonanceReports: Record<'full' | 'light', PrinterShaperResonanceReport> = {
+  full: { mode: 'full', axes: { x: null, y: null } },
+  light: { mode: 'light', axes: { x: null, y: null } },
+}
 let mockNetworkStatus = createUnavailableHostNetworkStatus('Host network bridge недоступен.')
 let mockNetworkOperations: string[] = []
 
@@ -279,6 +288,11 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
         snapshot.thermalTargets.bed = 0
       })
       return
+    case 'adjustZOffset':
+      updateMockSnapshot((snapshot) => {
+        snapshot.toolheadZ += args.deltaMm
+      })
+      return
     case 'setMainLightEnabled':
       updateMockSnapshot((snapshot) => {
         snapshot.mainLightEnabled = args.enabled
@@ -313,39 +327,82 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
           snapshot.calibration.eddy.inTemperatureCalibration = true
           snapshot.calibration.eddy.temperatureSeriesActive = true
           snapshot.calibration.eddy.temperaturePoints = 0
-          snapshot.calibration.manualProbe.active = true
+          snapshot.calibration.manualProbe.active = false
         }
+        snapshot.v2.eddy.calibration.activeStep = 'temperature'
+        snapshot.v2.eddy.calibration.operatorPrompt = 'temperature_points'
       })
       return
     case 'eddyTemperatureAccept':
       updateMockSnapshot((snapshot) => {
         if (snapshot.calibration) {
           snapshot.calibration.eddy.temperaturePoints = (snapshot.calibration.eddy.temperaturePoints ?? 0) + 1
-          snapshot.calibration.manualProbe.active = true
         }
       })
       return
     case 'eddyTemperatureComplete':
     case 'eddyTemperatureAcceptSave':
-    case 'eddyAbort':
       updateMockSnapshot((snapshot) => {
         if (snapshot.calibration) snapshot.calibration.eddy.inTemperatureCalibration = false
         if (snapshot.calibration) {
           snapshot.calibration.eddy.temperatureSeriesActive = false
           snapshot.calibration.manualProbe.active = false
+          snapshot.calibration.config.savePending = true
+          snapshot.calibration.config.pendingSections = ['eddy_temperature']
         }
+        snapshot.v2.eddy.calibration.temperatureDone = true
+        snapshot.v2.eddy.calibration.activeStep = 'z0'
+        snapshot.v2.eddy.calibration.operatorPrompt = 'verify_z0'
       })
       return
-    case 'eddyScanMesh':
+    case 'eddyAbort':
       updateMockSnapshot((snapshot) => {
-        const mesh = snapshot.calibration?.mesh
-        if (mesh === undefined) return
-        mesh.probedMatrix = structuredClone(mesh.meshMatrix)
-        if (args.save !== false && mesh.profile) {
-          mesh.savedProfiles[mesh.profile] = mesh.meshMatrix
-            .filter((row) => row.every((value) => value !== null))
-            .map((row) => row.map((value) => value!))
+        if (snapshot.calibration) {
+          snapshot.calibration.eddy.inTemperatureCalibration = false
+          snapshot.calibration.eddy.temperatureSeriesActive = false
+          snapshot.calibration.manualProbe.active = false
         }
+        snapshot.v2.eddy.calibration.operatorPrompt = 'none'
+      })
+      return
+    case 'eddyDriveCurrentCalibrate':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.eddy.driveCurrent = 18
+          snapshot.calibration.config.savePending = true
+          snapshot.calibration.config.pendingSections = ['eddy_drive_current']
+        }
+        snapshot.v2.eddy.calibration.driveCurrentDone = true
+        snapshot.v2.eddy.calibration.activeStep = 'primary'
+      })
+      return
+    case 'eddyPrimaryHeightStart':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.manualProbe = { active: true, zMm: 0.12, zMinimumMm: -0.2, zMaximumMm: 0.5 }
+          snapshot.calibration.eddy.heightCalibrated = false
+        }
+        snapshot.v2.eddy.calibration.activeStep = 'primary'
+        snapshot.v2.eddy.calibration.operatorPrompt = 'paper_test'
+      })
+      return
+    case 'eddyTestZ':
+      updateMockSnapshot((snapshot) => {
+        const probe = snapshot.calibration?.manualProbe
+        if (probe?.active && probe.zMm !== null) probe.zMm += args.deltaMm
+      })
+      return
+    case 'eddyPrimaryAcceptSave':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.manualProbe.active = false
+          snapshot.calibration.eddy.heightCalibrated = true
+          snapshot.calibration.config.savePending = true
+          snapshot.calibration.config.pendingSections = ['eddy_height']
+        }
+        snapshot.v2.eddy.calibration.primaryDone = true
+        snapshot.v2.eddy.calibration.activeStep = 'temperature'
+        snapshot.v2.eddy.calibration.operatorPrompt = 'none'
       })
       return
     case 'eddySetOffsets':
@@ -354,7 +411,70 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
           snapshot.calibration.eddy.xOffsetMm = args.xOffsetMm
           snapshot.calibration.eddy.yOffsetMm = args.yOffsetMm
           snapshot.calibration.eddy.heightCalibrated = false
+          snapshot.calibration.eddy.inTemperatureCalibration = false
+          snapshot.calibration.eddy.temperatureSeriesActive = false
+          snapshot.calibration.config.savePending = true
+          snapshot.calibration.config.pendingSections = ['eddy_offsets']
         }
+        snapshot.v2.eddy.calibration.primaryDone = false
+        snapshot.v2.eddy.calibration.temperatureDone = false
+      })
+      return
+    case 'eddyZOffsetSave':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.eddy.heightCalibrated = true
+          snapshot.calibration.config.savePending = true
+          snapshot.calibration.config.pendingSections = ['eddy_z_offset']
+        }
+      })
+      return
+    case 'eddyCheckZ0':
+      updateMockSnapshot((snapshot) => {
+        snapshot.v2.eddy.calibration.z0Done = true
+        snapshot.v2.eddy.calibration.activeStep = 'screws'
+        snapshot.v2.eddy.calibration.operatorPrompt = 'verify_z0'
+      })
+      return
+    case 'eddyScrewsTiltStart':
+      updateMockSnapshot((snapshot) => {
+        if (!snapshot.calibration) return
+        snapshot.calibration.screws = {
+          error: false,
+          maxDeviationMm: 0.02,
+          results: [
+            { name: 'P1 probe X25 Y70', xMm: 25, yMm: 100, zMm: 0, isBase: true, sign: 'CW', adjust: '00:00' },
+            { name: 'P2 probe X220 Y70', xMm: 220, yMm: 100, zMm: 0.02, isBase: false, sign: 'CCW', adjust: '00:01' },
+            { name: 'P3 probe X220 Y205', xMm: 220, yMm: 235, zMm: -0.01, isBase: false, sign: 'CW', adjust: '00:01' },
+            { name: 'P4 probe X25 Y205', xMm: 25, yMm: 235, zMm: 0.01, isBase: false, sign: 'CCW', adjust: '00:01' },
+          ],
+        }
+      })
+      return
+    case 'eddyScrewsTiltDone':
+      updateMockSnapshot((snapshot) => {
+        snapshot.v2.eddy.calibration.screwsDone = true
+        snapshot.v2.eddy.calibration.activeStep = 'mesh'
+      })
+      return
+    case 'eddyScanMesh':
+      updateMockSnapshot((snapshot) => {
+        const calibration = snapshot.calibration
+        if (calibration === undefined) return
+        const mesh = calibration.mesh
+        mesh.profile = 'default'
+        mesh.min = [25, 25]
+        mesh.max = [225, 222]
+        mesh.meshMatrix = structuredClone(MOCK_MESH_MATRIX)
+        mesh.probedMatrix = structuredClone(MOCK_MESH_MATRIX)
+        // Klipper готовит профиль и pending config после scan; SAVE управляет только перезапуском.
+        mesh.savedProfiles.default = structuredClone(MOCK_MESH_MATRIX)
+        calibration.config.savePending = true
+        calibration.config.pendingSections = ['bed_mesh default']
+        snapshot.v2.eddy.calibration.meshDone = true
+        snapshot.v2.eddy.calibration.requiredDone = true
+        snapshot.v2.eddy.calibration.activeStep = 'complete'
+        snapshot.v2.eddy.calibration.operatorPrompt = args.save === false ? 'none' : 'restart'
       })
       return
     case 'eddyZOffsetAdjust':
@@ -367,7 +487,21 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
     case 'extruderRotationDistanceApply':
     case 'extruderRotationDistanceSave':
       updateMockSnapshot((snapshot) => {
-        if (snapshot.calibration) snapshot.calibration.extruder.rotationDistanceMm = args.distanceMm
+        if (snapshot.calibration) {
+          snapshot.calibration.extruder.rotationDistanceMm = args.distanceMm
+          snapshot.calibration.config.savePending = true
+          snapshot.calibration.config.pendingSections = ['extruder']
+        }
+      })
+      return
+    case 'shaperCalibrateLight':
+    case 'shaperCalibrateFull':
+      updateMockSnapshot((snapshot) => {
+        if (snapshot.calibration) {
+          snapshot.calibration.shaper = { typeX: 'ei', typeY: 'mzv', freqXHz: 51.4, freqYHz: 42.2 }
+          snapshot.calibration.config.savePending = true
+          snapshot.calibration.config.pendingSections = ['input_shaper']
+        }
       })
       return
     case 'excludeObject':
@@ -409,6 +543,11 @@ export function setMockTransportSnapshot(snapshot: PrinterSnapshot | null): void
 
 export function clearMockTransportSnapshot(): void {
   mockTransportSnapshot = null
+  mockResonanceRevision = 0
+  mockResonanceReports = {
+    full: { mode: 'full', axes: { x: null, y: null } },
+    light: { mode: 'light', axes: { x: null, y: null } },
+  }
 }
 
 function cloneHostNetworkStatus(status: HostNetworkStatus): HostNetworkStatus {
@@ -682,7 +821,7 @@ export function createMockSnapshot(): PrinterSnapshot {
       available: ['TREED_UI_SERVICE_MODE'],
       values: {},
     },
-    printFiles: [],
+    printFiles: structuredClone(PRINT_FILE_LIBRARY),
     calibration: {
       manualProbe: { active: false, zMm: null, zMinimumMm: null, zMaximumMm: null },
       eddy: {
@@ -702,18 +841,20 @@ export function createMockSnapshot(): PrinterSnapshot {
       config: { savePending: false, pendingSections: [] },
       mesh: {
         profile: 'default',
-        min: [20, 20],
-        max: [225, 225],
-        probedMatrix: [[0, 0.01], [-0.01, 0]],
-        meshMatrix: [[0, 0.01], [-0.01, 0]],
-        savedProfiles: { default: [[0, 0.01], [-0.01, 0]] },
+        min: [25, 25],
+        max: [225, 222],
+        probedMatrix: structuredClone(MOCK_MESH_MATRIX),
+        meshMatrix: structuredClone(MOCK_MESH_MATRIX),
+        savedProfiles: { default: structuredClone(MOCK_MESH_MATRIX) },
       },
       screws: {
         error: false,
         maxDeviationMm: 0.02,
         results: [
-          { name: 'screw1', xMm: 30, yMm: 30, zMm: 0, isBase: null, sign: '+', adjust: '00:02' },
-          { name: 'screw2', xMm: 210, yMm: 30, zMm: 0.02, isBase: null, sign: '-', adjust: '00:01' },
+          { name: 'P1 probe X25 Y70', xMm: 25, yMm: 100, zMm: 0, isBase: true, sign: 'CW', adjust: '00:00' },
+          { name: 'P2 probe X220 Y70', xMm: 220, yMm: 100, zMm: 0.02, isBase: false, sign: 'CCW', adjust: '00:01' },
+          { name: 'P3 probe X220 Y205', xMm: 220, yMm: 235, zMm: -0.01, isBase: false, sign: 'CW', adjust: '00:01' },
+          { name: 'P4 probe X25 Y205', xMm: 25, yMm: 235, zMm: 0.01, isBase: false, sign: 'CCW', adjust: '00:01' },
         ],
       },
       shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 48.2, freqYHz: 39.6 },
@@ -769,6 +910,9 @@ export function createTransportClient(): TransportClient {
         calibration: snapshot.v2.eddy.calibration,
         calibrationState: snapshot.calibration,
       }
+    },
+    async fetchShaperResonances(mode) {
+      return structuredClone(mockResonanceReports[mode])
     },
     async fetchExcludeObjects() {
       const snapshot = mockTransportSnapshot === null ? createMockSnapshot() : structuredClone(mockTransportSnapshot)
@@ -837,6 +981,68 @@ export function createCommandClient(): CommandClient {
 
       applyMockCommandEffect(args)
 
+      switch (args.command) {
+        case 'accelerometerQuery':
+          receivePrinterGcodeResponse('accelerometer values (x, y, z): 0.124, -0.086, 9.812')
+          break
+        case 'accelerometerMeasureNoise':
+          receivePrinterGcodeResponse('axes noise for xy-axis accelerometer: 0.0012 (x), 0.0016 (y), 0.0021 (z)')
+          break
+        case 'shaperCalibrateLight':
+        case 'shaperCalibrateFull':
+          {
+            const mode = args.command === 'shaperCalibrateFull' ? 'full' : 'light'
+            mockResonanceRevision += 1
+            const axes: PrinterShaperResonanceReport['axes'] = { x: null, y: null }
+            for (const axis of ['x', 'y'] as const) {
+              const center = axis === 'x' ? 51.4 : 42.2
+              const frequencies = mode === 'full'
+                ? Array.from({ length: 151 }, (_, index) => index)
+                : Array.from({ length: 31 }, (_, index) => center - 15 + index)
+              const csv = 'freq,psd_x,psd_y,psd_z,psd_xyz\n' + frequencies.map((freq) => {
+                const power = 0.001 + Math.exp(-(((freq - center) / 5) ** 2))
+                return `${freq.toFixed(1)},${(power * 0.5).toFixed(6)},${(power * 0.3).toFixed(6)},${(power * 0.2).toFixed(6)},${power.toFixed(6)}`
+              }).join('\n') + '\n'
+              axes[axis] = { revision: `mock:${mode}:${axis}:${mockResonanceRevision}`, csv }
+            }
+            mockResonanceReports[mode] = { mode, axes }
+          }
+          receivePrinterGcodeResponse('Recommended shaper_type_x = ei, shaper_freq_x = 51.4 Hz\nRecommended shaper_type_y = mzv, shaper_freq_y = 42.2 Hz')
+          break
+        case 'eddyDriveCurrentCalibrate':
+          receivePrinterGcodeResponse('Eddy drive current calibration complete: drive_current=18')
+          break
+        case 'eddyProbeAccuracy':
+          receivePrinterGcodeResponse(' probe accuracy: probe range 0.012, average 0.004, standard deviation 0.003')
+          break
+        case 'eddyCheckZ0':
+          receivePrinterGcodeResponse('Eddy Z0: probe=(0.100, 0.200) tool=(0.100, 0.200) offset=(0.000, 0.000)')
+          break
+        default:
+          break
+      }
+
+      const savesConfig = (args.command === 'consoleGcode' && args.script === 'TREED_SAVE_CONFIG')
+        || args.command === 'extruderRotationDistanceSave'
+        || args.command === 'eddyDriveCurrentCalibrate'
+        || (args.command === 'eddyScanMesh' && args.save !== false)
+        || args.command === 'eddyPrimaryAcceptSave'
+        || args.command === 'eddyTemperatureComplete'
+        || args.command === 'eddyTemperatureAcceptSave'
+        || args.command === 'eddySetOffsets'
+        || args.command === 'eddyZOffsetSave'
+      if (savesConfig) {
+        updateMockSnapshot((snapshot) => { snapshot.klippy.state = 'startup' })
+        await wait(4_000)
+        updateMockSnapshot((snapshot) => {
+          snapshot.klippy.state = 'ready'
+          if (snapshot.calibration) {
+            snapshot.calibration.config.savePending = false
+            snapshot.calibration.config.pendingSections = []
+          }
+        })
+      }
+
       if (args.command === 'consoleGcode' && /^PID_CALIBRATE HEATER=(extruder|heater_bed) TARGET=\d+$/.test(args.script ?? '')) {
         const nozzle = args.script?.includes('HEATER=extruder')
         const target = Number(args.script?.match(/TARGET=(\d+)/)?.[1])
@@ -851,12 +1057,6 @@ export function createCommandClient(): CommandClient {
         }
         updateMockSnapshot((snapshot) => { snapshot.thermalTargets[nozzle ? 'nozzle' : 'bed'] = 0 })
         receivePrinterGcodeResponse('PID parameters: pid_Kp=22.100 pid_Ki=1.200 pid_Kd=101.300')
-      }
-
-      if (args.command === 'consoleGcode' && args.script === 'TREED_SAVE_CONFIG') {
-        updateMockSnapshot((snapshot) => { snapshot.klippy.state = 'startup' })
-        await wait(4_000)
-        updateMockSnapshot((snapshot) => { snapshot.klippy.state = 'ready' })
       }
 
       return {

@@ -1180,6 +1180,7 @@ describe('App', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Макросы' })) })
     expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(screen.getByRole('button', { name: 'Датчик Eddy' }))
     fireEvent.click(screen.getByRole('button', { name: /^Калибровка Eddy/ }))
     fireEvent.click(screen.getByRole('button', { name: /Высота Eddy/ }))
     expect(screen.getByRole('button', { name: '-0.05 мм' })).toBeEnabled()
@@ -1200,8 +1201,9 @@ describe('App', () => {
     applyPrinterSnapshot(snapshot)
     await act(async () => { render(<App />) })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Макросы' })) })
+    fireEvent.click(screen.getByRole('button', { name: 'Датчик Eddy' }))
     fireEvent.click(screen.getByRole('button', { name: /^Калибровка Eddy/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Компенсация температуры/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Температура/ }))
     expect(screen.getByRole('button', { name: 'Завершить серию и сохранить' })).toBeEnabled()
   })
 

@@ -1,0 +1,18 @@
+.calibration-preview {
+  display: block;
+  grid-area: preview;
+  width: 96px;
+  height: 80px;
+  color: var(--color-text-primary);
+  flex: none;
+}
+
+.is-eddy-folder .calibration-preview {
+  width: 112px;
+  height: 96px;
+}
+
+.calibration-preview.calibration-preview--compact {
+  width: 40px;
+  height: 40px;
+}

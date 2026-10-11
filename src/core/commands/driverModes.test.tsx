@@ -4,7 +4,7 @@ import { usePrinterCommands } from './usePrinterCommands'
 import { getTreeDCommandBlockReason, type TreeDCommandRuntimeContext } from './catalog'
 
 const runtime = vi.hoisted(() => ({execute: vi.fn()}))
-vi.mock('#runtime', () => ({createCommandClient: () => runtime}))
+vi.mock('#runtime', () => ({runtimeMode: 'live', createCommandClient: () => runtime}))
 
 function context(): TreeDCommandRuntimeContext {
  return {

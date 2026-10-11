@@ -621,6 +621,7 @@ export function usePrinterSnapshot(pollIntervalMs = 2_000) {
     refreshRuntime,
     refreshFilamentSensor,
     refreshEddyState,
+    fetchShaperResonances: client.fetchShaperResonances,
     refreshExcludeObjects,
     refreshPrintJob,
     refreshPrintFiles,
