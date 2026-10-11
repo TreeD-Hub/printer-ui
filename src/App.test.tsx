@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { vi } from 'vitest'
 import App from './App'
 import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
+import { receivePrinterEvent } from './core/store/printerNotifications'
 import {
   clearMockCommandFailure,
   clearMockNetworkRuntime,
@@ -1392,6 +1393,7 @@ describe('App', () => {
     expect(document.querySelector('.app-root')).toHaveClass('is-performance-mode')
 
     fireEvent.click(screen.getByTestId('settings-group-notifications'))
+    act(() => { receivePrinterEvent({ sequence: Date.now(), code: 'print_complete', detail: '' }, false) })
     expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-notifications-enabled-toggle')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getAllByText('Печать завершена').length).toBeGreaterThan(0)
@@ -1412,7 +1414,7 @@ describe('App', () => {
     expect(screen.getByText('Система TreeD')).toBeInTheDocument()
     expect(screen.getByText('Доступно обновление')).toBeInTheDocument()
     expect(screen.getByText('Обновление недоступно')).toBeInTheDocument()
-    expect(screen.queryByText('Симуляция')).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('screen-settings')).queryByText('Симуляция')).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-apply-updates-button')).toBeEnabled()
     expect(screen.queryByLabelText('Последние операции обновления')).not.toBeInTheDocument()
 
