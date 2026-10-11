@@ -1,0 +1,103 @@
+.eddy-workflow { min-height: 0; display: grid; grid-template-rows: 64px minmax(0, 1fr) 56px; gap: 8px; padding: 8px; position: relative; }
+.eddy-header { display: grid; grid-template-columns: 176px 1fr auto; align-items: center; gap: 16px; min-width: 0; }
+.eddy-header > div { min-width: 0; }
+.eddy-header p, .eddy-header h2, .eddy-body h2, .eddy-body p { margin: 0; }
+.eddy-header p, .eddy-header > span { color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.eddy-header h2 { font-size: var(--font-size-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eddy-workflow button, .eddy-workflow select, .eddy-workflow input { min-width: 48px; min-height: 56px; padding: 8px 16px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; }
+.eddy-workflow button { cursor: pointer; touch-action: manipulation; }
+.eddy-workflow button:disabled { opacity: .45; cursor: not-allowed; }
+.eddy-workflow button[aria-pressed="true"] { border-color: var(--color-selection); background: var(--color-selection-surface); }
+.eddy-workflow button:focus-visible, .eddy-workflow select:focus-visible, .eddy-workflow input:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.eddy-workflow .is-secondary { background: var(--color-surface); }
+.eddy-workflow .eddy-danger { border-color: var(--color-selection); color: var(--color-selection); }
+.eddy-steps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.eddy-steps li { padding-bottom: 8px; border-bottom: 1px solid var(--color-border-default); }
+.eddy-body { min-height: 0; overflow: auto; display: flex; flex-direction: column; justify-content: flex-start; gap: 12px; scrollbar-color: var(--color-border-default) transparent; }
+.eddy-body > h2 { font-size: var(--font-size-heading); }
+.eddy-body p { color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: 1.35; }
+.eddy-procedure-content { min-height: 0; display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; gap: 12px; }
+.eddy-btn { align-self: flex-start; }
+.eddy-action-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.eddy-action-grid { display: grid; gap: 8px; }
+.eddy-testz { grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); }
+.eddy-metric { min-height: 72px; display: grid; align-content: center; gap: 4px; border-left: 1px solid var(--color-border-default); padding-left: 16px; }
+.eddy-metric > span, .eddy-metric small { color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.eddy-metric > strong { font: 28px var(--font-family-accent); font-variant-numeric: tabular-nums; }
+.eddy-chart-area { min-height: 0; display: grid; grid-template-columns: minmax(150px, .7fr) minmax(0, 1.3fr); grid-template-rows: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; }
+.eddy-chart-readings { display: grid; gap: 12px; }
+.eddy-chart-readings strong { font: 26px var(--font-family-accent); }
+.eddy-chart-readings span, .eddy-chart-area > p { color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.eddy-chart-area .print-temp-chart { min-height: 0; height: 100%; border: 0; border-radius: 0; background: none; }
+.eddy-chart-area .print-temp-chart-svg { height: 100%; }
+.eddy-chart-area > p { grid-column: 2; margin: 0; }
+.eddy-table-wrap { max-height: 176px; overflow: auto; border-top: 1px solid var(--color-border-default); border-bottom: 1px solid var(--color-border-default); }
+.eddy-table-wrap table { width: 100%; border-collapse: collapse; font-size: var(--font-size-small); }
+.eddy-table-wrap caption { padding: 4px 0; text-align: left; color: var(--color-text-secondary); }
+.eddy-table-wrap th, .eddy-table-wrap td { padding: 4px 8px; text-align: left; border-bottom: 1px solid var(--color-border-subtle); }
+.eddy-table-wrap th { font-weight: 400; }
+.eddy-mesh-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.eddy-mesh-summary div, .eddy-offset-diff div { display: grid; gap: 4px; min-width: 0; }
+.eddy-mesh-summary span, .eddy-offset-diff span { color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.eddy-mesh-summary strong, .eddy-offset-diff strong { font-size: var(--font-size-body); font-weight: 400; overflow-wrap: anywhere; }
+.eddy-heightmap { display: grid; gap: 2px; align-self: center; max-width: 100%; overflow: auto; font: 12px var(--font-family-ui); font-variant-numeric: tabular-nums; }
+.eddy-heightmap > div { display: flex; gap: 2px; }
+.eddy-heightmap span { min-width: 38px; padding: 4px 2px; text-align: center; border: 1px solid var(--color-border-subtle); background: var(--color-block-surface); }
+.eddy-offset-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.eddy-offset-fields > div, .eddy-file-picker { display: grid; gap: 4px; color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.eddy-offset-fields input { width: 100%; font-size: var(--font-size-body); }
+.eddy-offset-fields button { width: 100%; text-align: left; font-variant-numeric: tabular-nums; }
+.eddy-offset-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.eddy-warning { padding-left: 12px; border-left: 2px solid var(--color-selection); }
+.eddy-confirm-panel { display: grid; gap: 8px; padding: 8px 0; border-top: 1px solid var(--color-border-default); }
+.eddy-file-picker select { width: 100%; }
+.eddy-babystep { display: grid; gap: 8px; }
+.eddy-babystep > span { color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.eddy-message { padding: 8px 12px; border-left: 2px solid var(--color-border-default); }
+.eddy-message.is-error { border-color: var(--color-selection); color: var(--color-selection); }
+.eddy-overview-grid { min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(56px, 1fr)); gap: 8px; }
+.eddy-overview-card { min-width: 0; display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto 1fr; align-content: center; align-items: center; gap: 4px 8px; text-align: left; }
+.eddy-overview-card strong { grid-column: 1; font-size: var(--font-size-body); font-weight: 400; }
+.eddy-overview-card .eddy-card-state { grid-column: 2; grid-row: 1; color: var(--color-text-secondary); font-size: var(--font-size-tiny); text-align: right; }
+.eddy-overview-card .eddy-card-value { grid-column: 1 / -1; color: var(--color-text-primary); font-size: var(--font-size-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eddy-sequence { display: grid; grid-template-columns: 128px 1fr auto; align-items: center; gap: 8px; }
+.eddy-sequence > p { color: var(--color-text-primary); font-size: var(--font-size-body); }
+.eddy-sequence ol { margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px 8px; list-style: none; color: var(--color-text-secondary); font-size: var(--font-size-tiny); }
+.eddy-sequence li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eddy-sequence li span { margin-right: 4px; color: var(--color-selection); }
+.eddy-footer { display: flex; gap: 8px; align-items: center; }
+.eddy-footer > button { min-width: 112px; }
+.eddy-footer-note { margin-left: auto; color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.eddy-dialog-layer { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: var(--color-overlay); }
+.eddy-dialog { width: min(640px, 100%); display: grid; gap: 16px; padding: 24px; border: 1px solid var(--color-border-default); border-radius: var(--radius-panel); background: var(--color-background); }
+.eddy-dialog h2, .eddy-dialog p { margin: 0; }
+.eddy-dialog h2 { font-size: var(--font-size-heading); }
+.eddy-dialog p { color: var(--color-text-secondary); line-height: 1.4; }
+.eddy-offset-dialog.tune-value-workspace { position: fixed; inset: 0; z-index: 100; background: var(--color-background); display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 24px; padding: 16px; }
+.eddy-offset-editor { min-width: 0; display: grid; grid-template-rows: 1fr auto 56px; gap: 16px; }
+.eddy-offset-editor > p { margin: 0; color: var(--color-text-secondary); }
+.eddy-offset-input { grid-column: 1 / -1; min-height: 64px; display: flex; align-items: center; gap: 8px; padding: 16px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); }
+.eddy-offset-input:focus-within { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.eddy-offset-input input { min-width: 0; width: 100%; padding: 0; border: 0; outline: 0; background: transparent; color: var(--color-text-primary); font: inherit; font-size: 32px; }
+.eddy-offset-editor-actions { display: flex; gap: 8px; }
+.eddy-offset-editor-actions button { flex: 1; }
+.eddy-offset-dialog .numeric-keypad { min-height: 0; display: grid; grid-template-rows: 1fr 56px; gap: 8px; }
+.eddy-offset-dialog .print-temp-keyboard-key { height: 100%; }
+@media (max-width: 760px) {
+  .eddy-workflow { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .eddy-header { grid-template-columns: 1fr auto; }
+  .eddy-header > div { grid-column: 1 / -1; grid-row: 1; }
+  .eddy-header > button { grid-row: 2; }
+  .eddy-header > span { grid-row: 2; }
+  .eddy-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: none; }
+  .eddy-sequence { grid-template-columns: 1fr; }
+  .eddy-sequence ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .eddy-chart-area { grid-template-columns: 1fr; }
+  .eddy-chart-area > p { grid-column: 1; }
+  .eddy-mesh-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .eddy-offset-dialog.tune-value-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, .8fr) minmax(0, 1.2fr); gap: 12px; }
+  .eddy-offset-editor { grid-template-rows: 1fr auto 56px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .eddy-workflow * { scroll-behavior: auto; transition-duration: 0.01ms !important; }
+}

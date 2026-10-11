@@ -298,6 +298,147 @@ describe('normalizeMoonrakerRuntimeSnapshot', () => {
     })
   })
 
+  it('normalizes live calibration status without using stale config as runtime state', () => {
+    const availableObjects = [
+      'configfile',
+      'manual_probe',
+      'probe_eddy_current btt_eddy',
+      'temperature_probe btt_eddy',
+      'bed_mesh',
+      'screws_tilt_adjust',
+      'treed_calibration',
+      'gcode_macro _TREED_EDDY_TEMPERATURE_STATE',
+      'gcode_macro _TREED_UI_CONTRACT',
+      'gcode_macro TREED_EDDY_TEMPERATURE_ACCEPT',
+      'gcode_macro TREED_EDDY_TEMPERATURE_COMPLETE_SAVE',
+      'gcode_macro TREED_EDDY_CALIBRATION_ABORT',
+      'gcode_macro TREED_EDDY_PROBE_ACCURACY',
+      'gcode_macro TREED_EDDY_BED_MESH_CALIBRATE',
+      'gcode_macro TREED_EDDY_Z_OFFSET_ADJUST',
+      'gcode_macro TREED_EDDY_Z_OFFSET_SAVE',
+    ]
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      configfile: {
+        save_config_pending: true,
+        save_config_pending_items: { 'probe_eddy_current btt_eddy': {}, extruder: {} },
+        settings: {
+          'probe_eddy_current btt_eddy': { calibrate: '0.0:0.0,1.0:1.0,2.0:2.0', x_offset: 0.4, y_offset: -0.3 },
+          extruder: { rotation_distance: 22.678 },
+          input_shaper: { shaper_type_x: 'ei', shaper_freq_x: 51, shaper_type_y: 'ei', shaper_freq_y: 42 },
+          screws_tilt_adjust: { screw1: [30, 30], screw1_name: 'front left', screw2: [210, 30] },
+        },
+      },
+      manual_probe: { is_active: true, z_position: 0.12, z_position_lower: -0.5, z_position_upper: 0.5 },
+      'probe_eddy_current btt_eddy': { reg_drive_current: 15, z_offset: 0.2 },
+      'temperature_probe btt_eddy': {
+        temperature: 24, in_calibration: true, compensation_enabled: true, estimated_expansion: 0.018,
+      },
+      'gcode_macro _TREED_EDDY_TEMPERATURE_STATE': { active: true, points: 3 },
+      'gcode_macro _TREED_UI_CONTRACT': { contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: '' },
+      treed_calibration: {
+        running: false, rotation_distance: 22.5, offsets_changed: true, accelerometer_configured: true,
+        input_shaper: { shaper_type_x: 'mzv', shaper_freq_x: 48.2, shaper_type_y: 'mzv', shaper_freq_y: 39.6 },
+      },
+      bed_mesh: { profile_name: 'default', mesh_min: [20, 20], mesh_max: [225, 225],
+        probed_matrix: [[0, 0.1]], mesh_matrix: [[0, 0.1]],
+        profiles: { default: { points: [[0, 0.1], [0.2, 0.3]], mesh_params: {} } } },
+      screws_tilt_adjust: { error: false, max_deviation: 0.9,
+        results: { screw1: { z: 0, is_base: true, sign: '+', adjust: '00:02' },
+          screw2: { z: 0.02, is_base: false, sign: '-', adjust: '00:01' } } },
+    }), { availableObjects })
+
+    expect(snapshot.calibration).toEqual({
+      manualProbe: { active: true, zMm: 0.12, zMinimumMm: -0.5, zMaximumMm: 0.5 },
+      eddy: {
+        available: true, heightCalibrated: false, driveCurrent: 15, temperatureC: 24, temperaturePoints: 3,
+        temperatureSeriesActive: true, compensationEnabled: true, inTemperatureCalibration: true, estimatedExpansionMm: 0.018,
+        xOffsetMm: 0.4, yOffsetMm: -0.3, zOffsetMm: 0.2,
+      },
+      config: { savePending: true, pendingSections: ['probe_eddy_current btt_eddy', 'extruder'] },
+      mesh: { profile: 'default', min: [20, 20], max: [225, 225], probedMatrix: [[0, 0.1]],
+        meshMatrix: [[0, 0.1]], savedProfiles: { default: [[0, 0.1], [0.2, 0.3]] } },
+      screws: {
+        error: false, maxDeviationMm: 0.02,
+        results: [
+          { name: 'front left', xMm: 30, yMm: 30, zMm: 0, isBase: true, sign: '+', adjust: '00:02' },
+          { name: 'screw2', xMm: 210, yMm: 30, zMm: 0.02, isBase: false, sign: '-', adjust: '00:01' },
+        ],
+      },
+      shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 48.2, freqYHz: 39.6 },
+      extruder: { rotationDistanceMm: 22.5 },
+    })
+    expect(snapshot.capabilities.calibrationCommands).toMatchObject({
+      temperatureAccept: true,
+      temperatureComplete: true,
+      abort: true,
+      probeAccuracy: true,
+      setOffsets: true,
+      zOffsetAdjust: true,
+      zOffsetSave: true,
+      extruderCalibrationExtrude: true,
+      extruderRotationDistance: true,
+      accelerometerQuery: true,
+      accelerometerMeasureNoise: true,
+      adxlConfigured: true,
+      meshScan: true,
+    })
+
+    const legacySnapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      'gcode_macro _TREED_UI_CONTRACT': { contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: '' },
+      'gcode_macro TREED_EDDY_Z_OFFSET_ADJUST': {},
+      'temperature_probe btt_eddy': { temperature: 24 },
+      save_variables: { variables: { treed_eddy_temperature_points: 4 } },
+    }), { availableObjects: [
+      'gcode_macro _TREED_UI_CONTRACT',
+      'gcode_macro TREED_EDDY_Z_OFFSET_ADJUST',
+    ] })
+    expect(legacySnapshot.capabilities.calibrationCommands?.setOffsets).toBe(false)
+    expect(legacySnapshot.capabilities.calibrationCommands?.zOffsetAdjust).toBe(false)
+    expect(legacySnapshot.calibration?.eddy.temperaturePoints).toBeNull()
+    expect(legacySnapshot.calibration?.eddy.temperatureSeriesActive).toBeNull()
+  })
+
+  it('derives screw deviation from measured Z values and leaves it unknown without a complete base', () => {
+    const measured = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      configfile: { settings: { screws_tilt_adjust: { screw1: [0, 0], screw2: [1, 0], screw3: [2, 0] } } },
+      screws_tilt_adjust: {
+        max_deviation: 0.9,
+        results: {
+          screw1: { z: 1, is_base: true },
+          screw2: { z: 1.04, is_base: false },
+          screw3: { z: 0.97, is_base: false },
+        },
+      },
+    }))
+    expect(measured.calibration?.screws.maxDeviationMm).toBeCloseTo(0.04)
+
+    const noBase = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      configfile: { settings: { screws_tilt_adjust: { screw1: [0, 0] } } },
+      screws_tilt_adjust: {
+        max_deviation: 0.9,
+        results: { screw1: { z: 1, is_base: false } },
+      },
+    }))
+    expect(noBase.calibration?.screws.maxDeviationMm).toBeNull()
+
+    const missingZ = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      configfile: { settings: { screws_tilt_adjust: { screw1: [0, 0], screw2: [1, 0] } } },
+      screws_tilt_adjust: {
+        max_deviation: 0.9,
+        results: { screw1: { z: 1, is_base: true }, screw2: { z: null, is_base: false } },
+      },
+    }))
+    expect(missingZ.calibration?.screws.maxDeviationMm).toBeNull()
+
+    const missingScrewResult = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      configfile: { settings: { screws_tilt_adjust: { screw1: [0, 0], screw2: [1, 0] } } },
+      screws_tilt_adjust: {
+        results: { screw1: { z: 1, is_base: true } },
+      },
+    }))
+    expect(missingScrewResult.calibration?.screws.maxDeviationMm).toBeNull()
+  })
+
   it('normalizes Moonraker file list and metadata into V2 print cards', () => {
     const files = normalizeMoonrakerPrintFiles(
       [

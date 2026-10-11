@@ -45,10 +45,23 @@ const MOTION_COMMANDS = new Set<ExecuteCommandArgs['command']>([
   'eddyPrimaryHeightStart',
   'eddyPrimaryAcceptSave',
   'eddyTemperatureStart',
+  'eddyTemperatureAccept',
+  'eddyTemperatureComplete',
+  'eddyAbort',
+  'eddyProbeAccuracy',
+  'eddySetOffsets',
+  'eddyZOffsetAdjust',
+  'eddyZOffsetSave',
+  'extruderCalibrationExtrude',
+  'extruderRotationDistanceApply',
+  'extruderRotationDistanceSave',
+  'accelerometerQuery',
+  'accelerometerMeasureNoise',
   'eddyTemperatureAcceptSave',
   'eddyCheckZ0',
   'eddyScrewsTiltStart',
   'eddyBedMeshCalibrate',
+  'eddyScanMesh',
   'shaperCalibrateLight',
   'shaperCalibrateFull',
   'xyMotionTest',
@@ -256,8 +269,31 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'TREED_EDDY_PRIMARY_ACCEPT_SAVE sent'
     case 'eddyTemperatureStart':
       return 'TREED_EDDY_TEMPERATURE_START sent'
+    case 'eddyTemperatureAccept':
+      return 'TREED_EDDY_TEMPERATURE_ACCEPT sent'
+    case 'eddyTemperatureComplete':
     case 'eddyTemperatureAcceptSave':
-      return 'TREED_EDDY_TEMPERATURE_ACCEPT_SAVE sent'
+      return 'TREED_EDDY_TEMPERATURE_COMPLETE_SAVE sent'
+    case 'eddyAbort':
+      return 'TREED_EDDY_CALIBRATION_ABORT sent'
+    case 'eddyProbeAccuracy':
+      return 'TREED_EDDY_PROBE_ACCURACY sent'
+    case 'eddySetOffsets':
+      return 'TREED_EDDY_SET_OFFSETS sent'
+    case 'eddyZOffsetAdjust':
+      return 'TREED_EDDY_Z_OFFSET_ADJUST sent'
+    case 'eddyZOffsetSave':
+      return 'TREED_EDDY_Z_OFFSET_SAVE sent'
+    case 'extruderCalibrationExtrude':
+      return 'TREED_EXTRUDER_CALIBRATION_EXTRUDE sent'
+    case 'extruderRotationDistanceApply':
+      return 'TREED_EXTRUDER_ROTATION_DISTANCE SAVE=0 sent'
+    case 'extruderRotationDistanceSave':
+      return 'TREED_EXTRUDER_ROTATION_DISTANCE SAVE=1 sent'
+    case 'accelerometerQuery':
+      return 'ACCELEROMETER_QUERY sent'
+    case 'accelerometerMeasureNoise':
+      return 'MEASURE_AXES_NOISE sent'
     case 'eddyCheckZ0':
       return 'TREED_EDDY_CHECK_Z0 sent'
     case 'eddyScrewsTiltStart':
@@ -266,6 +302,8 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'TREED_EDDY_SCREWS_TILT_DONE sent'
     case 'eddyBedMeshCalibrate':
       return 'TREED_EDDY_BED_MESH_CALIBRATE sent'
+    case 'eddyScanMesh':
+      return `TREED_EDDY_BED_MESH_CALIBRATE${args.save === false ? ' SAVE=0' : ''} sent`
     case 'eddyAutosaveStatus':
       return 'TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS sent'
     case 'eddyTestZ':
@@ -273,7 +311,7 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
     case 'shaperCalibrateLight':
       return 'TREED_SHAPER_CALIBRATE_LIGHT sent'
     case 'shaperCalibrateFull':
-      return 'TREED_SHAPER_CALIBRATE_FULL sent'
+      return `TREED_SHAPER_CALIBRATE_FULL${args.save === false ? ' SAVE=0' : ''} sent`
     case 'xyMotionTest':
       return 'TREED_XY_MOTION_TEST sent'
     case 'disableMotors':
@@ -428,8 +466,30 @@ function executeMoonrakerCommand(
       return sendScript('TREED_EDDY_PRIMARY_ACCEPT_SAVE', options, args.command)
     case 'eddyTemperatureStart':
       return sendScript('TREED_EDDY_TEMPERATURE_START', options, args.command)
+    case 'eddyTemperatureAccept':
+      return sendScript('TREED_EDDY_TEMPERATURE_ACCEPT', options, args.command)
+    case 'eddyTemperatureComplete':
     case 'eddyTemperatureAcceptSave':
-      return sendScript('TREED_EDDY_TEMPERATURE_ACCEPT_SAVE', options, args.command)
+      return sendScript('TREED_EDDY_TEMPERATURE_COMPLETE_SAVE', options, args.command)
+    case 'eddyAbort':
+      return sendScript('TREED_EDDY_CALIBRATION_ABORT', options, args.command)
+    case 'eddyProbeAccuracy':
+      return sendScript('TREED_EDDY_PROBE_ACCURACY', options, args.command)
+    case 'eddySetOffsets':
+      return sendScript(`TREED_EDDY_SET_OFFSETS X=${args.xOffsetMm} Y=${args.yOffsetMm}`, options, args.command)
+    case 'eddyZOffsetAdjust':
+      return sendScript(`TREED_EDDY_Z_OFFSET_ADJUST DELTA=${args.deltaMm}`, options, args.command)
+    case 'eddyZOffsetSave':
+      return sendScript('TREED_EDDY_Z_OFFSET_SAVE', options, args.command)
+    case 'extruderCalibrationExtrude':
+      return sendScript(`TREED_EXTRUDER_CALIBRATION_EXTRUDE LENGTH=${args.lengthMm} SPEED=${args.speedMmPerSec} TEMP=${args.targetCelsius}`, options, args.command)
+    case 'extruderRotationDistanceApply':
+    case 'extruderRotationDistanceSave':
+      return sendScript(`TREED_EXTRUDER_ROTATION_DISTANCE DISTANCE=${args.distanceMm} SAVE=${args.command === 'extruderRotationDistanceSave' ? 1 : 0}`, options, args.command)
+    case 'accelerometerQuery':
+      return sendScript('ACCELEROMETER_QUERY', options, args.command)
+    case 'accelerometerMeasureNoise':
+      return sendScript('MEASURE_AXES_NOISE', options, args.command)
     case 'eddyCheckZ0':
       return sendScript('TREED_EDDY_CHECK_Z0', options, args.command)
     case 'eddyScrewsTiltStart':
@@ -438,6 +498,8 @@ function executeMoonrakerCommand(
       return sendScript('TREED_EDDY_SCREWS_TILT_DONE', options, args.command)
     case 'eddyBedMeshCalibrate':
       return sendScript('TREED_EDDY_BED_MESH_CALIBRATE', options, args.command)
+    case 'eddyScanMesh':
+      return sendScript(`TREED_EDDY_BED_MESH_CALIBRATE${args.save === false ? ' SAVE=0' : ''}`, options, args.command)
     case 'eddyAutosaveStatus':
       return sendScript('TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS', options, args.command)
     case 'eddyTestZ':
@@ -445,7 +507,7 @@ function executeMoonrakerCommand(
     case 'shaperCalibrateLight':
       return sendScript('TREED_SHAPER_CALIBRATE_LIGHT', options, args.command)
     case 'shaperCalibrateFull':
-      return sendScript('TREED_SHAPER_CALIBRATE_FULL', options, args.command)
+      return sendScript(`TREED_SHAPER_CALIBRATE_FULL${args.save === false ? ' SAVE=0' : ''}`, options, args.command)
     case 'xyMotionTest':
       return sendScript('TREED_XY_MOTION_TEST', options, args.command)
     case 'disableMotors':

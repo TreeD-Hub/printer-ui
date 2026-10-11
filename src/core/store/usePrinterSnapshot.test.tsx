@@ -2,7 +2,12 @@ import { act, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FALLBACK_PRINTER_SNAPSHOT, setPrinterSnapshot } from './printerStore'
 import { usePrinterSnapshot } from './usePrinterSnapshot'
-import { getPrinterConnectionState, type PrinterSnapshot, type TransportSubscriptionHandlers } from '../transport/types'
+import {
+  getPrinterConnectionState,
+  type PrinterEddyStateSnapshot,
+  type PrinterSnapshot,
+  type TransportSubscriptionHandlers,
+} from '../transport/types'
 
 const runtimeMocks = vi.hoisted(() => ({
   fetchSnapshot: vi.fn(),
@@ -680,6 +685,120 @@ describe('usePrinterSnapshot', () => {
     await act(async () => {
       hook.unmount()
     })
+  })
+
+  it('merges targeted Eddy calibration refresh without replacing unrelated runtime fields', async () => {
+    vi.useFakeTimers()
+    const initialSnapshot = createSnapshot(1, 180, 31)
+    initialSnapshot.calibration = {
+      manualProbe: { active: false, zMm: null, zMinimumMm: null, zMaximumMm: null },
+      eddy: {
+        available: true,
+        heightCalibrated: true,
+        driveCurrent: 15,
+        temperatureC: 24,
+        temperaturePoints: 0,
+        temperatureSeriesActive: false,
+        compensationEnabled: true,
+        inTemperatureCalibration: false,
+        estimatedExpansionMm: 0.018,
+        xOffsetMm: 0,
+        yOffsetMm: 0,
+        zOffsetMm: 0,
+      },
+      config: { savePending: false, pendingSections: [] },
+      mesh: {
+        profile: 'default',
+        min: [20, 20],
+        max: [225, 225],
+        probedMatrix: [[0, 0.01], [-0.01, 0]],
+        meshMatrix: [[0, 0.01], [-0.01, 0]],
+        savedProfiles: { default: [[0, 0.01], [-0.01, 0]] },
+      },
+      screws: { error: false, maxDeviationMm: 0.02, results: [] },
+      shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 48.2, freqYHz: 39.6 },
+      extruder: { rotationDistanceMm: 22.678 },
+    }
+    initialSnapshot.toolhead.rawX = 31
+    initialSnapshot.printJob.filename = 'prepared.gcode'
+    setPrinterSnapshot(initialSnapshot)
+    runtimeMocks.fetchSnapshot.mockResolvedValue(initialSnapshot)
+    runtimeMocks.subscribe.mockImplementation((nextHandlers: TransportSubscriptionHandlers) => {
+      handlers = nextHandlers
+      return { close: vi.fn() }
+    })
+    const eddyState: PrinterEddyStateSnapshot = {
+      autosaveEnabled: true,
+      autosavePending: false,
+      calibration: initialSnapshot.v2.eddy.calibration,
+    }
+    runtimeMocks.fetchEddyState.mockResolvedValue(eddyState)
+
+    let hook!: {
+      result: { current: ReturnType<typeof usePrinterSnapshot> }
+      unmount: () => void
+    }
+    await act(async () => {
+      hook = renderHook(() => usePrinterSnapshot(60_000))
+      await Promise.resolve()
+    })
+    vi.clearAllTimers()
+
+    await act(async () => {
+      handlers?.onSnapshot(initialSnapshot)
+    })
+
+    let firstRefreshApplied = false
+    await act(async () => {
+      firstRefreshApplied = await hook.result.current.refreshEddyState()
+    })
+    expect(firstRefreshApplied).toBe(true)
+    expect(hook.result.current.snapshot.calibration).toEqual(initialSnapshot.calibration)
+    expect(hook.result.current.snapshot.toolhead.rawX).toBe(31)
+    expect(hook.result.current.snapshot.printJob.filename).toBe('prepared.gcode')
+    expect(hook.result.current.snapshot.v2.eddy.calibration).toEqual(initialSnapshot.v2.eddy.calibration)
+
+    const nextCalibration = structuredClone(initialSnapshot.calibration!)
+    nextCalibration.eddy.temperatureC = 56
+    runtimeMocks.fetchEddyState.mockResolvedValue({ ...eddyState, calibrationState: nextCalibration })
+    let secondRefreshApplied = false
+    await act(async () => {
+      secondRefreshApplied = await hook.result.current.refreshEddyState()
+    })
+    expect(secondRefreshApplied).toBe(true)
+    expect(hook.result.current.snapshot.calibration?.eddy.temperatureC).toBe(56)
+    expect(hook.result.current.snapshot.toolhead.rawX).toBe(31)
+    expect(hook.result.current.snapshot.printJob.filename).toBe('prepared.gcode')
+
+    runtimeMocks.fetchEddyState.mockRejectedValueOnce(new Error('offline'))
+    let failedRefreshApplied = true
+    await act(async () => {
+      failedRefreshApplied = await hook.result.current.refreshEddyState()
+    })
+    expect(failedRefreshApplied).toBe(false)
+
+    const racingRefresh = createDeferred<typeof eddyState>()
+    runtimeMocks.fetchEddyState.mockReturnValueOnce(racingRefresh.promise)
+    const refreshRacingWithWebsocket = hook.result.current.refreshEddyState()
+    const websocketSnapshot = structuredClone(initialSnapshot)
+    websocketSnapshot.revisions.printerObjects.eventtime = 2
+    websocketSnapshot.calibration = structuredClone(nextCalibration)
+    websocketSnapshot.calibration.eddy.temperatureC = 77
+    await act(async () => {
+      handlers?.onSnapshot(websocketSnapshot)
+    })
+    racingRefresh.resolve({ ...eddyState, calibrationState: nextCalibration })
+    await expect(refreshRacingWithWebsocket).resolves.toBe(false)
+    expect(hook.result.current.snapshot.calibration?.eddy.temperatureC).toBe(77)
+
+    const pendingRefresh = createDeferred<typeof eddyState>()
+    runtimeMocks.fetchEddyState.mockReturnValueOnce(pendingRefresh.promise)
+    const staleRefresh = hook.result.current.refreshEddyState()
+    await act(async () => {
+      hook.unmount()
+    })
+    pendingRefresh.resolve(eddyState)
+    await expect(staleRefresh).resolves.toBe(false)
   })
 
   it('refreshes file list change events without fetching a full snapshot', async () => {

@@ -602,12 +602,50 @@ describe('createMoonrakerCommandClient', () => {
       'TESTZ Z=-0.05',
       'TREED_EDDY_PRIMARY_ACCEPT_SAVE',
       'TREED_EDDY_TEMPERATURE_START',
-      'TREED_EDDY_TEMPERATURE_ACCEPT_SAVE',
+      'TREED_EDDY_TEMPERATURE_COMPLETE_SAVE',
       'TREED_EDDY_CHECK_Z0',
       'TREED_EDDY_SCREWS_TILT_START',
       'TREED_EDDY_SCREWS_TILT_DONE',
       'TREED_EDDY_BED_MESH_CALIBRATE',
       'TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS',
+    ])
+  })
+
+  it('maps calibration commands and leaves full shaper results unsaved when requested', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ result: 'ok' }) })
+    const client = createMoonrakerCommandClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock })
+
+    await client.execute({ command: 'eddyTemperatureAccept' })
+    await client.execute({ command: 'eddyTemperatureComplete' })
+    await client.execute({ command: 'eddyScanMesh', save: false })
+    await client.execute({ command: 'eddyAbort' })
+    await client.execute({ command: 'eddyProbeAccuracy' })
+    await client.execute({ command: 'eddySetOffsets', xOffsetMm: 0.2, yOffsetMm: -0.1 })
+    await client.execute({ command: 'eddyZOffsetAdjust', deltaMm: 0.025 })
+    await client.execute({ command: 'eddyZOffsetSave' })
+    await client.execute({ command: 'extruderCalibrationExtrude', lengthMm: 100, speedMmPerSec: 2, targetCelsius: 210 })
+    await client.execute({ command: 'extruderRotationDistanceApply', distanceMm: 22.5 })
+    await client.execute({ command: 'extruderRotationDistanceSave', distanceMm: 22.5 })
+    await client.execute({ command: 'accelerometerQuery' })
+    await client.execute({ command: 'accelerometerMeasureNoise' })
+    await client.execute({ command: 'shaperCalibrateFull', save: false })
+
+    const scripts = fetchMock.mock.calls.map((call) => JSON.parse(String((call[1] as RequestInit).body)).script)
+    expect(scripts).toEqual([
+      'TREED_EDDY_TEMPERATURE_ACCEPT',
+      'TREED_EDDY_TEMPERATURE_COMPLETE_SAVE',
+      'TREED_EDDY_BED_MESH_CALIBRATE SAVE=0',
+      'TREED_EDDY_CALIBRATION_ABORT',
+      'TREED_EDDY_PROBE_ACCURACY',
+      'TREED_EDDY_SET_OFFSETS X=0.2 Y=-0.1',
+      'TREED_EDDY_Z_OFFSET_ADJUST DELTA=0.025',
+      'TREED_EDDY_Z_OFFSET_SAVE',
+      'TREED_EXTRUDER_CALIBRATION_EXTRUDE LENGTH=100 SPEED=2 TEMP=210',
+      'TREED_EXTRUDER_ROTATION_DISTANCE DISTANCE=22.5 SAVE=0',
+      'TREED_EXTRUDER_ROTATION_DISTANCE DISTANCE=22.5 SAVE=1',
+      'ACCELEROMETER_QUERY',
+      'MEASURE_AXES_NOISE',
+      'TREED_SHAPER_CALIBRATE_FULL SAVE=0',
     ])
   })
 

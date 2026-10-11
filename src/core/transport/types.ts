@@ -199,6 +199,48 @@ export interface PrinterEddyCalibrationSnapshot {
   requiredDone: boolean
 }
 
+export interface PrinterCalibrationSnapshot {
+  manualProbe: { active: boolean; zMm: number | null; zMinimumMm: number | null; zMaximumMm: number | null }
+  eddy: {
+    available: boolean
+    heightCalibrated: boolean | null
+    driveCurrent: number | null
+    temperatureC: number | null
+    temperaturePoints: number | null
+    temperatureSeriesActive: boolean | null
+    compensationEnabled: boolean | null
+    inTemperatureCalibration: boolean | null
+    estimatedExpansionMm: number | null
+    xOffsetMm: number | null
+    yOffsetMm: number | null
+    zOffsetMm: number | null
+  }
+  config: { savePending: boolean; pendingSections: string[] }
+  mesh: {
+    profile: string | null
+    min: [number | null, number | null] | null
+    max: [number | null, number | null] | null
+    probedMatrix: (number | null)[][]
+    meshMatrix: (number | null)[][]
+    savedProfiles: Record<string, number[][]>
+  }
+  screws: {
+    error: boolean | null
+    maxDeviationMm: number | null
+    results: Array<{
+      name: string
+      xMm: number | null
+      yMm: number | null
+      zMm: number | null
+      isBase: boolean | null
+      sign: string | null
+      adjust: string | null
+    }>
+  }
+  shaper: { typeX: string | null; typeY: string | null; freqXHz: number | null; freqYHz: number | null }
+  extruder: { rotationDistanceMm: number | null }
+}
+
 export interface PrinterV2Snapshot {
   branch: 'treed-v2'
   profile: 'treed_v2_corexy_v1'
@@ -245,6 +287,7 @@ export interface PrinterRuntimeSnapshot {
   camera: PrinterCameraSnapshot
   fileList?: PrinterFileListStatusSnapshot
   toolhead: PrinterToolheadRuntimeSnapshot
+  calibration?: PrinterCalibrationSnapshot
   geometry: PrinterGeometrySnapshot
   thermalTargets: PrinterThermalTargetsSnapshot
   runtimeTune: PrinterRuntimeTuneSnapshot
@@ -270,7 +313,7 @@ export function getPrinterConnectionState(
 export type PrinterEddyStateSnapshot = Pick<
   PrinterV2Snapshot['eddy'],
   'autosaveEnabled' | 'autosavePending' | 'calibration'
->
+> & { calibrationState?: PrinterCalibrationSnapshot }
 
 export type PrinterPrintJobStateSnapshot = Pick<
   PrinterSnapshot,

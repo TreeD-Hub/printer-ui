@@ -50,6 +50,19 @@ export type PrinterCommandId =
   | 'eddyPrimaryHeightStart'
   | 'eddyPrimaryAcceptSave'
   | 'eddyTemperatureStart'
+  | 'eddyTemperatureAccept'
+  | 'eddyTemperatureComplete'
+  | 'eddyScanMesh'
+  | 'eddyAbort'
+  | 'eddyProbeAccuracy'
+  | 'eddySetOffsets'
+  | 'eddyZOffsetAdjust'
+  | 'eddyZOffsetSave'
+  | 'extruderCalibrationExtrude'
+  | 'extruderRotationDistanceApply'
+  | 'extruderRotationDistanceSave'
+  | 'accelerometerQuery'
+  | 'accelerometerMeasureNoise'
   | 'eddyTemperatureAcceptSave'
   | 'eddyCheckZ0'
   | 'eddyScrewsTiltStart'
@@ -149,6 +162,13 @@ export type ExecuteCommandArgs =
         | 'eddyPrimaryHeightStart'
         | 'eddyPrimaryAcceptSave'
         | 'eddyTemperatureStart'
+        | 'eddyTemperatureAccept'
+        | 'eddyTemperatureComplete'
+        | 'eddyAbort'
+        | 'eddyProbeAccuracy'
+        | 'eddyZOffsetSave'
+        | 'accelerometerQuery'
+        | 'accelerometerMeasureNoise'
         | 'eddyTemperatureAcceptSave'
         | 'eddyCheckZ0'
         | 'eddyScrewsTiltStart'
@@ -156,7 +176,6 @@ export type ExecuteCommandArgs =
         | 'eddyBedMeshCalibrate'
         | 'eddyAutosaveStatus'
         | 'shaperCalibrateLight'
-        | 'shaperCalibrateFull'
         | 'xyMotionTest'
         | 'rebootHost'
         | 'restartKlipper'
@@ -245,6 +264,12 @@ export type ExecuteCommandArgs =
       command: 'eddyTestZ'
       deltaMm: number
     }
+  | { command: 'eddySetOffsets'; xOffsetMm: number; yOffsetMm: number }
+  | { command: 'eddyZOffsetAdjust'; deltaMm: number }
+  | { command: 'extruderCalibrationExtrude'; lengthMm: number; speedMmPerSec: number; targetCelsius: number }
+  | { command: 'extruderRotationDistanceApply' | 'extruderRotationDistanceSave'; distanceMm: number }
+  | { command: 'shaperCalibrateFull'; save?: boolean }
+  | { command: 'eddyScanMesh'; save?: boolean }
   | {
       command: 'consoleGcode'
       gcode?: string
@@ -459,6 +484,21 @@ export interface PrinterCapabilitiesSnapshot {
   systemPower: boolean
   camera: boolean
   serviceCommands: boolean
+  calibrationCommands?: {
+    temperatureAccept: boolean
+    temperatureComplete: boolean
+    abort: boolean
+    probeAccuracy: boolean
+    setOffsets: boolean
+    zOffsetAdjust: boolean
+    zOffsetSave: boolean
+    extruderCalibrationExtrude: boolean
+    extruderRotationDistance: boolean
+    accelerometerQuery: boolean
+    accelerometerMeasureNoise: boolean
+    adxlConfigured: boolean
+    meshScan: boolean
+  }
 }
 
 export type PrinterEddyStatus = 'unknown' | 'ready' | 'uncalibrated' | 'requires_xy_home'
@@ -923,6 +963,13 @@ export interface TreeDCommandRuntimeContext {
     rawZ?: number
   }
   eddyStatus?: PrinterEddyStatus
+  availableMacros?: readonly string[]
+  manualProbeActive?: boolean
+  eddyTemperatureCalibrationActive?: boolean
+  eddyTemperatureSeriesActive?: boolean | null
+  eddyTemperaturePoints?: number | null
+  eddyHeightCalibrated?: boolean | null
+  calibrationSavePending?: boolean | null
   extruderTemp?: number
   limits?: PrinterLimits
   thermalTargets?: {
@@ -940,6 +987,22 @@ export const Z_OFFSET_BABYSTEP_STEP_OPTIONS = [0.01, 0.025, 0.05] as const
 const MIN_Z_OFFSET_BABYSTEP_DELTA_MM = Z_OFFSET_BABYSTEP_STEP_OPTIONS[0]
 const MAX_Z_OFFSET_BABYSTEP_DELTA_MM = Z_OFFSET_BABYSTEP_STEP_OPTIONS[Z_OFFSET_BABYSTEP_STEP_OPTIONS.length - 1]
 export const EDDY_TEST_Z_STEP_OPTIONS = [-1, -0.1, -0.05, 0.05, 0.1, 1] as const
+const CALIBRATION_COMMAND_CAPABILITIES: Partial<Record<PrinterCommandId, keyof NonNullable<PrinterCapabilitiesSnapshot['calibrationCommands']>>> = {
+  eddyTemperatureAccept: 'temperatureAccept',
+  eddyTemperatureComplete: 'temperatureComplete',
+  eddyTemperatureAcceptSave: 'temperatureComplete',
+  eddyAbort: 'abort',
+  eddyProbeAccuracy: 'probeAccuracy',
+  eddySetOffsets: 'setOffsets',
+  eddyZOffsetAdjust: 'zOffsetAdjust',
+  eddyZOffsetSave: 'zOffsetSave',
+  extruderCalibrationExtrude: 'extruderCalibrationExtrude',
+  extruderRotationDistanceApply: 'extruderRotationDistance',
+  extruderRotationDistanceSave: 'extruderRotationDistance',
+  accelerometerQuery: 'accelerometerQuery',
+  accelerometerMeasureNoise: 'accelerometerMeasureNoise',
+  eddyScanMesh: 'meshScan',
+}
 
 const COMMAND_CAPABILITY_LABELS: Record<TreeDCommandCapability, string> = {
   driverMode: 'режим драйверов XYZ',
@@ -1272,6 +1335,54 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     requiresConfirmation: true,
     pendingDomain: 'motion',
   },
+  eddyTemperatureAccept: {
+    id: 'eddyTemperatureAccept',
+    risk: 'caution',
+    label: 'Принять точку температуры Eddy',
+    capability: 'eddy',
+    requiresConfirmation: false,
+    pendingDomain: 'motion',
+  },
+  eddySetOffsets: { id: 'eddySetOffsets', risk: 'caution', label: 'Задать смещения Eddy', capability: 'eddy', requiresConfirmation: true, pendingDomain: 'motion' },
+  eddyZOffsetAdjust: { id: 'eddyZOffsetAdjust', risk: 'caution', label: 'Изменить Z-offset Eddy', capability: 'eddy', requiresConfirmation: false, pendingDomain: 'motion' },
+  eddyZOffsetSave: { id: 'eddyZOffsetSave', risk: 'caution', label: 'Сохранить Z-offset Eddy', capability: 'eddy', requiresConfirmation: true, pendingDomain: 'motion' },
+  extruderCalibrationExtrude: { id: 'extruderCalibrationExtrude', risk: 'caution', label: 'Подача для калибровки экструдера', capability: 'eddy', requiresConfirmation: true, pendingDomain: 'motion' },
+  extruderRotationDistanceApply: { id: 'extruderRotationDistanceApply', risk: 'caution', label: 'Применить rotation distance', capability: 'eddy', requiresConfirmation: false, pendingDomain: 'motion' },
+  extruderRotationDistanceSave: { id: 'extruderRotationDistanceSave', risk: 'caution', label: 'Сохранить rotation distance', capability: 'eddy', requiresConfirmation: true, pendingDomain: 'motion' },
+  accelerometerQuery: { id: 'accelerometerQuery', risk: 'caution', label: 'Считать ADXL', capability: 'shaper', requiresConfirmation: true, pendingDomain: 'motion' },
+  accelerometerMeasureNoise: { id: 'accelerometerMeasureNoise', risk: 'caution', label: 'Измерить шум ADXL', capability: 'shaper', requiresConfirmation: true, pendingDomain: 'motion' },
+  eddyTemperatureComplete: {
+    id: 'eddyTemperatureComplete',
+    risk: 'caution',
+    label: 'Завершить температурную калибровку Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+    pendingDomain: 'motion',
+  },
+  eddyScanMesh: {
+    id: 'eddyScanMesh',
+    risk: 'caution',
+    label: 'Рассчитать сетку Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+    pendingDomain: 'motion',
+  },
+  eddyAbort: {
+    id: 'eddyAbort',
+    risk: 'caution',
+    label: 'Отменить калибровку Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+    pendingDomain: 'motion',
+  },
+  eddyProbeAccuracy: {
+    id: 'eddyProbeAccuracy',
+    risk: 'caution',
+    label: 'Проверка точности Eddy',
+    capability: 'eddy',
+    requiresConfirmation: true,
+    pendingDomain: 'motion',
+  },
   eddyTemperatureAcceptSave: {
     id: 'eddyTemperatureAcceptSave',
     risk: 'caution',
@@ -1472,6 +1583,22 @@ const FAILSAFE_COMMANDS = new Set<PrinterCommandId>([
   'emergencyStop',
   'turnOffHeaters',
 ])
+const CALIBRATION_SESSION_ALLOWED_COMMANDS = new Set<PrinterCommandId>([
+  'emergencyStop',
+  'turnOffHeaters',
+  'eddyTestZ',
+  'eddyPrimaryAcceptSave',
+  'eddyTemperatureAccept',
+  'eddyTemperatureComplete',
+  'eddyTemperatureAcceptSave',
+  'eddyAbort',
+  'eddyAutosaveStatus',
+  'accelerometerQuery',
+])
+const CALIBRATION_SESSION_READ_ONLY_COMMANDS = new Set<PrinterCommandId>([
+  'eddyAutosaveStatus',
+  'accelerometerQuery',
+])
 const RUNTIME_TUNE_COMMANDS = new Set<PrinterCommandId>([
   'setPrintSpeedFactorPercent',
   'setPrintFlowFactorPercent',
@@ -1502,19 +1629,39 @@ const MOTION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'zParkZeroEddy',
   'shaperCalibrateLight',
   'shaperCalibrateFull',
+  'eddyScanMesh',
   'xyMotionTest',
+  'eddySetOffsets',
+  'eddyProbeAccuracy',
+  'extruderCalibrationExtrude',
+  'extruderRotationDistanceApply',
+  'extruderRotationDistanceSave',
+  'accelerometerQuery',
+  'accelerometerMeasureNoise',
 ])
 const EDDY_CALIBRATION_COMMANDS_BLOCKED_DURING_PRINT = new Set<PrinterCommandId>([
   'eddyDriveCurrentCalibrate',
   'eddyPrimaryHeightStart',
   'eddyPrimaryAcceptSave',
   'eddyTemperatureStart',
+  'eddyTemperatureAccept',
+  'eddyTemperatureComplete',
+  'eddyAbort',
+  'eddyProbeAccuracy',
   'eddyTemperatureAcceptSave',
   'eddyCheckZ0',
   'eddyScrewsTiltStart',
   'eddyScrewsTiltDone',
   'eddyBedMeshCalibrate',
   'eddyTestZ',
+  'eddyScanMesh',
+  'eddySetOffsets',
+  'eddyZOffsetSave',
+  'extruderCalibrationExtrude',
+  'extruderRotationDistanceApply',
+  'extruderRotationDistanceSave',
+  'accelerometerQuery',
+  'accelerometerMeasureNoise',
 ])
 
 function normalizeState(value: string | undefined): string {
@@ -1599,6 +1746,16 @@ function getCommandSpecificBlockReason(
   }
   const activePrint = hasActivePrint(context)
   const pausedPrint = hasPausedPrint(context)
+  const calibrationSessionActive = context.manualProbeActive === true
+    || context.eddyTemperatureCalibrationActive === true
+    || context.eddyTemperatureSeriesActive === true
+
+  if (calibrationSessionActive && !CALIBRATION_SESSION_ALLOWED_COMMANDS.has(command)) {
+    return `${item.label}: завершите или отмените текущую калибровку перед другой командой.`
+  }
+  if (calibrationSessionActive && CALIBRATION_SESSION_READ_ONLY_COMMANDS.has(command)) {
+    return null
+  }
 
   if (command === 'serviceMode') {
     if (context.serviceModeSupported !== true) {
@@ -1703,6 +1860,95 @@ function getCommandSpecificBlockReason(
 
   if (command === 'setLightPreference' && !context.capabilities.lightingPreferences) {
     return `${item.label}: требуется обновление core принтера.`
+  }
+
+  if (command === 'eddyTestZ' && context.manualProbeActive !== true) {
+    return `${item.label}: активный manual_probe не подтвержден.`
+  }
+  if (command === 'eddyPrimaryAcceptSave' && context.manualProbeActive !== true) {
+    return `${item.label}: активный manual_probe не подтвержден.`
+  }
+  if (command === 'eddyPrimaryAcceptSave'
+      && (context.eddyTemperatureSeriesActive === true || context.eddyTemperatureCalibrationActive === true)) {
+    return `${item.label}: завершите температурную серию перед сохранением высоты Eddy.`
+  }
+  if (command === 'eddyTemperatureAccept' && (context.manualProbeActive !== true
+      || context.eddyTemperatureSeriesActive !== true)) {
+    return `${item.label}: активная температурная точка manual_probe не подтверждена.`
+  }
+  if ((command === 'eddyTemperatureComplete' || command === 'eddyTemperatureAcceptSave')
+      && context.eddyTemperatureSeriesActive !== true) {
+    return `${item.label}: температурная калибровка Eddy не активна.`
+  }
+  if ((command === 'eddyTemperatureComplete' || command === 'eddyTemperatureAcceptSave')
+      && (context.eddyTemperaturePoints === null || context.eddyTemperaturePoints === undefined
+        || context.eddyTemperaturePoints < 3)) {
+    return `${item.label}: требуется не менее трёх подтверждённых температурных точек.`
+  }
+  if ((command === 'eddyTemperatureComplete' || command === 'eddyTemperatureAcceptSave')
+      && context.manualProbeActive === true) {
+    return `${item.label}: сначала завершите текущую точку manual_probe.`
+  }
+  if (command === 'eddyAbort' && context.eddyTemperatureSeriesActive !== true
+      && context.eddyTemperatureCalibrationActive !== true && context.manualProbeActive !== true) {
+    return `${item.label}: активное ручное измерение или температурная серия не подтверждены.`
+  }
+  if (command === 'eddyProbeAccuracy') {
+    if (context.operationPhase !== 'idle' || activePrint || context.clogRecoveryActive === true) {
+      return `${item.label}: действие доступно только в состоянии простоя.`
+    }
+    const homedAxes = context.homedAxes?.toLowerCase() ?? ''
+    if (!homedAxes.includes('x') || !homedAxes.includes('y') || !homedAxes.includes('z')) {
+      return `${item.label}: сначала выполните G28.`
+    }
+    if (context.eddyHeightCalibrated !== true || context.eddyTemperatureSeriesActive === true) {
+      return `${item.label}: сначала завершите калибровку Eddy.`
+    }
+  }
+  if (command === 'eddyZOffsetAdjust' || command === 'eddyZOffsetSave') {
+    if (context.operationPhase !== 'idle' || activePrint || context.clogRecoveryActive === true) {
+      return `${item.label}: действие доступно только в подтверждённом состоянии простоя.`
+    }
+    if (!context.homedAxes?.toLowerCase().includes('z')) {
+      return `${item.label}: сначала выполните Home Z.`
+    }
+    if (context.eddyHeightCalibrated !== true) {
+      return `${item.label}: сначала завершите первичную калибровку Eddy.`
+    }
+    if (context.eddyTemperatureSeriesActive === true) {
+      return `${item.label}: сначала завершите или отмените температурную серию.`
+    }
+  }
+  if (command === 'eddySetOffsets' || command === 'eddyZOffsetSave'
+      || command === 'extruderRotationDistanceSave') {
+    if (context.calibrationSavePending !== false) {
+      return `${item.label}: сначала подтвердите отсутствие ожидающих изменений конфигурации.`
+    }
+    if (context.operationPhase !== 'idle' || activePrint || context.clogRecoveryActive === true) {
+      return `${item.label}: действие доступно только в подтверждённом состоянии простоя.`
+    }
+  }
+  if (command === 'extruderRotationDistanceApply' || command === 'extruderCalibrationExtrude'
+      || command === 'shaperCalibrateLight' || command === 'shaperCalibrateFull') {
+    if (context.operationPhase !== 'idle' || activePrint || context.clogRecoveryActive === true) {
+      return `${item.label}: действие доступно только в состоянии простоя.`
+    }
+  }
+  if (command === 'eddyScanMesh') {
+    if (context.operationPhase !== 'idle' || activePrint || context.clogRecoveryActive === true) {
+      return `${item.label}: действие доступно только в состоянии простоя.`
+    }
+    if (args?.command === 'eddyScanMesh' && args.save !== false && context.calibrationSavePending !== false) {
+      return `${item.label}: перед сохранением обработайте ожидающие изменения конфигурации.`
+    }
+  }
+  if ((command === 'accelerometerQuery' || command === 'accelerometerMeasureNoise')
+      && context.capabilities.calibrationCommands?.adxlConfigured !== true) {
+    return `${item.label}: ADXL не найден в конфигурации.`
+  }
+  if ((command === 'accelerometerQuery' || command === 'accelerometerMeasureNoise')
+      && (context.operationPhase !== 'idle' || activePrint || context.clogRecoveryActive === true)) {
+    return `${item.label}: действие доступно только в состоянии простоя.`
   }
 
   if (activePrint && FILAMENT_SENSOR_SETTING_COMMANDS.has(command)) {
@@ -1858,6 +2104,21 @@ export function getTreeDCommandArgumentError(
         return `TESTZ delta должен быть одним из значений: ${EDDY_TEST_Z_STEP_OPTIONS.join(', ')}.`
       }
       return null
+    case 'eddySetOffsets':
+      if (!Number.isFinite(args.xOffsetMm) || Math.abs(args.xOffsetMm) > 100
+        || !Number.isFinite(args.yOffsetMm) || Math.abs(args.yOffsetMm) > 100) {
+        return 'Смещения Eddy должны быть конечными числами в диапазоне −100…100 мм.'
+      }
+      return null
+    case 'eddyZOffsetAdjust':
+      return getRangeError(args.deltaMm, -0.05, 0.05, 'Изменение Z-offset Eddy')
+    case 'extruderCalibrationExtrude':
+      return getRangeError(args.lengthMm, 1, 120, 'Длина подачи')
+        ?? getRangeError(args.speedMmPerSec, 0.1, 5, 'Скорость подачи')
+        ?? getRangeError(args.targetCelsius, 170, limits.nozzleMaxC - 1, 'Температура сопла')
+    case 'extruderRotationDistanceApply':
+    case 'extruderRotationDistanceSave':
+      return getRangeError(args.distanceMm, 0.1, 1000, 'Rotation distance')
     default:
       return null
   }
@@ -1900,6 +2161,11 @@ export function getTreeDCommandBlockReason(
 
   if (capabilityEnabled !== true) {
     return `${item.label}: capability «${COMMAND_CAPABILITY_LABELS[item.capability]}» не подтвержден.`
+  }
+
+  const calibrationCapability = CALIBRATION_COMMAND_CAPABILITIES[command]
+  if (calibrationCapability !== undefined && context.capabilities.calibrationCommands?.[calibrationCapability] !== true) {
+    return `${item.label}: команда не поддерживается установленным core.`
   }
 
   if (context.connection === 'online') {

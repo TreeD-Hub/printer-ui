@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createCommandClient } from '#runtime'
 import { recordOperationalDiagnostic } from '../../diagnostics'
+import { getPrinterSnapshot } from '../store/printerStore'
 import {
   getFirstPrinterPendingCommand,
   getPrinterCommandPendingDomain,
@@ -104,6 +105,23 @@ function isCommandConfirmed(
       return context.filamentSensor?.sensitivity === args.sensitivity
     default:
       return null
+  }
+}
+
+function getCurrentCommandContext(context: TreeDCommandRuntimeContext): TreeDCommandRuntimeContext {
+  const snapshot = getPrinterSnapshot()
+  return {
+    ...context,
+    manualProbeActive: snapshot.calibration?.manualProbe.active ?? false,
+    eddyTemperatureCalibrationActive: snapshot.calibration?.eddy.inTemperatureCalibration === true,
+    eddyTemperatureSeriesActive: snapshot.calibration?.eddy.temperatureSeriesActive ?? null,
+    eddyTemperaturePoints: snapshot.calibration?.eddy.temperaturePoints ?? null,
+    eddyHeightCalibrated: snapshot.calibration?.eddy.heightCalibrated ?? null,
+    calibrationSavePending: snapshot.calibration?.config.savePending ?? null,
+    capabilities: {
+      ...context.capabilities,
+      calibrationCommands: snapshot.capabilities.calibrationCommands ?? context.capabilities.calibrationCommands,
+    },
   }
 }
 
@@ -261,7 +279,8 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
         }
       }
 
-      const blockReason = getTreeDCommandBlockReason(command, runtimeContextRef.current, args)
+      const currentContext = getCurrentCommandContext(runtimeContextRef.current)
+      const blockReason = getTreeDCommandBlockReason(command, currentContext, args)
       if ((command === 'start' && (activeCommandTokensRef.current.has('motion') || pendingConfirmationsRef.current.has('motion')))
         || (command === 'setDriverMode' && ['print', 'system'].some((key) => {
           const pendingDomain = key as PrinterCommandPendingDomain
@@ -326,7 +345,7 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
           ? true
           : result.status === 'confirmed'
             ? true
-            : isCommandConfirmed(args, runtimeContextRef.current)
+            : isCommandConfirmed(args, getCurrentCommandContext(runtimeContextRef.current))
         if (confirmed !== null) {
           if (confirmed) {
             setLastResult({

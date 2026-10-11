@@ -1,0 +1,56 @@
+.calibration-catalog { min-height: 0; }
+.calibration-catalog-groups { min-height: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto auto; align-content: start; gap: 8px 24px; overflow: hidden; }
+.calibration-catalog-groups section { min-width: 0; display: grid; align-content: start; gap: 8px; }
+.calibration-catalog-groups h2 { margin: 0; font-size: var(--font-size-body); font-weight: var(--font-weight-medium); }
+.calibration-catalog-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.calibration-catalog .macros-manager-workflow { min-height: 80px; padding: 12px; grid-template-areas: "title count" "meta count"; }
+.calibration-catalog .macros-manager-workflow span { font-size: var(--font-size-body); line-height: 1.2; }
+.calibration-catalog .macros-manager-workflow em { font-size: var(--font-size-small); line-height: 1.25; }
+.calibration-catalog .macros-manager-workflow strong { font-size: var(--font-size-small); }
+.calibration-procedure { min-height: 0; display: grid; grid-template-rows: 64px minmax(0, 1fr) 56px; gap: 8px; padding: 8px; }
+.calibration-procedure-header { min-width: 0; display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; align-items: center; gap: 16px; }
+.calibration-procedure-header > div { min-width: 0; }
+.calibration-procedure-header p, .calibration-procedure-header h2 { margin: 0; }
+.calibration-procedure-header p, .calibration-procedure-header > span { color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.calibration-procedure-header h2 { font-size: var(--font-size-heading); overflow-wrap: anywhere; }
+.calibration-procedure button, .calibration-procedure input, .calibration-procedure select, .calibration-procedure textarea { min-width: 48px; min-height: 56px; padding: 8px 12px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; }
+.calibration-procedure button { cursor: pointer; touch-action: manipulation; }
+.calibration-procedure button:disabled { opacity: .45; cursor: not-allowed; }
+.calibration-procedure button:focus-visible, .calibration-procedure input:focus-visible, .calibration-procedure select:focus-visible, .calibration-procedure textarea:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.calibration-procedure button[aria-pressed="true"] { border-color: var(--color-selection); background: var(--color-selection-surface); }
+.calibration-procedure .is-danger { border-color: var(--color-selection); color: var(--color-selection); }
+.calibration-procedure-body { min-height: 0; overflow: auto; display: flex; flex-direction: column; justify-content: flex-start; gap: 12px; }
+.calibration-procedure-body > p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: 1.35; }
+.calibration-choice-row, .calibration-action-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.calibration-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.calibration-fields label, .calibration-file-select { min-width: 0; display: grid; gap: 4px; color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.calibration-fields .calibration-field-value, .calibration-file-select select { width: 100%; font-size: var(--font-size-body); text-align: left; }
+.calibration-check { min-height: 56px; display: flex; align-items: center; gap: 12px; color: var(--color-text-primary); font-size: var(--font-size-body); }
+.calibration-check input { width: 24px; height: 24px; min-width: 24px; min-height: 24px; accent-color: var(--color-selection); }
+.calibration-result { display: grid; grid-template-columns: auto 1fr 1fr; gap: 12px; align-items: center; padding: 12px 0; border-block: 1px solid var(--color-border-default); font-variant-numeric: tabular-nums; }
+.calibration-result span { font-family: var(--font-family-accent); font-size: var(--font-size-body); }
+.calibration-service-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.calibration-service-grid div { min-width: 0; display: grid; gap: 4px; border-left: 1px solid var(--color-border-default); padding-left: 12px; }
+.calibration-service-grid dt { color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.calibration-service-grid dd { margin: 0; overflow-wrap: anywhere; font-size: var(--font-size-body); }
+.calibration-procedure-footer { display: flex; align-items: center; gap: 8px; }
+.calibration-procedure-footer > button:last-child { margin-left: auto; }
+.calibration-inline-note { position: absolute; bottom: 66px; margin: 0; padding: 8px; background: var(--color-block-surface); color: var(--color-text-secondary); font-size: var(--font-size-small); }
+.calibration-number-dialog.tune-value-workspace { position: fixed; inset: 0; z-index: 100; background: var(--color-background); display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 24px; padding: 16px; }
+.calibration-number-editor { display: grid; grid-template-rows: 1fr auto 56px; gap: 16px; }
+.calibration-number-input { grid-column: 1 / -1; min-height: 64px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); display: flex; align-items: center; padding: 16px; gap: 8px; }
+.calibration-number-input:focus-within { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.calibration-number-input input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--color-text-primary); font: inherit; font-size: 32px; }
+.calibration-number-editor p { margin: 0; color: var(--color-text-secondary); }
+.calibration-number-dialog .numeric-keypad { min-height: 0; display: grid; grid-template-rows: 1fr 56px; gap: 8px; }
+.calibration-number-dialog .print-temp-keyboard-key { height: 100%; }
+@media (max-width: 760px) {
+  .calibration-catalog-groups { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
+  .calibration-procedure-header { grid-template-columns: 1fr auto; }
+  .calibration-procedure-header > div { grid-column: 1 / -1; grid-row: 1; }
+  .calibration-procedure-header > button, .calibration-procedure-header > span { grid-row: 2; }
+  .calibration-fields, .calibration-service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calibration-procedure *, .calibration-catalog * { scroll-behavior: auto; transition-duration: 0.01ms !important; }
+}

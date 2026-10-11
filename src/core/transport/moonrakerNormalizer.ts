@@ -11,6 +11,7 @@ import type {
   PrinterJobState,
   PrinterHardwareSnapshot,
   PrinterCameraSnapshot,
+  PrinterCalibrationSnapshot,
   PrinterMacroStateSnapshot,
   PrinterPositionSnapshot,
   PrinterPrintJobSnapshot,
@@ -204,6 +205,13 @@ function toFiniteNumber(value: unknown, fallback = 0): number {
 function toNullableNumber(value: unknown): number | null {
   const numericValue = typeof value === 'number' ? value : Number(value)
 
+  return Number.isFinite(numericValue) ? numericValue : null
+}
+
+function readNullableNumber(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') return null
+  if (typeof value === 'string' && value.trim() === '') return null
+  const numericValue = Number(value)
   return Number.isFinite(numericValue) ? numericValue : null
 }
 
@@ -1041,7 +1049,10 @@ function normalizeCapabilities(
   macros: PrinterMacroStateSnapshot,
   uiContract: PrinterUiContractSnapshot,
   filamentSensor: FilamentSensorSnapshot,
+  availableObjects?: readonly string[],
+  calibrationObject?: unknown,
 ): PrinterCapabilitiesSnapshot {
+  const calibrationStatus = isRecord(calibrationObject) ? calibrationObject : {}
   const systemPower = readBooleanMacroFlag(macros.values, '_TREED_SYSTEM_POWER')
   const hasMainLightMacros = macros.available.includes('LIGHT_ON') && macros.available.includes('LIGHT_OFF')
 
@@ -1099,6 +1110,22 @@ function normalizeCapabilities(
     systemPower: capability('system_power') && systemPower,
     camera: capability('camera') && cameraEnabled,
     serviceCommands: capability('service_commands') && readBooleanMacroFlag(macros.values, '_TREED_SERVICE_COMMANDS'),
+    calibrationCommands: {
+      temperatureAccept: availableObjects?.includes('treed_calibration') === true && macros.available.includes('TREED_EDDY_TEMPERATURE_ACCEPT'),
+      temperatureComplete: availableObjects?.includes('treed_calibration') === true && macros.available.includes('TREED_EDDY_TEMPERATURE_COMPLETE_SAVE'),
+      abort: availableObjects?.includes('treed_calibration') === true && macros.available.includes('TREED_EDDY_CALIBRATION_ABORT'),
+      probeAccuracy: availableObjects?.includes('treed_calibration') === true && macros.available.includes('TREED_EDDY_PROBE_ACCURACY'),
+      setOffsets: availableObjects?.includes('treed_calibration') === true,
+      zOffsetAdjust: availableObjects?.includes('treed_calibration') === true && macros.available.includes('TREED_EDDY_Z_OFFSET_ADJUST'),
+      zOffsetSave: availableObjects?.includes('treed_calibration') === true && macros.available.includes('TREED_EDDY_Z_OFFSET_SAVE'),
+      meshScan: availableObjects?.includes('treed_calibration') === true
+        && macros.available.includes('TREED_EDDY_BED_MESH_CALIBRATE'),
+      extruderCalibrationExtrude: availableObjects?.includes('treed_calibration') === true,
+      extruderRotationDistance: availableObjects?.includes('treed_calibration') === true,
+      accelerometerQuery: parseMacroBoolean(calibrationStatus.accelerometer_configured) === true,
+      accelerometerMeasureNoise: parseMacroBoolean(calibrationStatus.accelerometer_configured) === true,
+      adxlConfigured: parseMacroBoolean(calibrationStatus.accelerometer_configured) === true,
+    },
   }
 }
 
@@ -1272,6 +1299,158 @@ function normalizeV2Snapshot(
   }
 }
 
+function normalizeCalibration(status: MoonrakerPrinterObjectsStatus): PrinterCalibrationSnapshot | undefined {
+  const configfile = isRecord(status.configfile) ? status.configfile : undefined
+  const settings = isRecord(configfile?.settings) ? configfile.settings : {}
+  const eddySettings = isRecord(settings['probe_eddy_current btt_eddy'])
+    ? settings['probe_eddy_current btt_eddy']
+    : {}
+  const eddyStatus = isRecord(status['probe_eddy_current btt_eddy'])
+    ? status['probe_eddy_current btt_eddy']
+    : {}
+  const temperatureStatus = isRecord(status['temperature_probe btt_eddy'])
+    ? status['temperature_probe btt_eddy']
+    : {}
+  const temperatureState = isRecord(status['gcode_macro _TREED_EDDY_TEMPERATURE_STATE'])
+    ? status['gcode_macro _TREED_EDDY_TEMPERATURE_STATE']
+    : {}
+  const manualProbe = isRecord(status.manual_probe) ? status.manual_probe : {}
+  const mesh = isRecord(status.bed_mesh) ? status.bed_mesh : {}
+  const savedProfilePayload = isRecord(mesh.profiles) ? mesh.profiles : {}
+  const savedProfiles = Object.fromEntries(Object.entries(savedProfilePayload).flatMap(([name, profile]) => {
+    if (!isRecord(profile) || !Array.isArray(profile.points)) return []
+    const points = profile.points.map((row) => Array.isArray(row) ? row.map(readNullableNumber) : null)
+    if (points.some((row) => row === null || row.some((value) => value === null))) return []
+    return [[name, points as number[][]]]
+  }))
+  const screws = isRecord(status.screws_tilt_adjust) ? status.screws_tilt_adjust : {}
+  const shaper = isRecord(status.input_shaper) ? status.input_shaper : {}
+  const configuredShaper = isRecord(settings.input_shaper) ? settings.input_shaper : {}
+  const extruderSettings = isRecord(settings.extruder) ? settings.extruder : {}
+  const pendingItems = configfile?.save_config_pending_items
+  const pendingSections = isRecord(pendingItems)
+    ? Object.keys(pendingItems)
+    : Array.isArray(pendingItems) ? pendingItems.filter((item): item is string => typeof item === 'string') : []
+  const calibration = eddySettings.calibrate
+  const heightCalibrationPoints = typeof calibration === 'string'
+    ? calibration.split(',').filter((point) => point.includes(':')).length
+    : Array.isArray(calibration) ? calibration.length : 0
+  const savedVariables = isRecord(status.save_variables) ? status.save_variables : {}
+  const variables = isRecord(savedVariables.variables) ? savedVariables.variables
+    : isRecord(savedVariables.vars) ? savedVariables.vars : {}
+  const treedCalibration = isRecord(status.treed_calibration) ? status.treed_calibration : {}
+  const runtimeShaper = isRecord(treedCalibration.input_shaper) ? treedCalibration.input_shaper : {}
+  const changedOffsets = parseMacroBoolean(treedCalibration.offsets_changed)
+    ?? (parseMacroBoolean(variables.treed_eddy_offsets_changed) === true)
+  const availableEddy = status['probe_eddy_current btt_eddy'] !== undefined
+  const screwSettings = isRecord(settings.screws_tilt_adjust) ? settings.screws_tilt_adjust : {}
+  const screwResults = isRecord(screws.results) ? screws.results : {}
+  const results = Object.entries(screwResults).flatMap(([name, rawResult]) => {
+    if (!isRecord(rawResult)) return []
+    const configured = screwSettings[name]
+    const coords = Array.isArray(configured)
+      ? configured.map(readNullableNumber)
+      : typeof configured === 'string' ? configured.split(',').map(readNullableNumber) : []
+    return [{
+      name: typeof rawResult.name === 'string' ? rawResult.name
+        : typeof screwSettings[`${name}_name`] === 'string' ? String(screwSettings[`${name}_name`]) : name,
+      xMm: coords[0] ?? null,
+      yMm: coords[1] ?? null,
+      zMm: readNullableNumber(rawResult.z),
+      isBase: parseMacroBoolean(rawResult.is_base),
+      sign: typeof rawResult.sign === 'string' ? rawResult.sign : null,
+      adjust: typeof rawResult.adjust === 'string' ? rawResult.adjust : null,
+    }]
+  })
+  const configuredScrewNames = Object.entries(screwSettings)
+    .filter(([name, value]) => /^screw\d+$/.test(name) && (Array.isArray(value) || typeof value === 'string'))
+    .map(([name]) => name)
+  const hasCompleteScrewResults = configuredScrewNames.length > 0
+    && configuredScrewNames.every((name) => isRecord(screwResults[name]))
+  const baseZ = results.find((result) => result.isBase === true)?.zMm
+  const maxScrewDeviation = !hasCompleteScrewResults || baseZ === undefined || baseZ === null || results.length === 0
+    || results.some((result) => result.zMm === null)
+    ? null
+    : Math.max(...results.map((result) => Math.abs(result.zMm! - baseZ)))
+  const hasCalibrationObjects = configfile !== undefined || availableEddy || status.treed_calibration !== undefined
+    || status.manual_probe !== undefined || status.bed_mesh !== undefined
+    || status.screws_tilt_adjust !== undefined || status.input_shaper !== undefined
+    || status['temperature_probe btt_eddy'] !== undefined
+    || status['gcode_macro _TREED_EDDY_TEMPERATURE_STATE'] !== undefined
+
+  if (!hasCalibrationObjects) return undefined
+
+  const readMatrix = (value: unknown): (number | null)[][] => Array.isArray(value)
+    ? value.filter(Array.isArray).map((row) => row.map(readNullableNumber))
+    : []
+  const readBounds = (value: unknown): [number | null, number | null] | null => Array.isArray(value)
+    ? [readNullableNumber(value[0]), readNullableNumber(value[1])]
+    : null
+  const boolField = (...values: unknown[]): boolean | null => {
+    for (const value of values) {
+      const parsed = parseMacroBoolean(value)
+      if (parsed !== null) return parsed
+    }
+    return null
+  }
+
+  return {
+    manualProbe: {
+      active: parseMacroBoolean(manualProbe.is_active) === true,
+      zMm: readNullableNumber(manualProbe.z_position),
+      zMinimumMm: readNullableNumber(manualProbe.z_position_lower),
+      zMaximumMm: readNullableNumber(manualProbe.z_position_upper),
+    },
+    eddy: {
+      available: availableEddy,
+      heightCalibrated: availableEddy ? heightCalibrationPoints > 2 && !changedOffsets : null,
+      driveCurrent: readNullableNumber(eddyStatus.reg_drive_current ?? eddySettings.reg_drive_current),
+      temperatureC: readNullableNumber(temperatureStatus.temperature ?? eddyStatus.temperature),
+      temperaturePoints: readNullableNumber(temperatureState.points),
+      temperatureSeriesActive: boolField(temperatureState.active),
+      compensationEnabled: boolField(temperatureStatus.compensation_enabled),
+      inTemperatureCalibration: boolField(temperatureStatus.in_calibration),
+      estimatedExpansionMm: readNullableNumber(temperatureStatus.estimated_expansion ?? treedCalibration.estimated_expansion),
+      xOffsetMm: readNullableNumber(eddyStatus.x_offset ?? eddySettings.x_offset),
+      yOffsetMm: readNullableNumber(eddyStatus.y_offset ?? eddySettings.y_offset),
+      zOffsetMm: readNullableNumber(eddyStatus.z_offset ?? eddySettings.z_offset),
+    },
+    config: {
+      savePending: parseMacroBoolean(configfile?.save_config_pending) === true,
+      pendingSections,
+    },
+    mesh: {
+      profile: typeof mesh.profile_name === 'string' && mesh.profile_name.length > 0 ? mesh.profile_name : null,
+      min: readBounds(mesh.mesh_min),
+      max: readBounds(mesh.mesh_max),
+      probedMatrix: readMatrix(mesh.probed_matrix),
+      meshMatrix: readMatrix(mesh.mesh_matrix),
+      savedProfiles,
+    },
+    screws: {
+      error: boolField(screws.error),
+      maxDeviationMm: maxScrewDeviation,
+      results,
+    },
+    shaper: {
+      typeX: typeof runtimeShaper.shaper_type_x === 'string'
+        ? runtimeShaper.shaper_type_x
+        : typeof shaper.shaper_type_x === 'string' ? shaper.shaper_type_x
+          : typeof configuredShaper.shaper_type_x === 'string' ? configuredShaper.shaper_type_x : null,
+      typeY: typeof runtimeShaper.shaper_type_y === 'string'
+        ? runtimeShaper.shaper_type_y
+        : typeof shaper.shaper_type_y === 'string' ? shaper.shaper_type_y
+          : typeof configuredShaper.shaper_type_y === 'string' ? configuredShaper.shaper_type_y : null,
+      freqXHz: readNullableNumber(runtimeShaper.shaper_freq_x)
+        ?? readNullableNumber(shaper.shaper_freq_x) ?? readNullableNumber(configuredShaper.shaper_freq_x),
+      freqYHz: readNullableNumber(runtimeShaper.shaper_freq_y)
+        ?? readNullableNumber(shaper.shaper_freq_y) ?? readNullableNumber(configuredShaper.shaper_freq_y),
+    },
+    extruder: { rotationDistanceMm: readNullableNumber(treedCalibration.rotation_distance)
+      ?? readNullableNumber(extruderSettings.rotation_distance) },
+  }
+}
+
 function normalizeIpAddress(moonrakerUrl?: string): string {
   if (!moonrakerUrl) {
     return 'unknown'
@@ -1312,7 +1491,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const macros = normalizeMacroValues(status, options.availableObjects)
   const uiContract = normalizeUiContract(macros)
   const filamentSensor = normalizeFilamentSensor(status, macros)
-  const capabilities = normalizeCapabilities(macros, uiContract, filamentSensor)
+  const capabilities = normalizeCapabilities(macros, uiContract, filamentSensor, options.availableObjects, status.treed_calibration)
   const driverMode = normalizeDriverMode(status.treed_driver_mode)
   const driverFanMode = normalizeDriverMode(status.treed_driver_fan_mode)
   const driverContract = readMacro(macros.values, '_TREED_UI_CONTRACT')
@@ -1333,6 +1512,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
   const transportState = options.transportState ?? 'online'
   const klippy = normalizeKlippyState(status.webhooks)
   const isReady = transportState === 'online' && klippy.state === 'ready'
+  const calibration = normalizeCalibration(status)
 
   return {
     source,
@@ -1417,6 +1597,7 @@ export function normalizeMoonrakerRuntimeSnapshot(
     thermalTargets: normalizeThermalTargets(status.extruder, status.heater_bed),
     runtimeTune: normalizeRuntimeTune(status.toolhead, gcodeMove, status.extruder, status.firmware_retraction, macros),
     macros,
+    ...(calibration !== undefined ? { calibration } : {}),
     printFiles: normalizeMoonrakerPrintFiles(options.printFiles ?? [], { moonrakerUrl: options.moonrakerUrl }),
     v2: normalizeV2Snapshot(macros, webhooks, homedAxes, status),
   }

@@ -1171,46 +1171,38 @@ describe('App', () => {
     }
   })
 
-  it('renders Eddy calibration workflow as step screens and dispatches step commands', async () => {
-    render(<App />)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Макросы' }))
-
+  it('passes the active manual calibration context through App to Eddy controls', async () => {
+    const snapshot = createMockSnapshot()
+    snapshot.homedAxes = 'xyz'
+    snapshot.calibration!.manualProbe.active = true
+    applyPrinterSnapshot(snapshot)
+    await act(async () => { render(<App />) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Макросы' })) })
     expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
-    expect(screen.getByTestId('macros-manager')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
-    expect(screen.getByRole('heading', { name: 'Выберите калибровку' })).toBeInTheDocument()
-    const workflows = within(screen.getByTestId('macros-manager-workflows'))
-    expect(workflows.getAllByRole('button')).toHaveLength(2)
-    expect(workflows.getByRole('button', { name: 'Калибровка датчика уровня 0/5' })).toBeInTheDocument()
-    expect(workflows.getByRole('button', { name: /PID-калибровка/ })).toBeInTheDocument()
-
-    fireEvent.click(
-      within(screen.getByTestId('macros-manager-workflows')).getByRole('button', {
-        name: 'Калибровка датчика уровня 0/5',
-      }),
-    )
-
-    expect(screen.getByRole('heading', { name: 'Калибровка датчика уровня' })).toBeInTheDocument()
-    expect(screen.getByText('Шаг 1 из 6')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Первичная калибровка датчика' })).toBeInTheDocument()
-    expect(screen.queryByTestId('eddy-step-list')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Калибровать ток' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Проверить высоту по бумаге' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'TESTZ -0.05 мм' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Принять и сохранить' })).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
-
-    expect(screen.getByText('Шаг 2 из 6')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Температурная калибровка' })).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Далее' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Запустить поиск Z0' }))
-
+    fireEvent.click(screen.getByRole('button', { name: /^Калибровка Eddy/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Высота Eddy/ }))
+    expect(screen.getByRole('button', { name: '-0.05 мм' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Принять высоту и сохранить' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: '-0.05 мм' }))
     await waitFor(() => {
-      expect(getMockCommandOperations()).toContainEqual({ command: 'eddyCheckZ0' })
+      expect(getMockCommandOperations()).toContainEqual({ command: 'eddyTestZ', deltaMm: -0.05 })
     })
+  })
+
+  it('passes measured temperature points through App to the completion guard', async () => {
+    const snapshot = createMockSnapshot()
+    snapshot.calibration!.eddy.temperatureSeriesActive = true
+    snapshot.calibration!.eddy.temperaturePoints = 3
+    snapshot.calibration!.manualProbe.active = false
+    snapshot.v2.eddy.calibration.activeStep = 'temperature'
+    snapshot.v2.eddy.calibration.operatorPrompt = 'temperature_points'
+    applyPrinterSnapshot(snapshot)
+    await act(async () => { render(<App />) })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Макросы' })) })
+    fireEvent.click(screen.getByRole('button', { name: /^Калибровка Eddy/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Компенсация температуры/ }))
+    expect(screen.getByRole('button', { name: 'Завершить серию и сохранить' })).toBeEnabled()
   })
 
   it('opens print file modal and handles start and delete actions', async () => {
