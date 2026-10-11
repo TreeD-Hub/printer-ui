@@ -11,6 +11,7 @@
 - `hostNetwork.ts` - Moonraker host-network client для `/server/treed/network/*` и shared host-network helpers.
 - `hostUpdate.ts` — клиент статуса и очереди обновлений, firmware inventory и сброса переопределений.
 - `hostDetection.ts` — чтение и запись настройки AI через `/server/treed/detection/settings`; UI передаёт только `enabled`, ключ классификатора в запрос не входит. Нужен Core с поддержкой endpoint.
+- `printFeedback.ts` — получение сессии завершённой печати и сохранение оценки через `/server/treed/print-feedback`; проверяет filename, sessionId и подтверждённую оценку. Mock-клиент хранит результат только в памяти окна.
 
 ## Контракт
 

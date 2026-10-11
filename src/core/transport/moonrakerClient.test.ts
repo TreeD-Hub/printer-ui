@@ -34,6 +34,37 @@ function runtimeObjects() {
   }
 }
 
+describe('fetchShaperResonances', () => {
+  const csv = 'freq,psd_x,psd_y,psd_z,psd_xyz\n0,1,2,3,6\n1,2,3,4,9\n'
+
+  it('reads the fixed endpoint and retains only the declared fields', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(moonrakerResponse({
+      mode: 'light', axes: { x: { revision: '123:hash', csv, path: '/private' }, y: null, z: {} }, extra: 'ignored',
+    }))
+    const client = createMoonrakerClient({ moonrakerUrl: 'http://printer', fetchImpl })
+    expect(await client.fetchShaperResonances('light')).toEqual({
+      mode: 'light', axes: { x: { revision: '123:hash', csv }, y: null },
+    })
+    expect(fetchImpl).toHaveBeenCalledWith('http://printer/server/treed/resonances?mode=light', expect.objectContaining({ signal: expect.any(AbortSignal) }))
+  })
+
+  it.each([
+    null,
+    { mode: 'light', axes: { x: null, y: null } },
+    { mode: 'full', axes: { x: null } },
+    { mode: 'full', axes: { x: { revision: '', csv }, y: null } },
+    { mode: 'full', axes: { x: { revision: '1', csv: 'x'.repeat(2 * 1024 * 1024 + 1) }, y: null } },
+  ])('rejects malformed or oversized report', async (result) => {
+    const client = createMoonrakerClient({ fetchImpl: vi.fn().mockResolvedValue(moonrakerResponse(result)) })
+    await expect(client.fetchShaperResonances('full')).rejects.toMatchObject({ kind: 'invalid-result' })
+  })
+
+  it('keeps backend errors visible', async () => {
+    const client = createMoonrakerClient({ fetchImpl: vi.fn().mockResolvedValue(moonrakerHttpError(409)) })
+    await expect(client.fetchShaperResonances('full')).rejects.toMatchObject({ status: 409 })
+  })
+})
+
 function runtimeObjectList() {
   return moonrakerResponse({ objects: MOONRAKER_RUNTIME_OBJECTS })
 }

@@ -315,6 +315,11 @@ export type PrinterEddyStateSnapshot = Pick<
   'autosaveEnabled' | 'autosavePending' | 'calibration'
 > & { calibrationState?: PrinterCalibrationSnapshot }
 
+export interface PrinterShaperResonanceReport {
+  mode: 'full' | 'light'
+  axes: Record<'x' | 'y', { revision: string; csv: string } | null>
+}
+
 export type PrinterPrintJobStateSnapshot = Pick<
   PrinterSnapshot,
   'excludeObjects' | 'files' | 'message' | 'printJob' | 'updatedAt'
@@ -356,6 +361,7 @@ export interface TransportClient {
   fetchUsage: () => Promise<PrinterUsageSnapshot>
   fetchFilamentSensor: () => Promise<FilamentSensorSnapshot>
   fetchEddyState: () => Promise<PrinterEddyStateSnapshot>
+  fetchShaperResonances: (mode: 'full' | 'light') => Promise<PrinterShaperResonanceReport>
   fetchExcludeObjects: () => Promise<PrinterExcludeObjectSnapshot>
   fetchPrintJobState: () => Promise<PrinterPrintJobStateSnapshot>
   fetchPrintFilesState: () => Promise<PrinterPrintFilesStateSnapshot>

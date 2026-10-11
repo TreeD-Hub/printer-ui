@@ -269,7 +269,7 @@ export type ExecuteCommandArgs =
   | { command: 'extruderCalibrationExtrude'; lengthMm: number; speedMmPerSec: number; targetCelsius: number }
   | { command: 'extruderRotationDistanceApply' | 'extruderRotationDistanceSave'; distanceMm: number }
   | { command: 'shaperCalibrateFull'; save?: boolean }
-  | { command: 'eddyScanMesh'; save?: boolean }
+  | { command: 'eddyScanMesh'; save?: boolean; method?: 'scan' | 'rapid_scan' | 'automatic' }
   | {
       command: 'consoleGcode'
       gcode?: string
@@ -498,6 +498,7 @@ export interface PrinterCapabilitiesSnapshot {
     accelerometerMeasureNoise: boolean
     adxlConfigured: boolean
     meshScan: boolean
+    meshScanMethods?: boolean
   }
 }
 
@@ -1935,6 +1936,10 @@ function getCommandSpecificBlockReason(
     }
   }
   if (command === 'eddyScanMesh') {
+    if (args?.command === 'eddyScanMesh' && args.method !== undefined && args.method !== 'scan'
+      && context.capabilities.calibrationCommands?.meshScanMethods !== true) {
+      return 'Выбор метода сканирования требует обновления core.'
+    }
     if (context.operationPhase !== 'idle' || activePrint || context.clogRecoveryActive === true) {
       return `${item.label}: действие доступно только в состоянии простоя.`
     }
@@ -2099,6 +2104,9 @@ export function getTreeDCommandArgumentError(
         return 'NAME не должен содержать переносы строк.'
       }
       return null
+    case 'eddyScanMesh':
+      return args.method === undefined || ['scan', 'rapid_scan', 'automatic'].includes(args.method)
+        ? null : 'Неизвестный метод сканирования карты.'
     case 'eddyTestZ':
       if (!EDDY_TEST_Z_STEP_OPTIONS.some((step) => Math.abs(step - args.deltaMm) < 0.0001)) {
         return `TESTZ delta должен быть одним из значений: ${EDDY_TEST_Z_STEP_OPTIONS.join(', ')}.`

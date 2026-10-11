@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { vi } from 'vitest'
 import App from './App'
 import { getPrinterSnapshot, setPrinterSnapshot } from './core/store/printerStore'
+import { receivePrinterEvent } from './core/store/printerNotifications'
 import {
   clearMockCommandFailure,
   clearMockNetworkRuntime,
@@ -1180,7 +1181,8 @@ describe('App', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Макросы' })) })
     expect(screen.getByTestId('screen-macros')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Макросы' })).toHaveAttribute('aria-current', 'page')
-    fireEvent.click(screen.getByRole('button', { name: /^Калибровка Eddy/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Датчик Eddy' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Калибровка датчика автоуровня' }))
     fireEvent.click(screen.getByRole('button', { name: /Высота Eddy/ }))
     expect(screen.getByRole('button', { name: '-0.05 мм' })).toBeEnabled()
     expect(screen.getByRole('button', { name: 'Принять высоту и сохранить' })).toBeEnabled()
@@ -1194,15 +1196,21 @@ describe('App', () => {
     const snapshot = createMockSnapshot()
     snapshot.calibration!.eddy.temperatureSeriesActive = true
     snapshot.calibration!.eddy.temperaturePoints = 3
+    snapshot.calibration!.eddy.inTemperatureCalibration = false
+    snapshot.calibration!.config = { savePending: true, pendingSections: ['temperature_probe btt_eddy'] }
     snapshot.calibration!.manualProbe.active = false
     snapshot.v2.eddy.calibration.activeStep = 'temperature'
     snapshot.v2.eddy.calibration.operatorPrompt = 'temperature_points'
     applyPrinterSnapshot(snapshot)
     await act(async () => { render(<App />) })
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Макросы' })) })
-    fireEvent.click(screen.getByRole('button', { name: /^Калибровка Eddy/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Компенсация температуры/ }))
-    expect(screen.getByRole('button', { name: 'Завершить серию и сохранить' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Датчик Eddy' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Калибровка датчика автоуровня' }))
+    fireEvent.click(screen.getByRole('button', { name: /Температура/ }))
+    await waitFor(() => {
+      expect(getMockCommandOperations()).toContainEqual({ command: 'eddyTemperatureComplete' })
+    })
+    expect(screen.queryByRole('button', { name: 'Завершить серию и сохранить' })).not.toBeInTheDocument()
   })
 
   it('opens print file modal and handles start and delete actions', async () => {
@@ -1385,6 +1393,7 @@ describe('App', () => {
     expect(document.querySelector('.app-root')).toHaveClass('is-performance-mode')
 
     fireEvent.click(screen.getByTestId('settings-group-notifications'))
+    act(() => { receivePrinterEvent({ sequence: Date.now(), code: 'print_complete', detail: '' }, false) })
     expect(screen.getByRole('heading', { name: 'Уведомления' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-notifications-enabled-toggle')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getAllByText('Печать завершена').length).toBeGreaterThan(0)
@@ -1405,7 +1414,7 @@ describe('App', () => {
     expect(screen.getByText('Система TreeD')).toBeInTheDocument()
     expect(screen.getByText('Доступно обновление')).toBeInTheDocument()
     expect(screen.getByText('Обновление недоступно')).toBeInTheDocument()
-    expect(screen.queryByText('Симуляция')).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('screen-settings')).queryByText('Симуляция')).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-apply-updates-button')).toBeEnabled()
     expect(screen.queryByLabelText('Последние операции обновления')).not.toBeInTheDocument()
 

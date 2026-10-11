@@ -1,0 +1,73 @@
+.print-completion-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--color-overlay);
+}
+
+.print-completion-dialog {
+  box-sizing: border-box;
+  width: 760px;
+  max-height: 512px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: var(--border-width) solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-body);
+  font-weight: 400;
+}
+
+.print-completion-dialog :is(h2, p) { margin: 0; font-weight: 400; }
+.print-completion-dialog h2 { font-size: var(--font-size-heading-medium); line-height: 28px; }
+.print-completion-filename {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  line-height: 24px;
+  min-height: 48px;
+}
+.print-completion-question { margin-top: 8px; line-height: 24px; }
+.print-completion-help { font-size: var(--font-size-small); color: var(--color-text-secondary); }
+.print-completion-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.print-completion-button {
+  min-width: var(--control-min-width);
+  min-height: var(--control-height);
+  padding: 8px 16px;
+  font: inherit;
+  border: var(--border-width) solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-control-surface);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.print-completion-button[aria-pressed='true'] {
+  border-color: var(--color-selection);
+  background: var(--color-selection-surface);
+}
+.print-completion-restart, .print-completion-button:active:not(:disabled) {
+  border-color: var(--color-control-active-border);
+  background: var(--color-control-active-surface);
+}
+.print-completion-button:disabled { color: var(--color-text-secondary); opacity: .55; cursor: default; }
+.print-completion-status { display: flex; align-items: center; gap: 16px; min-height: 56px; }
+.print-completion-status p { flex: 1; line-height: 20px; }
+.print-completion-status button { flex: 0 0 144px; }
+.print-completion-table { display: flex; align-items: center; gap: 16px; min-height: 56px; cursor: pointer; touch-action: manipulation; }
+.print-completion-table input { width: 24px; height: 24px; accent-color: var(--color-selection); }
+.print-completion-start-notice { min-height: 40px; font-size: var(--font-size-small); line-height: 20px; color: var(--color-text-secondary); }
+.print-completion-dialog :is(button, input):focus-visible {
+  outline: var(--focus-width) solid var(--color-focus-ring);
+  outline-offset: var(--focus-offset);
+}

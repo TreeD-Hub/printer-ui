@@ -53,7 +53,7 @@ import {
   usePrintTuneController,
   type PrintTuneGroupId,
 } from './printTune'
-import { usePrintSessionController } from './printSession'
+import { PrintCompletionFlow, usePrintSessionController } from './printSession'
 import { useHeatingFanController } from './heating'
 import { useMaintenanceController } from './maintenance'
 import { ExcludeObjectModal, getExcludeObjectOpenBlockReason } from './excludeObject'
@@ -100,6 +100,7 @@ function App() {
     refreshRuntime,
     refreshFilamentSensor,
     refreshEddyState,
+    fetchShaperResonances,
     refreshExcludeObjects,
     refreshPrintJob,
     refreshMotionState,
@@ -111,6 +112,7 @@ function App() {
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
   const [isExcludeObjectModalOpen, setIsExcludeObjectModalOpen] = useState<boolean>(false)
+  const [isPrintCompletionOpen, setIsPrintCompletionOpen] = useState(false)
   const printSessionController = usePrintSessionController({ snapshot, deletePrintFile, refreshPrintFileMetadata })
   const commandRuntimeContext = useMemo(
     () => ({
@@ -456,6 +458,14 @@ function App() {
     refreshPrintJob,
     onOpenDashboard: () => setActiveScreen('dashboard'),
   })
+  const handleRepeatCompletedPrint = useCallback(async (filename: string): Promise<boolean> => {
+    const ok = await executeCommand({ command: 'start', filename })
+    if (ok) {
+      void refreshPrintJob()
+      setActiveScreen('dashboard')
+    }
+    return ok
+  }, [executeCommand, refreshPrintJob])
   const idleHeroStatusLabel = printerDisplayStatus.label
   const isIdleNotesKeyboardTarget = activeKeyboardTarget === 'idleNotes'
   const settingsKeyboardMeta = settingsKeyboard.meta
@@ -955,6 +965,7 @@ function App() {
             pendingCommand: pendingCommands.motion ?? null,
             executeCommand,
             refreshEddyState,
+            fetchShaperResonances,
             getCommandBlockReason,
           }}
           settings={{
@@ -1106,8 +1117,17 @@ function App() {
           onPowerMenuAction={topStatusController.onPowerMenuAction}
         />
 
+        <PrintCompletionFlow
+          snapshot={snapshot}
+          isPrintBusy={isPrintBusy || criticalPendingCommand !== null || systemPendingCommand !== null}
+          restartBlockReason={printStartBlockReason}
+          onRestart={handleRepeatCompletedPrint}
+          getRestartError={getLastCommandError}
+          onOpenChange={setIsPrintCompletionOpen}
+        />
+
         <PrinterNotificationPopup
-          enabled={settingsPageProps.notifications.isNotificationsEnabled && topStatusController.activeTopPopup === null}
+          enabled={!isPrintCompletionOpen && settingsPageProps.notifications.isNotificationsEnabled && topStatusController.activeTopPopup === null}
           activeScreen={activeScreen}
           readTopPopupPosition={topStatusController.readTopPopupPosition}
         />
@@ -1123,6 +1143,7 @@ function App() {
           />
         ) : (
           <ScreenSleepGuard
+            key={isPrintCompletionOpen ? 'print-complete' : 'idle'}
             timeoutMs={getScreenSleepTimeoutMs(settingsPageProps.interfaceSettings.sleepModeValue)}
           />
         )}

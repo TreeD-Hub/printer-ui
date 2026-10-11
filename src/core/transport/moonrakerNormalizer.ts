@@ -1120,6 +1120,9 @@ function normalizeCapabilities(
       zOffsetSave: availableObjects?.includes('treed_calibration') === true && macros.available.includes('TREED_EDDY_Z_OFFSET_SAVE'),
       meshScan: availableObjects?.includes('treed_calibration') === true
         && macros.available.includes('TREED_EDDY_BED_MESH_CALIBRATE'),
+      meshScanMethods: availableObjects?.includes('treed_calibration') === true
+        && macros.available.includes('TREED_EDDY_BED_MESH_CALIBRATE')
+        && parseMacroBoolean(readMacro(macros.values, 'TREED_EDDY_BED_MESH_CALIBRATE')?.scan_methods) === true,
       extruderCalibrationExtrude: availableObjects?.includes('treed_calibration') === true,
       extruderRotationDistance: availableObjects?.includes('treed_calibration') === true,
       accelerometerQuery: parseMacroBoolean(calibrationStatus.accelerometer_configured) === true,

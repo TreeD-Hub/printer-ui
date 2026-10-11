@@ -85,6 +85,8 @@ npm run build:logic
 
 ## Смежные слои
 
+`eddyScanMesh` принимает необязательный `method`: `scan` (по умолчанию в core), `rapid_scan` или `automatic`. Альтернативные методы требуют capability `calibrationCommands.meshScanMethods`, которую live-клиент получает из `scan_methods` макроса `TREED_EDDY_BED_MESH_CALIBRATE`. Старый core продолжает обычное сканирование без параметра.
+
 - [Командный клиент UI](../../src/core/commands/README.md).
 - [Состояние и транспорт UI](../../src/core/README.md).
 - [Веб-стенд](../../apps/web-ui/README.md).

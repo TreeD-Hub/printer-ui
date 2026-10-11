@@ -28,7 +28,7 @@
   min-width: 0;
   border: 1px solid var(--color-border-default);
   border-radius: 12px;
-  background: color-mix(in srgb, var(--color-block-surface) 86%, transparent);
+  background: var(--color-block-surface);
   box-shadow: inset 0 0 0 1px var(--color-border-subtle);
 }
 
@@ -133,7 +133,7 @@
 .control-filament-choice.control-filament-choice--compact.is-active,
 .control-filament-sensitivity.control-filament-sensitivity--vertical.is-active {
   border-color: var(--color-primary);
-  background: color-mix(in srgb, var(--color-primary-surface) 72%, var(--color-surface-elevated));
+  background: var(--color-control-active-surface);
   box-shadow: inset 0 0 0 1px var(--color-primary-ring);
 }
 

@@ -103,9 +103,9 @@ export function TuneNumberControl({
 }
 
 type TemperatureTrendSeries = {
-  id: 'nozzle' | 'bed'
+  id: 'nozzle' | 'bed' | 'eddy'
   label: string
-  tone: 'orange' | 'green'
+  tone: 'orange' | 'green' | 'neutral'
   points: Array<{
     timestamp: number
     current: number
@@ -411,7 +411,7 @@ export function TemperatureTrendChart({ series, testId, height = CHART_HEIGHT }:
 
         {normalizedSeries.map((item) => {
           const lastPoint = item.points.at(-1)
-          const toneClassName = item.tone === 'orange' ? 'is-orange' : 'is-green'
+          const toneClassName = `is-${item.tone}`
 
           return (
             <g key={item.id}>

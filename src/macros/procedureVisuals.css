@@ -1,0 +1,17 @@
+.procedure-study { min-width: 0; min-height: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-xs); color: var(--color-text-primary); font-family: var(--font-family-ui); }
+.procedure-study figcaption { display: grid; gap: var(--space-xxs); font-size: var(--font-size-small); line-height: 1.3; color: var(--color-text-secondary); }
+.procedure-motion-subject { position: relative; min-height: 0; flex: 1; height: 192px; }
+.procedure-motion-subject > svg { width: 100%; height: 100%; font: var(--font-size-body) var(--font-family-ui); }
+.procedure-motion-subject > .calibration-preview { position: absolute; left: 86px; top: 28px; width: 144px; height: 112px; }
+.shaper-spectrum { min-height: 0; min-width: 0; margin: 0; display: grid; grid-template-rows: var(--control-height) minmax(0, 1fr) 20px; gap: var(--space-xs); }
+.shaper-spectrum-tabs { display: flex; gap: var(--space-xs); }
+.shaper-spectrum-tabs button { width: 80px; }
+.shaper-spectrum > svg { width: 100%; height: 100%; min-height: 0; color: var(--color-text-primary); }
+.shaper-spectrum-grid { fill: none; stroke: var(--color-border-subtle); stroke-width: 1; }
+.shaper-spectrum-axes { fill: none; stroke: var(--color-text-secondary); stroke-width: 1; }
+.shaper-spectrum-measured { fill: none; stroke: var(--color-selection); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.shaper-spectrum-point { fill: var(--color-selection); }
+.shaper-spectrum text { fill: var(--color-text-secondary); font: var(--font-size-small) var(--font-family-ui); }
+.shaper-spectrum figcaption { font-size: var(--font-size-small); color: var(--color-text-secondary); }
+.shaper-spectrum > p { margin: 0; align-self: center; font-size: var(--font-size-body); line-height: 1.4; }
+.shaper-spectrum [role="alert"] { border-left: 2px solid var(--color-selection); padding-left: var(--space-sm); }

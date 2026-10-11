@@ -15,6 +15,13 @@ function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']
 }
 
 describe('normalizeMoonrakerRuntimeSnapshot', () => {
+  it.each([undefined, 0, 1])('определяет поддержку методов карты по маркеру core %s', (scanMethods) => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      'gcode_macro _TREED_UI_CONTRACT': { contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: '' },
+      'gcode_macro TREED_EDDY_BED_MESH_CALIBRATE': { scan_methods: scanMethods },
+    }), { availableObjects: ['treed_calibration', 'gcode_macro _TREED_UI_CONTRACT', 'gcode_macro TREED_EDDY_BED_MESH_CALIBRATE'] })
+    expect(snapshot.capabilities.calibrationCommands?.meshScanMethods).toBe(scanMethods === 1)
+  })
   it.each([
     [null, null, null, null],
     [undefined, undefined, null, null],

@@ -499,7 +499,7 @@ function executeMoonrakerCommand(
     case 'eddyBedMeshCalibrate':
       return sendScript('TREED_EDDY_BED_MESH_CALIBRATE', options, args.command)
     case 'eddyScanMesh':
-      return sendScript(`TREED_EDDY_BED_MESH_CALIBRATE${args.save === false ? ' SAVE=0' : ''}`, options, args.command)
+      return sendScript(`TREED_EDDY_BED_MESH_CALIBRATE${args.save === false ? ' SAVE=0' : ''}${args.method ? ` METHOD=${args.method}` : ''}`, options, args.command)
     case 'eddyAutosaveStatus':
       return sendScript('TREED_EDDY_Z_OFFSET_AUTOSAVE_STATUS', options, args.command)
     case 'eddyTestZ':
