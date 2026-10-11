@@ -518,13 +518,6 @@ export function EddyCalibrationScreen({
   const printStartArgs: ExecuteCommandArgs | null = selectedCalibrationFile === undefined ? null : { command: 'start', filename: selectedCalibrationFile.path }
   const activePrint = isPrintJobActive(snapshot.printJob)
   const observedPrintPath = canonicalPrintPath(snapshot.printJob.filename)
-  const firstLayerJobOwned = firstLayerObservedPath !== null && firstLayerObservedPath === firstLayerStartedPath && observedPrintPath === firstLayerObservedPath
-  const firstLayerCardStatus = !firstLayerJobOwned ? 'Не запускался'
-    : snapshot.printJob.state === 'complete' ? 'Завершён'
-      : snapshot.printJob.state === 'cancelled' ? 'Отменён'
-        : activePrint ? 'Идёт печать'
-          : snapshot.printJob.state === 'error' ? 'Ошибка печати'
-            : snapshot.printJob.state === 'unknown' ? 'Состояние неизвестно' : 'Неактивен'
   const activeCalibrationPrint = activePrint && firstLayerStartedPath !== null
     && firstLayerObservedPath === firstLayerStartedPath
     && observedPrintPath === firstLayerObservedPath
@@ -571,7 +564,6 @@ export function EddyCalibrationScreen({
       { id: 'accuracy' as const, label: 'Повторяемость', state: accuracyResult === null ? 'Не запускалось' : 'Есть замер' },
       { id: 'screws' as const, label: 'Винты стола', state: screws?.error == null ? 'Не запускалось' : screws.error ? 'Есть ошибка' : 'Есть замер' },
       { id: 'mesh' as const, label: 'Карта стола', state: measuredMeshValues.length > 0 ? 'Есть замер' : 'Не запускалось' },
-      { id: 'firstLayer' as const, label: 'Первый слой', state: firstLayerCardStatus },
     ]
     return (
       <>

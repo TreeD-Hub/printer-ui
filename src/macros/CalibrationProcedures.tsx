@@ -335,16 +335,15 @@ function CalibrationProcedures({ snapshot, pendingCommand, executeCommand, getCo
     ?? (currentShaper?.typeX == null || currentShaper.typeY == null || currentShaper.freqXHz == null || currentShaper.freqYHz == null ? 'Принтер ещё не передал настройки обеих осей. Дождитесь обновления данных.' : null)
   if (procedure === 'catalog') return (
     <div className={`macros-manager-list calibration-catalog${catalogFolder === 'eddy' ? ' is-eddy-folder' : ''}`} data-testid="calibration-catalog">
-      <header className="macros-manager-list-head calibration-catalog-header">
-        {catalogFolder === 'eddy' && <button type="button" className="calibration-catalog-back" onClick={() => onCatalogFolderChange('root')}>Назад</button>}
-        <div className="macros-manager-title"><p>{catalogFolder === 'eddy' ? 'Калибровки / Eddy' : 'Калибровки'}{snapshot.source === 'mock' ? ' / Симуляция' : ''}</p><h1>{catalogFolder === 'eddy' ? 'Eddy' : 'Выберите процедуру'}</h1></div>
-      </header>
+      {catalogFolder === 'eddy' && <header className="macros-manager-list-head calibration-catalog-header">
+        <button type="button" className="calibration-catalog-back" onClick={() => onCatalogFolderChange('root')}>Назад</button>
+        <div className="macros-manager-title"><p>Калибровки / Eddy{snapshot.source === 'mock' ? ' / Симуляция' : ''}</p><h1>Eddy</h1></div>
+      </header>}
       <div className="calibration-catalog-cards">
         {catalogFolder === 'eddy' ? <>
-          <button type="button" className="macros-manager-workflow" onClick={() => onOpenEddy('overview')}><CalibrationPreview kind="eddy" /><span>Калибровка Eddy</span></button>
-          <button type="button" className="macros-manager-workflow" onClick={() => onOpenEddy('screws')}><CalibrationPreview kind="screws" /><span>Винты стола</span></button>
-          <button type="button" className="macros-manager-workflow" onClick={() => onOpenEddy('mesh')}><CalibrationPreview kind="mesh" /><span>Карта стола</span></button>
-          <button type="button" className="macros-manager-workflow" onClick={() => onOpenEddy('firstLayer')}><CalibrationPreview kind="firstLayer" /><span>Первый слой</span></button>
+          <button type="button" className="macros-manager-workflow" onClick={() => onOpenEddy('overview')}><CalibrationPreview kind="eddy" /><span>Калибровка датчика автоуровня</span></button>
+          <button type="button" className="macros-manager-workflow" onClick={() => onOpenEddy('screws')}><CalibrationPreview kind="screws" /><span>Ручная калибровка стола</span></button>
+          <button type="button" className="macros-manager-workflow" onClick={() => onOpenEddy('mesh')}><CalibrationPreview kind="mesh" /><span>Автоматическая калибровка стола</span></button>
         </> : <>
           <button type="button" className="macros-manager-workflow" onClick={onOpenPid}><CalibrationPreview kind="pid" /><span>PID-калибровка</span><em>Сопло и стол</em></button>
           <button type="button" className="macros-manager-workflow" aria-label="Датчик Eddy" onClick={() => onCatalogFolderChange('eddy')}><CalibrationPreview kind="eddyFolder" /><span>Eddy</span><em>Датчик и стол</em></button>

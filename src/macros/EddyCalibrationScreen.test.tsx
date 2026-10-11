@@ -87,12 +87,12 @@ it('обзор не использует старые флаги, если со�
   expect(screen.queryByText('обязательные шаги готовы')).not.toBeInTheDocument()
 })
 
-it('обзор оставляет девять процедур и отдельную основную кнопку в правой колонке', () => {
+it('обзор оставляет восемь процедур и отдельную основную кнопку в правой колонке', () => {
   renderScreen()
   const overview = screen.getByRole('region', { name: 'Фактическое состояние калибровок' })
   const cards = overview.querySelectorAll('.eddy-overview-card')
-  expect(cards).toHaveLength(9)
-  expect(overview.querySelectorAll('.eddy-card-state')).toHaveLength(9)
+  expect(cards).toHaveLength(8)
+  expect(overview.querySelectorAll('.eddy-card-state')).toHaveLength(8)
   expect(overview.querySelector('.eddy-card-value')).toBeNull()
   expect(screen.getByRole('button', { name: /Ток катушки/ })).toHaveTextContent('Не настроено')
   expect(screen.queryByText('XY-смещение')).not.toBeInTheDocument()
@@ -447,33 +447,6 @@ it('старое completed-состояние не помечает тест п�
   renderScreen({ initialProcedure: 'firstLayer', snapshot })
   expect(screen.getByText('Последняя печать')).toBeInTheDocument()
   expect(screen.queryByText('Тест завершён')).not.toBeInTheDocument()
-})
-
-it('не связывает завершённую постороннюю печать с калибровкой первого слоя в обзоре', () => {
-  const snapshot = readySnapshot()
-  snapshot.printJob = { ...snapshot.printJob, state: 'complete', filename: 'production/part.gcode' }
-  renderScreen({ snapshot })
-  expect(screen.getByRole('button', { name: /Первый слой/ })).toHaveTextContent('Не запускался')
-})
-
-it.each([
-  ['error', 'Ошибка печати'],
-  ['unknown', 'Состояние неизвестно'],
-  ['idle', 'Неактивен'],
-] as const)('показывает статус принадлежащего тесту первого слоя задания %s', async (state, label) => {
-  const snapshot = readySnapshot()
-  snapshot.printFiles = [{ id: 'first-layer', path: 'tests/bed.gcode', name: 'bed.gcode', directory: 'tests', printTime: '', weight: '', material: '', addedAt: '' }]
-  const { props, view } = renderScreen({ snapshot })
-  fireEvent.click(screen.getByRole('button', { name: /Первый слой/ }))
-  fireEvent.click(screen.getByRole('button', { name: 'Выбрать bed.gcode, каталог tests' }))
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить тест первого слоя' })))
-  const printing = { ...snapshot, printJob: { ...snapshot.printJob, state: 'printing' as const, filename: 'tests/bed.gcode' } }
-  view.rerender(<EddyCalibrationScreen {...props} snapshot={printing} />)
-  const ended = { ...printing, printJob: { ...printing.printJob, state, filename: 'tests/bed.gcode' } }
-  view.rerender(<EddyCalibrationScreen {...props} snapshot={ended} />)
-  view.rerender(<EddyCalibrationScreen {...props} initialProcedure="mesh" snapshot={ended} />)
-  view.rerender(<EddyCalibrationScreen {...props} initialProcedure="overview" snapshot={ended} />)
-  expect(screen.getByRole('button', { name: /Первый слой/ })).toHaveTextContent(label)
 })
 
 it('не предлагает завершение первого слоя без собственного завершённого запуска', () => {

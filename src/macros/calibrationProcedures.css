@@ -1,13 +1,11 @@
-.calibration-catalog { min-height: 0; height: 100%; padding: var(--space-xs); grid-template-rows: var(--control-height) minmax(0, 1fr); gap: var(--space-xs); }
+.calibration-catalog { min-height: 0; height: 100%; padding: var(--space-xs); grid-template-rows: minmax(0, 1fr); gap: var(--space-xs); }
+.calibration-catalog.is-eddy-folder { grid-template-rows: var(--control-height) minmax(0, 1fr); }
 .calibration-catalog-header { min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: var(--space-sm); }
 .calibration-catalog-header > button { min-width: 112px; min-height: var(--control-height); padding: var(--space-xs) var(--space-sm); border: var(--border-width) solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; cursor: pointer; }
 .calibration-catalog-header > button:focus-visible { outline: var(--focus-width) solid var(--color-focus-ring); outline-offset: var(--focus-offset); }
 .calibration-catalog-cards { min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr); gap: var(--space-xs); }
-.calibration-catalog.is-eddy-folder .calibration-catalog-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
 .calibration-catalog .macros-manager-workflow { min-height: var(--control-height); padding: var(--space-sm); grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto auto; grid-template-areas: "preview" "title" "meta"; justify-items: center; align-items: center; align-content: center; gap: var(--space-sm); text-align: center; background: var(--color-block-surface); box-shadow: none; }
 .calibration-catalog .macros-manager-workflow .calibration-preview { width: 160px; height: 144px; }
-.calibration-catalog.is-eddy-folder .macros-manager-workflow { grid-template-columns: 96px minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "preview title"; justify-items: start; text-align: left; }
-.calibration-catalog.is-eddy-folder .macros-manager-workflow .calibration-preview { width: 96px; height: 80px; }
 .calibration-catalog .macros-manager-workflow span { font-family: var(--font-family-ui); font-size: var(--font-size-heading); line-height: 1.2; }
 .calibration-catalog .macros-manager-workflow em { font-size: var(--font-size-small); line-height: 1.25; }
 .calibration-catalog .macros-manager-workflow:focus-visible { outline: var(--focus-width) solid var(--color-focus-ring); outline-offset: var(--focus-offset); }

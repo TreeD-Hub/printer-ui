@@ -47,11 +47,11 @@ test('каталог с превью и папка Eddy помещаются н�
   await page.screenshot({ path: testInfo.outputPath('calibration-catalog.png'), animations: 'disabled' })
   await page.getByRole('button', { name: 'Датчик Eddy', exact: true }).click()
   await expect(catalog.getByRole('heading', { name: 'Eddy', exact: true })).toBeVisible()
-  await expect(cards).toHaveCount(9)
-  await expect(cards.locator('svg.calibration-preview[aria-hidden="true"]')).toHaveCount(9)
+  await expect(cards).toHaveCount(3)
+  await expect(cards.locator('svg.calibration-preview[aria-hidden="true"]')).toHaveCount(3)
   for (const card of await cards.all()) await expectTouchControl(card)
   await page.screenshot({ path: testInfo.outputPath('calibration-eddy-folder.png'), animations: 'disabled' })
-  await catalog.getByRole('button', { name: /^Карта стола/ }).click()
+  await catalog.getByRole('button', { name: /^Автоматическая калибровка стола/ }).click()
   await page.getByRole('button', { name: 'К списку', exact: true }).click()
   await expect(catalog.getByRole('heading', { name: 'Eddy', exact: true })).toBeVisible()
   await catalog.getByRole('button', { name: 'Назад', exact: true }).click()
@@ -77,11 +77,11 @@ for (const title of ['PID-калибровка', 'Шейпер и ADXL']) {
   })
 }
 
-for (const title of ['Ток катушки', 'Высота по бумаге', 'Температурная серия', 'Z0', 'Смещение Z', 'Повторяемость', 'Винты стола', 'Карта стола', 'Первый слой']) {
+for (const title of ['Ток катушки', 'Высота по бумаге', 'Температурная серия', 'Z0', 'Смещение Z', 'Повторяемость', 'Винты стола', 'Карта стола']) {
   test(`Eddy ${title}: подготовка и подробности не закрывают действия`, async ({ page }, testInfo) => {
     await openCatalog(page)
     await page.getByRole('button', { name: 'Датчик Eddy', exact: true }).click()
-    await page.getByRole('button', { name: /^Калибровка Eddy/ }).click()
+    await page.getByRole('button', { name: /^Калибровка датчика автоуровня/ }).click()
     await expect(page.getByRole('button', { name: /^(Начать калибровку|Продолжить: .+)$/ })).toBeVisible()
     const cardTitle = title === 'Высота по бумаге' ? 'Высота Eddy' : title === 'Температурная серия' ? 'Температура' : title
     await page.getByRole('region', { name: 'Фактическое состояние калибровок', exact: true }).getByRole('button', { name: new RegExp(cardTitle) }).click()
@@ -105,7 +105,7 @@ for (const title of ['Ток катушки', 'Высота по бумаге', 
 test('четыре винта → карта → сохранение → первый слой сохраняют полный canvas', async ({ page }, testInfo) => {
   await openCatalog(page)
   await page.getByRole('button', { name: 'Датчик Eddy', exact: true }).click()
-  await page.getByRole('button', { name: /^Винты стола/ }).click()
+  await page.getByRole('button', { name: /^Ручная калибровка стола/ }).click()
   const screwControls = page.getByRole('group', { name: 'Выбор винта', exact: true }).getByRole('button')
   await expect(screwControls).toHaveCount(4)
   await expectCalibrationOpen(page)
@@ -184,7 +184,7 @@ test('ADXL → реальные спектры X/Y → сохранение → 
 test('ручной TESTZ использует полный canvas и отмена возвращает навигацию', async ({ page }, testInfo) => {
   await openCatalog(page)
   await page.getByRole('button', { name: 'Датчик Eddy', exact: true }).click()
-  await page.getByRole('button', { name: /^Калибровка Eddy/ }).click()
+  await page.getByRole('button', { name: /^Калибровка датчика автоуровня/ }).click()
   await page.getByRole('button', { name: /Высота Eddy/ }).click()
   await page.getByRole('button', { name: 'Начать проверку по бумаге', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Принять высоту и сохранить', exact: true })).toBeEnabled()
