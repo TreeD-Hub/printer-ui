@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import type { TemperatureChartPoint } from '../control/types'
 import type { PrinterSnapshot } from '../core/transport/types'
@@ -327,7 +327,7 @@ export function EddyCalibrationScreen({
     setMessage('Аварийная остановка подтверждена. Принтер готов; проверьте результат предыдущей операции перед продолжением.')
   }, [emergencyRecoveryPending, emergencyRecoveryConfirmed])
 
-  async function run(args: ExecuteCommandArgs, refreshOnAccept = true): Promise<boolean> {
+  const run = useCallback(async (args: ExecuteCommandArgs, refreshOnAccept = true): Promise<boolean> => {
     const isEmergencyStop = args.command === 'emergencyStop'
     if (operationUncertain && !isEmergencyStop) return false
     if (localCommandPending && !isEmergencyStop) return false
@@ -366,9 +366,9 @@ export function EddyCalibrationScreen({
     } finally {
       if (commandRunId === commandRunIdRef.current) setLocalCommandPending(false)
     }
-  }
+  }, [operationUncertain, localCommandPending, getCommandBlockReason, executeCommand, refreshEddyState])
 
-  async function beginSave(kind: SaveKind, args: ExecuteCommandArgs): Promise<boolean> {
+  const beginSave = useCallback(async (kind: SaveKind, args: ExecuteCommandArgs): Promise<boolean> => {
     if (blockCalibration !== null) {
       setMessage(blockCalibration)
       return false
@@ -387,7 +387,7 @@ export function EddyCalibrationScreen({
     }
     setSaveKind(null)
     return false
-  }
+  }, [blockCalibration, run])
 
   useEffect(() => {
     if (procedure !== 'temperature' || !temperatureCurveReady || temperatureCompleteReason !== null
@@ -800,8 +800,6 @@ export function EddyCalibrationScreen({
         if (activePrint) return actions(<button type="button" className="eddy-btn is-primary" disabled>Печать выполняется</button>)
         if (printStartArgs === null) return actions(<button type="button" className="eddy-btn is-primary" disabled>Выберите G-code</button>)
         return actions(commandButton('Запустить тест первого слоя', printStartArgs, { primary: true, blocked: !ready || isBusy, reason: !ready ? 'Нужно подключение к готовому принтеру.' : getCommandBlockReason('start', printStartArgs), onClick: () => void startFirstLayerTest() }))
-      case 'overview':
-        return actions(null)
     }
   }
 

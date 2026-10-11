@@ -334,7 +334,8 @@ function CalibrationProcedures({ snapshot, pendingCommand, executeCommand, getCo
     ?? (!calibration?.config.pendingSections.includes('input_shaper') ? 'Принтер не подтвердил готовность настроек к сохранению.' : null)
     ?? (currentShaper?.typeX == null || currentShaper.typeY == null || currentShaper.freqXHz == null || currentShaper.freqYHz == null ? 'Принтер ещё не передал настройки обеих осей. Дождитесь обновления данных.' : null)
   if (procedure === 'catalog') return (
-    <div className={`macros-manager-list calibration-catalog${catalogFolder === 'eddy' ? ' is-eddy-folder' : ''}`} data-testid="calibration-catalog">
+    <div className={`macros-manager-list calibration-catalog${catalogFolder === 'eddy' ? ' is-eddy-folder' : snapshot.source === 'mock' ? ' is-simulation' : ''}`} data-testid="calibration-catalog">
+      {catalogFolder === 'root' && snapshot.source === 'mock' && <div className="macros-manager-title"><p>Симуляция</p></div>}
       {catalogFolder === 'eddy' && <header className="macros-manager-list-head calibration-catalog-header">
         <button type="button" className="calibration-catalog-back" onClick={() => onCatalogFolderChange('root')}>Назад</button>
         <div className="macros-manager-title"><p>Калибровки / Eddy{snapshot.source === 'mock' ? ' / Симуляция' : ''}</p><h1>Eddy</h1></div>

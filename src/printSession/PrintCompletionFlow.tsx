@@ -93,9 +93,10 @@ function PrintCompletionDialog({ job, isPrintBusy, restartBlockReason, onRestart
         }
         setFeedbackError((error instanceof Error ? error.message : '') || 'Оценка недоступна: нет связи с принтером.')
       } finally {
-        if (controller.signal.aborted || retryTimer !== null) return
-        feedbackInFlight.current = false
-        setLoading(false)
+        if (!controller.signal.aborted && retryTimer === null) {
+          feedbackInFlight.current = false
+          setLoading(false)
+        }
       }
     }
     void load()

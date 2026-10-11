@@ -15,7 +15,7 @@ it.each(['scan', 'rapid_scan', 'automatic'] as const)('передаёт мето
 it('отклоняет посторонний метод карты до отправки', async () => {
   const fetchMock = vi.fn()
   const client = createMoonrakerCommandClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock })
-  await expect(client.execute({ command: 'eddyScanMesh', method: 'scan\nG28' } as ExecuteCommandArgs)).rejects.toThrow('Неизвестный метод')
+  await expect(client.execute({ command: 'eddyScanMesh', method: 'scan\nG28' } as unknown as ExecuteCommandArgs)).rejects.toThrow('Неизвестный метод')
   expect(fetchMock).not.toHaveBeenCalled()
 })
 

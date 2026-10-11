@@ -1,4 +1,5 @@
 .calibration-catalog { min-height: 0; height: 100%; padding: var(--space-xs); grid-template-rows: minmax(0, 1fr); gap: var(--space-xs); }
+.calibration-catalog.is-simulation { grid-template-rows: auto minmax(0, 1fr); }
 .calibration-catalog.is-eddy-folder { grid-template-rows: var(--control-height) minmax(0, 1fr); }
 .calibration-catalog-header { min-width: 0; display: flex; align-items: center; justify-content: flex-start; gap: var(--space-sm); }
 .calibration-catalog-header > button { min-width: 112px; min-height: var(--control-height); padding: var(--space-xs) var(--space-sm); border: var(--border-width) solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; cursor: pointer; }

@@ -12,12 +12,12 @@ it.each([['Rapid', 'rapid_scan'], ['Точки', 'automatic'], ['Обычный'
   const snapshot = readySnapshot()
   snapshot.capabilities.calibrationCommands!.meshScanMethods = true
   const { executeCommand, view, props } = renderScreen({ initialProcedure: 'mesh', snapshot })
-  fireEvent.click(screen.getByRole('button', { name: label, exact: true }))
-  expect(screen.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-pressed', 'true')
+  fireEvent.click(screen.getByRole('button', { name: label }))
+  expect(screen.getByRole('button', { name: label })).toHaveAttribute('aria-pressed', 'true')
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить карту стола' })))
   expect(executeCommand).toHaveBeenCalledWith({ command: 'eddyScanMesh', save: false, method })
   view.rerender(<EddyCalibrationScreen {...props} pendingCommand="eddyScanMesh" />)
-  expect(screen.getByRole('button', { name: label, exact: true })).toBeDisabled()
+  expect(screen.getByRole('button', { name: label })).toBeDisabled()
 })
 
 it('скрывает режимы сканирования без поддержки core', () => {
@@ -71,6 +71,7 @@ function readySnapshot() {
     temperatureComplete: true,
     abort: true,
     probeAccuracy: true,
+    setOffsets: true,
     zOffsetAdjust: true,
     zOffsetSave: true,
     extruderCalibrationExtrude: true,
@@ -139,7 +140,8 @@ it('оставляет одну основную кнопку справа, а �
   const primarySlot = footer.querySelector('.eddy-footer-primary')!
   expect(primarySlot.querySelectorAll('button')).toHaveLength(1)
   expect(primarySlot.querySelector('button')).toHaveClass('is-primary')
-  expect(footer.querySelector('.eddy-footer-secondary')?.querySelectorAll('button')).toHaveLength(2)
+  expect(footer.querySelector('.eddy-footer-secondary')?.querySelectorAll('button')).toHaveLength(1)
+  expect(screen.getByRole('button', { name: 'Отменить серию' })).toBeEnabled()
 })
 
 it('открытие подробностей не меняет footer и не перемещает основную кнопку', () => {
