@@ -95,7 +95,6 @@ export function EddyCalibrationScreen({
   const [restartSeen, setRestartSeen] = useState(false)
   const [localCommandPending, setLocalCommandPending] = useState(false)
   const [emergencyPending, setEmergencyPending] = useState(false)
-  const [emergencyRecoveryPending, setEmergencyRecoveryPending] = useState(false)
   const [confirmEmergency, setConfirmEmergency] = useState(false)
   const [confirmZOffsetSave, setConfirmZOffsetSave] = useState(false)
   const [operationUncertain, setOperationUncertain] = useState(false)
@@ -111,6 +110,7 @@ export function EddyCalibrationScreen({
   const [meshCommandFinished, setMeshCommandFinished] = useState(false)
   const [meshScanCommandAccepted, setMeshScanCommandAccepted] = useState(false)
   const [meshScanRefreshRunId, setMeshScanRefreshRunId] = useState<number | null>(null)
+  const [meshScanRefreshPending, setMeshScanRefreshPending] = useState(false)
   const [meshSaveTarget, setMeshSaveTarget] = useState<Array<Array<number | null>> | null>(null)
   const [selectedFile, setSelectedFile] = useState('')
   const [firstLayerStartedPath, setFirstLayerStartedPath] = useState<string | null>(null)
@@ -130,27 +130,32 @@ export function EddyCalibrationScreen({
   const [screwsDoneRefreshRunId, setScrewsDoneRefreshRunId] = useState<number | null>(null)
   const [pipelineActive, setPipelineActive] = useState(() => calibration?.manualProbe.active === true || eddy?.temperatureSeriesActive === true || eddy?.inTemperatureCalibration === true)
   const [abortAccepted, setAbortAccepted] = useState(false)
+  const workflowTerminatedRef = useRef(false)
   const activityCallbackRef = useRef(onCalibrationActivityChange)
+  const backToListCallbackRef = useRef(onBackToList)
   useEffect(() => { activityCallbackRef.current = onCalibrationActivityChange }, [onCalibrationActivityChange])
+  useEffect(() => { backToListCallbackRef.current = onBackToList }, [onBackToList])
   const heightBaseRef = useRef<number | null>(null)
   const emergencyButtonRef = useRef<HTMLButtonElement>(null)
   const commandRunIdRef = useRef(0)
   const heightPreparationRunIdRef = useRef(0)
   const temperatureAutoSaveAttemptedRef = useRef(false)
+  const meshAutoSaveAttemptedRef = useRef(false)
+  const meshScanRefreshPendingRef = useRef(false)
   const screwsDialogRef = useModalFocus<HTMLDivElement>(screwsRawVisible, () => setScrewsRawVisible(false))
   const accuracyRunningRef = useRef(false)
   const z0RunningRef = useRef(false)
 
   const ready = READY(snapshot)
-  const activeManualSession = calibration?.manualProbe.active === true
-  const activeTemperatureSession = eddy?.temperatureSeriesActive === true || eddy?.inTemperatureCalibration === true
+  const activeManualSession = !workflowTerminatedRef.current && calibration?.manualProbe.active === true
+  const activeTemperatureSession = !workflowTerminatedRef.current && (eddy?.temperatureSeriesActive === true || eddy?.inTemperatureCalibration === true)
   const temperatureCooling = activeTemperatureSession && snapshot.v2.eddy.calibration.operatorPrompt === 'cooling'
   const activeSession = activeManualSession || activeTemperatureSession
   useEffect(() => {
-    if (activeSession) setPipelineActive(true)
+    if (!workflowTerminatedRef.current && activeSession) setPipelineActive(true)
   }, [activeSession])
   useEffect(() => {
-    onCalibrationActivityChange?.(pipelineActive || activeSession)
+    onCalibrationActivityChange?.(!workflowTerminatedRef.current && (pipelineActive || activeSession))
   }, [pipelineActive, activeSession, onCalibrationActivityChange])
   useEffect(() => () => activityCallbackRef.current?.(false), [])
   const manualZ = calibration?.manualProbe.zMm
@@ -172,13 +177,7 @@ export function EddyCalibrationScreen({
     && snapshot.v2.eddy.calibration.z0Done
     && snapshot.v2.eddy.calibration.activeStep === 'screws'
     && snapshot.v2.eddy.calibration.operatorPrompt === 'verify_z0'
-  const emergencyRecoveryConfirmed = ready
-    && calibration?.manualProbe.active === false
-    && eddy?.inTemperatureCalibration === false
-    && eddy?.temperatureSeriesActive === false
-    && calibration?.config.savePending === false
-    && calibration.config.pendingSections.length === 0
-  const isBusy = pendingCommand !== null || localCommandPending
+  const isBusy = pendingCommand !== null || localCommandPending || meshScanRefreshPending
   useEffect(() => {
     if (!abortAccepted || isBusy || operationUncertain || saveKind !== null || !ready) return
     if (calibration?.manualProbe.active !== false || eddy?.inTemperatureCalibration !== false || eddy?.temperatureSeriesActive !== false) return
@@ -328,16 +327,41 @@ export function EddyCalibrationScreen({
     emergencyButtonRef.current?.focus()
   }, [confirmEmergency])
 
-  useEffect(() => {
-    if (!emergencyRecoveryPending || !emergencyRecoveryConfirmed) return
-    setEmergencyRecoveryPending(false)
+  const terminateWorkflow = useCallback(() => {
+    if (workflowTerminatedRef.current) return
+    workflowTerminatedRef.current = true
+    commandRunIdRef.current += 1
+    heightPreparationRunIdRef.current += 1
+    accuracyRunningRef.current = false
+    z0RunningRef.current = false
     setPipelineActive(false)
+    setLocalCommandPending(false)
+    setEmergencyPending(false)
+    setSaveKind(null)
+    setSaveAccepted(false)
+    setAccuracyRunning(false)
+    setZ0Running(false)
+    setZ0CommandAccepted(false)
+    setMeshScanCommandAccepted(false)
+    setMeshScanRefreshRunId(null)
+    meshScanRefreshPendingRef.current = false
+    setMeshScanRefreshPending(false)
+    setMeshSaveTarget(null)
     setOperationUncertain(false)
     setSaveError('')
-    setMessage('Аварийная остановка подтверждена. Принтер готов; проверьте результат предыдущей операции перед продолжением.')
-  }, [emergencyRecoveryPending, emergencyRecoveryConfirmed])
+    setMessage('')
+    setAbortAccepted(false)
+    activityCallbackRef.current?.(false)
+    backToListCallbackRef.current()
+  }, [])
+
+  useEffect(() => {
+    if (workflowTerminatedRef.current || !pipelineActive) return
+    if (snapshot.klippy.state === 'shutdown' || snapshot.klippy.state === 'error') terminateWorkflow()
+  }, [pipelineActive, snapshot.klippy.state, terminateWorkflow])
 
   const run = useCallback(async (args: ExecuteCommandArgs, refreshOnAccept = true): Promise<boolean> => {
+    if (workflowTerminatedRef.current) return false
     const isEmergencyStop = args.command === 'emergencyStop'
     if (operationUncertain && !isEmergencyStop) return false
     if (localCommandPending && !isEmergencyStop) return false
@@ -475,17 +499,36 @@ export function EddyCalibrationScreen({
   }
 
   async function runMeshScan() {
+    if (workflowTerminatedRef.current || meshScanRefreshPendingRef.current || saveKind !== null || blockCalibration !== null) return
     const runId = commandRunIdRef.current + 1
+    meshAutoSaveAttemptedRef.current = false
+    meshScanRefreshPendingRef.current = true
+    setMeshScanRefreshPending(true)
     setMeshScanCommandAccepted(false)
     setMeshScanRefreshRunId(null)
     setMeshCommandFinished(false)
     setMeshSaveTarget(null)
-    if (!await run(meshScanArgs, false) || commandRunIdRef.current !== runId) return
+    if (!await run(meshScanArgs, false) || commandRunIdRef.current !== runId) {
+      if (commandRunIdRef.current < runId) {
+        meshScanRefreshPendingRef.current = false
+        setMeshScanRefreshPending(false)
+      }
+      return
+    }
     setMeshScanCommandAccepted(true)
-    const refreshed = await refreshEddyState()
+    let refreshed = false
+    try {
+      refreshed = await refreshEddyState()
+    } catch {
+      if (commandRunIdRef.current === runId) setMessage('Сканирование завершилось, но актуальный снимок карты не обновился.')
+    }
     if (commandRunIdRef.current !== runId) return
     if (refreshed) setMeshScanRefreshRunId(runId)
-    else setMessage('Сканирование завершилось, но актуальный снимок карты не обновился.')
+    else {
+      setMessage('Сканирование завершилось, но актуальный снимок карты не обновился.')
+      meshScanRefreshPendingRef.current = false
+      setMeshScanRefreshPending(false)
+    }
   }
 
   async function stopEmergency(): Promise<void> {
@@ -498,10 +541,14 @@ export function EddyCalibrationScreen({
     setAccuracyRunning(false)
     setZ0Running(false)
     setZ0CommandAccepted(false)
-    if (saveKind !== null || localCommandPending) {
+    if (saveKind !== null || localCommandPending || meshScanRefreshPendingRef.current) {
       commandRunIdRef.current += 1
       setOperationUncertain(true)
       setSaveError('Аварийная остановка отправлена во время незавершённой операции. Её итог неизвестен; повторный запуск и выход заблокированы.')
+      if (meshScanRefreshPendingRef.current && !localCommandPending) {
+        meshScanRefreshPendingRef.current = false
+        setMeshScanRefreshPending(false)
+      }
     }
     setSaveKind(null)
     setSaveAccepted(false)
@@ -509,9 +556,7 @@ export function EddyCalibrationScreen({
     try {
       const accepted = await run({ command: 'emergencyStop' }, false)
       if (!accepted) return
-      const refreshed = await refreshEddyState()
-      if (refreshed) setEmergencyRecoveryPending(true)
-      else setSaveError('Аварийная остановка принята, но актуальное состояние принтера не обновлено. Блокировка сохранена.')
+      terminateWorkflow()
     } finally {
       setEmergencyPending(false)
     }
@@ -581,6 +626,21 @@ export function EddyCalibrationScreen({
     && meshScanRefreshRunId === commandRunIdRef.current
     && probedMatrix.length > 0
     && probedMatrix.every((row) => row.length > 0 && row.length === probedMatrix[0]?.length && row.every((value) => typeof value === 'number' && Number.isFinite(value)))
+  useEffect(() => {
+    if (procedure !== 'mesh' || !meshScanRefreshPending || meshScanRefreshRunId !== commandRunIdRef.current) return
+    if (!meshScanHasNewMatrix || !ready || operationUncertain || saveKind !== null || blockCalibration !== null
+        || workflowTerminatedRef.current || meshAutoSaveAttemptedRef.current) {
+      meshScanRefreshPendingRef.current = false
+      setMeshScanRefreshPending(false)
+      return
+    }
+    if (pendingCommand !== null || localCommandPending) return
+    meshAutoSaveAttemptedRef.current = true
+    meshScanRefreshPendingRef.current = false
+    setMeshScanRefreshPending(false)
+    setMeshSaveTarget(probedMatrix)
+    void beginSave('mesh', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' })
+  }, [procedure, meshScanRefreshPending, meshScanRefreshRunId, meshScanHasNewMatrix, probedMatrix, ready, operationUncertain, saveKind, blockCalibration, pendingCommand, localCommandPending, beginSave])
   const measuredMeshValues = matrix.flatMap((row) => row.filter((value): value is number => typeof value === 'number' && Number.isFinite(value)))
   const measuredMeshMin = measuredMeshValues.length > 0 ? Math.min(...measuredMeshValues) : null
   const measuredMeshMax = measuredMeshValues.length > 0 ? Math.max(...measuredMeshValues) : null
@@ -640,7 +700,7 @@ export function EddyCalibrationScreen({
             : procedure === 'offsets' ? <><p>Сумма принятых UI-команд, не абсолютный Z-offset. В конфиге: {valueText(eddy?.zOffsetMm)}.</p><p>Высота: {statusText(eddy?.heightCalibrated)}. Запись подтверждается после перезапуска и очистки несохранённых изменений.</p></>
               : procedure === 'accuracy' ? <><p>Среднее {valueText(accuracyResult?.average)}</p><p>σ {valueText(accuracyResult?.deviation)}</p><p>Значения из ответа PROBE_ACCURACY этой сессии. Порог качества не задан.</p></>
                 : procedure === 'screws' ? <><p>Z выбранного винта {valueText(screw?.zMm)} · отклонение {valueText(screws?.maxDeviationMm)}</p><p>{screwsFresh ? 'Принятый замер и обновлённый снимок.' : 'Последние доступные данные.'} Направление показано со стороны головки винта. Поворот — обороты:минуты, не время.</p><button type="button" onClick={() => setScrewsRawVisible(true)}>Все данные замера</button></>
-                  : procedure === 'mesh' ? <><p>min {valueText(measuredMeshMin)} · max {valueText(measuredMeshMax)}</p><p>X {calibration?.mesh.min?.[0] ?? '—'}…{calibration?.mesh.max?.[0] ?? '—'} мм · Y {calibration?.mesh.min?.[1] ?? '—'}…{calibration?.mesh.max?.[1] ?? '—'} мм</p><p>{matrix.length} строк × {meshColumns} столбцов · {matrixIsLatestProbe ? 'последние доступные значения сканирования' : 'загруженный профиль стола'}. Z увеличен для наглядности; пропуски не являются нулями.</p></>
+                  : procedure === 'mesh' ? <><p>Сканирование сохранит новый профиль и перезапустит Klipper автоматически. Подтверждение будет показано после проверки карты из сохранённого профиля.</p><p>min {valueText(measuredMeshMin)} · max {valueText(measuredMeshMax)}</p><p>X {calibration?.mesh.min?.[0] ?? '—'}…{calibration?.mesh.max?.[0] ?? '—'} мм · Y {calibration?.mesh.min?.[1] ?? '—'}…{calibration?.mesh.max?.[1] ?? '—'} мм</p><p>{matrix.length} строк × {meshColumns} столбцов · {matrixIsLatestProbe ? 'последние доступные значения сканирования' : 'загруженный профиль стола'}. Z увеличен для наглядности; пропуски не являются нулями.</p></>
                       : <><p>Слой {snapshot.printJob.currentLayer ?? '—'} / {snapshot.printJob.totalLayer ?? '—'} · координата Z {valueText(snapshot.toolheadZ)}</p><p>Качество слоя оценивает оператор; завершение печати не подтверждает качество.</p></>
     return <aside className="eddy-details" aria-label="Подробности процедуры">{content}</aside>
   }
@@ -776,6 +836,7 @@ export function EddyCalibrationScreen({
     const next = (label: string, destination: ProcedureId) => <button type="button" className="eddy-btn is-primary" disabled={backBlocked || !ready || blockCalibration !== null} onClick={() => openProcedure(destination)}>{label}</button>
     const done = <button type="button" className="eddy-btn is-primary" disabled={backBlocked} onClick={() => { setPipelineActive(false); openProcedure('overview') }}>Готово</button>
     if (procedure === 'overview') return actions(<button type="button" className="eddy-btn is-primary" disabled={isBusy || operationUncertain || saveKind !== null || !ready || visibleBlockReason !== null} title={visibleBlockReason ?? undefined} onClick={() => openProcedure(recommendation)}>{recommendation === 'driveCurrent' ? 'Начать калибровку' : `Продолжить: ${PROCEDURES.find((item) => item.id === recommendation)?.title}`}</button>)
+    if (procedure === 'mesh' && saveKind === 'mesh') return actions(<button type="button" className="eddy-btn is-primary" disabled>Сохранение карты…</button>)
     if (saveKind !== null) return actions(<button type="button" className="eddy-btn is-primary" disabled>Сохранение…</button>)
     switch (procedure) {
       case 'driveCurrent':
@@ -805,13 +866,13 @@ export function EddyCalibrationScreen({
         if (accuracyResult !== null && !accuracyRunning) return actions(done, commandButton('Повторить замер', { command: 'eddyProbeAccuracy' }, { secondary: true, blocked: !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => { setAccuracyResult(null); void runProbe('eddyProbeAccuracy') } }))
         return actions(commandButton('Проверить повторяемость', { command: 'eddyProbeAccuracy' }, { primary: true, blocked: accuracyRunning || !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => void runProbe('eddyProbeAccuracy') }))
       case 'screws':
-        if (screwsConfirmed) return actions(commandButton('Далее: карта стола', meshScanArgs, { primary: true, blocked: backBlocked || blockCalibration !== null, reason: blockCalibration ?? commandReason(meshScanArgs), onClick: () => { if (backBlocked || blockCalibration !== null || commandReason(meshScanArgs) !== null) return; openProcedure('mesh'); void runMeshScan() } }))
+        if (screwsConfirmed) return actions(commandButton('Измерить и сохранить', meshScanArgs, { primary: true, blocked: backBlocked || blockCalibration !== null, reason: blockCalibration ?? commandReason(meshScanArgs), onClick: () => { if (backBlocked || blockCalibration !== null || commandReason(meshScanArgs) !== null) return; openProcedure('mesh'); void runMeshScan() } }))
         if (!screwsFresh) return actions(commandButton('Измерить винты', { command: 'eddyScrewsTiltStart' }, { primary: true, reason: blockCalibration, onClick: () => void runScrewsMeasurement() }))
         return actions(commandButton('Проверить выравнивание', { command: 'eddyScrewsTiltDone' }, { primary: true, blocked: !screwsFresh || screws?.error !== false || screws.results.length < 4, reason: !screwsFresh ? 'Нужен принятый повторный замер с четырьмя обновлёнными точками.' : screws?.error !== false ? 'Проверьте ошибки винтового замера.' : null, onClick: () => void finishScrews() }), commandButton('Измерить винты', { command: 'eddyScrewsTiltStart' }, { secondary: true, reason: blockCalibration, onClick: () => void runScrewsMeasurement() }))
       case 'mesh':
         if (meshCommandFinished && snapshot.v2.eddy.calibration.meshDone && snapshot.v2.eddy.calibration.requiredDone) return actions(next('Далее: первый слой', 'firstLayer'))
-        if (meshScanHasNewMatrix) return actions(commandButton('Сохранить карту и перезапустить', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }, { primary: true, blocked: saveKind !== null || blockCalibration !== null, reason: blockCalibration, onClick: () => { setMeshSaveTarget(probedMatrix); void beginSave('mesh', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }) } }), commandButton('Повторить сканирование', meshScanArgs, { secondary: true, reason: blockCalibration, onClick: () => void runMeshScan() }))
-        return actions(commandButton('Измерить карту стола', meshScanArgs, { primary: true, reason: blockCalibration, onClick: () => void runMeshScan() }))
+        if (meshScanHasNewMatrix) return actions(commandButton('Повторить сохранение и перезапустить', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }, { primary: true, blocked: saveKind !== null || blockCalibration !== null, reason: blockCalibration, onClick: () => { setMeshSaveTarget(probedMatrix); void beginSave('mesh', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }) } }), commandButton('Повторить сканирование', meshScanArgs, { secondary: true, reason: blockCalibration, onClick: () => void runMeshScan() }))
+        return actions(commandButton('Измерить и сохранить', meshScanArgs, { primary: true, blocked: saveKind !== null, reason: blockCalibration, onClick: () => void runMeshScan() }))
       case 'firstLayer':
         if (!activePrint && firstLayerObservedPath !== null && firstLayerObservedPath === firstLayerStartedPath && observedPrintPath === firstLayerObservedPath && (snapshot.printJob.state === 'complete' || snapshot.printJob.state === 'cancelled')) return actions(done)
         if (activePrint) return actions(<button type="button" className="eddy-btn is-primary" disabled>Печать выполняется</button>)

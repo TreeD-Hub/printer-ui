@@ -87,6 +87,21 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
   useEffect(() => () => onCalibrationActivityChange?.(false), [onCalibrationActivityChange])
 
   useEffect(() => {
+    if ((snapshot.klippy.state !== 'shutdown' && snapshot.klippy.state !== 'error')
+      || !(calibrationActivity || isStarting || savePending.current
+        || ['running', 'result', 'saving', 'finish', 'error'].includes(stage))) return
+    ++activeRun.current
+    busy.current = false
+    savePending.current = false
+    setSaveAccepted(false)
+    setStarting(false)
+    setCalibrationActivity(false)
+    setStage('stopped')
+    onCalibrationActivityChange?.(false)
+    onBackToList()
+  }, [snapshot.klippy.state, stage, isStarting, calibrationActivity, onBackToList, onCalibrationActivityChange])
+
+  useEffect(() => {
     if (hasActivePrint) setTemperatureOpen(false)
   }, [hasActivePrint])
 
@@ -171,9 +186,13 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
     setStarting(true)
     try {
       // M106, отправленный после PID_CALIBRATE, ждёт окончания калибровки в очереди Klipper.
-      if (fanPercent !== Math.round(snapshot.modelFanPercent) && !await executeCommand(fanArgs)) {
-        setError('Не удалось установить обдув. PID-калибровка не запущена.')
-        return
+      if (fanPercent !== Math.round(snapshot.modelFanPercent)) {
+        const fanAccepted = await executeCommand(fanArgs)
+        if (activeRun.current !== run) return
+        if (!fanAccepted) {
+          setError('Не удалось установить обдув. PID-калибровка не запущена.')
+          return
+        }
       }
       if (activeRun.current !== run) return
       setHistory(Number.isFinite(temperature) ? [{ timestamp: Date.now(), current: temperature, target }] : [])
@@ -205,11 +224,16 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
 
   async function stop() {
     if (getCommandBlockReason('emergencyStop') !== null) return
-    if (await executeCommand({ command: 'emergencyStop' })) {
+    const run = activeRun.current
+    const ok = await executeCommand({ command: 'emergencyStop' })
+    if (activeRun.current !== run) return
+    if (ok) {
       ++activeRun.current
       busy.current = false
+      savePending.current = false
       setStarting(false)
       setStage('stopped')
+      onBackToList()
     } else setError('Не удалось подтвердить остановку. Проверьте принтер.')
   }
 
