@@ -258,6 +258,29 @@ it('принимает температурную точку отдельно о
   expect(screen.queryByRole('button', { name: 'Завершить серию и сохранить' })).not.toBeInTheDocument()
 })
 
+it('показывает охлаждение до 40 градусов, блокирует повторный старт и позволяет отмену', async () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.eddy.temperatureSeriesActive = true
+  snapshot.v2.eddy.calibration.operatorPrompt = 'cooling'
+  const { executeCommand } = renderScreen({ initialProcedure: 'temperature', snapshot })
+  expect(screen.getByText('Обдув включён. Охлаждаем датчик, сопло и стол до 40 °C.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Охлаждение до 40 °C…' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Начать температурную серию' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Подтвердить зазор' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'К списку' })).toBeDisabled()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Отменить охлаждение' })))
+  expect(executeCommand).toHaveBeenCalledExactlyOnceWith({ command: 'eddyAbort' })
+})
+
+it('не считает подготовку после охлаждения остановленной серией', () => {
+  const snapshot = readySnapshot()
+  snapshot.calibration!.eddy.temperatureSeriesActive = true
+  snapshot.v2.eddy.calibration.operatorPrompt = 'temperature_points'
+  renderScreen({ initialProcedure: 'temperature', snapshot })
+  expect(screen.getByRole('button', { name: 'Ожидаем бумажный замер…' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Серия остановлена' })).not.toBeInTheDocument()
+})
+
 it('не сохраняет температурную серию, если capability завершения не объявлена', () => {
   const snapshot = readySnapshot()
   snapshot.calibration!.eddy.temperatureSeriesActive = true

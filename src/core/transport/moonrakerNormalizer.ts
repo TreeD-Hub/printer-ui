@@ -1250,6 +1250,7 @@ const EDDY_CALIBRATION_STEPS = new Set<PrinterEddyCalibrationStep>([
 const EDDY_OPERATOR_PROMPTS = new Set<PrinterEddyOperatorPrompt>([
   'none',
   'drive_current',
+  'cooling',
   'paper_test',
   'temperature_points',
   'verify_z0',

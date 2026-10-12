@@ -144,6 +144,7 @@ export function EddyCalibrationScreen({
   const ready = READY(snapshot)
   const activeManualSession = calibration?.manualProbe.active === true
   const activeTemperatureSession = eddy?.temperatureSeriesActive === true || eddy?.inTemperatureCalibration === true
+  const temperatureCooling = activeTemperatureSession && snapshot.v2.eddy.calibration.operatorPrompt === 'cooling'
   const activeSession = activeManualSession || activeTemperatureSession
   useEffect(() => {
     if (activeSession) setPipelineActive(true)
@@ -210,7 +211,8 @@ export function EddyCalibrationScreen({
     ?? (eddy?.temperatureSeriesActive !== true ? 'Температурная серия не подтверждена в текущем статусе принтера.' : null)
     ?? (eddy?.temperaturePoints == null ? 'Количество точек неизвестно; обновите состояние принтера.' : eddy.temperaturePoints < 3 ? 'Нужно принять не менее трёх температурных точек.' : null)
     ?? (calibration?.manualProbe.active !== false ? 'Статус ручного измерения неизвестен или оно ещё активно.' : null)
-  const temperatureSeriesFinished = eddy?.temperatureSeriesActive === true && eddy.inTemperatureCalibration === false
+  const temperatureSeriesFinished = !temperatureCooling && eddy?.temperatureSeriesActive === true && eddy.inTemperatureCalibration === false
+    && (eddy.temperaturePoints ?? 0) >= 3
     && calibration?.manualProbe.active === false
   const temperatureCurveReady = temperatureSeriesFinished && calibration?.config.savePending === true
     && calibration.config.pendingSections.includes('temperature_probe btt_eddy')
@@ -699,7 +701,7 @@ export function EddyCalibrationScreen({
                 { id: 'eddy', label: 'Eddy', tone: 'neutral', points: temperaturePoints.eddy },
               ]} />
             </section>
-            <div className="eddy-temperature-summary"><p>Принято точек: <span>{eddy?.temperaturePoints ?? '—'}</span></p>{!activeTemperatureSession && <p>Калибровка тепловой погрешности датчика.</p>}</div>
+            <div className="eddy-temperature-summary"><p>Принято точек: <span>{eddy?.temperaturePoints ?? '—'}</span></p>{temperatureCooling ? <p>Обдув включён. Охлаждаем датчик, сопло и стол до 40 °C.</p> : !activeTemperatureSession && <p>Калибровка тепловой погрешности датчика.</p>}</div>
             </>}
           </div>
         </div>
@@ -789,7 +791,7 @@ export function EddyCalibrationScreen({
         return activeTemperatureSession
           ? actions(activeManualSession
             ? commandButton('Подтвердить зазор', { command: 'eddyTemperatureAccept' }, { primary: true, reason: temperatureAcceptReason })
-            : <button type="button" className="eddy-btn is-primary" disabled>{temperatureSeriesFinished ? temperatureCompletionIssue === null ? 'Сохранение…' : 'Серия остановлена' : 'Ожидаем бумажный замер…'}</button>)
+            : <button type="button" className="eddy-btn is-primary" disabled>{temperatureCooling ? 'Охлаждение до 40 °C…' : temperatureSeriesFinished ? temperatureCompletionIssue === null ? 'Сохранение…' : 'Серия остановлена' : 'Ожидаем бумажный замер…'}</button>)
           : actions(commandButton('Начать температурную серию', { command: 'eddyTemperatureStart' }, { primary: true, reason: blockCalibration }))
       case 'z0':
         if (z0Confirmed) return actions(next('Далее: винты стола', 'screws'))
@@ -836,7 +838,7 @@ export function EddyCalibrationScreen({
       : activeManualSession
         ? 'Ручное измерение активно'
         : activeTemperatureSession
-          ? 'Температурная серия активна'
+          ? temperatureCooling ? 'Охлаждение перед температурной серией' : 'Температурная серия активна'
           : accuracyRunning || z0Running
             ? 'Ожидаем ответ Klipper'
             : saveError
@@ -885,7 +887,7 @@ export function EddyCalibrationScreen({
       <footer className="eddy-footer">
         <div className="eddy-footer-details">{procedure !== 'overview' && <button type="button" className="is-secondary" aria-expanded={detailsVisible} onClick={() => setDetailsVisible((visible) => !visible)}>{detailsVisible ? 'Скрыть' : 'Подробнее'}</button>}</div>
         <div className="eddy-footer-secondary">
-          {activeSession && abortCapability && commandButton(procedure === 'height' ? 'Отменить ручное измерение' : procedure === 'temperature' ? 'Отменить серию' : 'Отменить текущий этап', { command: 'eddyAbort' }, { secondary: true, reason: commandReason({ command: 'eddyAbort' }, abortCapability) })}
+          {activeSession && abortCapability && commandButton(procedure === 'height' ? 'Отменить ручное измерение' : procedure === 'temperature' ? temperatureCooling ? 'Отменить охлаждение' : 'Отменить серию' : 'Отменить текущий этап', { command: 'eddyAbort' }, { secondary: true, reason: commandReason({ command: 'eddyAbort' }, abortCapability) })}
           {footerActions.secondary}
         </div>
         <div className="eddy-footer-primary">{footerActions.primary}</div>
