@@ -152,7 +152,7 @@ it.each(['mock', 'live'] as const)('маркирует каталог, папк�
   expect(Boolean(screen.queryByText(/Симуляция/))).toBe(source === 'mock')
 })
 
-it('подтверждает shaper save после раннего restart только после ответа RPC и точного нового snapshot', async () => {
+it('подтверждает shaper save после restart/disconnect только после ответа RPC и точного нового snapshot', async () => {
   const snapshot = shaperSnapshot()
   let resolveSave!: (value: boolean) => void
   const execute = vi.fn()
@@ -169,9 +169,14 @@ it('подтверждает shaper save после раннего restart то�
   expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Сохранение…' })).toBeDisabled()
 
-  const restart = { ...snapshot, updatedAt: 'restart-started', klippy: { state: 'shutdown' as const, message: 'restarting' } }
+  const restart = { ...snapshot, updatedAt: 'restart-disconnected', klippy: { state: 'disconnected' as const, message: 'restart' } }
   view.rerender(<MacrosContainer snapshot={restart} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
-  const ready = { ...restart, updatedAt: 'restart-ready', klippy: { state: 'ready' as const, message: '' }, calibration: { ...currentCalibration(snapshot), config: { savePending: false, pendingSections: [] }, shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 40, freqYHz: 40 } } }
+  const startup = { ...restart, updatedAt: 'restart-startup', klippy: { state: 'startup' as const, message: '' } }
+  view.rerender(<MacrosContainer snapshot={startup} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
+  const offline = { ...startup, updatedAt: 'restart-offline', transport: { ...snapshot.transport, state: 'offline' as const } }
+  view.rerender(<MacrosContainer snapshot={offline} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
+  expect(screen.getByRole('button', { name: 'Сохранение…' })).toBeDisabled()
+  const ready = { ...offline, updatedAt: 'restart-ready', transport: { ...snapshot.transport, state: 'online' as const }, klippy: { state: 'ready' as const, message: '' }, calibration: { ...currentCalibration(snapshot), config: { savePending: false, pendingSections: [] }, shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 40, freqYHz: 40 } } }
   view.rerender(<MacrosContainer snapshot={ready} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
   await act(async () => Promise.resolve())
   expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
@@ -245,7 +250,7 @@ it.each([
   await waitFor(() => expect(screen.getByRole('button', { name: 'Сохранить и перезапустить' })).toBeInTheDocument())
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить и перезапустить' }))
 
-  const restart = { ...snapshot, updatedAt: 'restart-started', klippy: { state: 'shutdown' as const, message: 'restarting' } }
+  const restart = { ...snapshot, updatedAt: 'restart-started', klippy: { state: 'disconnected' as const, message: 'restarting' } }
   view.rerender(<MacrosContainer snapshot={restart} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
   const ready = { ...restart, updatedAt: 'restart-ready', klippy: { state: 'ready' as const, message: '' }, calibration: { ...currentCalibration(snapshot), config: { savePending: false, pendingSections: [] }, shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 40, freqYHz: 40 } } }
   view.rerender(<MacrosContainer snapshot={ready} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
@@ -369,7 +374,7 @@ it('удерживает активность ADXL → подготовка → 
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' })))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Сохранить и перезапустить' })))
   expect(activity).toHaveBeenLastCalledWith(true)
-  view.rerender(<MacrosContainer snapshot={{ ...snapshot, klippy: { state: 'shutdown', message: 'restart' } }} {...props} />)
+  view.rerender(<MacrosContainer snapshot={{ ...snapshot, klippy: { state: 'disconnected', message: 'restart' } }} {...props} />)
   view.rerender(<MacrosContainer snapshot={{ ...snapshot, updatedAt: 'ready-after-restart', calibration: { ...snapshot.calibration!, config: { savePending: false, pendingSections: [] } } }} {...props} />)
   expect(await screen.findByRole('button', { name: 'Готово' })).toBeEnabled()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
@@ -381,8 +386,9 @@ it('удерживает активность ADXL → подготовка → 
 
 it.each([true, false])('завершает активность только при подтверждённой остановке (%s)', async (accepted) => {
   const activity = vi.fn()
+  const viewChange = vi.fn()
   const execute = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(accepted)
-  const props = { pendingCommand: null, executeCommand: execute, onCalibrationActivityChange: activity, refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
+  const props = { pendingCommand: null, executeCommand: execute, onCalibrationActivityChange: activity, onCalibrationViewChange: viewChange, refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
   const view = render(<MacrosContainer snapshot={shaperSnapshot()} {...props} />)
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' })))
@@ -393,10 +399,109 @@ it.each([true, false])('завершает активность только п�
   view.rerender(<MacrosContainer snapshot={shaperSnapshot()} {...props} onCalibrationActivityChange={replacement} />)
   expect(activity).toHaveBeenLastCalledWith(true)
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' })))
-  if (accepted) expect(replacement).toHaveBeenLastCalledWith(false)
+  if (accepted) {
+    expect(replacement).toHaveBeenLastCalledWith(false)
+    expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
+    expect(viewChange.mock.calls).toEqual([[true], [false]])
+  }
   else { expect(replacement).not.toHaveBeenCalled(); expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled() }
   view.unmount()
   expect(replacement).toHaveBeenLastCalledWith(false)
+})
+
+it.each([
+  ['shutdown', true],
+  ['error', false],
+] as const)('закрывает незавершённый shaper при Klippy %s и игнорирует поздний RPC', async (state, lateResult) => {
+  const snapshot = shaperSnapshot()
+  const activity = vi.fn()
+  const onViewChange = vi.fn()
+  let finish!: (ok: boolean) => void
+  const execute = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve }))
+  const props = { pendingCommand: null, executeCommand: execute, onCalibrationActivityChange: activity, onCalibrationViewChange: onViewChange, refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
+  const view = render(<MacrosContainer snapshot={snapshot} {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' }))
+  await waitFor(() => expect(execute).toHaveBeenCalledWith({ command: 'shaperCalibrateFull', save: false }))
+
+  view.rerender(<MacrosContainer snapshot={{ ...snapshot, updatedAt: `terminal-${state}`, klippy: { state, message: state } }} {...props} />)
+  expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
+  expect(activity).toHaveBeenLastCalledWith(false)
+  await act(async () => { shaperResponses(); finish(lateResult); await Promise.resolve() })
+  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(execute).toHaveBeenCalledTimes(1)
+
+  expect(onViewChange.mock.calls).toEqual([[true], [false]])
+  expect(execute).toHaveBeenCalledTimes(1)
+})
+
+it('завершает pending shaper save при подтверждённом shutdown и игнорирует поздний ответ', async () => {
+  const snapshot = shaperSnapshot()
+  const activity = vi.fn()
+  let finishSave!: (ok: boolean) => void
+  const execute = vi.fn().mockResolvedValueOnce(true).mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishSave = resolve }))
+  const props = { pendingCommand: null, executeCommand: execute, onCalibrationActivityChange: activity, refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
+  const view = render(<MacrosContainer snapshot={snapshot} {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' }))
+  await act(async () => { shaperResponses(); await Promise.resolve() })
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Сохранить и перезапустить' })).toBeInTheDocument())
+  fireEvent.click(screen.getByRole('button', { name: 'Сохранить и перезапустить' }))
+  expect(screen.getByRole('button', { name: 'Сохранение…' })).toBeDisabled()
+
+  view.rerender(<MacrosContainer snapshot={{ ...snapshot, klippy: { state: 'shutdown', message: 'halted' } }} {...props} />)
+  expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
+  expect(activity).toHaveBeenLastCalledWith(false)
+  await act(async () => { finishSave(true); await Promise.resolve() })
+  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(execute).toHaveBeenCalledTimes(2)
+})
+
+it('выходит в каталог, если Klippy shutdown приходит раньше ответа emergencyStop', async () => {
+  const snapshot = shaperSnapshot()
+  const activity = vi.fn()
+  const onViewChange = vi.fn()
+  let finishStart!: (ok: boolean) => void
+  let finishStop!: (ok: boolean) => void
+  const execute = vi.fn()
+    .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishStart = resolve }))
+    .mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishStop = resolve }))
+  const props = { pendingCommand: null, executeCommand: execute, onCalibrationActivityChange: activity, onCalibrationViewChange: onViewChange, refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
+  const view = render(<MacrosContainer snapshot={snapshot} {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' }))
+  await waitFor(() => expect(execute).toHaveBeenCalledTimes(1))
+  fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' }))
+  await waitFor(() => expect(execute).toHaveBeenCalledTimes(2))
+
+  view.rerender(<MacrosContainer snapshot={{ ...snapshot, klippy: { state: 'shutdown', message: 'halted' } }} {...props} />)
+  expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
+  expect(onViewChange.mock.calls).toEqual([[true], [false]])
+  await act(async () => { finishStart(true); finishStop(true); await Promise.resolve() })
+  expect(onViewChange.mock.calls).toEqual([[true], [false]])
+  expect(activity).toHaveBeenLastCalledWith(false)
+  expect(execute).toHaveBeenCalledTimes(2)
+})
+
+it('отменяет исходный shaper baseline после terminal state даже если принтер успел вернуться в ready', async () => {
+  const snapshot = shaperSnapshot()
+  const execute = vi.fn().mockResolvedValue(true)
+  const onViewChange = vi.fn()
+  let finishBaseline!: (report: PrinterShaperResonanceReport) => void
+  const fetch = vi.fn(() => new Promise<PrinterShaperResonanceReport>((resolve) => { finishBaseline = resolve }))
+  const props = { pendingCommand: null, executeCommand: execute, fetchShaperResonances: fetch, onCalibrationViewChange: onViewChange, refreshEddyState: vi.fn(), getCommandBlockReason: () => null }
+  const view = render(<MacrosContainer snapshot={snapshot} {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' }))
+  expect(fetch).toHaveBeenCalledTimes(1)
+  view.rerender(<MacrosContainer snapshot={{ ...snapshot, klippy: { state: 'shutdown', message: 'halted' } }} {...props} />)
+  expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
+  expect(onViewChange.mock.calls).toEqual([[true], [false]])
+
+  view.rerender(<MacrosContainer snapshot={{ ...snapshot, updatedAt: 'ready-again', klippy: { state: 'ready', message: '' } }} {...props} />)
+  await act(async () => { finishBaseline(spectrumReport('late-baseline')); await Promise.resolve() })
+  expect(execute).not.toHaveBeenCalled()
+  expect(onViewChange.mock.calls).toEqual([[true], [false]])
 })
 
 it('ждёт websocket-рекомендации X и Y после раннего accepted RPC, затем читает свежий CSV', async () => {
@@ -449,6 +554,8 @@ it('отмена обрывает ожидание текущего запуск
   expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
   expect(fetch).toHaveBeenCalledTimes(1)
+  expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' })))
   expect(fetch).toHaveBeenCalledTimes(2)
   expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MacrosContainerProps } from './MacrosContainer'
 import { CalibrationPreview } from './CalibrationPreview'
 import { MotionStudy, ShaperSpectrum } from './ProcedureVisuals'
@@ -94,6 +94,34 @@ function CalibrationProcedures({ snapshot, pendingCommand, executeCommand, getCo
     && Math.abs(currentShaper.freqXHz - (shaperTarget.freqXHz ?? 0)) < 0.1
     && Math.abs(currentShaper.freqYHz - (shaperTarget.freqYHz ?? 0)) < 0.1
 
+  const publishActivity = useCallback((active: boolean) => {
+    if (sessionActive.current === active) return
+    sessionActive.current = active
+    activityCallback.current?.(active)
+  }, [])
+  const endStoppedWorkflow = useCallback((exit = false) => {
+    ++runId.current
+    running.current = false
+    preparingShaper.current = false
+    ++spectrumToken.current
+    collectingShaperRun.current = null
+    ownedShaperRun.current = null
+    setSpectrumLoading(false)
+    setBaselinePreparing(false)
+    const waiter = shaperRecommendationWaiter.current
+    if (waiter) { window.clearTimeout(waiter.timer); shaperRecommendationWaiter.current = null; waiter.resolve(false) }
+    pendingSaveKind.current = null
+    operationDeadline.current = null
+    setOperationUncertain(false)
+    setMessage('')
+    if (exit) {
+      setProcedure('catalog')
+      onCalibrationViewChange?.(false)
+      setStage('idle')
+    } else setStage('stopped')
+    publishActivity(false)
+  }, [onCalibrationViewChange, publishActivity])
+
   useEffect(() => subscribePrinterGcodeResponses((next) => {
     if (!running.current) return
     latestResponse.current = next
@@ -151,14 +179,14 @@ function CalibrationProcedures({ snapshot, pendingCommand, executeCommand, getCo
     return () => window.clearTimeout(timeout)
   }, [stage])
 
+  useEffect(() => {
+    if ((snapshot.klippy.state !== 'shutdown' && snapshot.klippy.state !== 'error')
+      || (!sessionActive.current && !preparingShaper.current && !baselinePreparing)) return
+    endStoppedWorkflow(true)
+  }, [snapshot.klippy.state, stage, baselinePreparing, operationUncertain, endStoppedWorkflow])
+
   function commandReason(command: Parameters<Props['getCommandBlockReason']>[0], args?: Parameters<Props['getCommandBlockReason']>[1]) {
     return getCommandBlockReason(command, args)
-  }
-
-  function publishActivity(active: boolean) {
-    if (sessionActive.current === active) return
-    sessionActive.current = active
-    activityCallback.current?.(active)
   }
 
   async function run(args: Parameters<Props['executeCommand']>[0], onComplete?: () => void | Promise<void>, requiresCalibration = true) {
@@ -401,7 +429,7 @@ function CalibrationProcedures({ snapshot, pendingCommand, executeCommand, getCo
       </main>
       <div className="calibration-procedure-status" role="status">{operationUncertain || message ? 'Нет подтверждения. Проверьте принтер перед продолжением.' : savingShaper ? 'Ожидаем сохранения и перезапуска принтера.' : baselinePreparing ? 'Читаем исходные данные.' : stage === 'running' ? 'Измерение выполняется. Не трогайте принтер.' : stage === 'saved' ? 'Сохранено.' : stage === 'result' && shaperAction === 'calibration' ? 'Сохранение перезапустит принтер.' : stage === 'error' ? 'Нет подтверждения от принтера.' : stage === 'stopped' ? 'Остановлено. Проверьте принтер.' : blockedCommand(shaperArgs) ?? ''}</div>
       <footer className="calibration-procedure-footer">
-        <div className="calibration-footer-emergency">{sessionActive.current && <button type="button" className="is-danger" disabled={commandReason('emergencyStop') !== null} onClick={() => void run({ command: 'emergencyStop' }, () => { pendingSaveKind.current = null; operationDeadline.current = null; setStage('stopped') }, false)}>Аварийная остановка</button>}</div>
+        <div className="calibration-footer-emergency">{sessionActive.current && <button type="button" className="is-danger" disabled={commandReason('emergencyStop') !== null} onClick={() => void run({ command: 'emergencyStop' }, () => endStoppedWorkflow(true), false)}>Аварийная остановка</button>}</div>
         <div className="calibration-footer-secondary">{stage === 'result' && shaperAction === 'calibration' && <button type="button" className="is-secondary" disabled={blockedCommand(shaperArgs) !== null || baselinePreparing} onClick={() => void startShaper()}>Повторить замер</button>}</div>
         <div className="calibration-footer-primary">
           {isBlocking ? <button type="button" className="is-primary" disabled>{savingShaper ? 'Сохранение…' : 'Ожидаем завершения'}</button>

@@ -90,6 +90,10 @@ it('сохраняет через printer-core и ждёт перезапуск�
   expect(screen.getByRole('button', { name: 'Сохранение…' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeInTheDocument()
   view.rerender(<PidCalibrationScreen {...props} snapshot={{ ...props.snapshot, klippy: { ...props.snapshot.klippy, state: 'startup' } }} />)
+  const disconnected = { ...props.snapshot, updatedAt: 'restart-disconnected', klippy: { ...props.snapshot.klippy, state: 'disconnected' as const } }
+  view.rerender(<PidCalibrationScreen {...props} snapshot={disconnected} />)
+  view.rerender(<PidCalibrationScreen {...props} snapshot={{ ...disconnected, updatedAt: 'restart-offline', transport: { ...props.snapshot.transport, state: 'offline' } }} />)
+  expect(screen.getByRole('button', { name: 'Сохранение…' })).toBeDisabled()
   expect(screen.queryByText('PID сохранён')).not.toBeInTheDocument()
   view.rerender(<PidCalibrationScreen {...props} />)
   expect(screen.getByText('PID сохранён')).toBeInTheDocument()
@@ -115,6 +119,21 @@ it('оставляет аварийную остановку доступной 
   expect(screen.getByText('Калибровка прервана')).toBeInTheDocument()
   expect(props.onCalibrationActivityChange).toHaveBeenLastCalledWith(false)
   expect(screen.queryByRole('button', { name: 'Аварийная остановка' })).not.toBeInTheDocument()
+  expect(props.onBackToList).toHaveBeenCalledTimes(1)
+})
+
+it.each([true, false])('не применяет поздний ответ emergencyStop после terminal exit (%s)', async (lateResult) => {
+  let finishStop!: (ok: boolean) => void
+  const { props, view, executeCommand } = await resultScreen()
+  executeCommand.mockImplementationOnce(() => new Promise<boolean>((resolve) => { finishStop = resolve }))
+  fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' }))
+  await waitFor(() => expect(executeCommand).toHaveBeenLastCalledWith({ command: 'emergencyStop' }))
+
+  view.rerender(<PidCalibrationScreen {...props} snapshot={{ ...props.snapshot, klippy: { state: 'shutdown', message: 'halted' } }} />)
+  expect(props.onBackToList).toHaveBeenCalledTimes(1)
+  await act(async () => { finishStop(lateResult); await Promise.resolve() })
+  expect(props.onBackToList).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
 })
 
 it('сохраняет коэффициенты на экране при ошибке сохранения', async () => {
@@ -184,6 +203,58 @@ it('не возвращает успех старого запроса посл�
   receivePrinterGcodeResponse('PID parameters: pid_Kp=22.100 pid_Ki=1.200 pid_Kd=101.300')
   finish(true)
   await waitFor(() => expect(screen.queryByText('Коэффициенты рассчитаны')).not.toBeInTheDocument())
+})
+
+it.each([
+  ['shutdown', true],
+  ['error', false],
+] as const)('завершает PID workflow при Klippy %s и игнорирует поздний RPC', async (state, lateResult) => {
+  const snapshot = createMockSnapshot()
+  snapshot.modelFanPercent = 0
+  const activity = vi.fn()
+  const onBackToList = vi.fn()
+  let finish!: (ok: boolean) => void
+  const executeCommand = vi.fn(() => new Promise<boolean>((resolve) => { finish = resolve }))
+  const props = { snapshot, pendingCommand: null, executeCommand, refreshEddyState: vi.fn(), getCommandBlockReason: () => null, onBackToList, onCalibrationActivityChange: activity }
+  const view = render(<PidCalibrationScreen {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Далее →' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Запустить калибровку' }))
+  await waitFor(() => expect(executeCommand).toHaveBeenCalledWith({ command: 'consoleGcode', script: 'PID_CALIBRATE HEATER=extruder TARGET=200' }))
+
+  view.rerender(<PidCalibrationScreen {...props} snapshot={{ ...snapshot, updatedAt: `terminal-${state}`, klippy: { state, message: state } }} />)
+  await waitFor(() => expect(screen.getByText('Калибровка прервана')).toBeInTheDocument())
+  expect(activity).toHaveBeenLastCalledWith(false)
+  await act(async () => {
+    receivePrinterGcodeResponse('PID parameters: pid_Kp=22.100 pid_Ki=1.200 pid_Kd=101.300')
+    finish(lateResult)
+    await Promise.resolve()
+  })
+  expect(screen.queryByText('Коэффициенты рассчитаны')).not.toBeInTheDocument()
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(executeCommand).toHaveBeenCalledTimes(1)
+
+  expect(onBackToList).toHaveBeenCalledTimes(1)
+  expect(executeCommand).toHaveBeenCalledTimes(1)
+})
+
+it.each([true, false])('игнорирует поздний ответ обдува после Klippy shutdown (%s)', async (lateResult) => {
+  const snapshot = createMockSnapshot()
+  snapshot.modelFanPercent = 0
+  let finishFan!: (ok: boolean) => void
+  const executeCommand = vi.fn(() => new Promise<boolean>((resolve) => { finishFan = resolve }))
+  const props = { snapshot, pendingCommand: null, executeCommand, refreshEddyState: vi.fn(), getCommandBlockReason: () => null, onBackToList: vi.fn() }
+  const view = render(<PidCalibrationScreen {...props} />)
+  fireEvent.click(screen.getByRole('button', { name: 'Далее →' }))
+  fireEvent.click(screen.getByRole('checkbox', { name: /Включить обдув/ }))
+  fireEvent.click(screen.getByRole('button', { name: 'Запустить калибровку' }))
+  await waitFor(() => expect(executeCommand).toHaveBeenCalledWith({ command: 'setFanPercent', percent: 100 }))
+
+  view.rerender(<PidCalibrationScreen {...props} snapshot={{ ...snapshot, klippy: { state: 'shutdown', message: 'halted' } }} />)
+  expect(screen.getByText('Калибровка прервана')).toBeInTheDocument()
+  await act(async () => { finishFan(lateResult); await Promise.resolve() })
+  expect(executeCommand).toHaveBeenCalledTimes(1)
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(screen.getByText('Калибровка прервана')).toBeInTheDocument()
 })
 
 it('вводит свою температуру тач-клавиатурой и отправляет её в PID', async () => {

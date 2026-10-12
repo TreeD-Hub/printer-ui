@@ -15,6 +15,17 @@ function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']
 }
 
 describe('normalizeMoonrakerRuntimeSnapshot', () => {
+  it('сохраняет состояние охлаждения перед температурной серией Eddy', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      save_variables: { variables: { treed_eddy_operator_prompt: 'cooling' } },
+      'gcode_macro _TREED_EDDY_TEMPERATURE_STATE': { active: 1, cooling: 1, points: 0 },
+      'temperature_probe btt_eddy': { temperature: 45, in_calibration: false },
+    }))
+    expect(snapshot.v2.eddy.calibration.operatorPrompt).toBe('cooling')
+    expect(snapshot.calibration?.eddy.temperatureSeriesActive).toBe(true)
+    expect(snapshot.calibration?.eddy.inTemperatureCalibration).toBe(false)
+  })
+
   it.each([undefined, 0, 1])('определяет поддержку методов карты по маркеру core %s', (scanMethods) => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
       'gcode_macro _TREED_UI_CONTRACT': { contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: '' },

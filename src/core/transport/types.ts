@@ -180,6 +180,7 @@ export type PrinterEddyCalibrationStep = 'not_started' | 'primary' | 'temperatur
 export type PrinterEddyOperatorPrompt =
   | 'none'
   | 'drive_current'
+  | 'cooling'
   | 'paper_test'
   | 'temperature_points'
   | 'verify_z0'
