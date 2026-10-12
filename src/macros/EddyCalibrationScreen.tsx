@@ -99,6 +99,7 @@ export function EddyCalibrationScreen({
   const [confirmEmergency, setConfirmEmergency] = useState(false)
   const [confirmZOffsetSave, setConfirmZOffsetSave] = useState(false)
   const [operationUncertain, setOperationUncertain] = useState(false)
+  const [heightNozzlePrepared, setHeightNozzlePrepared] = useState(false)
   const [accuracyResult, setAccuracyResult] = useState<AccuracyResult | null>(null)
   const [z0Result, setZ0Result] = useState<string | null>(null)
   const [z0CommandAccepted, setZ0CommandAccepted] = useState(false)
@@ -134,6 +135,7 @@ export function EddyCalibrationScreen({
   const heightBaseRef = useRef<number | null>(null)
   const emergencyButtonRef = useRef<HTMLButtonElement>(null)
   const commandRunIdRef = useRef(0)
+  const heightPreparationRunIdRef = useRef(0)
   const temperatureAutoSaveAttemptedRef = useRef(false)
   const screwsDialogRef = useModalFocus<HTMLDivElement>(screwsRawVisible, () => setScrewsRawVisible(false))
   const accuracyRunningRef = useRef(false)
@@ -158,6 +160,12 @@ export function EddyCalibrationScreen({
   const confirmedHeightDelta = activeManualSession && typeof manualZ === 'number' && Number.isFinite(manualZ)
     ? manualZ - (heightBaseRef.current ?? manualZ) : null
   const allAxesHomed = ['x', 'y', 'z'].every((axis) => snapshot.homedAxes.toLowerCase().includes(axis))
+  useEffect(() => {
+    if (!ready || procedure !== 'height') {
+      heightPreparationRunIdRef.current += 1
+      setHeightNozzlePrepared(false)
+    } else if (!allAxesHomed) setHeightNozzlePrepared(false)
+  }, [ready, allAxesHomed, procedure])
   const z0Confirmed = z0CommandAccepted
     && z0RefreshRunId === commandRunIdRef.current
     && snapshot.v2.eddy.calibration.z0Done
@@ -338,7 +346,8 @@ export function EddyCalibrationScreen({
     }
     const commandRunId = ++commandRunIdRef.current
     if (args.command === 'eddyTemperatureStart') temperatureAutoSaveAttemptedRef.current = false
-    if (args.command.startsWith('eddy') && args.command !== 'eddyAbort' || args.command === 'homeXY' || args.command === 'start') {
+    if (args.command === 'eddyPrimaryHeightStart') setHeightNozzlePrepared(false)
+    if (args.command.startsWith('eddy') && args.command !== 'eddyAbort' || args.command === 'homeXY' || args.command === 'serviceMode' || args.command === 'start') {
       setPipelineActive(true)
       setAbortAccepted(false)
     }
@@ -367,6 +376,12 @@ export function EddyCalibrationScreen({
       if (commandRunId === commandRunIdRef.current) setLocalCommandPending(false)
     }
   }, [operationUncertain, localCommandPending, getCommandBlockReason, executeCommand, refreshEddyState])
+
+  async function prepareHeightNozzle() {
+    const preparationRunId = ++heightPreparationRunIdRef.current
+    setHeightNozzlePrepared(false)
+    if (await run({ command: 'serviceMode' }) && preparationRunId === heightPreparationRunIdRef.current) setHeightNozzlePrepared(true)
+  }
 
   const beginSave = useCallback(async (kind: SaveKind, args: ExecuteCommandArgs): Promise<boolean> => {
     if (blockCalibration !== null) {
@@ -652,9 +667,9 @@ export function EddyCalibrationScreen({
           <p>{driveCurrentConfirmed ? 'Ток настроен. Можно продолжить.' : 'Остудите сопло и стол. Проверьте крепление датчика.'}</p>
         </div></div>
       case 'height':
-        return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram paper delta={confirmedHeightDelta} />)}<div className="eddy-instrument-controls">
+        return <div className="eddy-instrument">{visualOrDetails(<EddyNozzleDiagram paper={activeManualSession} delta={confirmedHeightDelta} />)}<div className="eddy-instrument-controls">
           <div className="eddy-metric"><span>Зазор сопла</span><strong>{valueText(manualZ)}</strong></div>
-          <p>{completedSaveKind === 'height' && snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature' ? 'Высота сохранена. Можно продолжить.' : activeManualSession ? 'Опускайте сопло до лёгкого трения бумаги.' : 'Положите бумагу под сопло.'}</p>
+          <p>{completedSaveKind === 'height' && snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature' ? 'Высота сохранена. Можно продолжить.' : activeManualSession ? 'Положите бумагу под сопло и опускайте его до лёгкого трения.' : heightNozzlePrepared ? 'Очистите сопло щёткой. Затем подтвердите очистку.' : 'Припаркуйте принтер для ручной очистки сопла.'}</p>
           {activeManualSession && renderTestZ()}
         </div></div>
       case 'temperature':
@@ -767,9 +782,9 @@ export function EddyCalibrationScreen({
         if (completedSaveKind === 'height' && snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature') return actions(next('Далее: температурная серия', 'temperature'))
         return actions(activeManualSession
           ? commandButton('Принять высоту и сохранить', { command: 'eddyPrimaryAcceptSave' }, { primary: true, reason: blockCalibration, onClick: () => void beginSave('height', { command: 'eddyPrimaryAcceptSave' }) })
-          : !allAxesHomed
-            ? commandButton('Подготовить оси', { command: 'homeXY' }, { primary: true, reason: commandReason({ command: 'homeXY' }), onClick: () => void run({ command: 'homeXY' }) })
-            : commandButton('Начать проверку по бумаге', { command: 'eddyPrimaryHeightStart' }, { primary: true, reason: blockCalibration }))
+          : !heightNozzlePrepared
+            ? commandButton('Подготовить сопло', { command: 'serviceMode' }, { primary: true, reason: blockCalibration, onClick: () => void prepareHeightNozzle() })
+            : commandButton('Сопло очищено · к бумаге', { command: 'eddyPrimaryHeightStart' }, { primary: true, blocked: !allAxesHomed, reason: blockCalibration }))
       case 'temperature':
         return activeTemperatureSession
           ? actions(activeManualSession
@@ -836,7 +851,7 @@ export function EddyCalibrationScreen({
   const emergencyAllowed = snapshot.capabilities.serviceCommands && getCommandBlockReason('emergencyStop') === null
   const emergencyActionVisible = pipelineActive || activeSession || isBusy || saveKind !== null || accuracyRunning || z0Running || operationUncertain
   const primaryBlockReason = procedureCompleted ? null : procedure === 'driveCurrent' ? commandReason({ command: 'eddyDriveCurrentCalibrate' })
-    : procedure === 'height' ? !allAxesHomed ? 'Сначала привяжите X, Y и Z безопасной командой G28 X Y.' : commandReason({ command: activeManualSession ? 'eddyPrimaryAcceptSave' : 'eddyPrimaryHeightStart' })
+    : procedure === 'height' ? commandReason({ command: activeManualSession ? 'eddyPrimaryAcceptSave' : heightNozzlePrepared ? 'eddyPrimaryHeightStart' : 'serviceMode' })
       : procedure === 'temperature' ? activeTemperatureSession ? activeManualSession ? temperatureAcceptReason : temperatureCompletionIssue : commandReason({ command: 'eddyTemperatureStart' })
         : procedure === 'z0' ? commandReason({ command: 'eddyCheckZ0' })
           : procedure === 'accuracy' ? commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability)

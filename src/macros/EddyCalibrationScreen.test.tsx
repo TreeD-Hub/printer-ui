@@ -462,9 +462,9 @@ it('оставляет блокировку и emergency-stop при rejected п
   snapshot.homedAxes = ''
   const executeCommand = vi.fn<(args: ExecuteCommandArgs) => Promise<boolean>>().mockRejectedValue(new Error('Связь прервана'))
   renderScreen({ initialProcedure: 'height', snapshot, executeCommand })
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подготовить оси' })))
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подготовить сопло' })))
   expect(screen.getByRole('alert')).toHaveTextContent('Итог неизвестен')
-  expect(screen.getByRole('button', { name: 'Подготовить оси' })).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Подготовить сопло' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'К списку' })).toBeDisabled()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
 })
@@ -609,13 +609,13 @@ it('не подтверждает Z0 по координатному RESPOND и 
   expect(screen.queryByRole('button', { name: 'Далее: винты стола' })).not.toBeInTheDocument()
 })
 
-it('готовит XY и нижнюю Z-опору перед первичной высотной калибровкой', async () => {
+it('использует сервисную парковку перед очисткой при неизвестных осях', async () => {
   const snapshot = readySnapshot()
   snapshot.homedAxes = ''
   const { executeCommand } = renderScreen({ initialProcedure: 'height', snapshot })
-  expect(screen.getByRole('button', { name: 'Подготовить оси' })).toBeEnabled()
-  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подготовить оси' })))
-  expect(executeCommand).toHaveBeenCalledWith({ command: 'homeXY' })
+  expect(screen.getByRole('button', { name: 'Подготовить сопло' })).toBeEnabled()
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подготовить сопло' })))
+  expect(executeCommand).toHaveBeenCalledWith({ command: 'serviceMode' })
 })
 
 it('принимает повторную идентичную mesh-матрицу после принятой команды и успешного target refresh', async () => {
@@ -725,6 +725,69 @@ it('блокирует переход к карте, если Eddy стал не
   expect(next).toHaveAttribute('title', 'Калибровка Eddy недоступна или её состояние неизвестно.')
   await act(async () => fireEvent.click(next))
   expect(executeCommand).not.toHaveBeenCalledWith({ command: 'eddyScanMesh', save: false })
+})
+
+it('перед бумажной пробой паркует принтер и ждёт подтверждения ручной очистки', async () => {
+  const snapshot = readySnapshot()
+  snapshot.homedAxes = ''
+  const { props, view, executeCommand } = renderScreen({ initialProcedure: 'height', snapshot })
+  expect(screen.queryByRole('button', { name: 'Сопло очищено · к бумаге' })).not.toBeInTheDocument()
+
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подготовить сопло' })))
+  expect(executeCommand).toHaveBeenCalledExactlyOnceWith({ command: 'serviceMode' })
+  expect(screen.getByText('Очистите сопло щёткой. Затем подтвердите очистку.')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Сопло очищено · к бумаге' })).toBeDisabled()
+
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={{ ...snapshot, homedAxes: 'xyz' }} />)
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Сопло очищено · к бумаге' })))
+  expect(executeCommand).toHaveBeenCalledTimes(2)
+  expect(executeCommand).toHaveBeenNthCalledWith(1, { command: 'serviceMode' })
+  expect(executeCommand).toHaveBeenNthCalledWith(2, { command: 'eddyPrimaryHeightStart' })
+})
+
+it.each(['оси', 'связь'] as const)('после потери состояния (%s) требует повторной парковки перед бумагой', async (lostState) => {
+  const snapshot = readySnapshot()
+  const { props, view, executeCommand } = renderScreen({ initialProcedure: 'height', snapshot })
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подготовить сопло' })))
+  expect(screen.getByRole('button', { name: 'Сопло очищено · к бумаге' })).toBeEnabled()
+
+  const interrupted = lostState === 'оси'
+    ? { ...snapshot, homedAxes: '' }
+    : { ...snapshot, klippy: { ...snapshot.klippy, state: 'startup' as const } }
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={interrupted} />)
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={snapshot} />)
+  expect(screen.getByRole('button', { name: 'Подготовить сопло' })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Сопло очищено · к бумаге' })).not.toBeInTheDocument()
+  expect(executeCommand).not.toHaveBeenCalledWith({ command: 'eddyPrimaryHeightStart' })
+})
+
+it.each(['разрыв связи', 'привязка осей'] as const)('проверяет завершение парковки при промежуточном состоянии: %s', async (intermediateState) => {
+  let finishParking!: (accepted: boolean) => void
+  const executeCommand = vi.fn<(args: ExecuteCommandArgs) => Promise<boolean>>().mockImplementation(() => new Promise((resolve) => { finishParking = resolve }))
+  const snapshot = readySnapshot()
+  const { props, view } = renderScreen({ initialProcedure: 'height', snapshot, executeCommand })
+  fireEvent.click(screen.getByRole('button', { name: 'Подготовить сопло' }))
+  const interrupted = intermediateState === 'разрыв связи'
+    ? { ...snapshot, klippy: { ...snapshot.klippy, state: 'startup' as const } }
+    : { ...snapshot, homedAxes: '' }
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={interrupted} />)
+  view.rerender(<EddyCalibrationScreen {...props} snapshot={snapshot} />)
+  await act(async () => finishParking(true))
+  if (intermediateState === 'разрыв связи') {
+    expect(screen.getByRole('button', { name: 'Подготовить сопло' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Сопло очищено · к бумаге' })).not.toBeInTheDocument()
+  } else {
+    expect(screen.getByRole('button', { name: 'Сопло очищено · к бумаге' })).toBeEnabled()
+  }
+})
+
+it('ошибка сервисной парковки не открывает бумажную пробу', async () => {
+  const executeCommand = vi.fn<(args: ExecuteCommandArgs) => Promise<boolean>>().mockResolvedValue(false)
+  renderScreen({ initialProcedure: 'height', executeCommand })
+  await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Подготовить сопло' })))
+  expect(screen.getByRole('button', { name: 'Подготовить сопло' })).toBeDisabled()
+  expect(screen.queryByRole('button', { name: 'Сопло очищено · к бумаге' })).not.toBeInTheDocument()
+  expect(executeCommand).not.toHaveBeenCalledWith({ command: 'eddyPrimaryHeightStart' })
 })
 
 it('старый код катушки не вызывает автопереход без принятой команды, перезапуска и подтверждения', async () => {
