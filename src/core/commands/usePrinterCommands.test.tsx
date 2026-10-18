@@ -110,12 +110,14 @@ function accepted(command: ExecuteCommandArgs['command']): CommandResult {
 
 function Harness({
   context = RUNTIME_CONTEXT,
+  autoPrinterStartBlockReason = null,
   onReady,
 }: {
   context?: TreeDCommandRuntimeContext
+  autoPrinterStartBlockReason?: string | null
   onReady: (api: PrinterCommandsApi) => void
 }) {
-  const api = usePrinterCommands(context)
+  const api = usePrinterCommands(context, autoPrinterStartBlockReason)
 
   useEffect(() => {
     onReady(api)
@@ -212,6 +214,31 @@ describe('usePrinterCommands', () => {
       expect(await api!.executeCommand({ command: 'start', filename: 'jobs/benchy.gcode' })).toBe(true)
     })
     expect(runtimeMocks.execute).toHaveBeenLastCalledWith({ command: 'start', filename: 'jobs/benchy.gcode' })
+  })
+
+  it('rechecks the current AutoPrinter start guard at dispatch without blocking pause or cancel', async () => {
+    runtimeMocks.execute.mockImplementation(async (args: ExecuteCommandArgs) => success(args.command))
+    let api: PrinterCommandsApi | null = null
+    const { rerender } = render(<Harness
+      autoPrinterStartBlockReason="Состояние стола неизвестно."
+      onReady={(nextApi) => { api = nextApi }}
+    />)
+    await waitFor(() => expect(api).not.toBeNull())
+
+    await act(async () => {
+      expect(await api!.executeCommand({ command: 'start', filename: 'jobs/benchy.gcode' })).toBe(false)
+    })
+    expect(runtimeMocks.execute).not.toHaveBeenCalled()
+
+    rerender(<Harness autoPrinterStartBlockReason="Стол занят." onReady={(nextApi) => { api = nextApi }} />)
+    await act(async () => {
+      expect(await api!.executeCommand({ command: 'start', filename: 'jobs/benchy.gcode' })).toBe(false)
+      expect(api!.getLastCommandError()).toBe('Стол занят.')
+      expect(await api!.executeCommand({ command: 'pause' })).toBe(true)
+      expect(await api!.executeCommand({ command: 'cancel' })).toBe(true)
+    })
+    expect(runtimeMocks.execute).toHaveBeenNthCalledWith(1, { command: 'pause' })
+    expect(runtimeMocks.execute).toHaveBeenNthCalledWith(2, { command: 'cancel' })
   })
 
   it('coalesces repeated fan commands while a previous command is in flight', async () => {

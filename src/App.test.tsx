@@ -581,7 +581,7 @@ describe('App', () => {
   }, 10000)
 
   it('opens exclude-object modal after starting a mock print', async () => {
-    render(<App />)
+    await act(async () => { render(<App />) })
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
     fireEvent.click(screen.getAllByTestId('print-file-card')[0])
@@ -739,7 +739,7 @@ describe('App', () => {
   }, 30000)
 
   it('routes print tune speed and Z-offset controls through printer commands', async () => {
-    render(<App />)
+    await act(async () => { render(<App />) })
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
     fireEvent.click(screen.getAllByTestId('print-file-card')[0])
@@ -1214,7 +1214,7 @@ describe('App', () => {
   })
 
   it('opens print file modal and handles start and delete actions', async () => {
-    render(<App />)
+    await act(async () => { render(<App />) })
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
 
@@ -1247,7 +1247,7 @@ describe('App', () => {
   }, 20000)
 
   it('shows shared command catalog reason when print start is blocked', async () => {
-    render(<App />)
+    await act(async () => { render(<App />) })
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
     fireEvent.click(screen.getAllByTestId('print-file-card')[0])
@@ -1275,7 +1275,7 @@ describe('App', () => {
 
   it('keeps print file modal open and shows command error when print start fails', async () => {
     setMockCommandFailure('start', 'Mock: start failed')
-    render(<App />)
+    await act(async () => { render(<App />) })
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
     fireEvent.click(screen.getAllByTestId('print-file-card')[0])
@@ -1402,6 +1402,12 @@ describe('App', () => {
     expect(screen.getByTestId('settings-cloud-ai-toggle')).toBeDisabled()
     expect(screen.getByText('AI-детекция недоступна на этом принтере.')).toBeInTheDocument()
     expect(screen.getByText('Выключен')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('settings-group-autoprinter'))
+    expect(screen.getByTestId('autoprinter-panel')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Очередь' })).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Связь' }))
+    expect(screen.getByText(/владелец недоступен/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('settings-group-device'))
     expect(screen.getByRole('heading', { name: 'Об устройстве' })).toBeInTheDocument()

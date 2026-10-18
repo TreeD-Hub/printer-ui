@@ -20,6 +20,9 @@ import {
 } from './config'
 import type { UpdateReleaseResult } from './updateReleaseClient'
 import type { HostConfigConflict, HostUpdateOperation, HostUpdateTargetId } from '../core/hostUpdate'
+import type { AutoPrinterController } from '../core/store/useAutoPrinter'
+import { AutoPrinterPanel } from '../autoprinter/AutoPrinterPanel'
+import '../autoprinter/autoprinter.css'
 
 export type ConsoleHistoryItem = {
   id: string
@@ -28,6 +31,11 @@ export type ConsoleHistoryItem = {
 }
 
 export type SettingsPageProps = {
+  autoPrinter?: {
+    controller: AutoPrinterController
+    moonrakerConnected: boolean
+    onOpenDashboard: () => void
+  }
   activeSettingsGroup: SettingsGroupId
   onSettingsGroupChange: (nextGroup: SettingsGroupId) => void
   system: {
@@ -177,6 +185,7 @@ export function SettingsPage({
   updates,
   language,
   console,
+  autoPrinter,
 }: SettingsPageProps) {
   const pausedUpdateFocusRef = useModalFocus<HTMLElement>(updates.pausedUpdateTarget !== null, updates.onCancelPausedUpdate)
   const configReviewFocusRef = useModalFocus<HTMLElement>(updates.isConfigReviewOpen, updates.onCancelConfigReview)
@@ -453,6 +462,12 @@ export function SettingsPage({
                 ))}
               </div>
             </div>
+          ) : activeSettingsGroup === 'autoprinter' ? (
+            autoPrinter ? (
+              <AutoPrinterPanel {...autoPrinter} />
+            ) : (
+              <div className="settings-group-stack" role="status">Состояние AutoPrinter недоступно.</div>
+            )
           ) : activeSettingsGroup === 'cloud' ? (
             <div className="settings-group-stack">
               <header className="settings-group-head">

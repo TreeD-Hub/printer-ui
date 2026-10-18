@@ -12,6 +12,7 @@ import {
   type PrinterCommandId,
 } from './core/commands'
 import { usePrinterSnapshot } from './core/store/usePrinterSnapshot'
+import { useAutoPrinter } from './core/store/useAutoPrinter'
 import { getPrinterConnectionState } from './core/transport/types'
 import type { DashboardContainerProps } from './dashboard/DashboardContainer'
 import { DashboardStatusDock } from './dashboard/DashboardStatusDock'
@@ -108,6 +109,8 @@ function App() {
     deletePrintFile,
   } = usePrinterSnapshot()
   const connection = getPrinterConnectionState(snapshot)
+  const moonrakerConnected = connection === 'online' || connection === 'degraded'
+  const autoPrinter = useAutoPrinter(moonrakerConnected)
   const [activeScreen, setActiveScreen] = useState<ScreenId>(DEFAULT_SCREEN)
   const screenShellRef = useRef<HTMLElement | null>(null)
   const [babystepStep, setBabystepStep] = useState<number>(DEFAULT_BABYSTEP_STEP)
@@ -185,7 +188,7 @@ function App() {
     lastResult,
     executeCommand: executePrinterCommand,
     getLastCommandError,
-  } = usePrinterCommands(commandRuntimeContext)
+  } = usePrinterCommands(commandRuntimeContext, autoPrinter.manualStartBlockReason)
   const {
     executeCommand,
     transitionCommand: systemTransitionCommand,
@@ -194,12 +197,10 @@ function App() {
     refresh,
   })
   const getCommandBlockReason = useCallback(
-    (command: PrinterCommandId, args?: ExecuteCommandArgs) => getTreeDCommandBlockReason(
-      command,
-      commandRuntimeContext,
-      args,
-    ),
-    [commandRuntimeContext],
+    (command: PrinterCommandId, args?: ExecuteCommandArgs) => command === 'start'
+      ? autoPrinter.manualStartBlockReason ?? getTreeDCommandBlockReason(command, commandRuntimeContext, args)
+      : getTreeDCommandBlockReason(command, commandRuntimeContext, args),
+    [autoPrinter.manualStartBlockReason, commandRuntimeContext],
   )
   const requiresCommandConfirmation = useCallback(
     (command: PrinterCommandId) => getTreeDCommandCatalogItem(command).requiresConfirmation,
@@ -313,7 +314,7 @@ function App() {
     }
     return parsed.toLocaleTimeString('ru-RU')
   }, [snapshot.updatedAt])
-  const isRuntimeCurrent = connection === 'online' || connection === 'degraded'
+  const isRuntimeCurrent = moonrakerConnected
   const connectionLabel = CONNECTION_LABELS[connection]
   const snapshotWifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
   const snapshotWifiIpLabel = isRuntimeCurrent ? snapshot.ipAddress : '—'
@@ -970,6 +971,11 @@ function App() {
           }}
           settings={{
             ...settingsPageProps,
+            autoPrinter: {
+              controller: autoPrinter,
+              moonrakerConnected,
+              onOpenDashboard: () => setActiveScreen('dashboard'),
+            },
             systemStatus: systemStatusController,
           }}
         />

@@ -9,8 +9,15 @@ import type { HostUpdateClient, HostUpdateOperation, HostUpdateStatus } from '..
 import { TREED_V2_COREXY_V1_LIMITS, type PrinterCommandId } from '@treed/printer-logic'
 import type { PrinterSnapshot, PrinterSource, PrinterShaperResonanceReport, TransportClient } from '../src/core/transport/types'
 import { PRINT_FILE_LIBRARY } from '../src/printFiles'
+import { createMockAutoPrinterClient } from './autoprinter'
+
+export { createMockAutoPrinterClient }
 
 export const runtimeMode: PrinterSource = 'mock'
+
+export function createAutoPrinterClient() {
+  return createMockAutoPrinterClient()
+}
 
 let mockCommandFailure: { command: PrinterCommandId; message: string } | null = null
 let mockCommandOperations: ExecuteCommandArgs[] = []

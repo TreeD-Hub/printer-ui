@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '#runtime': fileURLToPath(new URL(runtimeModule, import.meta.url)),
+        '@treed/printer-logic/autoprinter': fileURLToPath(new URL('./packages/printer-logic/src/autoprinter.ts', import.meta.url)),
       },
     },
     test: {

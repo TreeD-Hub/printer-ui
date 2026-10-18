@@ -125,7 +125,10 @@ function getCurrentCommandContext(context: TreeDCommandRuntimeContext): TreeDCom
   }
 }
 
-export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
+export function usePrinterCommands(
+  runtimeContext: TreeDCommandRuntimeContext,
+  autoPrinterStartBlockReason: string | null = null,
+) {
   const [pendingCommands, setPendingCommands] = useState<PrinterPendingCommands>({})
   const [error, setError] = useState('')
   const lastErrorRef = useRef('')
@@ -139,12 +142,14 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
   const pendingConfirmationsRef = useRef<Map<PrinterCommandPendingDomain, PendingCommandConfirmation>>(new Map())
   const supersedeGenerationRef = useRef(0)
   const runtimeContextRef = useRef(runtimeContext)
+  const autoPrinterStartBlockReasonRef = useRef(autoPrinterStartBlockReason)
 
   const client = useMemo(() => {
     return createCommandClient()
   }, [])
 
   runtimeContextRef.current = runtimeContext
+  autoPrinterStartBlockReasonRef.current = autoPrinterStartBlockReason
   const pendingCommand = useMemo(() => getFirstPrinterPendingCommand(pendingCommands), [pendingCommands])
 
   const setPendingCommandForDomain = useCallback((
@@ -280,7 +285,9 @@ export function usePrinterCommands(runtimeContext: TreeDCommandRuntimeContext) {
       }
 
       const currentContext = getCurrentCommandContext(runtimeContextRef.current)
-      const blockReason = getTreeDCommandBlockReason(command, currentContext, args)
+      const blockReason = command === 'start' && autoPrinterStartBlockReasonRef.current !== null
+        ? autoPrinterStartBlockReasonRef.current
+        : getTreeDCommandBlockReason(command, currentContext, args)
       if ((command === 'start' && (activeCommandTokensRef.current.has('motion') || pendingConfirmationsRef.current.has('motion')))
         || (command === 'setDriverMode' && ['print', 'system'].some((key) => {
           const pendingDomain = key as PrinterCommandPendingDomain

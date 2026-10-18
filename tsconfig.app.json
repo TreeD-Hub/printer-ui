@@ -9,7 +9,8 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "#runtime": ["src/runtime/live.ts"]
+      "#runtime": ["src/runtime/live.ts"],
+      "@treed/printer-logic/autoprinter": ["packages/printer-logic/src/autoprinter.ts"]
     },
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
@@ -24,5 +25,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src"]
+  "include": ["src", "packages/printer-logic/src/autoprinter.ts"]
 }

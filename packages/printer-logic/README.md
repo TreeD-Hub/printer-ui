@@ -90,3 +90,9 @@ npm run build:logic
 - [Командный клиент UI](../../src/core/commands/README.md).
 - [Состояние и транспорт UI](../../src/core/README.md).
 - [Веб-стенд](../../apps/web-ui/README.md).
+
+# AutoPrinter
+
+Отдельный subpath `@treed/printer-logic/autoprinter` содержит чистые типы и
+проверку wire-ответов AutoPrinter. Сетевой клиент и React-состояние остаются в
+приложении; старый корневой export пакета не меняется.

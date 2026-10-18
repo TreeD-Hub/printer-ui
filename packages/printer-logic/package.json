@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./autoprinter": {
+      "types": "./dist/autoprinter.d.ts",
+      "import": "./dist/autoprinter.js"
     }
   },
   "files": [
