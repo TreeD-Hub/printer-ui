@@ -10,12 +10,14 @@ export interface AutoPrinterStatus {
   executionSnapshotAvailable: boolean
   current_run_id: string | null; run_state: AutoPrinterRunState | null; stop_after_current?: boolean
   ready?: boolean; blocked_reason: string | null; connection?: string; last_sync_at: string | null
-  capabilities?: { queue?: boolean; pairing?: boolean; bed_check?: boolean; bed_check_diagnostic?: boolean }
+  display_name?: string; owner_profile?: { display_name: string } | null; unlink_pending?: boolean
+  capabilities?: { queue?: boolean; pairing?: boolean; account_linking?: boolean; bed_check?: boolean; bed_check_diagnostic?: boolean }
   bed_check?: { model_version?: string; live_qualified?: boolean; last_check?: { state: string; reason: string | null; checked_at: string | null } }
 }
-export type AutoPrinterPendingType = AutoPrinterActionType | 'pairing'
+export type AutoPrinterPendingType = AutoPrinterActionType | 'pairing' | 'account_unlink'
 export interface AutoPrinterActionResult { type: AutoPrinterActionType; command_id: string | null; state: 'executed' | 'rejected' | 'uncertain'; result: { code?: string } }
-export interface AutoPrinterPairing { code: string; expires_at: string }
+export interface AutoPrinterPairing { code: string; expires_at: string; verification_url?: string }
+export type AutoPrinterUnlinkResult = AutoPrinterStatus
 
 export class AutoPrinterSchemaError extends Error {
   constructor() { super('Получен некорректный ответ AutoPrinter.'); this.name = 'AutoPrinterSchemaError' }
@@ -94,6 +96,10 @@ export function parseAutoPrinterStatus(value: unknown): AutoPrinterStatus {
   if (value.capabilities !== undefined && !record(value.capabilities)) fail()
   if (value.ready !== undefined && typeof value.ready !== 'boolean') fail()
   if (value.connection !== undefined && typeof value.connection !== 'string') fail()
+  if (value.display_name !== undefined && value.display_name !== null && typeof value.display_name !== 'string') fail()
+  if (value.owner_profile !== undefined && value.owner_profile !== null
+    && (!record(value.owner_profile) || typeof value.owner_profile.display_name !== 'string')) fail()
+  if (value.unlink_pending !== undefined && typeof value.unlink_pending !== 'boolean') fail()
   if (paired && (bindingEpoch === undefined || (bindingEpoch as number) < 1)) fail()
   if (!paired && queueAvailable
     && ((value.queue_total as number) !== 0 || queue.length > 0 || value.queue_truncated !== false)) fail()
@@ -140,7 +146,11 @@ export function parseAutoPrinterStatus(value: unknown): AutoPrinterStatus {
     current_run_id: (value.current_run_id as string | null | undefined) ?? null, run_state: (value.run_state as AutoPrinterRunState | null | undefined) ?? null,
     stop_after_current: value.stop_after_current as boolean | undefined, ready: value.ready as boolean | undefined,
     blocked_reason: (value.blocked_reason as string | null | undefined) ?? null, connection: value.connection as string | undefined, last_sync_at: (value.last_sync_at as string | null | undefined) ?? null,
-    capabilities, bed_check: bedCheck,
+    capabilities: capabilityInput ? { ...capabilities, account_linking: optionalBoolean(capabilityInput, 'account_linking') } : undefined,
+    display_name: typeof value.display_name === 'string' ? value.display_name : undefined,
+    owner_profile: value.owner_profile === null ? null : record(value.owner_profile) ? { display_name: value.owner_profile.display_name as string } : undefined,
+    unlink_pending: value.unlink_pending as boolean | undefined,
+    bed_check: bedCheck,
   }
 }
 
@@ -161,15 +171,34 @@ export function parseAutoPrinterActionResult(value: unknown): AutoPrinterActionR
 }
 export function parseAutoPrinterPairing(value: unknown): AutoPrinterPairing {
   if (!record(value)) fail()
-  if (typeof value.code !== 'string' || value.code.length < 12 || value.code.length > 128) fail()
+  const newCode = typeof value.code === 'string' && /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(value.code)
+  const legacyCode = typeof value.code === 'string' && /^[A-Z0-9]{20}$/.test(value.code)
+  if (!newCode && !legacyCode) fail()
   const expiresAt = value.expires_at
   if (!date(expiresAt) || Date.parse(expiresAt) <= Date.now()) fail()
-  return { code: value.code, expires_at: expiresAt }
+  if (newCode && value.verification_url === undefined) fail()
+  if (value.verification_url !== undefined) {
+    if (typeof value.verification_url !== 'string') fail()
+    try {
+      const url = new URL(value.verification_url)
+      const isLocalHttp = url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+      if (url.protocol !== 'https:' && !isLocalHttp) fail()
+      if (url.username || url.password || url.pathname !== '/autoprinter/connect' || url.search !== '' || url.hash !== `#code=${value.code}`) fail()
+    } catch { fail() }
+  }
+  return { code: value.code, expires_at: expiresAt, ...(typeof value.verification_url === 'string' ? { verification_url: value.verification_url } : {}) }
+}
+
+export function parseAutoPrinterUnlinkResult(value: unknown): AutoPrinterUnlinkResult {
+  const status = parseAutoPrinterStatus(value)
+  if (status.binding_state !== 'unpaired' && status.unlink_pending !== true) fail()
+  return status
 }
 
 export type AutoPrinterStartContext = { status: AutoPrinterStatus | null; availability: 'loading' | 'available' | 'unsupported' | 'error'; stale: boolean; connected: boolean }
 export function getAutoPrinterStartBlockReason(context: AutoPrinterStartContext): string | null {
   if (!context.connected) return 'Нет связи с Moonraker'
+  if (context.status?.unlink_pending === true) return 'Отвязка ожидает завершения текущей работы и связи с TreeD'
   if (context.availability === 'error' || context.stale) return 'Состояние AutoPrinter устарело или недоступно'
   if (context.availability === 'unsupported') return null
   if (context.availability === 'loading' || !context.status) return 'Проверяется состояние AutoPrinter'

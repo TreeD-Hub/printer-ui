@@ -15,6 +15,7 @@ export type SettingsGroupId =
   | 'notifications'
   | 'cloud'
   | 'autoprinter'
+  | 'account'
   | 'device'
   | 'updates'
   | 'language'
@@ -34,6 +35,7 @@ export const SETTINGS_GROUP_OPTIONS: Array<SettingsMenuOption<SettingsGroupId>> 
   { id: 'notifications', label: 'Уведомления', icon: 'statusNotification' },
   { id: 'cloud', label: 'Облако', icon: 'statusCloud' },
   { id: 'autoprinter', label: 'AutoPrinter', icon: 'menuDevice' },
+  { id: 'account', label: 'Аккаунт', icon: 'statusCloud' },
   { id: 'device', label: 'Устройство', icon: 'menuDevice' },
   { id: 'updates', label: 'Обновления', icon: 'menuUpdates' },
   { id: 'language', label: 'Язык', icon: 'menuLanguage' },

@@ -1,6 +1,6 @@
 import { moonrakerUrl } from '../../config'
-import { parseAutoPrinterActionResult, parseAutoPrinterPairing, parseAutoPrinterStatus } from '@treed/printer-logic/autoprinter'
-import type { AutoPrinterAction, AutoPrinterActionResult, AutoPrinterPairing, AutoPrinterStatus } from '@treed/printer-logic/autoprinter'
+import { parseAutoPrinterActionResult, parseAutoPrinterPairing, parseAutoPrinterStatus, parseAutoPrinterUnlinkResult } from '@treed/printer-logic/autoprinter'
+import type { AutoPrinterAction, AutoPrinterActionResult, AutoPrinterPairing, AutoPrinterStatus, AutoPrinterUnlinkResult } from '@treed/printer-logic/autoprinter'
 
 const base = '/server/treed/autoprinter'
 export class AutoPrinterClientError extends Error {
@@ -15,6 +15,7 @@ export class AutoPrinterClientError extends Error {
 export interface AutoPrinterClient {
   getStatus(signal?: AbortSignal): Promise<AutoPrinterStatus>
   pair(): Promise<AutoPrinterPairing>
+  unlinkAccount(): Promise<AutoPrinterUnlinkResult>
   control(action: AutoPrinterAction): Promise<AutoPrinterActionResult>
 }
 
@@ -45,6 +46,9 @@ export function createMoonrakerAutoPrinterClient(): AutoPrinterClient {
   return {
     async getStatus(signal) { return parse(parseAutoPrinterStatus, await request('/status', { method: 'GET' }, 5_000, signal)) },
     async pair() { return parse(parseAutoPrinterPairing, await request('/pairing', { method: 'POST' }, 35_000)) },
+    async unlinkAccount() {
+      return parse(parseAutoPrinterUnlinkResult, await request('/account/unlink', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }, 35_000))
+    },
     async control(action) {
       const body = await request('/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action) }, 35_000)
       if (typeof body !== 'object' || body === null || Array.isArray(body) || !('action_result' in body)) throw new AutoPrinterClientError('invalid-result', 'AutoPrinter не подтвердил действие.')

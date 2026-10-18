@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getAutoPrinterStartBlockReason, parseAutoPrinterActionResult, parseAutoPrinterPairing, parseAutoPrinterStatus } from '../src/autoprinter'
+import { getAutoPrinterStartBlockReason, parseAutoPrinterActionResult, parseAutoPrinterPairing, parseAutoPrinterStatus, parseAutoPrinterUnlinkResult } from '../src/autoprinter'
 
 const status = (overrides: Record<string, unknown> = {}) => ({ enabled: true, configured: true, binding_state: 'paired', binding_epoch: 1, protocol_version: 1, configuration_version: 1, execution_enabled: false, physical_execution_enabled: false, local_pause: false, remote_pause: false, blocked_reason: null, last_sync_at: null, queue: [], queue_total: 0, queue_truncated: false, ...overrides })
 describe('AutoPrinter contract', () => {
@@ -15,16 +15,26 @@ describe('AutoPrinter contract', () => {
     expect(parsed.queue[0]).toMatchObject({ series_id: null, copies_per_run: null })
   })
   it('allows normal start only after fresh unmanaged or unsupported response', () => {
-    expect(getAutoPrinterStartBlockReason({ status: parseAutoPrinterStatus(status({ enabled: false, configured: false, binding_state: 'unpaired' })), availability: 'available', stale: false, connected: true })).toBeNull()
+    expect(getAutoPrinterStartBlockReason({ status: parseAutoPrinterStatus(status({ enabled: false, configured: false, binding_state: 'unpaired', display_name: null })), availability: 'available', stale: false, connected: true })).toBeNull()
     expect(getAutoPrinterStartBlockReason({ status: null, availability: 'unsupported', stale: false, connected: true })).toBeNull()
     expect(getAutoPrinterStartBlockReason({ status: null, availability: 'unsupported', stale: true, connected: true })).not.toBeNull()
     expect(getAutoPrinterStartBlockReason({ status: parseAutoPrinterStatus(status()), availability: 'available', stale: false, connected: true })).not.toBeNull()
   })
   it('accepts an early disabled status without presenting an empty queue or idle execution', () => {
-    const legacy = parseAutoPrinterStatus({ enabled: false, configured: false, connection: 'online', protocol_version: 1, configuration_version: 1, last_sync_at: null, binding_state: 'unpaired', execution_enabled: false, physical_execution_enabled: false, queue_recovery_required: false, blocked_reason: null })
+    const legacy = parseAutoPrinterStatus({ enabled: false, configured: false, connection: 'online', display_name: null, protocol_version: 1, configuration_version: 1, last_sync_at: null, binding_state: 'unpaired', execution_enabled: false, physical_execution_enabled: false, queue_recovery_required: false, blocked_reason: null })
     expect(legacy.queueAvailable).toBe(false)
     expect(legacy.executionSnapshotAvailable).toBe(false)
     expect(legacy.ready).toBeUndefined()
+    expect(legacy.display_name).toBeUndefined()
+  })
+  it('normalizes a null printer name for disabled and fresh unpaired status', () => {
+    const disabled = parseAutoPrinterStatus(status({ enabled: false, configured: false, binding_state: 'unpaired', display_name: null }))
+    expect(disabled.display_name).toBeUndefined()
+    expect(getAutoPrinterStartBlockReason({ status: disabled, availability: 'available', stale: false, connected: true })).toBeNull()
+
+    const freshStore = parseAutoPrinterStatus(status({ enabled: true, configured: true, binding_state: 'unpaired', binding_epoch: 0, display_name: null }))
+    expect(freshStore.display_name).toBeUndefined()
+    expect(freshStore.binding_state).toBe('unpaired')
   })
   it('requires explicit current-run fields when an execution snapshot is present', () => {
     const observedAt = '2030-01-01T00:00:00Z'
@@ -38,6 +48,27 @@ describe('AutoPrinter contract', () => {
   it('validates action receipts and pairing expiry fields', () => {
     expect(parseAutoPrinterActionResult({ type: 'pause_queue', command_id: null, state: 'executed', result: {} }).state).toBe('executed')
     expect(() => parseAutoPrinterActionResult({ type: 'pause_queue', state: 'executed' })).toThrow()
-    expect(parseAutoPrinterPairing({ code: 'abcdefghijkl', expires_at: '2030-01-01T00:00:00Z' }).code).toBe('abcdefghijkl')
+    expect(parseAutoPrinterPairing({ code: 'A1B2C3D4E5F6G7H8I9J0', expires_at: '2030-01-01T00:00:00Z' }).code).toBe('A1B2C3D4E5F6G7H8I9J0')
+    expect(() => parseAutoPrinterPairing({ code: 'abcdefghijkl', expires_at: '2030-01-01T00:00:00Z' })).toThrow()
+    expect(parseAutoPrinterPairing({ code: 'ABCD2345', expires_at: '2030-01-01T00:00:00Z', verification_url: 'https://treed.example/autoprinter/connect#code=ABCD2345' }).verification_url).toContain('#code=ABCD2345')
+    expect(() => parseAutoPrinterPairing({ code: 'ABCD2345', expires_at: '2030-01-01T00:00:00Z' })).toThrow()
+    expect(() => parseAutoPrinterPairing({ code: 'ABCD2345', expires_at: '2030-01-01T00:00:00Z', verification_url: 'http://evil.example/autoprinter/connect#code=ABCD2345' })).toThrow()
+    expect(() => parseAutoPrinterPairing({ code: 'ABCD2345', expires_at: '2000-01-01T00:00:00Z' })).toThrow()
+  })
+  it('parses optional account status without breaking older cores and blocks starts during unlink', () => {
+    const legacy = parseAutoPrinterStatus(status())
+    expect(legacy.owner_profile).toBeUndefined()
+    expect(legacy.capabilities?.account_linking).toBeUndefined()
+    const pending = parseAutoPrinterStatus(status({ display_name: 'Printer', owner_profile: { display_name: 'Account' }, unlink_pending: true, capabilities: { account_linking: true } }))
+    expect(pending).toMatchObject({ display_name: 'Printer', owner_profile: { display_name: 'Account' }, unlink_pending: true, capabilities: { account_linking: true } })
+    expect(getAutoPrinterStartBlockReason({ status: pending, availability: 'available', stale: false, connected: true })).toMatch(/отвязк/i)
+    expect(getAutoPrinterStartBlockReason({ status: pending, availability: 'unsupported', stale: false, connected: true })).toMatch(/отвязк/i)
+    expect(() => parseAutoPrinterStatus(status({ owner_profile: { display_name: 12 } }))).toThrow()
+  })
+  it('accepts only a full pending or finalized unlink status', () => {
+    expect(parseAutoPrinterUnlinkResult(status({ unlink_pending: true }))).toMatchObject({ binding_state: 'paired', unlink_pending: true })
+    expect(parseAutoPrinterUnlinkResult(status({ binding_state: 'unpaired', binding_epoch: 2, queue_total: 0, queue: [], queue_truncated: false }))).toMatchObject({ binding_state: 'unpaired' })
+    expect(() => parseAutoPrinterUnlinkResult(status())).toThrow()
+    expect(() => parseAutoPrinterUnlinkResult({ status: 'pending' })).toThrow()
   })
 })

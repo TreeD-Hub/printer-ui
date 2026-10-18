@@ -39,4 +39,26 @@ describe('Moonraker AutoPrinter client HTTP boundary', () => {
       result: {},
     })
   })
+
+  it('posts the local unlink intent and requires a pending or finalized full status', async () => {
+    const status = {
+      enabled: true, configured: true, binding_state: 'paired', binding_epoch: 1,
+      protocol_version: 1, configuration_version: 1, execution_enabled: true,
+      physical_execution_enabled: false, local_pause: false, remote_pause: false,
+      blocked_reason: null, last_sync_at: null, queue: [], queue_total: 0,
+      queue_truncated: false, unlink_pending: true,
+    }
+    respond(200, status)
+    const client = createMoonrakerAutoPrinterClient()
+
+    await expect(client.unlinkAccount()).resolves.toMatchObject({ binding_state: 'paired', unlink_pending: true })
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/server/treed/autoprinter/account/unlink'), expect.objectContaining({
+      method: 'POST',
+      body: '{}',
+      headers: { 'Content-Type': 'application/json' },
+    }))
+
+    respond(200, { ...status, unlink_pending: false })
+    await expect(client.unlinkAccount()).rejects.toMatchObject({ kind: 'invalid-result' })
+  })
 })

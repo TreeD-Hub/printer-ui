@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { describeAutoPrinterReason, describeAutoPrinterState, type AutoPrinterActionType } from '@treed/printer-logic/autoprinter'
-import { useModalFocus } from '../ui'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 
 type AutoPrinterPanelProps = {
@@ -52,12 +51,9 @@ function resultLabel(state: NonNullable<AutoPrinterController['lastAction']>['st
 
 export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboard }: AutoPrinterPanelProps) {
   const [view, setView] = useState<View>('queue')
-  const [isPairingOpen, setPairingOpen] = useState(false)
-  const [isRequestingPairing, setRequestingPairing] = useState(false)
-  const dialogRef = useModalFocus<HTMLElement>(isPairingOpen, () => setPairingOpen(false))
-  const { status, availability, stale, error, pending, lastAction, pairing } = controller
+  const { status, availability, stale, error, pending, lastAction } = controller
   const isCurrent = availability === 'available' && !stale && status !== null
-  const isManaged = isCurrent && status.enabled && status.configured && status.binding_state === 'paired'
+  const isManaged = isCurrent && status.enabled && status.configured && status.binding_state === 'paired' && status.unlink_pending !== true
   const activeRun = status?.current_run_id === null || status?.current_run_id === undefined
     ? null
     : status.queue.find((run) => run.run_id === status.current_run_id) ?? null
@@ -67,14 +63,12 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
   const now = Date.now()
 
   const run = (type: AutoPrinterActionType) => { void controller.control(type) }
-  const requestPairing = async () => {
-    setRequestingPairing(true)
-    try { await controller.requestPairing() } finally { setRequestingPairing(false) }
-  }
   const pendingLabel = pending === null
     ? null
     : pending.type === 'pairing'
       ? 'Получение кода привязки'
+      : pending.type === 'account_unlink'
+        ? 'Сохранение запроса на отвязку'
       : PENDING_LABELS[pending.type as AutoPrinterActionType]
   const pendingText = pendingLabel === null ? null : `${pendingLabel}…`
   const feedback = pendingText ?? (lastAction === null ? null : `${resultLabel(lastAction.state)}${lastAction.message ? ` ${lastAction.message}` : ''}`)
@@ -141,12 +135,9 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
         <div className="autoprinter-body autoprinter-connection">
           <p><span>Состояние системы</span><strong>{stateLabel(availability, stale)}</strong></p>
           <p><span>Управление очередью</span><strong>{!isCurrent ? 'Нет свежих данных' : isManaged ? 'Активно' : 'Не активно'}</strong></p>
-          <p><span>Привязка · владелец</span><strong>{!isCurrent ? 'Последние данные: привязка неизвестна' : `${status?.binding_state === 'paired' ? 'Привязано' : status?.binding_state === 'revoked' ? 'Отозвана' : status?.binding_state === 'unpaired' ? 'Не привязано' : 'Нет данных'} · владелец недоступен`}</strong></p>
+          <p><span>Привязка</span><strong>{!isCurrent ? 'Последние данные: привязка неизвестна' : `${status?.binding_state === 'paired' ? 'Привязано' : status?.binding_state === 'revoked' ? 'Отозвана' : status?.binding_state === 'unpaired' ? 'Не привязано' : 'Нет данных'}${status?.unlink_pending ? ' · ожидает отвязки' : ''}`}</strong></p>
           <p><span>Стол</span><strong>{status === null || availability !== 'available' || stale ? 'Состояние стола неизвестно' : `${bedLabel(status, now)} · ${bedCheckedAt(status)}`}</strong></p>
           <div className="autoprinter-inline-actions">
-            <button type="button" disabled={!isCurrent || isRequestingPairing || pending !== null || status?.binding_state === 'paired' || status?.capabilities?.pairing !== true} onClick={() => { setPairingOpen(true); void requestPairing() }}>
-              Получить код привязки
-            </button>
             <button type="button" disabled={!isCurrent || pending !== null || status?.capabilities?.bed_check_diagnostic !== true} onClick={() => run('recheck_bed')}>
               Повторить проверку стола
             </button>
@@ -163,17 +154,6 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
         </button>
       </footer>
 
-      {isPairingOpen && (
-        <div className="autoprinter-dialog-layer" role="presentation" onClick={() => setPairingOpen(false)}>
-          <section ref={dialogRef} className="autoprinter-dialog" role="dialog" aria-modal="true" aria-labelledby="autoprinter-pairing-title" onClick={(event) => event.stopPropagation()}>
-            <header><h3 id="autoprinter-pairing-title">Привязка устройства</h3><button type="button" data-modal-initial-focus onClick={() => setPairingOpen(false)}>Закрыть</button></header>
-            {pairing ? <><strong className="autoprinter-pair-code">{pairing.code}</strong><p>Код действует до {new Date(pairing.expires_at).toLocaleTimeString('ru-RU')}</p><p>Создание кода не подтверждает привязку.</p></> : <p>{error ?? (pending?.type === 'pairing' ? 'Получаем код…' : 'Код отсутствует или истёк.')}</p>}
-            <button type="button" disabled={isRequestingPairing || pending !== null || status?.capabilities?.pairing !== true} onClick={() => void requestPairing()}>
-              {pairing ? 'Обновить код' : 'Получить новый код'}
-            </button>
-          </section>
-        </div>
-      )}
     </section>
   )
 }

@@ -1,0 +1,46 @@
+.settings-content-shell:has(.account-panel) { padding: 0; overflow: hidden; }
+.account-panel {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+  padding: 24px;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-ui);
+}
+.account-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.account-head h2 { margin: 0; font-size: 22px; font-weight: 400; }
+.account-head p { margin: 4px 0 0; color: var(--color-text-soft); font-size: 14px; }
+.account-head > span { color: var(--color-text-soft); font-size: 14px; }
+.account-content { min-height: 0; display: grid; grid-auto-rows: min-content; align-content: center; gap: 12px; }
+.account-notice { margin: 0; font-size: 16px; }
+.account-error { color: var(--color-error); }
+.account-pairing { min-height: 0; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 1.15fr); align-items: center; gap: 24px; }
+.account-qr-area { display: grid; place-items: center; min-width: 0; }
+.account-qr-area > p { max-width: 280px; margin: 0; color: var(--color-text-soft); text-align: center; }
+.account-qr { box-sizing: content-box; width: 208px; height: 208px; display: grid; place-items: center; padding: 8px; background: #fff; }
+.account-qr svg { display: block; width: 208px; height: 208px; }
+.account-pairing-copy { min-width: 0; display: grid; justify-items: start; gap: 12px; }
+.account-pairing-copy h3 { margin: 0; font-size: 20px; font-weight: 400; }
+.account-pairing-copy p { max-width: 420px; margin: 0; font-size: 14px; line-height: 1.4; }
+.account-code { max-width: 100%; overflow-wrap: anywhere; font-family: var(--font-family-mono); font-size: 30px; font-weight: 400; letter-spacing: 0.08em; user-select: text; }
+.account-pairing-copy .account-expiry { color: var(--color-text-soft); }
+.account-panel button { min-width: 48px; min-height: 56px; padding: 0 16px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; font-size: 16px; }
+.account-panel button:focus-visible { outline: 2px solid var(--color-primary-light); outline-offset: 2px; }
+.account-panel button:disabled { color: var(--color-text-soft); }
+.account-panel button.account-danger { border-color: var(--color-error); color: var(--color-error); }
+.account-details { max-width: 680px; display: grid; justify-items: start; gap: 20px; }
+.account-details > div { display: grid; gap: 4px; }
+.account-details span { color: var(--color-text-soft); font-size: 14px; }
+.account-details strong { overflow-wrap: anywhere; font-size: 20px; font-weight: 400; }
+.account-details p { max-width: 580px; margin: 0; font-size: 14px; line-height: 1.4; }
+.account-pending { color: var(--color-warning); }
+.account-offline { color: var(--color-text-soft); }
+.account-dialog-layer { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: var(--color-overlay); }
+.account-dialog { box-sizing: border-box; width: min(100%, 520px); display: grid; gap: 16px; padding: 24px; border: 1px solid var(--color-border-default); border-radius: var(--radius-panel); background: var(--color-block-surface); }
+.account-dialog h3 { margin: 0; font-size: 20px; font-weight: 400; }
+.account-dialog p { margin: 0; font-size: 16px; line-height: 1.4; }
+.account-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }

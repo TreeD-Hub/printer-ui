@@ -22,6 +22,7 @@ import type { UpdateReleaseResult } from './updateReleaseClient'
 import type { HostConfigConflict, HostUpdateOperation, HostUpdateTargetId } from '../core/hostUpdate'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 import { AutoPrinterPanel } from '../autoprinter/AutoPrinterPanel'
+import { AccountPanel } from '../autoprinter/AccountPanel'
 import '../autoprinter/autoprinter.css'
 
 export type ConsoleHistoryItem = {
@@ -467,6 +468,12 @@ export function SettingsPage({
               <AutoPrinterPanel {...autoPrinter} />
             ) : (
               <div className="settings-group-stack" role="status">Состояние AutoPrinter недоступно.</div>
+            )
+          ) : activeSettingsGroup === 'account' ? (
+            autoPrinter ? (
+              <AccountPanel controller={autoPrinter.controller} />
+            ) : (
+              <div className="settings-group-stack" role="status">Состояние аккаунта недоступно.</div>
             )
           ) : activeSettingsGroup === 'cloud' ? (
             <div className="settings-group-stack">
