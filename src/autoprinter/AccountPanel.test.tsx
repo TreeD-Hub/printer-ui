@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 import { AccountPanel } from './AccountPanel'
@@ -86,6 +86,29 @@ describe('AccountPanel', () => {
     render(<AccountPanel controller={controller({ status: unpaired, stale: true, pairing })} />)
     expect(screen.queryByRole('img', { name: 'QR-код для привязки аккаунта TreeD' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Получить код' })).toBeDisabled()
+  })
+
+  it('hides the code and QR when pairing expires without a controller update', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))
+    const api = controller({
+      status: { ...controller().status!, binding_state: 'unpaired', capabilities: { account_linking: true } },
+      pairing: {
+        code: 'ABCD2345',
+        expires_at: '2030-01-01T00:00:01Z',
+        verification_url: 'https://treed.example/autoprinter/connect#code=ABCD2345',
+      },
+    })
+    const view = render(<AccountPanel controller={api} />)
+    try {
+      expect(screen.getByRole('img', { name: 'QR-код для привязки аккаунта TreeD' })).toBeInTheDocument()
+      act(() => vi.advanceTimersByTime(1_000))
+      expect(screen.queryByRole('img', { name: 'QR-код для привязки аккаунта TreeD' })).not.toBeInTheDocument()
+      expect(screen.queryByText('ABCD-2345')).not.toBeInTheDocument()
+    } finally {
+      view.unmount()
+      vi.useRealTimers()
+    }
   })
 
   it('hides owner data and actions while a revoked account waits for unlink', () => {

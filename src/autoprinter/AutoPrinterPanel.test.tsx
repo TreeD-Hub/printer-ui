@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { AutoPrinterStatus } from '@treed/printer-logic/autoprinter'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
@@ -67,6 +67,26 @@ describe('AutoPrinterPanel', () => {
     expect(screen.getByText('Эта версия системы не поддерживает AutoPrinter.')).toBeInTheDocument()
     expect(screen.queryByText('В очереди нет запусков.')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Приостановить очередь' })).toBeDisabled()
+  })
+
+  it('stops showing a qualified empty bed when its check expires without a status update', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2030-01-01T00:00:00Z'))
+    const api = controller({ status: {
+      ...status,
+      capabilities: { ...status.capabilities, bed_check: true },
+      bed_check: { live_qualified: true, last_check: { state: 'empty', reason: null, checked_at: '2030-01-01T00:00:00Z' } },
+    } })
+    const view = render(<AutoPrinterPanel controller={api} moonrakerConnected onOpenDashboard={vi.fn()} />)
+    try {
+      expect(screen.getByText('Стол свободен · квалифицировано')).toBeInTheDocument()
+      act(() => vi.advanceTimersByTime(31_000))
+      expect(screen.queryByText('Стол свободен · квалифицировано')).not.toBeInTheDocument()
+      expect(screen.getByText('Состояние стола неизвестно')).toBeInTheDocument()
+    } finally {
+      view.unmount()
+      vi.useRealTimers()
+    }
   })
 
   it('calls the bed empty only with a qualified, fresh empty check', () => {

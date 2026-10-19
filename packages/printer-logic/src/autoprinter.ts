@@ -170,9 +170,9 @@ export function parseAutoPrinterActionResult(value: unknown): AutoPrinterActionR
   }
 }
 export function parseAutoPrinterPairing(value: unknown): AutoPrinterPairing {
-  if (!record(value)) fail()
-  const newCode = typeof value.code === 'string' && /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(value.code)
-  const legacyCode = typeof value.code === 'string' && /^[A-Z0-9]{20}$/.test(value.code)
+  if (!record(value) || typeof value.code !== 'string') fail()
+  const newCode = /^[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(value.code)
+  const legacyCode = /^[A-Z0-9]{20}$/.test(value.code)
   if (!newCode && !legacyCode) fail()
   const expiresAt = value.expires_at
   if (!date(expiresAt) || Date.parse(expiresAt) <= Date.now()) fail()

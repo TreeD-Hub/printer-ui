@@ -1407,7 +1407,7 @@ describe('App', () => {
     expect(screen.getByTestId('autoprinter-panel')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Очередь' })).toHaveAttribute('aria-pressed', 'true')
     fireEvent.click(screen.getByRole('button', { name: 'Связь' }))
-    expect(screen.getByText(/владелец недоступен/i)).toBeInTheDocument()
+    expect(screen.getByText('Не привязано')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('settings-group-device'))
     expect(screen.getByRole('heading', { name: 'Об устройстве' })).toBeInTheDocument()

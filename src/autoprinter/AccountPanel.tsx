@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 import { useModalFocus } from '../ui'
+import { useCurrentTime } from './useCurrentTime'
 import './account.css'
 
 type AccountPanelProps = {
@@ -21,6 +22,7 @@ function pairingCodeLabel(code: string): string {
 
 export function AccountPanel({ controller }: AccountPanelProps) {
   const [isConfirmOpen, setConfirmOpen] = useState(false)
+  const now = useCurrentTime()
   const dialogRef = useModalFocus<HTMLElement>(isConfirmOpen, () => setConfirmOpen(false))
   const { status, availability, stale, error, pending, pairing } = controller
   const isCurrent = availability === 'available' && !stale && status !== null
@@ -32,7 +34,7 @@ export function AccountPanel({ controller }: AccountPanelProps) {
   const canUnlink = accountLinkingAvailable
     && (status.binding_state === 'paired' || status.binding_state === 'revoked')
     && status.unlink_pending !== true && pending === null
-  const pairingIsFresh = isCurrent && pairing !== null && Date.parse(pairing.expires_at) > Date.now()
+  const pairingIsFresh = isCurrent && pairing !== null && Date.parse(pairing.expires_at) > now
 
   return (
     <section className="account-panel" aria-labelledby="account-title" data-testid="account-panel">

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { describeAutoPrinterReason, describeAutoPrinterState, type AutoPrinterActionType } from '@treed/printer-logic/autoprinter'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
+import { useCurrentTime } from './useCurrentTime'
 
 type AutoPrinterPanelProps = {
   controller: AutoPrinterController
@@ -60,7 +61,7 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
   const upcomingRuns = status?.queue.filter((run) => run.run_id !== status.current_run_id && run.state === 'queued') ?? []
   const activeState = status?.run_state ?? activeRun?.state ?? null
   const activeStateKnown = status?.executionSnapshotAvailable === true
-  const now = Date.now()
+  const now = useCurrentTime()
 
   const run = (type: AutoPrinterActionType) => { void controller.control(type) }
   const pendingLabel = pending === null

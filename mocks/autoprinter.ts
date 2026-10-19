@@ -21,6 +21,14 @@ export function createMockAutoPrinterClient(scenario: AutoPrinterMockScenario = 
       if (!status.enabled || !status.configured) throw new Error('Mock AutoPrinter не настроен.')
       return { code: 'MOCK-AUTOPRINTER-CODE', expires_at: new Date(Date.now() + 60_000).toISOString() }
     },
+    async unlinkAccount() {
+      if (scenario === 'offline') throw new Error('Mock AutoPrinter офлайн.')
+      if (status.binding_state === 'unpaired') return status
+      status = status.current_run_id === null
+        ? { ...status, binding_state: 'unpaired', binding_epoch: status.binding_epoch + 1, unlink_pending: false, owner_profile: null, display_name: undefined }
+        : { ...status, unlink_pending: true }
+      return status
+    },
     async control(action: AutoPrinterAction) {
       if (scenario === 'offline') throw new Error('Mock AutoPrinter офлайн.')
       const command_id = 'action_id' in action ? action.action_id : null
