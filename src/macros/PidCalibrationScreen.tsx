@@ -260,7 +260,7 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
   return (
     <article className="pid-workflow">
       <header className="pid-header">
-        <button type="button" disabled={stage === 'running' || stage === 'saving' || isStarting} onClick={onBackToList}>{stage === 'finish' ? 'Готово' : calibrationActivity ? 'Завершить' : 'К списку'}</button>
+        <button type="button" disabled={stage === 'running' || stage === 'saving' || isStarting} onClick={onBackToList}>{stage === 'finish' ? 'К списку' : calibrationActivity ? 'Завершить' : 'К списку'}</button>
         <div><p>Калибровка / PID{snapshot.source === 'mock' ? ' / Симуляция' : ''}</p><h2>{nozzle ? 'Сопло' : 'Стол'} · {target} °C</h2></div>
         <span>ШАГ {STEP[stage]} / 5</span>
       </header>
@@ -296,19 +296,18 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
         </>}
         {stage === 'result' && <><div className="pid-result">{result}</div><p>Klipper подтвердил окончание калибровки {nozzle ? 'сопла' : 'стола'} при {target} °C.</p><p>Нажмите «Сохранить», чтобы записать коэффициенты и перезапустить Klipper.</p></>}
         {stage === 'saving' && <><div className="pid-result">{result}</div><p role="status">Сохраняем коэффициенты в printer.cfg. Ожидаем перезапуск и готовность Klipper…</p></>}
-        {stage === 'finish' && <><div className="pid-result">{result}</div><p role="status">Коэффициенты сохранены. Klipper снова готов к работе.</p></>}
+        {stage === 'finish' && <><div className="pid-result">{result}</div><p role="status">Калибровка завершена успешно. Коэффициенты сохранены. Klipper снова готов к работе.</p></>}
         {stage === 'error' && <p role="alert">{error}</p>}
         {stage === 'stopped' && <p role="status">Отправлена аварийная остановка. До новой калибровки проверьте принтер и перезапустите Klipper.</p>}
         {stage !== 'error' && error && <p role="alert">{error}</p>}
       </main>
       <footer className="pid-footer" style={calibrationActivity && stage !== 'running' ? { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' } : undefined}>
-        {stage === 'running' ? <><span>Ожидаем подтверждение Klipper</span><button type="button" className="pid-danger" disabled={getCommandBlockReason('emergencyStop') !== null} onClick={() => void stop()}>Аварийная остановка</button></> : <>
-          <button type="button" disabled={isStarting || stage === 'saving'} onClick={() => stage === 'select' || stage === 'finish' || stage === 'stopped' ? onBackToList() : setStage('select')}>{stage === 'finish' ? 'Готово' : stage === 'select' || stage === 'stopped' ? 'К списку' : calibrationActivity && stage === 'error' && ready && pendingCommand === null && !busy.current ? 'Завершить' : 'Назад'}</button>
+        {stage === 'finish' ? <button type="button" onClick={onBackToList}>Завершить</button> : stage === 'running' ? <><span>Ожидаем подтверждение Klipper</span><button type="button" className="pid-danger" disabled={getCommandBlockReason('emergencyStop') !== null} onClick={() => void stop()}>Аварийная остановка</button></> : <>
+          <button type="button" disabled={isStarting || stage === 'saving'} onClick={() => stage === 'select' || stage === 'stopped' ? onBackToList() : setStage('select')}>{stage === 'select' || stage === 'stopped' ? 'К списку' : calibrationActivity && stage === 'error' && ready && pendingCommand === null && !busy.current ? 'Завершить' : 'Назад'}</button>
           {stage === 'select' && <button type="button" onClick={() => setStage('prepare')}>Далее →</button>}
           {stage === 'prepare' && <button type="button" disabled={block !== null || isStarting} onClick={() => void start()}>{isStarting ? 'Устанавливаем обдув…' : 'Запустить калибровку'}</button>}
           {stage === 'result' && <button type="button" disabled={saveBlock !== null} onClick={() => void save()}>Сохранить</button>}
           {stage === 'saving' && <button type="button" disabled>Сохранение…</button>}
-          {stage === 'finish' && <button type="button" onClick={() => { setStage('select'); setResult(null) }}>Другой нагреватель</button>}
           {stage === 'error' && <button type="button" onClick={() => setStage('prepare')}>Проверить и повторить</button>}
           {calibrationActivity && stage !== 'stopped' && <button type="button" className="pid-danger" disabled={getCommandBlockReason('emergencyStop') !== null} onClick={() => void stop()}>Аварийная остановка</button>}
         </>}

@@ -131,7 +131,7 @@ test('четыре винта → карта → сохранение → пер
   await expect(mesh).not.toHaveAttribute('data-yaw', '330')
   await page.getByRole('button', { name: 'Сброс вида', exact: true }).click()
   await expect(mesh).toHaveAttribute('data-yaw', '315')
-  await expect(page.getByRole('status')).toHaveText('Карта сохранена.', { timeout: 15_000 })
+  await expect(page.getByRole('status')).toHaveText('Карта сохранена. Калибровка завершена успешно.', { timeout: 15_000 })
   await page.screenshot({ path: testInfo.outputPath('mesh-fullscreen.png'), animations: 'disabled' })
   await page.getByRole('button', { name: 'Значения', exact: true }).click()
   await expect(page.getByRole('table')).toBeVisible()
@@ -145,7 +145,7 @@ test('четыре винта → карта → сохранение → пер
   await expect(page.locator('.bottom-nav')).toBeVisible()
 })
 
-test('ADXL → реальные спектры X/Y → сохранение → Готово возвращает навигацию', async ({ page }, testInfo) => {
+test('ADXL → реальные спектры X/Y → сохранение → Завершить возвращает навигацию', async ({ page }, testInfo) => {
   await openCatalog(page)
   await page.getByRole('button', { name: /^Шейпер и ADXL/ }).click()
   await expectCalibrationOpen(page)
@@ -172,9 +172,10 @@ test('ADXL → реальные спектры X/Y → сохранение → 
   await expect(recommendation).toContainText('42.2')
   await page.screenshot({ path: testInfo.outputPath('resonance-y-fullscreen.png'), animations: 'disabled' })
   await page.getByRole('button', { name: 'Сохранить и перезапустить', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Готово', exact: true })).toBeEnabled({ timeout: 15_000 })
+  await expect(page.getByRole('status').filter({ hasText: 'Калибровка завершена успешно. Настройки сохранены.' })).toBeVisible({ timeout: 15_000 })
+  await expect(page.getByRole('button', { name: 'Завершить', exact: true })).toBeEnabled({ timeout: 15_000 })
   await expectFullCalibration(page)
-  await page.getByRole('button', { name: 'Готово', exact: true }).click()
+  await page.getByRole('button', { name: 'Завершить', exact: true }).click()
   await expect(page.locator('.bottom-nav')).toBeVisible()
   await expect(page.getByTestId('calibration-catalog')).toBeVisible()
 })

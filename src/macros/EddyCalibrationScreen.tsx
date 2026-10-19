@@ -260,8 +260,8 @@ export function EddyCalibrationScreen({
       if (completedKind === 'zOffset') setConfirmZOffsetSave(false)
       if (saveKind === 'zOffset') setZOffsetDelta(0)
       setMessage(completedKind === 'mesh'
-        ? 'Карта сохранена.'
-        : 'Настройки сохранены.')
+        ? 'Карта сохранена. Калибровка завершена успешно.'
+        : 'Настройки сохранены. Калибровка завершена успешно.')
       if (completedKind === 'mesh') setMeshCommandFinished(true)
       void refreshEddyState()
     }
@@ -276,18 +276,6 @@ export function EddyCalibrationScreen({
     }, 90_000)
     return () => window.clearTimeout(timeout)
   }, [saveKind])
-
-  useEffect(() => {
-    if (!ready || isBusy || operationUncertain || saveKind !== null) return
-    const next = procedure === 'driveCurrent' && completedSaveKind === 'driveCurrent' && snapshot.v2.eddy.calibration.driveCurrentDone && typeof eddy?.driveCurrent === 'number' && Number.isFinite(eddy.driveCurrent)
-      ? 'height'
-      : procedure === 'height' && completedSaveKind === 'height' && snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature' ? 'temperature'
-        : procedure === 'temperature' && completedSaveKind === 'temperature' && snapshot.v2.eddy.calibration.temperatureDone && snapshot.v2.eddy.calibration.activeStep === 'z0' ? 'z0' : null
-    if (next === null) return
-    setMessage('')
-    setDetailsVisible(false)
-    setProcedure(next)
-  }, [procedure, completedSaveKind, snapshot.v2.eddy.calibration.driveCurrentDone, eddy?.driveCurrent, snapshot.v2.eddy.calibration.primaryDone, snapshot.v2.eddy.calibration.temperatureDone, snapshot.v2.eddy.calibration.activeStep, ready, isBusy, operationUncertain, saveKind])
 
   useEffect(() => {
     if (procedure !== 'temperature' || !ready) return
@@ -833,29 +821,31 @@ export function EddyCalibrationScreen({
 
   function renderProcedureActions(): { primary: ReactNode; secondary: ReactNode } {
     const actions = (primary: ReactNode, secondary: ReactNode = null) => ({ primary, secondary })
-    const next = (label: string, destination: ProcedureId) => <button type="button" className="eddy-btn is-primary" disabled={backBlocked || !ready || blockCalibration !== null} onClick={() => openProcedure(destination)}>{label}</button>
-    const done = <button type="button" className="eddy-btn is-primary" disabled={backBlocked} onClick={() => { setPipelineActive(false); openProcedure('overview') }}>Готово</button>
+    const next = (label: string, destination: ProcedureId) => <button type="button" className="eddy-btn is-secondary" disabled={backBlocked || !ready || blockCalibration !== null} onClick={() => openProcedure(destination)}>{label}</button>
+    const done = <button type="button" className="eddy-btn is-primary" disabled={backBlocked} onClick={() => { setPipelineActive(false); activityCallbackRef.current?.(false); onBackToList() }}>Завершить</button>
     if (procedure === 'overview') return actions(<button type="button" className="eddy-btn is-primary" disabled={isBusy || operationUncertain || saveKind !== null || !ready || visibleBlockReason !== null} title={visibleBlockReason ?? undefined} onClick={() => openProcedure(recommendation)}>{recommendation === 'driveCurrent' ? 'Начать калибровку' : `Продолжить: ${PROCEDURES.find((item) => item.id === recommendation)?.title}`}</button>)
     if (procedure === 'mesh' && saveKind === 'mesh') return actions(<button type="button" className="eddy-btn is-primary" disabled>Сохранение карты…</button>)
     if (saveKind !== null) return actions(<button type="button" className="eddy-btn is-primary" disabled>Сохранение…</button>)
     switch (procedure) {
       case 'driveCurrent':
-        return actions(driveCurrentConfirmed ? next('Далее: высота по бумаге', 'height') : commandButton('Настроить ток катушки', { command: 'eddyDriveCurrentCalibrate' }, { primary: true, reason: blockCalibration, onClick: () => void beginSave('driveCurrent', { command: 'eddyDriveCurrentCalibrate' }) }))
+        if (driveCurrentConfirmed) return actions(done, next('Далее: высота по бумаге', 'height'))
+        return actions(commandButton('Настроить ток катушки', { command: 'eddyDriveCurrentCalibrate' }, { primary: true, reason: blockCalibration, onClick: () => void beginSave('driveCurrent', { command: 'eddyDriveCurrentCalibrate' }) }))
       case 'height':
-        if (completedSaveKind === 'height' && snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature') return actions(next('Далее: температурная серия', 'temperature'))
+        if (completedSaveKind === 'height') return actions(done, snapshot.v2.eddy.calibration.primaryDone && snapshot.v2.eddy.calibration.activeStep === 'temperature' ? next('Далее: температурная серия', 'temperature') : null)
         return actions(activeManualSession
           ? commandButton('Принять высоту и сохранить', { command: 'eddyPrimaryAcceptSave' }, { primary: true, reason: blockCalibration, onClick: () => void beginSave('height', { command: 'eddyPrimaryAcceptSave' }) })
           : !heightNozzlePrepared
             ? commandButton('Подготовить сопло', { command: 'serviceMode' }, { primary: true, reason: blockCalibration, onClick: () => void prepareHeightNozzle() })
             : commandButton('Сопло очищено · к бумаге', { command: 'eddyPrimaryHeightStart' }, { primary: true, blocked: !allAxesHomed, reason: blockCalibration }))
       case 'temperature':
+        if (completedSaveKind === 'temperature') return actions(done, snapshot.v2.eddy.calibration.activeStep === 'z0' ? next('Далее: Z0', 'z0') : null)
         return activeTemperatureSession
           ? actions(activeManualSession
             ? commandButton('Подтвердить зазор', { command: 'eddyTemperatureAccept' }, { primary: true, reason: temperatureAcceptReason })
             : <button type="button" className="eddy-btn is-primary" disabled>{temperatureCooling ? 'Охлаждение до 40 °C…' : temperatureSeriesFinished ? temperatureCompletionIssue === null ? 'Сохранение…' : 'Серия остановлена' : 'Ожидаем бумажный замер…'}</button>)
           : actions(commandButton('Начать температурную серию', { command: 'eddyTemperatureStart' }, { primary: true, reason: blockCalibration }))
       case 'z0':
-        if (z0Confirmed) return actions(next('Далее: винты стола', 'screws'))
+        if (z0Confirmed) return actions(done, next('Далее: винты стола', 'screws'))
         return actions(commandButton('Проверить Z0', { command: 'eddyCheckZ0' }, { primary: true, blocked: z0Running || z0CommandAccepted && !z0Confirmed || blockCalibration !== null, reason: blockCalibration ?? getCommandBlockReason('eddyCheckZ0'), onClick: () => void runProbe('eddyCheckZ0') }))
       case 'offsets':
         if (completedSaveKind === 'zOffset') return actions(done)
@@ -863,14 +853,14 @@ export function EddyCalibrationScreen({
           ? actions(commandButton('Сохранить и перезапустить', { command: 'eddyZOffsetSave' }, { primary: true, reason: zOffsetSaveReason, onClick: () => void beginSave('zOffset', { command: 'eddyZOffsetSave' }) }))
           : actions(<button type="button" className="eddy-btn is-primary" disabled={zOffsetSaveReason !== null || isBusy || operationUncertain} title={operationUncertain ? 'Операция принтера остаётся неопределённой.' : zOffsetSaveReason ?? undefined} onClick={() => setConfirmZOffsetSave(true)}>Сохранить смещение Z</button>)
       case 'accuracy':
-        if (accuracyResult !== null && !accuracyRunning) return actions(done, commandButton('Повторить замер', { command: 'eddyProbeAccuracy' }, { secondary: true, blocked: !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => { setAccuracyResult(null); void runProbe('eddyProbeAccuracy') } }))
+        if (accuracyResult !== null && !accuracyRunning) return actions(done)
         return actions(commandButton('Проверить повторяемость', { command: 'eddyProbeAccuracy' }, { primary: true, blocked: accuracyRunning || !accuracyCapability || blockCalibration !== null, reason: commandReason({ command: 'eddyProbeAccuracy' }, accuracyCapability) ?? blockCalibration, onClick: () => void runProbe('eddyProbeAccuracy') }))
       case 'screws':
-        if (screwsConfirmed) return actions(commandButton('Измерить и сохранить', meshScanArgs, { primary: true, blocked: backBlocked || blockCalibration !== null, reason: blockCalibration ?? commandReason(meshScanArgs), onClick: () => { if (backBlocked || blockCalibration !== null || commandReason(meshScanArgs) !== null) return; openProcedure('mesh'); void runMeshScan() } }))
+        if (screwsConfirmed) return actions(done, commandButton('Измерить и сохранить', meshScanArgs, { secondary: true, blocked: backBlocked || blockCalibration !== null, reason: blockCalibration ?? commandReason(meshScanArgs), onClick: () => { if (backBlocked || blockCalibration !== null || commandReason(meshScanArgs) !== null) return; openProcedure('mesh'); void runMeshScan() } }))
         if (!screwsFresh) return actions(commandButton('Измерить винты', { command: 'eddyScrewsTiltStart' }, { primary: true, reason: blockCalibration, onClick: () => void runScrewsMeasurement() }))
         return actions(commandButton('Проверить выравнивание', { command: 'eddyScrewsTiltDone' }, { primary: true, blocked: !screwsFresh || screws?.error !== false || screws.results.length < 4, reason: !screwsFresh ? 'Нужен принятый повторный замер с четырьмя обновлёнными точками.' : screws?.error !== false ? 'Проверьте ошибки винтового замера.' : null, onClick: () => void finishScrews() }), commandButton('Измерить винты', { command: 'eddyScrewsTiltStart' }, { secondary: true, reason: blockCalibration, onClick: () => void runScrewsMeasurement() }))
       case 'mesh':
-        if (meshCommandFinished && snapshot.v2.eddy.calibration.meshDone && snapshot.v2.eddy.calibration.requiredDone) return actions(next('Далее: первый слой', 'firstLayer'))
+        if (meshCommandFinished) return actions(done, snapshot.v2.eddy.calibration.meshDone && snapshot.v2.eddy.calibration.requiredDone ? next('Далее: первый слой', 'firstLayer') : null)
         if (meshScanHasNewMatrix) return actions(commandButton('Повторить сохранение и перезапустить', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }, { primary: true, blocked: saveKind !== null || blockCalibration !== null, reason: blockCalibration, onClick: () => { setMeshSaveTarget(probedMatrix); void beginSave('mesh', { command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' }) } }), commandButton('Повторить сканирование', meshScanArgs, { secondary: true, reason: blockCalibration, onClick: () => void runMeshScan() }))
         return actions(commandButton('Измерить и сохранить', meshScanArgs, { primary: true, blocked: saveKind !== null, reason: blockCalibration, onClick: () => void runMeshScan() }))
       case 'firstLayer':
@@ -907,7 +897,7 @@ export function EddyCalibrationScreen({
               : procedure === 'overview'
                 ? 'Состояние принтера'
                 : procedureCompleted
-                  ? 'Результат подтверждён'
+                  ? 'Калибровка завершена успешно.'
                   : procedure === 'screws' && screwsFresh ? 'Результат замера'
                     : procedure === 'mesh' && meshScanHasNewMatrix ? 'Новый замер · не сохранено'
                     : 'Подготовка'
@@ -929,14 +919,14 @@ export function EddyCalibrationScreen({
     ? 'Принтер готовит точку измерения. Дождитесь готовности.' : visibleBlockReason
   const procedureMessageInBody = procedure !== 'overview' && Boolean(saveError || operationUncertain)
   const statusIsError = !procedureMessageInBody && Boolean(saveError || operationUncertain || procedure === 'temperature' && temperatureCompletionIssue)
-  const hideMeshStatus = procedure === 'mesh' && ready && !isBusy && !activeSession && saveKind === null
+  const hideMeshStatus = procedure === 'mesh' && !procedureCompleted && ready && !isBusy && !activeSession && saveKind === null
     && !saveError && !operationUncertain && !message && visibleStatusReason === null
   const footerActions = renderProcedureActions()
 
   return (
     <article className={joinClassNames('eddy-workflow', (procedure === 'temperature' || procedure === 'height' && activeManualSession) && 'eddy-workflow--tall-controls', hideMeshStatus && 'eddy-workflow--mesh-expanded')}>
       <header className="eddy-header">
-        <button type="button" disabled={backBlocked} onClick={onBackToList}>{pipelineActive && !backBlocked ? 'Завершить' : 'К списку'}</button>
+        <button type="button" disabled={backBlocked} onClick={onBackToList}>{!procedureCompleted && pipelineActive && !backBlocked ? 'Завершить' : 'К списку'}</button>
         <div>{snapshot.source === 'mock' && <p>Симуляция</p>}<h2>{procedure === 'overview' ? 'Обзор калибровок' : activeTitle}</h2></div>
         {emergencyActionVisible && <button type="button" className="eddy-danger" disabled={!emergencyAllowed || emergencyPending} onClick={() => setConfirmEmergency(true)}>Аварийная остановка</button>}
       </header>

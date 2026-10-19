@@ -90,3 +90,21 @@ npm run build:logic
 - [Командный клиент UI](../../src/core/commands/README.md).
 - [Состояние и транспорт UI](../../src/core/README.md).
 - [Веб-стенд](../../apps/web-ui/README.md).
+
+# AutoPrinter
+
+Отдельный subpath `@treed/printer-logic/autoprinter` содержит чистые типы и
+проверку wire-ответов AutoPrinter. Сетевой клиент и React-состояние остаются в
+приложении; старый корневой export пакета не меняется.
+
+Поля `display_name`, `owner_profile`, `unlink_pending` и capability
+`account_linking` опциональны для совместимости со старым core. Отсутствие
+профиля не доказывает отсутствие привязки. Wire-значение `display_name: null`
+нормализуется в отсутствие имени; выключенный AutoPrinter сохраняет обычный
+ручной запуск. `verification_url` в pairing-ответе
+проверяется вместе с кодом и сроком действия; новый короткий код требует
+ссылку на `/autoprinter/connect#code=...`.
+
+Общий guard ручного старта запрещает новое задание при `unlink_pending`,
+включая ожидание завершения текущей работы или восстановления связи. Он не
+меняет правила штатной паузы и отмены активной печати.

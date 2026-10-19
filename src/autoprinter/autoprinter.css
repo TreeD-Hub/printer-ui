@@ -1,0 +1,101 @@
+.settings-content-shell:has(.autoprinter-panel) { padding: 0; overflow: hidden; }
+.autoprinter-panel {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 56px 44px minmax(0, 1fr) 80px;
+  gap: 8px;
+  padding: 16px;
+  background: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-ui);
+}
+
+.autoprinter-head,
+.autoprinter-switch,
+.autoprinter-status-grid,
+.autoprinter-section-label,
+.autoprinter-run,
+.autoprinter-inline-actions,
+.autoprinter-footer,
+.autoprinter-dialog header {
+  display: flex;
+  align-items: center;
+}
+
+.autoprinter-head { justify-content: space-between; gap: 8px; }
+.autoprinter-head h2 { margin: 0; font-size: 22px; font-weight: 400; }
+.autoprinter-switch { gap: 8px; }
+.autoprinter-head-actions { display: flex; gap: 8px; }
+.autoprinter-head-action {
+  min-height: 56px;
+  max-width: 220px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-block-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 14px;
+}
+.autoprinter-switch button,
+.autoprinter-inline-actions button,
+.autoprinter-dialog button {
+  min-width: 48px;
+  min-height: 56px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-block-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 16px;
+}
+.autoprinter-switch button[aria-pressed="true"] { border-color: var(--color-primary); color: var(--color-primary-light); }
+.autoprinter-status-grid { min-width: 0; gap: 8px; }
+.autoprinter-status-grid > div {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  padding: 4px 8px;
+  border-left: 1px solid var(--color-border-subtle);
+}
+.autoprinter-status-grid span,
+.autoprinter-section-label,
+.autoprinter-current > span,
+.autoprinter-run small,
+.autoprinter-connection p span,
+.autoprinter-footer small,
+.autoprinter-next > small { color: var(--color-text-soft); font-size: 14px; }
+.autoprinter-status-grid strong { overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.autoprinter-body { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); }
+.autoprinter-queue-content { min-height: 0; display: grid; grid-template-rows: 40px minmax(0, 1fr); }
+.autoprinter-current { min-height: 0; display: flex; align-items: center; gap: 8px; overflow: hidden; border-bottom: 1px solid var(--color-border-subtle); }
+.autoprinter-current > span { flex: 0 0 auto; }
+.autoprinter-current strong { font-size: 20px; font-weight: 400; }
+.autoprinter-current small { overflow: hidden; color: var(--color-text-soft); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.autoprinter-next { min-height: 0; overflow: hidden; }
+.autoprinter-section-label { justify-content: space-between; min-height: 20px; font-size: 14px; }
+.autoprinter-next p { margin: 8px 0; font-size: 16px; }
+.autoprinter-run { min-height: 56px; gap: 12px; border-top: 1px solid var(--color-border-subtle); }
+.autoprinter-run > span { width: 24px; color: var(--color-text-soft); }
+.autoprinter-run strong { overflow: hidden; flex: 1; font-size: 14px; font-weight: 400; text-overflow: ellipsis; }
+.autoprinter-inline-actions { gap: 8px; overflow: hidden; }
+.autoprinter-inline-actions button { min-height: 56px; white-space: nowrap; }
+.autoprinter-connection { grid-template-rows: repeat(4, minmax(0, 1fr)) 56px; gap: 4px; }
+.autoprinter-connection p { display: flex; justify-content: space-between; gap: 8px; margin: 0; border-bottom: 1px solid var(--color-border-subtle); font-size: 14px; }
+.autoprinter-connection p strong { font-weight: 400; text-align: right; }
+.autoprinter-footer { position: relative; flex-direction: column; align-items: stretch; justify-content: flex-end; gap: 2px; }
+.autoprinter-footer > p { overflow: hidden; margin: 0; color: var(--color-text-primary); font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.autoprinter-footer > p[role="alert"] { color: var(--color-error); }
+.autoprinter-footer button { min-height: 56px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; font-size: 16px; }
+.autoprinter-panel button:disabled { color: var(--color-text-soft); }
+.autoprinter-panel button:focus-visible { outline: 2px solid var(--color-primary-light); outline-offset: 2px; }
+.autoprinter-dialog-layer { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: var(--color-overlay); }
+.autoprinter-dialog { width: min(100%, 520px); max-height: min(512px, 100%); overflow: auto; display: grid; gap: 16px; padding: 16px; border: 1px solid var(--color-border-default); border-radius: var(--radius-panel); background: var(--color-block-surface); }
+.autoprinter-dialog header { justify-content: space-between; gap: 8px; }
+.autoprinter-dialog h3 { margin: 0; font-size: 18px; font-weight: 400; }
+.autoprinter-dialog p { margin: 0; font-size: 14px; }
+.autoprinter-dialog button { justify-self: stretch; }
+.autoprinter-pair-code { overflow-wrap: anywhere; font-family: var(--font-family-mono); font-size: 32px; font-weight: 400; text-align: center; }

@@ -179,10 +179,10 @@ it('подтверждает shaper save после restart/disconnect толь�
   const ready = { ...offline, updatedAt: 'restart-ready', transport: { ...snapshot.transport, state: 'online' as const }, klippy: { state: 'ready' as const, message: '' }, calibration: { ...currentCalibration(snapshot), config: { savePending: false, pendingSections: [] }, shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 40, freqYHz: 40 } } }
   view.rerender(<MacrosContainer snapshot={ready} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
   await act(async () => Promise.resolve())
-  expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Завершить' })).not.toBeInTheDocument()
 
   await act(async () => { resolveSave(true); await Promise.resolve() })
-  await waitFor(() => expect(screen.getByRole('button', { name: 'Готово' })).toBeEnabled())
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Завершить' })).toBeEnabled())
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
 })
 
@@ -255,7 +255,7 @@ it.each([
   const ready = { ...restart, updatedAt: 'restart-ready', klippy: { state: 'ready' as const, message: '' }, calibration: { ...currentCalibration(snapshot), config: { savePending: false, pendingSections: [] }, shaper: { typeX: 'mzv', typeY: 'mzv', freqXHz: 40, freqYHz: 40 } } }
   view.rerender(<MacrosContainer snapshot={ready} pendingCommand={null} executeCommand={execute} refreshEddyState={vi.fn()} getCommandBlockReason={() => null} />)
   await act(async () => Promise.resolve())
-  expect(screen.queryByRole('button', { name: 'Готово' })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: 'Завершить' })).not.toBeInTheDocument()
   const expectedError = result instanceof Error ? 'RPC failed' : 'Команда не подтверждена'
   expect(screen.getAllByRole('alert').some((alert) => alert.textContent?.includes(expectedError))).toBe(true)
 })
@@ -354,7 +354,7 @@ it('повторно проверяет готовность после асин
   expect(screen.getByRole('alert')).toHaveTextContent('Нужно подключение к готовому принтеру')
 })
 
-it('удерживает активность ADXL → подготовка → результат → перезапуск до явного Готово', async () => {
+it('удерживает активность ADXL → подготовка → результат → перезапуск до явного Завершить', async () => {
   const snapshot = shaperSnapshot()
   const activity = vi.fn()
   const execute = vi.fn().mockImplementation(async (args: { command: string }) => {
@@ -376,10 +376,12 @@ it('удерживает активность ADXL → подготовка → 
   expect(activity).toHaveBeenLastCalledWith(true)
   view.rerender(<MacrosContainer snapshot={{ ...snapshot, klippy: { state: 'disconnected', message: 'restart' } }} {...props} />)
   view.rerender(<MacrosContainer snapshot={{ ...snapshot, updatedAt: 'ready-after-restart', calibration: { ...snapshot.calibration!, config: { savePending: false, pendingSections: [] } } }} {...props} />)
-  expect(await screen.findByRole('button', { name: 'Готово' })).toBeEnabled()
+  expect(await screen.findByRole('button', { name: 'Завершить' })).toBeEnabled()
+  expect(screen.getByText('Калибровка завершена успешно. Настройки сохранены.')).toHaveAttribute('role', 'status')
+  expect(screen.queryByRole('button', { name: 'Измерить резонансы' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
   expect(activity).toHaveBeenLastCalledWith(true)
-  fireEvent.click(screen.getByRole('button', { name: 'Готово' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Завершить' }))
   expect(activity).toHaveBeenLastCalledWith(false)
   expect(screen.queryByRole('button', { name: 'Аварийная остановка' })).not.toBeInTheDocument()
 })

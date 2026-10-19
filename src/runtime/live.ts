@@ -13,12 +13,17 @@ import {
   type HostUpdateClient,
 } from '../core/hostUpdate'
 import { createMoonrakerClient } from '../core/transport/moonrakerClient'
+import { createMoonrakerAutoPrinterClient } from '../core/autoprinter/client'
 import type { PrinterSource, TransportClient } from '../core/transport/types'
 
 export const runtimeMode: PrinterSource = 'live'
 
 export function createTransportClient(): TransportClient {
   return createMoonrakerClient()
+}
+
+export function createAutoPrinterClient() {
+  return createMoonrakerAutoPrinterClient()
 }
 
 export function createCommandClient(): CommandClient {
