@@ -23,6 +23,7 @@ import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 import { AutoPrinterPanel } from '../autoprinter/AutoPrinterPanel'
 import { AccountPanel } from '../autoprinter/AccountPanel'
 import '../autoprinter/autoprinter.css'
+import type { DetectionFrame, DetectionStatus } from '../core/hostDetection'
 
 export type ConsoleHistoryItem = {
   id: string
@@ -101,6 +102,11 @@ export type SettingsPageProps = {
     isBusy: boolean
     notice: string
     onAiMonitoringToggle: (checked: boolean) => void
+    detectionStatus: DetectionStatus | null
+    detectionStatusError: string | null
+    detectionFrame: DetectionFrame | null
+    isDetectionFrameBusy: boolean
+    onShowDetectionFrame: () => void
   }
   updates: {
     configConflicts: HostConfigConflict[]
@@ -443,23 +449,39 @@ export function SettingsPage({
           ) : activeSettingsGroup === 'cloud' ? (
             <div className="settings-group-stack settings-group-stack-cloud">
               <header className="settings-group-head">
-                <h3>Облако</h3>
-                <p>AI-детекция спагетти и автоматическая отмена печати.</p>
+                <h3>Локальный анализ</h3>
+                <p>Анализ кадров выполняется на принтере. При подтверждённой ошибке текущая печать ставится на паузу.</p>
               </header>
               <SettingsToggleRow
-                label="AI контроль ошибок"
+                label="Контроль ошибок печати"
                 checked={cloud.isAiMonitoringEnabled}
                 onChange={cloud.onAiMonitoringToggle}
                 testId="settings-cloud-ai-toggle"
                 disabled={!cloud.isCapabilityAvailable || cloud.isBusy}
               />
-              <h3 className="settings-cloud-heading">Состояние сервиса</h3>
+              <h3 className="settings-cloud-heading">Состояние анализа</h3>
               <article className="settings-description-card">
-                <p><span>Управление</span><strong>{cloud.isConnected ? 'Доступно' : 'Недоступно'}</strong></p>
-                <p><span>Сервис</span><strong>TreeD AI</strong></p>
-                <p><span>Режим AI</span><strong>{cloud.isAiMonitoringEnabled ? 'Включен' : 'Выключен'}</strong></p>
+                <p><span>Настройка принтера</span><strong>{cloud.isConnected ? 'Доступна' : 'Недоступна'}</strong></p>
+                <p><span>Анализ кадров</span><strong>{cloud.detectionStatus?.analysis_state === 'available' ? 'Работает' : cloud.detectionStatus?.analysis_state === 'idle' ? 'Ожидает печать' : 'Недоступен'}</strong></p>
+                {cloud.detectionStatus && <p><span>Подтверждения</span><strong>{cloud.detectionStatus.counter} / {cloud.detectionStatus.threshold}</strong></p>}
+                <p><span>Пауза печати</span><strong>{cloud.detectionStatus?.pause_state === 'confirmed' ? 'Подтверждена' : cloud.detectionStatus?.pause_state === 'requested' ? 'Ожидает подтверждения' : cloud.detectionStatus?.pause_state === 'failed' ? 'Не подтверждена' : 'Не запрошена'}</strong></p>
+                {cloud.detectionStatus?.pause_error && <p role="alert"><span>Причина</span><strong>{cloud.detectionStatus.pause_error}</strong></p>}
+                {cloud.detectionStatus?.model_version && <p><span>Модель</span><strong>{cloud.detectionStatus.model_version}</strong></p>}
               </article>
-              <p className="settings-cloud-notice" role="status">{cloud.notice}</p>
+              <p className="settings-cloud-notice" role={cloud.detectionStatusError ? 'alert' : 'status'}>{cloud.detectionStatusError ?? cloud.notice}</p>
+              {cloud.detectionStatus?.recent_frame && (
+                <div className="settings-detection-frame">
+                  <button type="button" className="settings-network-btn"
+                    onClick={cloud.onShowDetectionFrame} disabled={cloud.isDetectionFrameBusy}
+                    data-testid="settings-detection-frame-button">
+                    {cloud.isDetectionFrameBusy ? 'Получаем кадр…' : 'Показать последний кадр'}
+                  </button>
+                  {cloud.detectionFrame && <figure>
+                    <img src={`data:image/jpeg;base64,${cloud.detectionFrame.jpeg_base64}`} alt={`Кадр анализатора: ${cloud.detectionFrame.verdict}`} />
+                    <figcaption>{cloud.detectionFrame.verdict} · {cloud.detectionFrame.captured_at}</figcaption>
+                  </figure>}
+                </div>
+              )}
             </div>
           ) : activeSettingsGroup === 'device' ? (
             <div className="settings-group-stack settings-group-stack-device">

@@ -10,7 +10,7 @@
 - `commands/` - shell-side command client, hook состояния выполнения и re-export command contract.
 - `hostNetwork.ts` - Moonraker host-network client для `/server/treed/network/*` и shared host-network helpers.
 - `hostUpdate.ts` — клиент статуса и очереди обновлений, firmware inventory и сброса переопределений.
-- `hostDetection.ts` — чтение и запись настройки AI через `/server/treed/detection/settings`; UI передаёт только `enabled`, ключ классификатора в запрос не входит. Нужен Core с поддержкой endpoint.
+- `hostDetection.ts` — чтение и запись настройки локального анализа через `/server/treed/detection/settings`, опрос состояния через `/server/treed/detection/status` и получение последнего JPEG по явному запросу через `/server/treed/detection/frame`. Кадры не отправляются на сервер классификатора из UI.
 - `printFeedback.ts` — получение сессии завершённой печати и сохранение оценки через `/server/treed/print-feedback`; проверяет filename, sessionId и подтверждённую оценку. Mock-клиент хранит результат только в памяти окна.
 
 ## Контракт

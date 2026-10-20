@@ -4,7 +4,7 @@ import {
   type WifiNetworkItem,
 } from '@treed/printer-logic'
 import { runtimeMode } from '#runtime'
-import { requestAiDetectionSettings } from '../core/hostDetection'
+import { requestAiDetectionSettings, requestDetectionFrame, requestDetectionStatus, type DetectionFrame, type DetectionStatus } from '../core/hostDetection'
 import { subscribePrinterGcodeResponses, usePrinterNotifications } from '../core/store/printerNotifications'
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
@@ -151,10 +151,15 @@ export function useSettingsController({
   }))
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(runtimeMode === 'mock' && snapshot.capabilities.cloud)
   const [isCloudAiMonitoringEnabled, setIsCloudAiMonitoringEnabled] = useState<boolean>(false)
+  const [detectionStatus, setDetectionStatus] = useState<DetectionStatus | null>(null)
+  const [detectionStatusError, setDetectionStatusError] = useState<string | null>(null)
+  const [detectionFrame, setDetectionFrame] = useState<DetectionFrame | null>(null)
+  const [isDetectionFrameBusy, setIsDetectionFrameBusy] = useState(false)
   const [isAiMonitoringBusy, setIsAiMonitoringBusy] = useState(false)
   const aiToggleInFlight = useRef(false)
   const aiSettingsRevision = useRef(0)
-  const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Проверяем настройку AI-детекции...')
+  const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Проверяем настройку локального анализа...')
+  const detectionStatusInFlight = useRef(false)
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
   const [applyingUpdateTarget, setApplyingUpdateTarget] = useState<HostUpdateTargetId | null>(null)
   const [pausedUpdateTarget, setPausedUpdateTarget] = useState<HostUpdateTargetId | null>(null)
@@ -217,10 +222,10 @@ export function useSettingsController({
       ? 'Нет связи со службой Wi-Fi принтера. Проверьте соединение и повторите попытку.'
       : 'Управление Wi-Fi пока недоступно на этом принтере.'
   const cloudCapabilityNotice = runtimeMode === 'mock' && !isCloudCapabilityAvailable
-    ? 'AI-детекция недоступна на этом принтере.'
+    ? 'Локальный анализ недоступен на этом принтере.'
     : cloudConnectionNotice || (snapshot.printJob.state === 'paused'
-    ? 'На паузе автоотмена заблокирована. После продолжения серия начинается заново.'
-    : 'Порог спагетти 0,3. Отмена после трёх срабатываний подряд; нормальный кадр сбрасывает серию.')
+    ? 'Печать на паузе. После возобновления анализ начнёт новую серию.'
+    : 'Три последовательных подтверждения спагетти ставят текущую печать на паузу.')
 
   useEffect(() => {
     if (runtimeMode === 'mock') {
@@ -229,13 +234,27 @@ export function useSettingsController({
     }
     if (snapshot.transport.state !== 'online') {
       setIsCloudConnected(false)
-      setCloudConnectionNotice('Нет связи с принтером. Управление AI-детекцией недоступно.')
+      setDetectionStatus(null)
+      setDetectionStatusError('Нет связи с принтером. Локальный анализ недоступен.')
+      setCloudConnectionNotice('Нет связи с принтером. Настройка анализа недоступна.')
       return
     }
     let stopped = false
     async function refresh(): Promise<void> {
       if (aiToggleInFlight.current) return
       const revision = aiSettingsRevision.current
+      if (!detectionStatusInFlight.current) {
+        detectionStatusInFlight.current = true
+        void requestDetectionStatus().then((status) => {
+          if (stopped) return
+          setDetectionStatus(status)
+          setDetectionStatusError(null)
+        }).catch((error: unknown) => {
+          if (stopped) return
+          setDetectionStatus(null)
+          setDetectionStatusError(error instanceof Error ? error.message : 'Состояние локального анализа недоступно.')
+        }).finally(() => { detectionStatusInFlight.current = false })
+      }
       try {
         const enabled = await requestAiDetectionSettings()
         if (stopped || aiToggleInFlight.current || revision !== aiSettingsRevision.current) return
@@ -245,13 +264,25 @@ export function useSettingsController({
       } catch (error) {
         if (stopped || aiToggleInFlight.current || revision !== aiSettingsRevision.current) return
         setIsCloudConnected(false)
-        setCloudConnectionNotice(error instanceof Error ? error.message : 'Настройка AI-детекции недоступна.')
+        setCloudConnectionNotice(error instanceof Error ? error.message : 'Настройка локального анализа недоступна.')
       }
     }
     void refresh()
     const timer = window.setInterval(() => { void refresh() }, 5_000)
     return () => { stopped = true; window.clearInterval(timer) }
   }, [snapshot.transport.state])
+  async function handleShowDetectionFrame(): Promise<void> {
+    if (!detectionStatus?.recent_frame || isDetectionFrameBusy) return
+    setIsDetectionFrameBusy(true)
+    setDetectionFrame(null)
+    try {
+      setDetectionFrame(await requestDetectionFrame(detectionStatus.recent_frame))
+    } catch (error) {
+      setDetectionStatusError(error instanceof Error ? error.message : 'Последний кадр недоступен.')
+    } finally {
+      setIsDetectionFrameBusy(false)
+    }
+  }
   const updateCapabilityNotice = isUpdatesCapabilityAvailable
     ? updateNotice
     : 'Проверка обновлений недоступна в этом режиме интерфейса.'
@@ -576,13 +607,13 @@ export function useSettingsController({
     aiToggleInFlight.current = true
     aiSettingsRevision.current += 1
     setIsAiMonitoringBusy(true)
-    setCloudConnectionNotice('Сохраняем настройку AI-детекции...')
+    setCloudConnectionNotice('Сохраняем настройку локального анализа...')
     try {
       const enabled = runtimeMode === 'mock' ? nextValue : await requestAiDetectionSettings(nextValue)
       setIsCloudAiMonitoringEnabled(enabled)
       setCloudConnectionNotice('')
     } catch (error) {
-      setCloudConnectionNotice(error instanceof Error ? error.message : 'Не удалось сохранить настройку AI-детекции.')
+      setCloudConnectionNotice(error instanceof Error ? error.message : 'Не удалось сохранить настройку локального анализа.')
     } finally {
       aiToggleInFlight.current = false
       setIsAiMonitoringBusy(false)
@@ -953,6 +984,11 @@ export function useSettingsController({
       isBusy: isAiMonitoringBusy,
       notice: cloudCapabilityNotice,
       onAiMonitoringToggle: handleCloudAiMonitoringToggle,
+      detectionStatus,
+      detectionStatusError,
+      detectionFrame,
+      isDetectionFrameBusy,
+      onShowDetectionFrame: handleShowDetectionFrame,
     },
     updates: {
       configConflicts,

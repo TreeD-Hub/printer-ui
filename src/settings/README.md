@@ -6,7 +6,7 @@
 
 - `SettingsPage.tsx` — экран настроек и подключение update controls.
 - `settingsController.ts` — состояние формы, статуса и повторный опрос durable update operation через Moonraker.
-- В разделе «Облако» переключатель AI вызывает `/server/treed/detection/settings` через `hostDetection.ts` и меняется после подтверждения POST. Core сохраняет настройку на принтере; на паузе настройка сохраняется, а автоотмена блокируется. Для анализа также нужен настроенный камерный клиент и сервер классификатора.
+- В разделе «Анализ» переключатель вызывает `/server/treed/detection/settings` через `hostDetection.ts` и меняется после подтверждения POST. Статус локального анализа и автоматической паузы читается с `/server/treed/detection/status`; последний JPEG по запросу пользователя — с `/server/treed/detection/frame`. Детектор ставит текущую печать на паузу, AutoPrinter задания автоматически не отменяются.
 - `UpdateOperationScreen.tsx` и `updateOperation.css` — полноэкранное состояние операции внутри React UI.
 - `updateReleaseClient.ts` — проверка доступных UI/Core релизов и mock сценарии успеха/ошибки/отката.
 - `SystemSettingsPage.tsx`, `systemStatus.ts`, `useMoonrakerSystemStatus.tsx` — состояние хоста, сервисов и CAN-устройств.

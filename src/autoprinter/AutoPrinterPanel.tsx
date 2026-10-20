@@ -18,6 +18,7 @@ const PENDING_LABELS: Record<AutoPrinterActionType, string> = {
   pause_current_print: 'Пауза печати',
   cancel_current_print: 'Отмена печати',
   recheck_bed: 'Проверка стола',
+  cancel_package: 'Отмена оставшихся заданий',
 }
 
 function stateLabel(state: AutoPrinterController['availability'], stale: boolean): string {
@@ -55,6 +56,8 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
   const { status, availability, stale, error, pending, lastAction } = controller
   const isCurrent = availability === 'available' && !stale && status !== null
   const isManaged = isCurrent && status.enabled && status.configured && status.binding_state === 'paired' && status.unlink_pending !== true
+  const hasSeriesHold = isCurrent && (status.hold !== null || status.recovery_required)
+  const canControlLocalSeries = isCurrent && moonrakerConnected && status?.capabilities?.offline_packages_v1 === true
   const activeRun = status?.current_run_id === null || status?.current_run_id === undefined
     ? null
     : status.queue.find((run) => run.run_id === status.current_run_id) ?? null
@@ -63,7 +66,7 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
   const activeStateKnown = status?.executionSnapshotAvailable === true
   const now = useCurrentTime()
 
-  const run = (type: AutoPrinterActionType) => { void controller.control(type) }
+  const run = (type: Exclude<AutoPrinterActionType, 'cancel_package'>) => { void controller.control(type) }
   const pendingLabel = pending === null
     ? null
     : pending.type === 'pairing'
@@ -129,6 +132,28 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
               </div>
             ))}
             {isCurrent && status?.queueAvailable && status.queue_truncated && <small>Список ограничен первыми 1000 запусками.</small>}
+            {isCurrent && status.active_package && (
+              <div className="autoprinter-package-info">
+                <p>Локальный пакет v{status.active_package.version} · {status.active_package.state}</p>
+                <p>Выполнено: {status.active_package.run_count} · Осталось: {status.active_package.remaining_count}</p>
+                {(status.hold || status.recovery_required) && (
+                  <p role="alert">{status.recovery_required ? 'Требуется восстановление очереди.' : 'Серия удерживается.'}{status.hold?.reason ? ` Причина: ${status.hold.reason}` : ''}</p>
+                )}
+                <button type="button" disabled={!canControlLocalSeries || pending !== null || status.active_package.remaining_count < 1}
+                  onClick={() => { void controller.cancelRemaining() }}>
+                  {pending?.type === 'cancel_package' ? 'Отменяем…' : 'Отменить оставшиеся задания'}
+                </button>
+              </div>
+            )}
+            {isCurrent && !status.active_package && (status.hold || status.recovery_required) && (
+              <p role="alert">{status.recovery_required ? 'Требуется восстановление очереди.' : 'Очередь удерживается.'}{status.hold?.reason ? ` Причина: ${status.hold.reason}` : ''}</p>
+            )}
+            {hasSeriesHold && (
+              <button className="autoprinter-local-resume" type="button" disabled={!canControlLocalSeries || pending !== null}
+                onClick={() => run('resume_queue')}>
+                {pending?.type === 'resume_queue' ? 'Продолжаем серию…' : 'Продолжить серию'}
+              </button>
+            )}
             </div>
           </div>
         </div>
@@ -150,9 +175,9 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
         <p role={error || lastAction?.state === 'rejected' || lastAction?.state === 'uncertain' ? 'alert' : 'status'}>
           {pendingText ?? error ?? feedback ?? (status?.blocked_reason ? describeAutoPrinterReason(status.blocked_reason) : null) ?? (status?.local_pause ? 'Следующий запуск проверит условия старта.' : 'Текущая печать продолжится.')}
         </p>
-        <button type="button" disabled={!isManaged || pending !== null || status?.local_pause === null || status?.local_pause === undefined || !status?.capabilities?.queue} onClick={() => run(status?.local_pause ? 'resume_queue' : 'pause_queue')}>
+        {!hasSeriesHold && <button type="button" disabled={!isManaged || pending !== null || status?.local_pause === null || status?.local_pause === undefined || !status?.capabilities?.queue} onClick={() => run(status?.local_pause ? 'resume_queue' : 'pause_queue')}>
           {pending?.type === 'pause_queue' ? 'Приостановка…' : pending?.type === 'resume_queue' ? 'Продолжение…' : status?.local_pause ? 'Продолжить очередь' : 'Приостановить очередь'}
-        </button>
+        </button>}
       </footer>
 
     </section>

@@ -43,6 +43,28 @@ describe('AutoPrinter contract', () => {
     expect(legacy.executionSnapshotAvailable).toBe(false)
     expect(legacy.ready).toBeUndefined()
     expect(legacy.display_name).toBeUndefined()
+    expect(legacy).toMatchObject({ active_package: null, hold: null, recovery_required: false })
+  })
+  it('validates offline package status while keeping older payloads compatible', () => {
+    const packageStatus = parseAutoPrinterStatus(status({
+      active_package: { package_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', version: 2, manifest_hash: 'a'.repeat(64), state: 'active', run_count: 3, remaining_count: 4 },
+      hold: { reason: 'ai_detection', created_at: '2030-01-01T00:00:00Z', context: { frame_id: 'frame.jpg' } },
+      recovery_required: true,
+      capabilities: { offline_packages_v1: true },
+    }))
+    expect(packageStatus).toMatchObject({
+      active_package: { version: 2, run_count: 3, remaining_count: 4 },
+      hold: { reason: 'ai_detection' }, recovery_required: true,
+      capabilities: { offline_packages_v1: true },
+    })
+    for (const active_package of [
+      { package_id: 'bad', version: 1, manifest_hash: 'a'.repeat(64), state: 'active', run_count: 0, remaining_count: 1 },
+      { package_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', version: 1, manifest_hash: 'bad', state: 'active', run_count: 0, remaining_count: 1 },
+      { package_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', version: 1, manifest_hash: 'a'.repeat(64), state: 'active', run_count: -1, remaining_count: 1 },
+    ]) expect(() => parseAutoPrinterStatus(status({ active_package }))).toThrow()
+    expect(() => parseAutoPrinterStatus(status({ hold: { reason: 'ai_detection', created_at: 'bad', context: {} } }))).toThrow()
+    expect(() => parseAutoPrinterStatus(status({ recovery_required: 'true' }))).toThrow()
+    expect(() => parseAutoPrinterStatus(status({ capabilities: { offline_packages_v1: 1 } }))).toThrow()
   })
   it('normalizes a null printer name for disabled and fresh unpaired status', () => {
     const disabled = parseAutoPrinterStatus(status({ enabled: false, configured: false, binding_state: 'unpaired', display_name: null }))
@@ -64,6 +86,11 @@ describe('AutoPrinter contract', () => {
   })
   it('validates action receipts and pairing expiry fields', () => {
     expect(parseAutoPrinterActionResult({ type: 'pause_queue', command_id: null, state: 'executed', result: {} }).state).toBe('executed')
+    expect(parseAutoPrinterActionResult({
+      type: 'cancel_package', command_id: null, state: 'executed',
+      result: { scope: 'remaining_queued_runs', cancelled_run_ids: ['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'] },
+    }).type).toBe('cancel_package')
+    expect(() => parseAutoPrinterActionResult({ type: 'cancel_package', command_id: null, state: 'executed', result: {} })).toThrow()
     expect(() => parseAutoPrinterActionResult({ type: 'pause_queue', state: 'executed' })).toThrow()
     expect(parseAutoPrinterPairing({ code: 'A1B2C3D4E5F6G7H8I9J0', expires_at: '2030-01-01T00:00:00Z' }).code).toBe('A1B2C3D4E5F6G7H8I9J0')
     expect(() => parseAutoPrinterPairing({ code: 'abcdefghijkl', expires_at: '2030-01-01T00:00:00Z' })).toThrow()

@@ -1,7 +1,9 @@
 export type AutoPrinterRunState = 'queued' | 'preparing' | 'printing' | 'cooling' | 'removing' | 'verifying' | 'completed' | 'failed' | 'cancelled' | 'uncertain'
-export type AutoPrinterActionType = 'pause_queue' | 'resume_queue' | 'stop_after_current' | 'pause_current_print' | 'cancel_current_print' | 'recheck_bed'
-export type AutoPrinterAction = { type: Exclude<AutoPrinterActionType, 'pause_current_print' | 'cancel_current_print'> } | { type: 'pause_current_print' | 'cancel_current_print'; run_id: string; action_id: string }
+export type AutoPrinterActionType = 'pause_queue' | 'resume_queue' | 'stop_after_current' | 'pause_current_print' | 'cancel_current_print' | 'cancel_package' | 'recheck_bed'
+export type AutoPrinterAction = { type: Exclude<AutoPrinterActionType, 'pause_current_print' | 'cancel_current_print' | 'cancel_package'> } | { type: 'pause_current_print' | 'cancel_current_print'; run_id: string; action_id: string } | { type: 'cancel_package'; package_id: string; action_id: string }
 export interface AutoPrinterQueueRun { run_id: string; position: number; state: AutoPrinterRunState; series_id: string | null; copies_per_run: number | null }
+export interface AutoPrinterActivePackage { package_id: string; version: number; manifest_hash: string; state: string; run_count: number; remaining_count: number }
+export interface AutoPrinterHold { reason: string; created_at: string; context: Record<string, unknown> }
 export interface AutoPrinterStatus {
   enabled: boolean; configured: boolean; binding_state: 'unpaired' | 'paired' | 'revoked'; binding_epoch: number
   protocol_version: 1; configuration_version: 1; execution_enabled: boolean; physical_execution_enabled: boolean
@@ -12,11 +14,12 @@ export interface AutoPrinterStatus {
   ready?: boolean; blocked_reason: string | null; connection?: string; last_sync_at: string | null
   display_name?: string; owner_profile?: { display_name: string; avatar_url?: string | null } | null; unlink_pending?: boolean
   pairing?: AutoPrinterPairing | null
-  capabilities?: { queue?: boolean; pairing?: boolean; pairing_cancel?: boolean; account_linking?: boolean; bed_check?: boolean; bed_check_diagnostic?: boolean }
+  active_package: AutoPrinterActivePackage | null; hold: AutoPrinterHold | null; recovery_required: boolean
+  capabilities?: { queue?: boolean; pairing?: boolean; pairing_cancel?: boolean; account_linking?: boolean; bed_check?: boolean; bed_check_diagnostic?: boolean; offline_packages_v1?: boolean }
   bed_check?: { model_version?: string; live_qualified?: boolean; last_check?: { state: string; reason: string | null; checked_at: string | null } }
 }
 export type AutoPrinterPendingType = AutoPrinterActionType | 'pairing' | 'pairing_cancel' | 'account_unlink'
-export interface AutoPrinterActionResult { type: AutoPrinterActionType; command_id: string | null; state: 'executed' | 'rejected' | 'uncertain'; result: { code?: string } }
+export interface AutoPrinterActionResult { type: AutoPrinterActionType; command_id: string | null; state: 'executed' | 'rejected' | 'uncertain'; result: { code?: string; scope?: 'remaining_queued_runs'; cancelled_run_ids?: string[] } }
 export interface AutoPrinterPairing { code: string; expires_at: string | null; verification_url?: string }
 export type AutoPrinterUnlinkResult = AutoPrinterStatus
 
@@ -27,7 +30,7 @@ const record = (value: unknown): value is Record<string, unknown> => typeof valu
 const uuid = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 const date = (value: unknown): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value))
 const states: readonly AutoPrinterRunState[] = ['queued','preparing','printing','cooling','removing','verifying','completed','failed','cancelled','uncertain']
-const actions: readonly AutoPrinterActionType[] = ['pause_queue','resume_queue','stop_after_current','pause_current_print','cancel_current_print','recheck_bed']
+const actions: readonly AutoPrinterActionType[] = ['pause_queue','resume_queue','stop_after_current','pause_current_print','cancel_current_print','cancel_package','recheck_bed']
 function fail(): never { throw new AutoPrinterSchemaError() }
 function optionalBoolean(source: Record<string, unknown>, key: string): boolean | undefined {
   const value = source[key]
@@ -108,12 +111,37 @@ export function parseAutoPrinterStatus(value: unknown): AutoPrinterStatus {
     && !['blocked', 'stop_after_current', 'paused', 'running'].includes(String(value.queue_control))) fail()
   if (value.stop_after_current !== undefined && typeof value.stop_after_current !== 'boolean') fail()
   if (value.observed_at !== undefined && !date(value.observed_at)) fail()
+  let activePackage: AutoPrinterActivePackage | null = null
+  if (value.active_package !== undefined && value.active_package !== null) {
+    if (!record(value.active_package) || !uuid(value.active_package.package_id)
+      || !Number.isSafeInteger(value.active_package.version) || (value.active_package.version as number) < 1
+      || typeof value.active_package.manifest_hash !== 'string' || !/^[0-9a-f]{64}$/i.test(value.active_package.manifest_hash)
+      || typeof value.active_package.state !== 'string' || value.active_package.state.length === 0 || value.active_package.state.length > 64
+      || !Number.isSafeInteger(value.active_package.run_count) || (value.active_package.run_count as number) < 0
+      || !Number.isSafeInteger(value.active_package.remaining_count) || (value.active_package.remaining_count as number) < 0) fail()
+    activePackage = {
+      package_id: value.active_package.package_id as string,
+      version: value.active_package.version as number,
+      manifest_hash: value.active_package.manifest_hash as string,
+      state: value.active_package.state as string,
+      run_count: value.active_package.run_count as number,
+      remaining_count: value.active_package.remaining_count as number,
+    }
+  } else if (value.active_package === null) activePackage = null
+  let hold: AutoPrinterHold | null = null
+  if (value.hold !== undefined && value.hold !== null) {
+    if (!record(value.hold) || typeof value.hold.reason !== 'string' || value.hold.reason.length === 0 || value.hold.reason.length > 128
+      || !date(value.hold.created_at) || !record(value.hold.context)) fail()
+    hold = { reason: value.hold.reason, created_at: value.hold.created_at, context: value.hold.context }
+  } else if (value.hold === null) hold = null
+  if (value.recovery_required !== undefined && typeof value.recovery_required !== 'boolean') fail()
   const capabilityInput = record(value.capabilities) ? value.capabilities : null
   const capabilities = capabilityInput ? {
     queue: optionalBoolean(capabilityInput, 'queue'),
     pairing: optionalBoolean(capabilityInput, 'pairing'),
     bed_check: optionalBoolean(capabilityInput, 'bed_check'),
     bed_check_diagnostic: optionalBoolean(capabilityInput, 'bed_check_diagnostic'),
+    offline_packages_v1: optionalBoolean(capabilityInput, 'offline_packages_v1'),
   } : undefined
   let bedCheck: AutoPrinterStatus['bed_check']
   if (value.bed_check !== undefined) {
@@ -157,6 +185,9 @@ export function parseAutoPrinterStatus(value: unknown): AutoPrinterStatus {
     } : undefined,
     unlink_pending: value.unlink_pending as boolean | undefined,
     bed_check: bedCheck,
+    active_package: activePackage,
+    hold,
+    recovery_required: value.recovery_required === true,
   }
 }
 
@@ -166,13 +197,20 @@ export function parseAutoPrinterActionResult(value: unknown): AutoPrinterActionR
   if (value.command_id !== null && !uuid(value.command_id)) fail()
   if (!['executed', 'rejected', 'uncertain'].includes(String(value.state))) fail()
   if (!record(value.result)) fail()
-  if (Object.keys(value.result).some((key) => key !== 'code')) fail()
+  const allowedResultKeys = value.type === 'cancel_package' ? ['code', 'scope', 'cancelled_run_ids'] : ['code']
+  if (Object.keys(value.result).some((key) => !allowedResultKeys.includes(key))) fail()
   if (value.result.code !== undefined && !safeCode(value.result.code)) fail()
+  if (value.type === 'cancel_package') {
+    if (value.result.scope !== undefined && value.result.scope !== 'remaining_queued_runs') fail()
+    if (value.result.cancelled_run_ids !== undefined
+      && (!Array.isArray(value.result.cancelled_run_ids) || value.result.cancelled_run_ids.some((id) => !uuid(id)))) fail()
+    if (value.state === 'executed' && (value.result.scope !== 'remaining_queued_runs' || !Array.isArray(value.result.cancelled_run_ids))) fail()
+  }
   return {
     type: value.type as AutoPrinterActionType,
     command_id: value.command_id as string | null,
     state: value.state as AutoPrinterActionResult['state'],
-    result: value.result as { code?: string },
+    result: value.result as AutoPrinterActionResult['result'],
   }
 }
 export function parseAutoPrinterPairing(value: unknown): AutoPrinterPairing {
@@ -240,4 +278,4 @@ export const describeAutoPrinterReason = (reason: string | null): string => ({
   revision_conflict: 'Состояние очереди изменилось; обновите состояние',
   device_unavailable: 'Устройство недоступно',
 } as Record<string, string>)[reason ?? ''] ?? 'Действие недоступно'
-export const describeAutoPrinterAction = (action: AutoPrinterActionType): string => ({ pause_queue:'Приостановить очередь', resume_queue:'Продолжить очередь', stop_after_current:'Остановить после текущей печати', pause_current_print:'Приостановить текущую печать', cancel_current_print:'Отменить текущую печать', recheck_bed:'Повторно проверить стол' })[action]
+export const describeAutoPrinterAction = (action: AutoPrinterActionType): string => ({ pause_queue:'Приостановить очередь', resume_queue:'Продолжить очередь', stop_after_current:'Остановить после текущей печати', pause_current_print:'Приостановить текущую печать', cancel_current_print:'Отменить текущую печать', cancel_package:'Отменить оставшиеся задания', recheck_bed:'Повторно проверить стол' })[action]

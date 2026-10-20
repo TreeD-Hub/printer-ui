@@ -42,6 +42,23 @@ describe('useAutoPrinter', () => {
     unmount()
   })
 
+  it('sends a distinct package cancellation with a fresh action id and does not replay it', async () => {
+    const packageId = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+    client.getStatus.mockResolvedValue({ ...fresh,
+      active_package: { package_id: packageId, version: 1, manifest_hash: 'a'.repeat(64), state: 'active', run_count: 1, remaining_count: 2 },
+      hold: null, recovery_required: false,
+      capabilities: { offline_packages_v1: true },
+    })
+    client.control.mockResolvedValue({ type: 'cancel_package', command_id: null, state: 'executed', result: { scope: 'remaining_queued_runs', cancelled_run_ids: [] } })
+    const { result, unmount } = renderHook(() => useAutoPrinter(true))
+    await waitFor(() => expect(result.current.availability).toBe('available'))
+    await act(async () => { await result.current.cancelRemaining() })
+    expect(client.control).toHaveBeenCalledOnce()
+    expect(client.control).toHaveBeenCalledWith(expect.objectContaining({ type: 'cancel_package', package_id: packageId, action_id: expect.any(String) }))
+    expect(result.current.lastAction).toMatchObject({ type: 'cancel_package', state: 'executed' })
+    unmount()
+  })
+
   it('deduplicates scheduled and explicit status reads while a request is pending', async () => {
     vi.useFakeTimers()
     let resolveStatus!: (value: typeof fresh) => void
