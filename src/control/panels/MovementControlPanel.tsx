@@ -326,13 +326,10 @@ export const MovementControlPanel = memo(function MovementControlPanel({
         getLastCommandError={getLastCommandError}
       />
 
-      <article className="control-card control-card-parking control-subpanel">
-        <div className="control-card-head">
-          <h3 className="control-card-title">Парковка</h3>
-          {pendingCommand === 'home' || pendingCommand === 'homeAll' || pendingCommand === 'homeX' || pendingCommand === 'homeY' || pendingCommand === 'homeXY' || pendingCommand === 'homeZ' || pendingCommand === 'parkZBottom' ? (
-            <p className="control-card-state">Парковка...</p>
-          ) : null}
-        </div>
+      <article className="control-card control-card-parking control-subpanel" aria-label="Парковка">
+        {pendingCommand === 'home' || pendingCommand === 'homeAll' || pendingCommand === 'homeX' || pendingCommand === 'homeY' || pendingCommand === 'homeXY' || pendingCommand === 'homeZ' || pendingCommand === 'parkZBottom' ? (
+          <p className="control-card-state">Парковка...</p>
+        ) : null}
         {commandBlockReasons.parking.all !== null || commandBlockReasons.disableMotors !== null ? (
           <p className="control-block-reason" id="movement-block-reason" role="status">
             {commandBlockReasons.parking.all ?? commandBlockReasons.disableMotors}

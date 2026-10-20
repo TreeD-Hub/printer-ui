@@ -2499,15 +2499,30 @@ body {
   gap: var(--space-xs);
 }
 
-/* Прозрачные рамки сохраняют геометрию кнопок при разделении блоков чёрным фоном. */
-.control-content-shell:has(.control-movement-grid) {
-  border-color: transparent;
+.control-content-shell:has(.control-movement-grid),
+.control-movement-grid .control-card.control-card-parking {
+  border: 0;
   background: transparent;
   box-shadow: none;
 }
 
+.control-content-shell:has(.control-movement-grid) {
+  padding: 0;
+}
+
 .control-content-shell:has(.control-movement-grid) .control-tab-label {
   color: var(--color-text-highlight);
+}
+
+.control-content-shell:has(.control-movement-grid) .control-view-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(214px, 230px);
+  gap: 10px;
+}
+
+.control-movement-grid .control-subpanel {
+  border-color: transparent;
+  border-radius: var(--radius-panel);
 }
 
 .control-movement-grid .axis-cross-group {
@@ -2536,6 +2551,7 @@ body {
 }
 
 .control-movement-grid {
+  --radius-control: var(--radius-panel);
   position: relative;
   min-height: 0;
   height: 100%;
@@ -2612,10 +2628,11 @@ body {
 .control-card-parking {
   min-height: 0;
   height: 100%;
-  padding: var(--space-xs);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border-width: 0;
   gap: var(--space-xs);
-  grid-template-rows: auto minmax(0, 1fr) 54px 54px;
-  align-content: stretch;
   overflow: hidden;
 }
 
@@ -3921,7 +3938,8 @@ body {
 }
 
 .control-parking-targets {
-  min-height: 0;
+  flex: 1;
+  min-height: calc(2 * var(--control-height) + var(--space-xs));
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(var(--control-height), 1fr));
@@ -3974,7 +3992,9 @@ body {
 
 .control-card-parking .control-action-btn,
 .control-card-parking .control-service-btn {
-  min-height: 54px;
+  flex-shrink: 0;
+  height: var(--control-height);
+  min-height: var(--control-height);
   font-size: var(--font-size-body);
 }
 

@@ -119,6 +119,9 @@ export const ControlPage = memo(function ControlPage({
                 {activeControlGroupOption.label}
               </p>
             )}
+            {activeControlGroup === 'movement' ? (
+              <h3 className="control-tab-label control-parking-label">Парковка</h3>
+            ) : null}
           </header>
           <div className="control-scroll-area">
             {activeControlGroup === 'movement' ? (

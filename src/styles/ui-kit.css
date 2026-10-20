@@ -235,10 +235,6 @@
   line-height: 1.3;
 }
 
-.screen-shell .control-card-parking:has(.control-block-reason) {
-  grid-template-rows: auto auto minmax(calc(2 * var(--control-height) + var(--space-xs)), 1fr) auto auto;
-}
-
 .screen-shell .settings-sidebar-menu {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-default) transparent;
