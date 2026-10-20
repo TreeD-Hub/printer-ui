@@ -60,7 +60,7 @@ import { useMaintenanceController } from './maintenance'
 import { ExcludeObjectModal, getExcludeObjectOpenBlockReason } from './excludeObject'
 import { recordOperationalDiagnostic } from './diagnostics'
 import type { PrinterConnectionState } from './core/transport/types'
-import type { FilamentSensorMode, FilamentSensorSensitivity } from '@treed/printer-logic'
+import type { FilamentRunoutAction, FilamentSensorMode, FilamentSensorSensitivity } from '@treed/printer-logic'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
 import './styles/ui-kit.css'
@@ -94,6 +94,16 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
 }
 
 function App() {
+  useEffect(() => {
+    const preventTabNavigation = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+    window.addEventListener('keydown', preventTabNavigation, true)
+    return () => window.removeEventListener('keydown', preventTabNavigation, true)
+  }, [])
+
   const {
     snapshot,
     refresh,
@@ -623,6 +633,14 @@ function App() {
     return ok
   }
 
+  async function handleFilamentRunoutActionChange(action: FilamentRunoutAction): Promise<boolean> {
+    const ok = await executeCommand({ command: 'setFilamentRunoutAction', action })
+    if (ok) {
+      void refreshFilamentSensor()
+    }
+    return ok
+  }
+
   function flashControlAction(nextKey: string): void {
     setActiveControlFlashKey(nextKey)
 
@@ -920,6 +938,7 @@ function App() {
             onAxisMove: handleAxisMove,
             onFilamentMove: handleFilamentMove,
             onFilamentSensorModeChange: handleFilamentSensorModeChange,
+            onFilamentRunoutActionChange: handleFilamentRunoutActionChange,
             onFilamentSensitivityChange: handleFilamentSensitivityChange,
             getLastCommandError,
             heating: heatingProps,
@@ -999,6 +1018,7 @@ function App() {
                 valueLabel={keyboardDialogLabel}
                 value={keyboardDialogValue}
                 placeholder={keyboardDialogPlaceholder}
+                isPassword={activeKeyboardTarget === 'wifiPassword' && !settingsPageProps.network.isPasswordVisible}
                 language={keyboardLanguage}
                 isCapsEnabled={isKeyboardCapsEnabled}
                 onToggleLanguage={handleVirtualKeyboardLanguageToggle}

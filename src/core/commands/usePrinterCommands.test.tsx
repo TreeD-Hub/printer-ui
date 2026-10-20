@@ -735,6 +735,26 @@ describe('usePrinterCommands', () => {
     })
   })
 
+  it('подтверждает реакцию на остановку нити только после обновления runtime', async () => {
+    runtimeMocks.execute.mockResolvedValue(accepted('setFilamentRunoutAction'))
+    let api: PrinterCommandsApi | null = null
+    const onReady = (nextApi: PrinterCommandsApi) => { api = nextApi }
+    const context: TreeDCommandRuntimeContext = {
+      ...RUNTIME_CONTEXT,
+      printJob: { filename: '', state: 'standby' },
+      filamentSensor: { ...RUNTIME_CONTEXT.filamentSensor!, runoutAction: 'recover' },
+    }
+    const { rerender } = render(<Harness context={context} onReady={onReady} />)
+    await waitFor(() => expect(api).not.toBeNull())
+    await act(async () => { await api!.executeCommand({ command: 'setFilamentRunoutAction', action: 'pause' }) })
+    expect(api!.pendingCommand).toBe('setFilamentRunoutAction')
+    rerender(<Harness context={{ ...context, filamentSensor: { ...context.filamentSensor!, runoutAction: 'pause' } }} onReady={onReady} />)
+    await waitFor(() => {
+      expect(api!.pendingCommand).toBeNull()
+      expect(api!.lastResult).toEqual(expect.objectContaining({ status: 'confirmed' }))
+    })
+  })
+
   it('reports confirmation timeout when runtime state does not change', async () => {
     runtimeMocks.execute.mockResolvedValue(accepted('turnOffHeaters'))
     let api: PrinterCommandsApi | null = null

@@ -24,11 +24,15 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
   commandError,
   modeBlockReasons,
   sensitivityBlockReasons,
+  runoutActionBlockReason,
   onModeChange,
   onSensitivityChange,
+  onRunoutActionChange,
 }: FilamentSensorControlPanelProps) {
   const [sensitivityToConfirm, setSensitivityToConfirm] = useState<FilamentSensorSensitivity | null>(null)
-  const isPending = pendingCommand === 'setFilamentSensorMode' || pendingCommand === 'setFilamentEncoderSensitivity'
+  const isPending = pendingCommand === 'setFilamentSensorMode'
+    || pendingCommand === 'setFilamentEncoderSensitivity'
+    || pendingCommand === 'setFilamentRunoutAction'
   const filamentStatus = snapshot.filamentDetected === true
     ? 'Нить установлена'
     : snapshot.filamentDetected === false
@@ -54,6 +58,7 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
     <article
       className="control-filament-panel control-filament-panel--refined"
       aria-label="Управление датчиком нити"
+      aria-busy={isPending}
     >
       <div className="control-filament-layout-v2">
         <div className="control-filament-primary-column">
@@ -72,7 +77,6 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
             {isStale ? <p className="control-filament-notice is-warning">Снимок состояния устарел.</p> : null}
             {snapshot.message !== null ? <p className="control-filament-notice">{snapshot.message}</p> : null}
             {commandError ? <p className="control-filament-notice is-error" role="alert">{commandError}</p> : null}
-            {isPending ? <p className="control-filament-notice">Ожидание подтверждения от принтера...</p> : null}
           </div>
 
           <section className="control-filament-section control-filament-mode-section" aria-labelledby="filament-mode-title">
@@ -107,44 +111,76 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
           </section>
         </div>
 
-        <section
-          className="control-filament-section control-filament-sensitivity-section"
-          aria-labelledby="filament-sensitivity-title"
-        >
-          <div className="control-filament-section-head control-filament-sensitivity-head">
-            <h3 id="filament-sensitivity-title">Чувствительность энкодера</h3>
-            <span>Изменение перезапустит Klipper</span>
-          </div>
-          <div
-            className="control-filament-sensitivity-grid control-filament-sensitivity-grid--vertical"
-            role="group"
-            aria-label="Чувствительность энкодера"
+        <div className="control-filament-secondary-column">
+          <section
+            className="control-filament-section control-filament-sensitivity-section"
+            aria-labelledby="filament-sensitivity-title"
           >
-            {SENSITIVITY_OPTIONS.map((option) => {
-              const isActive = snapshot.sensitivity === option.id
-              const reason = sensitivityBlockReasons[option.id]
-              return (
+            <div
+              className="control-filament-sensitivity-grid control-filament-sensitivity-grid--vertical"
+              role="group"
+              aria-label="Чувствительность энкодера"
+            >
+              {SENSITIVITY_OPTIONS.map((option) => {
+                const isActive = snapshot.sensitivity === option.id
+                const reason = sensitivityBlockReasons[option.id]
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    className={`control-filament-sensitivity control-filament-sensitivity--vertical${isActive ? ' is-active' : ''}`}
+                    aria-pressed={isActive}
+                    data-testid={`filament-sensitivity-${option.id}`}
+                    title={reason ?? undefined}
+                    disabled={!snapshot.motionSupported || isPending || reason !== null}
+                    onClick={() => setSensitivityToConfirm(option.id)}
+                  >
+                    <span className="control-filament-radio" aria-hidden="true" />
+                    <span className="control-filament-sensitivity-copy">
+                      <strong>{option.label}</strong>
+                      <small>{option.value}</small>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="control-filament-sensitivity-note">Изменение перезапустит Klipper</p>
+            {blockReason !== null ? <p className="control-filament-block-reason">{blockReason}</p> : null}
+          </section>
+          <section className="control-filament-section control-filament-action-section" aria-labelledby="filament-action-title">
+            <div className="control-filament-section-head">
+              <h3 id="filament-action-title">Нет движения нити</h3>
+            </div>
+            <div className="control-filament-mode-grid" role="group" aria-label="Действие при отсутствии движения нити">
+              {([['pause', 'Пауза'], ['recover', 'Прочистка']] as const).map(([action, label]) => (
                 <button
-                  key={option.id}
+                  key={action}
                   type="button"
-                  className={`control-filament-sensitivity control-filament-sensitivity--vertical${isActive ? ' is-active' : ''}`}
-                  aria-pressed={isActive}
-                  data-testid={`filament-sensitivity-${option.id}`}
-                  title={reason ?? undefined}
-                  disabled={!snapshot.motionSupported || isPending || reason !== null}
-                  onClick={() => setSensitivityToConfirm(option.id)}
+                  className={`control-filament-choice control-filament-choice--compact${snapshot.runoutAction === action ? ' is-active' : ''}`}
+                  aria-pressed={snapshot.runoutAction === action}
+                  data-testid={`filament-action-${action}`}
+                  title={runoutActionBlockReason ?? undefined}
+                  disabled={isPending || isStale || !snapshot.motionSupported || snapshot.runoutAction === undefined || runoutActionBlockReason !== null}
+                  onClick={() => void onRunoutActionChange(action)}
                 >
                   <span className="control-filament-radio" aria-hidden="true" />
-                  <span className="control-filament-sensitivity-copy">
-                    <strong>{option.label}</strong>
-                    <small>{option.value}</small>
-                  </span>
+                  <strong>{label}</strong>
                 </button>
-              )
-            })}
-          </div>
-          {blockReason !== null ? <p className="control-filament-block-reason">{blockReason}</p> : null}
-        </section>
+              ))}
+            </div>
+            <div className="control-filament-action-description" aria-live="polite">
+              <p>{snapshot.runoutAction === 'recover'
+                ? 'До 5 попыток восстановить подачу. При успехе печать продолжится, иначе останется на паузе.'
+                : snapshot.runoutAction === 'pause'
+                  ? 'Печать остановится на паузе. Продолжение — вручную после проверки подачи.'
+                  : 'Выбор реакции недоступен в текущей конфигурации принтера.'}</p>
+              <p>{snapshot.mode === 'presence'
+                ? 'Сейчас движение не контролируется. Реакция применяется в режиме «Наличие и движение».'
+                : 'Если нить закончилась — всегда пауза.'}</p>
+            </div>
+            {runoutActionBlockReason !== null ? <p className="control-filament-block-reason" role="status">{runoutActionBlockReason}</p> : null}
+          </section>
+        </div>
       </div>
 
       {sensitivityToConfirm !== null ? (

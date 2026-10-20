@@ -14,9 +14,9 @@
 
 :root {
   /* 00_Foundation: colors */
-  --color-window-background: #101010; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
+  --color-window-background: var(--color-background); /* Подложка окна Tauri совпадает с фоном интерфейса. */
   --color-update-background: #000000; /* Чисто чёрная полноэкранная заставка обновления. */
-  --color-background: #101010; /* Основной почти чёрный фон интерфейса. */
+  --color-background: #000000; /* Чисто чёрный фон интерфейса для AMOLED. */
   --color-surface: var(--color-background); /* Фон системных баров и крупных зон. */
   --color-block-surface: #161616; /* Однотонные карточки и панели. */
   --color-surface-elevated: #1c1c1c; /* Вложенные контролы и приподнятые поверхности. */
@@ -28,6 +28,7 @@
   --color-primary-dark: #b91414; /* Тёмный красный для нажатых состояний. */
   --color-success: #d9f7e5; /* Светлый терминальный success без зелёного доминирования. */
   --color-warning: #fff0b8; /* Тёплый warning, читаемый на чёрном фоне. */
+  --color-cooling: #b9e6f2; /* Ледяной акцент отключения нагрева. */
   --color-temperature-nozzle: var(--color-primary); /* Сопло: линия графика и её легенда. */
   --color-temperature-bed: var(--color-warning); /* Стол: линия графика и её легенда. */
   /* Шкала высоты стола Mainsail: отрицательные значения → ноль → положительные. */

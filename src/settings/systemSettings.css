@@ -1,5 +1,9 @@
-.system-settings-content {
+.settings-screen .settings-content-shell.system-settings-content {
+  --radius-control: var(--radius-panel);
   padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .system-reset-layer {
@@ -13,6 +17,7 @@
 }
 
 .system-reset-dialog {
+  --radius-control: var(--radius-panel);
   width: min(480px, 100%);
   padding: var(--space-md);
   display: grid;
@@ -28,7 +33,10 @@
 }
 
 .system-reset-dialog h2 {
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
   font-size: var(--font-size-heading-medium);
+  font-weight: var(--font-weight-accent);
 }
 
 .system-reset-dialog p {
@@ -44,7 +52,8 @@
 
 .system-reset-actions button,
 .system-settings-footer button {
-  min-height: 56px;
+  min-height: var(--control-height);
+  border-radius: var(--radius-panel);
 }
 
 .system-settings-stack {
@@ -52,7 +61,7 @@
   display: grid;
   align-content: start;
   gap: 10px;
-  padding: 12px;
+  padding: 0;
 }
 
 .system-settings-head {
@@ -72,12 +81,14 @@
 .system-settings-head h3,
 .system-settings-section-head h4 {
   margin: 0;
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
+  font-weight: var(--font-weight-accent);
+  text-transform: uppercase;
 }
 
 .system-settings-head h3 {
-  font-size: var(--font-size-heading-medium);
+  font-size: var(--layout-block-label-size);
 }
 
 .system-settings-head p {
@@ -103,7 +114,7 @@
   min-height: 24px;
   max-width: 100%;
   border: 1px solid var(--color-border-default);
-  border-radius: 999px;
+  border-radius: var(--radius-panel);
   padding: 3px 9px;
   display: inline-flex;
   align-items: center;
@@ -159,17 +170,18 @@
 .system-alert-card,
 .system-settings-footer {
   min-width: 0;
-  border: 1px solid var(--color-border-default);
-  border-radius: 8px;
+  border: 0;
+  border-radius: var(--radius-panel);
   background: var(--color-block-surface);
-  box-shadow:
-    0 10px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .system-status-card {
-  padding: 11px;
+  padding: 0;
   display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 9px;
+  background: transparent;
 }
 
 .system-status-card-head,
@@ -183,16 +195,21 @@
 
 .system-status-card-title {
   min-width: 0;
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
+  display: grid;
+  gap: 3px;
+}
+
+.system-status-card-head > .system-status-badge {
+  flex-shrink: 0;
 }
 
 .system-status-card-title strong {
   min-width: 0;
-  color: var(--color-text-primary);
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
   font-size: var(--font-size-body-large);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-accent);
+  text-transform: uppercase;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -213,6 +230,9 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
 }
 
 .system-metric-list {
@@ -291,7 +311,7 @@
 }
 
 .system-settings-section-head h4 {
-  font-size: var(--font-size-body);
+  font-size: var(--layout-block-label-size);
 }
 
 .system-settings-section-head > span {
@@ -312,6 +332,11 @@
   gap: 8px;
 }
 
+.system-compact-card {
+  padding: 0;
+  background: transparent;
+}
+
 .system-compact-list {
   min-width: 0;
   display: grid;
@@ -321,9 +346,9 @@
 .system-compact-item {
   min-width: 0;
   min-height: 40px;
-  border: 1px solid color-mix(in srgb, var(--color-border-default) 72%, transparent);
-  border-radius: 6px;
-  background: var(--color-surface-elevated);
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
   padding: 6px 7px;
   display: flex;
   align-items: center;
@@ -355,11 +380,24 @@
 .system-compact-value {
   color: var(--color-text-soft);
   font-size: var(--font-size-tiny);
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .system-compact-value {
   flex: 0 1 auto;
   text-align: right;
+}
+
+.system-compact-item:has(.system-compact-value) {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.system-compact-item .system-compact-value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 
 .system-status-dot {
@@ -383,8 +421,9 @@
 .system-settings-empty {
   margin: 0;
   min-height: 46px;
-  border: 1px dashed var(--color-border-default);
-  border-radius: 6px;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
   padding: 10px;
   display: grid;
   align-items: center;
@@ -394,6 +433,7 @@
 }
 
 .system-alert-card {
+  border: 1px solid;
   border-color: color-mix(in srgb, var(--color-warning) 48%, var(--color-border-default));
 }
 
@@ -423,9 +463,11 @@
 }
 
 .system-settings-footer strong {
-  color: var(--color-text-primary);
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-medium);
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-accent);
+  text-transform: uppercase;
 }
 
 .system-settings-footer span {
@@ -433,7 +475,7 @@
   font-size: var(--font-size-tiny);
 }
 
-.system-settings-footer .settings-network-btn {
+.system-settings-content .system-settings-footer .settings-network-btn {
   min-width: 148px;
   padding-inline: 10px;
 }

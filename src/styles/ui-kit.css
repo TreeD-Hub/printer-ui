@@ -169,6 +169,25 @@
 .screen-shell .virtual-keyboard-preview-input {
   min-height: var(--control-height);
   height: var(--control-height);
+  font-size: var(--font-size-body-large);
+  line-height: var(--space-lg);
+  padding: var(--space-sm) 0;
+}
+
+.screen-shell .app-virtual-keyboard-popup .virtual-keyboard-key {
+  height: var(--control-height);
+  font-size: var(--font-size-body-large);
+}
+
+.screen-shell .virtual-keyboard-preview-input.is-multiline {
+  max-height: calc(var(--control-height) + 4 * var(--space-lg));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden auto;
+}
+
+.screen-shell .virtual-keyboard-preview .virtual-keyboard-preview-input:focus-visible {
+  outline: none;
 }
 
 .screen-shell .control-menu-shell .settings-sidebar-menu {
@@ -214,10 +233,6 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-small);
   line-height: 1.3;
-}
-
-.screen-shell .control-card-parking:has(.control-block-reason) {
-  grid-template-rows: auto auto minmax(calc(2 * var(--control-height) + var(--space-xs)), 1fr) auto auto;
 }
 
 .screen-shell .settings-sidebar-menu {

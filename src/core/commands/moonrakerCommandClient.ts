@@ -257,6 +257,8 @@ function commandSuccessMessage(args: ExecuteCommandArgs): string {
       return 'UNLOAD_FILAMENT sent'
     case 'setFilamentSensorMode':
       return `Filament sensor mode set to ${args.mode}`
+    case 'setFilamentRunoutAction':
+      return `Filament runout action set to ${args.action}`
     case 'setFilamentEncoderSensitivity':
       return `Filament encoder sensitivity set to ${args.sensitivity}; Klipper restart requested`
     case 'zParkZeroEddy':
@@ -446,6 +448,8 @@ function executeMoonrakerCommand(
       return sendScript(`${formatFilamentScript('UNLOAD_FILAMENT', args)}\nM400`, options, args.command)
     case 'setFilamentSensorMode':
       return sendScript(`FILAMENT_SENSOR_SET_MODE MODE=${args.mode.toUpperCase()}`, options, args.command)
+    case 'setFilamentRunoutAction':
+      return sendScript(`FILAMENT_SENSOR_SET_RUNOUT_ACTION ACTION=${args.action.toUpperCase()}`, options, args.command)
     case 'setFilamentEncoderSensitivity':
       return callMoonraker(
         '/server/treed/filament-sensor/settings',

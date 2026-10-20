@@ -18,7 +18,7 @@ const UNAVAILABLE_USAGE: PrinterUsageSnapshot = {
 
 describe('useMaintenanceController', () => {
   it('exposes maintenance as not runtime-backed until host data exists', () => {
-    const { result } = renderHook(() => useMaintenanceController({
+    const { result, unmount } = renderHook(() => useMaintenanceController({
       usage: UNAVAILABLE_USAGE,
       printJob: createMockSnapshot().printJob,
       systemStatus: createLoadingMoonrakerSystemStatus(),
@@ -27,6 +27,7 @@ describe('useMaintenanceController', () => {
     expect(result.current.status.isRuntimeBacked).toBe(false)
     expect(result.current.status.notice).toBe('Moonraker history totals еще не загружены.')
     expect(result.current.progressPercent).toBe(0)
+    unmount()
   })
 
   it('calculates runtime from Moonraker usage and active print duration', async () => {
@@ -55,7 +56,7 @@ describe('useMaintenanceController', () => {
   })
 
   it('exposes the normalized live system warning without replacing usage data', () => {
-    const { result } = renderHook(() => useMaintenanceController({
+    const { result, unmount } = renderHook(() => useMaintenanceController({
       usage: {
         ...UNAVAILABLE_USAGE,
         totalPrintTimeSec: 437 * 60 * 60,
@@ -79,5 +80,6 @@ describe('useMaintenanceController', () => {
     expect(result.current.status.systemLabel).toBe('Внимание')
     expect(result.current.status.systemTone).toBe('warning')
     expect(result.current.status.systemNotice).toBe('Сервис moonraker: failed / failed.')
+    unmount()
   })
 })

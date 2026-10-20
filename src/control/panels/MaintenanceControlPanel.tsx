@@ -88,6 +88,8 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
         </article>
       </section>
 
+      <h3 className="control-tab-label">Межсервисный интервал</h3>
+
       <section
         className="maintenance-overview-progress control-subpanel"
         aria-label="Прогресс межсервисного интервала"
@@ -100,63 +102,62 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
         <header className="maintenance-overview-progress-head">
           <div>
             <p>Текущий цикл</p>
-            <h3>Межсервисный интервал</h3>
+            <div className="maintenance-overview-progress-summary">
+              <strong className="maintenance-overview-progress-value">{cycleHoursLabel}</strong>
+              <span>из {intervalHoursLabel}</span>
+            </div>
           </div>
           <strong className="maintenance-overview-progress-percent">
             {status.isCycleBacked === true ? `${Math.round(safeProgressPercent)}%` : '—'}
           </strong>
         </header>
 
-        <div className="maintenance-overview-progress-summary">
-          <div>
-            <strong className="maintenance-overview-progress-value">{cycleHoursLabel}</strong>
-            <span>из {intervalHoursLabel}</span>
+        <div className="maintenance-overview-gauge" aria-hidden="true">
+          <div className="maintenance-overview-ruler">
+            <span className="maintenance-overview-track" />
+            <span className="maintenance-overview-fill" />
+            <span className="maintenance-overview-marker" />
+            <span className="maintenance-overview-ticks">
+              {progressTicks.map((tick, index) => {
+                const isMajor = index === 0 || index === Math.floor(progressTicks.length / 2) || index === progressTicks.length - 1
+
+                return (
+                  <span
+                    key={tick}
+                    className={isMajor ? 'is-major' : undefined}
+                    style={
+                      {
+                        '--maintenance-tick-position': `${(index / progressTickDenominator) * 100}%`,
+                      } as CSSProperties
+                    }
+                  />
+                )
+              })}
+            </span>
           </div>
-          <div className="maintenance-overview-progress-actions">
-            <p>{progressStatusLabel}</p>
-            <button
-              type="button"
-              className="maintenance-overview-complete-button"
-              disabled={completionBlockReason !== null}
-              title={completionBlockReason ?? undefined}
-              onClick={() => setIsConfirmOpen(true)}
-              data-testid="maintenance-complete-button"
-            >
-              ТО выполнено
-            </button>
-            {completionError ? (
-              <small className="maintenance-overview-completion-error" role="alert">{completionError}</small>
-            ) : null}
+
+          <div className="maintenance-overview-scale">
+            <span>0 ч</span>
+            <span>{HOURS_FORMATTER.format(status.intervalHours / 2)} ч</span>
+            <span>{intervalHoursLabel}</span>
           </div>
         </div>
 
-        <div className="maintenance-overview-ruler" aria-hidden="true">
-          <span className="maintenance-overview-track" />
-          <span className="maintenance-overview-fill" />
-          <span className="maintenance-overview-marker" />
-          <span className="maintenance-overview-ticks">
-            {progressTicks.map((tick, index) => {
-              const isMajor = index === 0 || index === Math.floor(progressTicks.length / 2) || index === progressTicks.length - 1
-
-              return (
-                <span
-                  key={tick}
-                  className={isMajor ? 'is-major' : undefined}
-                  style={
-                    {
-                      '--maintenance-tick-position': `${(index / progressTickDenominator) * 100}%`,
-                    } as CSSProperties
-                  }
-                />
-              )
-            })}
-          </span>
-        </div>
-
-        <div className="maintenance-overview-scale" aria-hidden="true">
-          <span>0 ч</span>
-          <span>{HOURS_FORMATTER.format(status.intervalHours / 2)} ч</span>
-          <span>{intervalHoursLabel}</span>
+        <div className="maintenance-overview-progress-actions">
+          <p>{progressStatusLabel}</p>
+          <button
+            type="button"
+            className="maintenance-overview-complete-button"
+            disabled={completionBlockReason !== null}
+            title={completionBlockReason ?? undefined}
+            onClick={() => setIsConfirmOpen(true)}
+            data-testid="maintenance-complete-button"
+          >
+            ТО выполнено
+          </button>
+          {completionError ? (
+            <small className="maintenance-overview-completion-error" role="alert">{completionError}</small>
+          ) : null}
         </div>
       </section>
 

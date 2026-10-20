@@ -15,6 +15,19 @@ function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']
 }
 
 describe('normalizeMoonrakerRuntimeSnapshot', () => {
+  it.each(['pause', 'recover'] as const)('читает выбранную реакцию %s и не придумывает значение для старого runtime', (runout_action) => {
+    const status = {
+      'gcode_macro FILAMENT_SENSOR_STATUS': { mode: 'motion', runout_action },
+    }
+    expect(normalizeMoonrakerRuntimeSnapshot(buildPayload(status)).filamentSensor.runoutAction).toBe(runout_action)
+    expect(normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      'gcode_macro FILAMENT_SENSOR_STATUS': { mode: 'motion' },
+    })).filamentSensor.runoutAction).toBeUndefined()
+    expect(normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      ...status, 'gcode_macro FILAMENT_SENSOR_STATUS': { runout_action: 'unknown' },
+    })).filamentSensor.runoutAction).toBeUndefined()
+  })
+
   it('сохраняет состояние охлаждения перед температурной серией Eddy', () => {
     const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
       save_variables: { variables: { treed_eddy_operator_prompt: 'cooling' } },

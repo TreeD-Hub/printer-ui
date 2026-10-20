@@ -1,16 +1,25 @@
-.control-driver-profiles { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); min-height: 0; }
-.control-driver-profiles .driver-mode-card { display: flex; align-items: center; align-content: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-xs); padding: var(--space-sm); }
+.control-content-shell:has(.control-driver-profiles) .control-view-header,
+.control-driver-profiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; min-height: 0; }
+.control-driver-profiles { height: 100%; }
+.control-driver-profiles .driver-mode-card { display: flex; flex-direction: column; min-width: 0; gap: 10px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.driver-mode-card--drivers { grid-column: 1; }
+.driver-mode-card--fan { grid-column: 2; }
+.driver-mode-summary { min-height: 160px; padding: var(--space-sm); border-radius: var(--radius-panel); background: var(--color-block-surface); display: flex; flex-direction: column; justify-content: flex-start; }
+.driver-mode-card .driver-mode-summary strong { font-family: var(--font-family-accent); font-size: 28px; font-weight: var(--font-weight-accent); line-height: 1.1; text-transform: uppercase; color: var(--color-text-highlight); }
+.driver-mode-description { flex: 1; min-height: 0; padding: var(--space-sm); border-radius: var(--radius-panel); background: var(--color-block-surface); display: flex; align-items: center; color: var(--color-text-secondary); line-height: 1.4; }
+.control-driver-profiles .driver-mode-actions { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-xs); }
+.screen-shell .control-driver-profiles .driver-mode-actions button { padding: var(--space-xs); border-radius: var(--radius-panel); background: var(--color-surface-elevated); }
 .driver-mode-card strong { font-size: var(--font-size-body-large); font-weight: var(--font-weight-regular); }
 .driver-mode-card p { margin: 4px 0; }
 .driver-mode-actions { display: flex; gap: 12px; }
-.driver-mode-actions button { padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-control); border: 1px solid var(--color-border-default); background: var(--color-block-surface); color: inherit; font-weight: var(--font-weight-regular); cursor: pointer; }
+.driver-mode-actions button { padding: var(--space-xs) var(--space-sm); border-radius: var(--radius-panel); border: 1px solid var(--color-border-default); background: var(--color-block-surface); color: inherit; font-weight: var(--font-weight-regular); cursor: pointer; }
 .driver-mode-actions button:disabled { opacity: .5; cursor: default; }
 .driver-mode-actions button, .driver-fan-power-editor button { min-width: var(--control-min-width); min-height: var(--control-height); }
 .driver-mode-hint { width: 100%; font-size: var(--font-size-small); color: var(--color-text-secondary); }
 .driver-fan-power-editor > div { display: flex; gap: var(--space-xs); align-items: center; }
 .driver-fan-power-editor input { flex: 1; min-width: 0; height: var(--control-height); accent-color: var(--color-selection); }
-.driver-fan-power-editor button { border: var(--border-width) solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: inherit; cursor: pointer; }
+.driver-fan-power-editor button { border: var(--border-width) solid var(--color-border-default); border-radius: var(--radius-panel); background: var(--color-block-surface); color: inherit; cursor: pointer; }
 .driver-fan-power-editor button:disabled { opacity: .5; cursor: default; }
 .driver-mode-overlay { position: fixed; inset: 0; z-index: 1000; background: var(--color-overlay); display: grid; place-items: center; padding: 20px; }
-.driver-mode-dialog { width: min(520px, 100%); max-height: 90vh; overflow: auto; padding: 24px; border-radius: 12px; background: var(--color-block-surface, #222); color: var(--color-text-primary, #fff); }
-.driver-mode-dialog h2 { margin-top: 0; }
+.driver-mode-dialog { width: min(520px, 100%); max-height: 90vh; overflow: auto; padding: 24px; border-radius: var(--radius-panel); background: var(--color-block-surface); color: var(--color-text-primary); }
+.driver-mode-dialog h2 { margin-top: 0; font-family: var(--font-family-accent); font-weight: var(--font-weight-accent); color: var(--color-text-highlight); }

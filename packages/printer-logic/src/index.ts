@@ -44,6 +44,7 @@ export type PrinterCommandId =
   | 'loadFilament'
   | 'unloadFilament'
   | 'setFilamentSensorMode'
+  | 'setFilamentRunoutAction'
   | 'setFilamentEncoderSensitivity'
   | 'zParkZeroEddy'
   | 'eddyDriveCurrentCalibrate'
@@ -124,12 +125,15 @@ export interface DriverModeSnapshot {
   loadReason?: string | null
 }
 export type FilamentSensorMode = 'presence' | 'motion'
+export type FilamentRunoutAction = 'pause' | 'recover'
 export type FilamentSensorSensitivity = 'low' | 'medium' | 'high'
 
 export type FilamentSensorSnapshot = {
   supported: boolean
   motionSupported: boolean
   mode: FilamentSensorMode
+  /** Отсутствует, если runtime не поддерживает выбор реакции. */
+  runoutAction?: FilamentRunoutAction
   sensitivity: FilamentSensorSensitivity
   filamentDetected: boolean | null
   switchEnabled: boolean
@@ -255,6 +259,10 @@ export type ExecuteCommandArgs =
   | {
       command: 'setFilamentSensorMode'
       mode: FilamentSensorMode
+    }
+  | {
+      command: 'setFilamentRunoutAction'
+      action: FilamentRunoutAction
     }
   | {
       command: 'setFilamentEncoderSensitivity'
@@ -1296,6 +1304,14 @@ export const TREE_D_COMMAND_CATALOG: Record<PrinterCommandId, TreeDCommandCatalo
     requiresConfirmation: true,
     pendingDomain: 'filament',
   },
+  setFilamentRunoutAction: {
+    id: 'setFilamentRunoutAction',
+    risk: 'caution',
+    label: 'Действие при остановке нити',
+    capability: 'filamentSensorControl',
+    requiresConfirmation: false,
+    pendingDomain: 'filament',
+  },
   zParkZeroEddy: {
     id: 'zParkZeroEddy',
     risk: 'caution',
@@ -1613,6 +1629,7 @@ const FILAMENT_COMMANDS = new Set<PrinterCommandId>([
   'unloadFilament',
 ])
 const FILAMENT_SENSOR_SETTING_COMMANDS = new Set<PrinterCommandId>([
+  'setFilamentRunoutAction',
   'setFilamentSensorMode',
   'setFilamentEncoderSensitivity',
 ])
@@ -1969,6 +1986,15 @@ function getCommandSpecificBlockReason(
     }
   }
 
+  if (command === 'setFilamentRunoutAction') {
+    if (!context.filamentSensor?.motionSupported) {
+      return `${item.label}: канал движения недоступен.`
+    }
+    if (context.filamentSensor.runoutAction !== 'pause' && context.filamentSensor.runoutAction !== 'recover') {
+      return `${item.label}: обновите конфигурацию принтера для выбора реакции.`
+    }
+  }
+
   if (command === 'setFilamentEncoderSensitivity' || args?.command === 'setFilamentEncoderSensitivity') {
     if (!context.filamentSensor?.motionSupported) {
       return `${item.label}: канал движения недоступен.`
@@ -2072,6 +2098,10 @@ export function getTreeDCommandArgumentError(
       return args.mode === 'presence' || args.mode === 'motion'
         ? null
         : 'MODE должен быть presence или motion.'
+    case 'setFilamentRunoutAction':
+      return args.action === 'pause' || args.action === 'recover'
+        ? null
+        : 'ACTION должен быть pause или recover.'
     case 'setFilamentEncoderSensitivity':
       return args.sensitivity === 'low' || args.sensitivity === 'medium' || args.sensitivity === 'high'
         ? null

@@ -191,10 +191,7 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
           {renderTemperatureKeyboardPanel('is-control')}
         </article>
       ) : (
-        <article className="control-card control-card-heating-presets control-subpanel">
-          <div className="control-card-head">
-            <h3 className="control-card-title">Предустановки</h3>
-          </div>
+        <article className="control-card control-card-heating-presets control-subpanel" aria-label="Предустановки нагрева">
           <div className="control-heating-presets-list" role="group" aria-label="Предустановки нагрева">
             {CONTROL_HEATING_PRESET_OPTIONS.map((preset) => {
               const isActive =

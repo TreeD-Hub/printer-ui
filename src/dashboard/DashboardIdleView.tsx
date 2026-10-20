@@ -126,7 +126,7 @@ export function DashboardIdleView({
             ref={idleNotesInputRef}
             className="settings-console-input dashboard-idle-notes-input"
             value={idleNotesText}
-            onFocus={onIdleNotesKeyboardOpen}
+            onClick={onIdleNotesKeyboardOpen}
             onChange={onIdleNotesChange}
             placeholder="Введите заметку..."
             aria-label="Текст заметки"

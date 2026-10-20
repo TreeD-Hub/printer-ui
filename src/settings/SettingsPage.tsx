@@ -1,4 +1,4 @@
-import type { ChangeEvent, RefObject } from 'react'
+import { useState, type ChangeEvent, type RefObject } from 'react'
 import {
   SettingsInfoCard,
   SettingsSelectField,
@@ -7,7 +7,6 @@ import {
   useModalFocus,
 } from '../ui'
 import {
-  CONSOLE_QUICK_COMMANDS,
   DEVICE_INFO_LINES,
   LANGUAGE_OPTIONS,
   SETTINGS_GROUP_OPTIONS,
@@ -29,6 +28,7 @@ export type ConsoleHistoryItem = {
   id: string
   command: string
   createdAt: string
+  kind: 'command' | 'response' | 'error'
 }
 
 export type SettingsPageProps = {
@@ -150,6 +150,122 @@ function wifiSecurityLabel(security: WifiNetworkSecurity): string {
   return security.toUpperCase()
 }
 
+function NetworkSettings({ network }: { network: SettingsPageProps['network'] }) {
+  const [openedNetworkId, setOpenedNetworkId] = useState<string | null>(null)
+  const selected = network.isCapabilityAvailable && network.selectedWifiNetwork?.id === openedNetworkId
+    ? network.selectedWifiNetwork
+    : null
+
+  return (
+    <div className="settings-group-stack settings-group-stack-network">
+      <header className="settings-network-header">
+        <div className="settings-group-head">
+          <h3>Сеть</h3>
+          {network.isCapabilityAvailable && !selected && (
+            <p>{network.currentSsid
+              ? `${network.currentSsid} · IP ${network.wifiIpLabel}`
+              : 'Wi-Fi не подключён'}</p>
+          )}
+        </div>
+        {network.isCapabilityAvailable && (
+          selected ? (
+            <button type="button" className="settings-network-btn"
+              onClick={() => setOpenedNetworkId(null)} disabled={network.isBusy}>
+              К списку сетей
+            </button>
+          ) : (
+            <button type="button" className="settings-network-btn"
+              onClick={network.onScan} data-testid="settings-network-scan" disabled={network.isBusy}>
+              {network.isBusy ? 'Поиск…' : 'Обновить'}
+            </button>
+          )
+        )}
+      </header>
+
+      {!network.isCapabilityAvailable ? (
+        <div className="settings-network-empty" role="status">
+          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M5 18a29 29 0 0 1 38 0M11 25a20 20 0 0 1 26 0M18 32a9 9 0 0 1 12 0M7 7l34 34" />
+            <circle cx="24" cy="39" r="1" fill="currentColor" />
+          </svg>
+          <p className="settings-network-empty-title" data-testid="settings-network-notice">{network.capabilityNotice}</p>
+        </div>
+      ) : selected ? (
+        <div className="settings-network-details">
+          <div className="settings-network-selected">
+            <h4>{selected.ssid}</h4>
+            <p>{selected.connected
+              ? `Подключено · IP ${network.wifiIpLabel}`
+              : `${wifiSecurityLabel(selected.security)} · Сигнал ${selected.signalPercent}%`}</p>
+          </div>
+          {!selected.connected && (
+            selected.security !== 'open' ? (
+              <div className="settings-network-password-field">
+                <label htmlFor="settings-wifi-password">Пароль сети</label>
+                <div className="settings-network-password-control">
+                  <input id="settings-wifi-password" ref={network.passwordInputRef}
+                    type={network.isPasswordVisible ? 'text' : 'password'}
+                    value={network.passwordValue} onChange={network.onPasswordChange}
+                    onClick={network.onPasswordInputFocus}
+                    placeholder="Не менее 8 символов" autoComplete="off"
+                    data-testid="settings-network-password-input" disabled={network.isBusy} />
+                  <button type="button" className="settings-network-btn"
+                    onClick={network.onPasswordVisibilityToggle} aria-pressed={network.isPasswordVisible}
+                    data-testid="settings-network-password-visibility" disabled={network.isBusy}>
+                    {network.isPasswordVisible ? 'Скрыть' : 'Показать'}
+                  </button>
+                </div>
+              </div>
+            ) : <p className="settings-network-open-note">Открытая сеть — пароль не нужен.</p>
+          )}
+          <div className="settings-network-actions">
+            {!selected.connected && (
+              <button type="button" className="settings-network-btn settings-network-btn-primary"
+                onClick={network.onConnect} data-testid="settings-network-connect-button" disabled={network.isBusy}>
+                Подключить
+              </button>
+            )}
+            {(selected.saved || selected.connected) && (
+              <button type="button" className="settings-network-btn"
+                onClick={network.onForgetSelected} data-testid="settings-network-forget-button" disabled={network.isBusy}>
+                Забыть сеть
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="settings-network-list" role="group" aria-label="Список Wi-Fi сетей" aria-busy={network.isBusy}>
+            {network.filteredWifiNetworks.length > 0 ? network.filteredWifiNetworks.map((item) => (
+              <button key={item.id} type="button"
+                className={`settings-network-item${item.connected ? ' is-active' : ''}`}
+                onClick={() => { network.onNetworkSelect(item.id); setOpenedNetworkId(item.id) }}
+                data-testid={`settings-network-item-${item.id}`} disabled={network.isBusy}>
+                <span className="settings-network-item-copy">
+                  <strong>{item.ssid}</strong>
+                  <span>{item.connected ? 'Подключено' : item.saved ? 'Сохранена' : wifiSecurityLabel(item.security)}</span>
+                </span>
+                <span className="settings-network-item-meta">
+                  <span aria-label={`Сигнал ${item.signalPercent}%`}>{item.signalPercent}%</span>
+                  <span aria-hidden="true">›</span>
+                </span>
+              </button>
+            )) : (
+              <div className="settings-network-empty">
+                <p className="settings-network-empty-title">{network.isBusy ? 'Ищем сети…' : 'Сети не найдены'}</p>
+                {!network.isBusy && <p>Нажмите «Обновить» для поиска.</p>}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+      {network.isCapabilityAvailable && network.notice && (
+        <p className="settings-network-notice" role="status" data-testid="settings-network-notice">{network.notice}</p>
+      )}
+    </div>
+  )
+}
+
 function updateReleaseStatusLabel(release: UpdateReleaseResult): string {
   if (release.status === 'error') {
     return 'Не удалось проверить'
@@ -248,7 +364,7 @@ export function SettingsPage({
               </div>
             </div>
           ) : activeSettingsGroup === 'interface' ? (
-            <div className="settings-group-stack">
+            <div className="settings-group-stack settings-group-stack-interface">
               <header className="settings-group-head">
                 <h3>Интерфейс</h3>
                 <p>Базовые параметры отображения и поведения экрана.</p>
@@ -280,163 +396,11 @@ export function SettingsPage({
               />
             </div>
           ) : activeSettingsGroup === 'network' ? (
-            <div className="settings-group-stack settings-group-stack-network">
-              <header className="settings-group-head">
-                <h3>Сеть</h3>
-                <p>Поиск и подключение к Wi-Fi сети.</p>
-              </header>
-
-              <div className="settings-network-layout">
-                <section className="settings-network-panel settings-network-panel-list">
-                  <div className="settings-network-toolbar">
-                    <label className="settings-network-search">
-                      <span>Поиск сети</span>
-                      <input
-                        ref={network.searchInputRef}
-                        type="search"
-                        value={network.searchQuery}
-                        onChange={network.onSearchQueryChange}
-                        onFocus={network.isCapabilityAvailable ? network.onSearchInputFocus : undefined}
-                        onClick={network.isCapabilityAvailable ? network.onSearchInputFocus : undefined}
-                        placeholder="Введите имя сети"
-                        data-testid="settings-network-search"
-                        disabled={!network.isCapabilityAvailable || network.isBusy}
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="settings-network-btn settings-network-btn-primary"
-                      onClick={network.onScan}
-                      data-testid="settings-network-scan"
-                      disabled={!network.isCapabilityAvailable || network.isBusy}
-                    >
-                      {network.isBusy ? '...' : 'Поиск'}
-                    </button>
-                  </div>
-
-                  <div className="settings-network-list" role="listbox" aria-label="Список Wi-Fi сетей">
-                    {network.filteredWifiNetworks.length > 0 ? (
-                      network.filteredWifiNetworks.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          className={`settings-network-item ${network.selectedWifiNetworkId === item.id ? 'is-active' : ''}`}
-                          aria-pressed={network.selectedWifiNetworkId === item.id}
-                          onClick={() => network.onNetworkSelect(item.id)}
-                          data-testid={`settings-network-item-${item.id}`}
-                          disabled={!network.isCapabilityAvailable || network.isBusy}
-                        >
-                          <div className="settings-network-item-copy">
-                            <strong>{item.ssid}</strong>
-                            <span>{wifiSecurityLabel(item.security)}</span>
-                          </div>
-                          <div className="settings-network-item-meta">
-                            <span>{item.signalPercent}%</span>
-                            {item.connected ? <em>Подключена</em> : item.saved ? <em>Сохранена</em> : null}
-                          </div>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="settings-network-empty">Сети не найдены.</p>
-                    )}
-                  </div>
-                </section>
-
-                <section className="settings-network-panel settings-network-panel-connect">
-                  {network.selectedWifiNetwork !== null ? (
-                    <>
-                      <div className="settings-network-selected">
-                        <p className="settings-network-selected-title">{network.selectedWifiNetwork.ssid}</p>
-                        <p className="settings-network-selected-meta">
-                          Защита: {wifiSecurityLabel(network.selectedWifiNetwork.security)} • Сигнал: {network.selectedWifiNetwork.signalPercent}%
-                        </p>
-                      </div>
-
-                      {network.selectedWifiNetwork.security !== 'open' ? (
-                        <label className="settings-network-password-field">
-                          <span>Пароль</span>
-                          <div className="settings-network-password-control">
-                            <input
-                              ref={network.passwordInputRef}
-                              type={network.isPasswordVisible ? 'text' : 'password'}
-                              value={network.passwordValue}
-                              onChange={network.onPasswordChange}
-                              onFocus={network.isCapabilityAvailable ? network.onPasswordInputFocus : undefined}
-                              onClick={network.isCapabilityAvailable ? network.onPasswordInputFocus : undefined}
-                              placeholder="Введите пароль"
-                              data-testid="settings-network-password-input"
-                              disabled={!network.isCapabilityAvailable || network.isBusy}
-                            />
-                            <button
-                              type="button"
-                              className="settings-network-btn"
-                              onClick={network.onPasswordVisibilityToggle}
-                              data-testid="settings-network-password-visibility"
-                              disabled={!network.isCapabilityAvailable || network.isBusy}
-                            >
-                              {network.isPasswordVisible ? 'Скрыть' : 'Показать'}
-                            </button>
-                          </div>
-                        </label>
-                      ) : (
-                        <p className="settings-network-open-note">Сеть открытая, пароль не требуется.</p>
-                      )}
-
-                      <div className="settings-network-actions">
-                        <button
-                          type="button"
-                          className="settings-network-btn settings-network-btn-primary"
-                          onClick={network.onConnect}
-                          data-testid="settings-network-connect-button"
-                          disabled={!network.isCapabilityAvailable || network.isBusy}
-                        >
-                          {network.isBusy ? '...' : 'Подключить'}
-                        </button>
-                        <button
-                          type="button"
-                          className="settings-network-btn"
-                          onClick={network.onForgetSelected}
-                          data-testid="settings-network-forget-button"
-                          disabled={!network.isCapabilityAvailable || network.isBusy}
-                        >
-                          Забыть сеть
-                        </button>
-                      </div>
-
-                      <article className="settings-description-card settings-network-status-card">
-                        <p><span>IP адрес</span><strong>{network.wifiIpLabel}</strong></p>
-                        <p>
-                          <span>Статус</span>
-                          <strong>
-                            {network.currentSsid ? 'Подключено' : network.isCapabilityAvailable ? 'Не подключено' : network.connectionLabel}
-                          </strong>
-                        </p>
-                      </article>
-
-                      <p className="settings-network-notice" data-testid="settings-network-notice">
-                        {network.isCapabilityAvailable && network.notice.length > 0
-                          ? network.notice
-                          : network.capabilityNotice}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="settings-network-empty">Выберите сеть слева.</p>
-                      <p className="settings-network-notice" data-testid="settings-network-notice">
-                        {network.isCapabilityAvailable && network.notice.length > 0
-                          ? network.notice
-                          : network.capabilityNotice}
-                      </p>
-                    </>
-                  )}
-                </section>
-              </div>
-            </div>
+            <NetworkSettings key={String(network.isCapabilityAvailable)} network={network} />
           ) : activeSettingsGroup === 'notifications' ? (
             <div className="settings-group-stack settings-group-stack-notifications">
               <header className="settings-group-head">
                 <h3>Уведомления</h3>
-                <p>Включение/отключение уведомлений и журнал последних событий.</p>
               </header>
               <SettingsToggleRow
                 label="Всплывающие уведомления"
@@ -450,8 +414,9 @@ export function SettingsPage({
                 onChange={notifications.onNotificationSoundsEnabledChange}
                 testId="settings-notification-sound-toggle"
               />
-              <div className="settings-notification-list">
-                {notifications.history.length === 0 ? <p>Событий в текущем сеансе пока нет.</p> : null}
+              <h3 className="settings-notification-heading" id="settings-notification-history-title">Журнал событий</h3>
+              <div className="settings-notification-list" role="region" aria-labelledby="settings-notification-history-title">
+                {notifications.history.length === 0 ? <p className="settings-notification-empty" role="status">Событий в текущем сеансе пока нет.</p> : null}
                 {notifications.history.map((item) => (
                   <article className="settings-notification-item" key={item.id}>
                     <p className="settings-notification-title">
@@ -476,7 +441,7 @@ export function SettingsPage({
               <div className="settings-group-stack" role="status">Состояние аккаунта недоступно.</div>
             )
           ) : activeSettingsGroup === 'cloud' ? (
-            <div className="settings-group-stack">
+            <div className="settings-group-stack settings-group-stack-cloud">
               <header className="settings-group-head">
                 <h3>Облако</h3>
                 <p>AI-детекция спагетти и автоматическая отмена печати.</p>
@@ -488,6 +453,7 @@ export function SettingsPage({
                 testId="settings-cloud-ai-toggle"
                 disabled={!cloud.isCapabilityAvailable || cloud.isBusy}
               />
+              <h3 className="settings-cloud-heading">Состояние сервиса</h3>
               <article className="settings-description-card">
                 <p><span>Управление</span><strong>{cloud.isConnected ? 'Доступно' : 'Недоступно'}</strong></p>
                 <p><span>Сервис</span><strong>TreeD AI</strong></p>
@@ -496,22 +462,37 @@ export function SettingsPage({
               <p className="settings-cloud-notice" role="status">{cloud.notice}</p>
             </div>
           ) : activeSettingsGroup === 'device' ? (
-            <div className="settings-group-stack">
+            <div className="settings-group-stack settings-group-stack-device">
               <header className="settings-group-head">
                 <h3>Об устройстве</h3>
-                <p>Основная информация о контроллере и программной конфигурации.</p>
               </header>
               <article className="settings-description-card">
                 {DEVICE_INFO_LINES.map(([label, value]) => (
                   <p key={label}><span>{label}</span><strong>{value}</strong></p>
                 ))}
               </article>
+              <h3 className="settings-device-heading" id="settings-device-care-title">Эксплуатация и утилизация</h3>
+              <section className="settings-device-care" aria-labelledby="settings-device-care-title">
+                <article className="settings-device-care-item">
+                  <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 16h24l-3 34H25l-4-34ZM18 16h30M28 16v-5h11v5M25 50v5M42 50v5" />
+                    <circle cx="40" cy="53" r="3" />
+                    <path d="M12 8l43 49M53 8 12 57" />
+                  </svg>
+                  <div><h4>Раздельный сбор</h4><p>Не выбрасывайте с бытовым мусором. Сдайте устройство в пункт приёма электроники.</p></div>
+                </article>
+                <article className="settings-device-care-item">
+                  <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M32 18c-7-6-16-7-25-4v35c9-3 18-2 25 4 7-6 16-7 25-4V14c-9-3-18-2-25 4ZM32 18v35M14 23c4-1 8 0 12 2M14 31c4-1 8 0 12 2M38 25c4-2 8-3 12-2M38 33c4-2 8-3 12-2" />
+                  </svg>
+                  <div><h4>Руководство</h4><p>Перед использованием и обслуживанием прочитайте руководство по эксплуатации.</p></div>
+                </article>
+              </section>
             </div>
           ) : activeSettingsGroup === 'updates' ? (
             <div className="settings-group-stack settings-updates">
               <header className="settings-group-head">
-                <h3>Проверка обновлений</h3>
-                <p>Новые версии системы и интерфейса TreeD.</p>
+                <h3>Обновления</h3>
               </header>
               <div className="settings-updates-versions" aria-live="polite">
                 {updates.releaseResults.map((release) => (
@@ -520,25 +501,27 @@ export function SettingsPage({
                       <span className="settings-update-code">{release.id === 'printer-ui' ? 'UI' : 'CORE'}</span>
                       <h4>{release.label}</h4>
                     </header>
-                    <div className={`settings-update-versions${release.status === 'available' ? ' has-update' : ' is-current'}`}>
-                      <div><span>Установлено</span><strong>{updateVersionLabel(release.currentVersion)}</strong></div>
-                      {release.status === 'available' ? (
-                        <>
-                          <svg className="settings-update-arrow" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                            <path d="M4 16h23M18 7l9 9-9 9" />
+                    <div className="settings-update-body">
+                      <div className={`settings-update-versions${release.status === 'available' ? ' has-update' : ' is-current'}`}>
+                        <div><span>Установлено</span><strong>{updateVersionLabel(release.currentVersion)}</strong></div>
+                        {release.status === 'available' ? (
+                          <>
+                            <svg className="settings-update-arrow" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                              <path d="M4 16h23M18 7l9 9-9 9" />
+                            </svg>
+                            <div className="settings-update-next"><span>Новая версия</span><strong>{updates.isCheckingUpdates ? '…' : updateVersionLabel(release.latestVersion)}</strong></div>
+                          </>
+                        ) : release.status === 'latest' && !updates.isCheckingUpdates ? (
+                          <svg className="settings-update-check" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                            <circle cx="16" cy="16" r="13" />
+                            <path d="m9 16 5 5 9-10" />
                           </svg>
-                          <div className="settings-update-next"><span>Новая версия</span><strong>{updates.isCheckingUpdates ? '…' : updateVersionLabel(release.latestVersion)}</strong></div>
-                        </>
-                      ) : release.status === 'latest' && !updates.isCheckingUpdates ? (
-                        <svg className="settings-update-check" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <circle cx="16" cy="16" r="13" />
-                          <path d="m9 16 5 5 9-10" />
-                        </svg>
-                      ) : null}
+                        ) : null}
+                      </div>
+                      <p className={`settings-update-status${release.canApply === true ? ' is-available' : ''}`}>
+                        {updates.isCheckingUpdates ? 'Проверяем версии…' : updateReleaseStatusLabel(release)}
+                      </p>
                     </div>
-                    <p className={`settings-update-status${release.canApply === true ? ' is-available' : ''}`}>
-                      {updates.isCheckingUpdates ? 'Проверяем версии…' : updateReleaseStatusLabel(release)}
-                    </p>
                   </article>
                 ))}
               </div>
@@ -582,11 +565,7 @@ export function SettingsPage({
               </p>
             </div>
           ) : activeSettingsGroup === 'language' ? (
-            <div className="settings-group-stack">
-              <header className="settings-group-head">
-                <h3>Язык</h3>
-                <p>Локализация интерфейса и голосовых подсказок.</p>
-              </header>
+            <div className="settings-group-stack settings-group-stack-language">
               <SettingsSelectField
                 label="Язык интерфейса"
                 value={language.languageValue}
@@ -604,38 +583,20 @@ export function SettingsPage({
             <div className="settings-group-stack settings-group-stack-console">
               <header className="settings-group-head">
                 <h3>Консоль</h3>
-                <p>Отправка G-code и макросов через виртуальную клавиатуру.</p>
               </header>
 
-              <div className="settings-console-quick">
-                {CONSOLE_QUICK_COMMANDS.map((command, index) => (
-                  <button
-                    key={command}
-                    type="button"
-                    className="settings-console-chip"
-                    onClick={() => console.onQuickCommandInsert(command)}
-                    data-testid={`settings-console-quick-${index}`}
-                  >
-                    {command}
-                  </button>
-                ))}
-              </div>
-
-              <label className="settings-console-input-wrap">
-                <span>Команда</span>
+              <div className="settings-console-compose">
                 <textarea
                   ref={console.inputRef}
                   className="settings-console-input"
                   value={console.commandValue}
                   onChange={console.onInputChange}
                   onFocus={console.onKeyboardOpen}
-                  placeholder="Например: G28 или START_PRINT"
+                  aria-label="Команда"
+                  placeholder="Введите G-code или макрос"
                   spellCheck={false}
                   data-testid="settings-console-input"
                 />
-              </label>
-
-              <div className="settings-console-actions">
                 <button
                   type="button"
                   className="settings-network-btn settings-network-btn-primary"
@@ -644,27 +605,23 @@ export function SettingsPage({
                 >
                   Отправить
                 </button>
-                <button
-                  type="button"
-                  className="settings-network-btn"
-                  onClick={console.onKeyboardOpen}
-                  data-testid="settings-console-keyboard-open-button"
-                >
-                  Клавиатура
-                </button>
               </div>
 
-              <p className="settings-console-notice" data-testid="settings-console-notice">{console.notice}</p>
+              <p className="settings-console-notice" role="status" data-testid="settings-console-notice">{console.notice}</p>
 
-              <div className="settings-console-history">
+              <div className="settings-console-history" role="log" aria-label="Команды и ответы принтера" aria-live="polite" tabIndex={-1}>
                 {console.history.length > 0 ? (
                   console.history.map((item) => (
-                    <article className="settings-console-history-item" key={item.id}>
-                      <p><strong>{item.command}</strong><span>{item.createdAt}</span></p>
+                    <article className={`settings-console-history-item is-${item.kind}`} key={item.id}>
+                      <time>{item.createdAt}</time>
+                      <span className="settings-console-history-marker" aria-label={item.kind === 'command' ? 'Команда' : item.kind === 'error' ? 'Ошибка' : 'Ответ'}>
+                        {item.kind === 'command' ? '>' : item.kind === 'error' ? '!' : '<'}
+                      </span>
+                      <p>{item.command}</p>
                     </article>
                   ))
                 ) : (
-                  <p className="settings-network-empty">История команд пока пуста.</p>
+                  <p className="settings-console-empty">Здесь появятся команды и ответы принтера.<br />Последние записи — сверху.</p>
                 )}
               </div>
             </div>
@@ -673,7 +630,7 @@ export function SettingsPage({
       </div>
       {updates.isConfigReviewOpen ? (
         <div className="system-reset-layer">
-          <section ref={configReviewFocusRef} className="system-reset-dialog settings-config-review" role="dialog" aria-modal="true" aria-labelledby="config-review-title" aria-describedby="config-review-detail">
+          <section ref={configReviewFocusRef} className="system-reset-dialog settings-update-dialog settings-config-review" role="dialog" aria-modal="true" aria-labelledby="config-review-title" aria-describedby="config-review-detail">
             <h2 id="config-review-title">Локальные изменения конфигов</h2>
             <p id="config-review-detail">Чтобы сохранить нужные настройки, перенесите их в local_overrides.cfg через редактор конфигов, затем выберите сброс исходного файла. Если уже восстановили его вручную — проверьте снова. Сброс вернёт файл к новой версии из репозитория.</p>
             <div className="settings-config-conflicts">
@@ -701,7 +658,7 @@ export function SettingsPage({
       ) : null}
       {updates.pausedUpdateTarget !== null ? (
         <div className="system-reset-layer">
-          <section ref={pausedUpdateFocusRef} className="system-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="paused-update-title" aria-describedby="paused-update-detail">
+          <section ref={pausedUpdateFocusRef} className="system-reset-dialog settings-update-dialog" role="dialog" aria-modal="true" aria-labelledby="paused-update-title" aria-describedby="paused-update-detail">
             <h2 id="paused-update-title">Отменить печать и обновить?</h2>
             <p id="paused-update-detail">Печать стоит на паузе. Для обновления она будет отменена; продолжить это задание после обновления не получится.</p>
             <div className="system-reset-actions">

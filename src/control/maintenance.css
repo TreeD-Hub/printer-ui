@@ -1,72 +1,20 @@
 .control-content-shell .control-maintenance-header {
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
   align-items: center;
   column-gap: 12px;
-  row-gap: 5px;
-}
-
-.control-maintenance-header-actions {
-  grid-column: 2;
-  grid-row: 1;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.control-content-shell .control-maintenance-subtitle,
-.control-content-shell .control-maintenance-status-pill {
-  font-family: var(--font-family-ui);
-  letter-spacing: 0;
+  row-gap: 0;
 }
 
 .control-content-shell .control-maintenance-status-pill {
-  min-height: 40px;
-  padding-inline: 14px;
-  border-radius: 10px;
-  font-size: var(--font-size-small);
-}
-
-.control-maintenance-history-button {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
+  min-height: 0;
   padding: 0;
-  display: inline-grid;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--color-border-default) 72%, transparent);
-  border-radius: 10px;
-  background: var(--color-control-surface);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  transition:
-    border-color 0.16s ease,
-    background-color 0.16s ease,
-    transform 0.16s ease;
-}
-
-.control-maintenance-history-button:hover {
-  border-color: color-mix(in srgb, var(--color-text-primary) 34%, var(--color-border-default));
-}
-
-.control-maintenance-history-button:active {
-  transform: translateY(1px);
-}
-
-.control-maintenance-history-button:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.control-maintenance-history-button svg {
-  width: 23px;
-  height: 23px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.7;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-small);
+  letter-spacing: 0;
 }
 
 .maintenance-overview {
@@ -74,7 +22,7 @@
   min-height: 0;
   height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px;
   font-family: var(--font-family-ui);
 }
@@ -86,7 +34,7 @@
   gap: 10px;
 }
 
-.maintenance-overview-metric {
+.maintenance-overview .maintenance-overview-metric {
   position: relative;
   min-width: 0;
   min-height: 82px;
@@ -96,13 +44,13 @@
   align-items: center;
   gap: 12px;
   overflow: hidden;
-  border-color: color-mix(in srgb, var(--color-border-default) 56%, transparent);
-  border-radius: 12px;
+  border: 0;
+  border-radius: var(--radius-panel);
   background: var(--color-block-surface);
 }
 
 .maintenance-overview-metric::after {
-  content: '';
+  content: none;
   position: absolute;
   inset: auto 0 0;
   height: 2px;
@@ -124,9 +72,9 @@
   height: 44px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid color-mix(in srgb, var(--color-border-default) 58%, transparent);
-  border-radius: 10px;
-  background: var(--color-surface-track);
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
   color: var(--color-text-primary);
 }
 
@@ -177,18 +125,18 @@
   white-space: nowrap;
 }
 
-.maintenance-overview-progress {
+.maintenance-overview .maintenance-overview-progress {
   position: relative;
   min-width: 0;
   min-height: 0;
   padding: 18px 20px 16px;
   display: grid;
-  grid-template-rows: auto auto minmax(44px, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   align-content: stretch;
   gap: 10px;
   overflow: hidden;
-  border-color: color-mix(in srgb, var(--color-border-default) 56%, transparent);
-  border-radius: 12px;
+  border: 0;
+  border-radius: var(--radius-panel);
   background: var(--color-block-surface);
 }
 
@@ -200,32 +148,23 @@
 .maintenance-overview-progress-head {
   min-width: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 
-.maintenance-overview-progress-head p,
-.maintenance-overview-progress-head h3,
-.maintenance-overview-progress-summary p {
+.maintenance-overview-progress-head p {
   margin: 0;
   font-family: var(--font-family-ui);
 }
 
 .maintenance-overview-progress-head p {
-  margin-bottom: 4px;
+  margin-bottom: 12px;
   color: var(--color-text-soft);
   font-size: var(--font-size-tiny);
   line-height: 1;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-}
-
-.maintenance-overview-progress-head h3 {
-  color: var(--color-text-primary);
-  font-size: var(--font-size-body-large);
-  font-weight: var(--font-weight-medium);
-  line-height: 1.15;
 }
 
 .maintenance-overview-progress-percent {
@@ -239,14 +178,6 @@
 }
 
 .maintenance-overview-progress-summary {
-  min-width: 0;
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.maintenance-overview-progress-summary > div {
   min-width: 0;
   display: flex;
   align-items: baseline;
@@ -263,24 +194,24 @@
   white-space: nowrap;
 }
 
-.maintenance-overview-progress-summary span,
-.maintenance-overview-progress-summary p {
+.maintenance-overview-progress-summary span {
   color: var(--color-text-secondary);
   font-family: var(--font-family-ui);
   font-size: var(--font-size-small);
   line-height: 1.2;
 }
 
-.maintenance-overview-progress-summary p {
-  max-width: 46%;
-  text-align: right;
+.maintenance-overview-gauge {
+  min-width: 0;
+  align-self: center;
+  display: grid;
+  gap: 8px;
 }
 
 .maintenance-overview-ruler {
   position: relative;
   min-height: 44px;
   margin-inline: 8px;
-  align-self: end;
 }
 
 .maintenance-overview-track,
@@ -376,7 +307,4 @@
     height: 23px;
   }
 
-  .maintenance-overview-progress-summary p {
-    max-width: 52%;
-  }
 }

@@ -5,6 +5,7 @@ import type { ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } fro
 import type { AxisId } from '../ui'
 import type {
   FilamentSensorMode,
+  FilamentRunoutAction,
   FilamentSensorSensitivity,
   FilamentSensorSnapshot,
 } from '@treed/printer-logic'
@@ -71,6 +72,7 @@ export type ControlContainerProps = {
   onAxisMove: (axis: AxisId, distanceMm: number) => Promise<boolean>
   onFilamentMove: (direction: -1 | 1, distanceMm: number) => Promise<boolean>
   onFilamentSensorModeChange: (mode: FilamentSensorMode) => Promise<boolean>
+  onFilamentRunoutActionChange: (action: FilamentRunoutAction) => Promise<boolean>
   onFilamentSensitivityChange: (sensitivity: FilamentSensorSensitivity) => Promise<boolean>
   getLastCommandError: () => string
 }
@@ -112,6 +114,7 @@ export function ControlContainer({
   onAxisMove,
   onFilamentMove,
   onFilamentSensorModeChange,
+  onFilamentRunoutActionChange,
   onFilamentSensitivityChange,
   getLastCommandError,
 }: ControlContainerProps) {
@@ -212,8 +215,10 @@ export function ControlContainer({
         commandError,
         modeBlockReasons: filamentModeBlockReasons,
         sensitivityBlockReasons: filamentSensitivityBlockReasons,
+        runoutActionBlockReason: getCommandBlockReason('setFilamentRunoutAction'),
         onModeChange: onFilamentSensorModeChange,
         onSensitivityChange: onFilamentSensitivityChange,
+        onRunoutActionChange: onFilamentRunoutActionChange,
       }}
       lighting={{
         lightPreferences,

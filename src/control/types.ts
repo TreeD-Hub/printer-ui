@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import type { PrinterCommandId } from '../core/commands'
 import type {
   FilamentSensorMode,
+  FilamentRunoutAction,
   FilamentSensorSensitivity,
   FilamentSensorSnapshot,
 } from '@treed/printer-logic'
@@ -164,8 +165,10 @@ export type FilamentSensorControlPanelProps = {
   commandError: string
   modeBlockReasons: Record<FilamentSensorMode, string | null>
   sensitivityBlockReasons: Record<FilamentSensorSensitivity, string | null>
+  runoutActionBlockReason: string | null
   onModeChange: (mode: FilamentSensorMode) => Promise<boolean>
   onSensitivityChange: (sensitivity: FilamentSensorSensitivity) => Promise<boolean>
+  onRunoutActionChange: (action: FilamentRunoutAction) => Promise<boolean>
 }
 
 export type LightingControlPanelProps = {

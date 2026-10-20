@@ -9,6 +9,7 @@ function createProps(overrides: Partial<FilamentSensorControlPanelProps> = {}): 
       supported: true,
       motionSupported: true,
       mode: 'presence',
+      runoutAction: 'recover',
       sensitivity: 'medium',
       filamentDetected: true,
       switchEnabled: true,
@@ -28,12 +29,36 @@ function createProps(overrides: Partial<FilamentSensorControlPanelProps> = {}): 
       high: null,
     },
     onModeChange: vi.fn().mockResolvedValue(true),
+    runoutActionBlockReason: null,
+    onRunoutActionChange: vi.fn().mockResolvedValue(true),
     onSensitivityChange: vi.fn().mockResolvedValue(true),
     ...overrides,
   }
 }
 
 describe('FilamentSensorControlPanel', () => {
+  it('отправляет реакцию без оптимистичного изменения выбранного действия', () => {
+    const props = createProps()
+    const { rerender } = render(<FilamentSensorControlPanel {...props} />)
+    fireEvent.click(screen.getByTestId('filament-action-pause'))
+    expect(props.onRunoutActionChange).toHaveBeenCalledWith('pause')
+    expect(screen.getByTestId('filament-action-recover')).toHaveAttribute('aria-pressed', 'true')
+    rerender(<FilamentSensorControlPanel {...props} snapshot={{ ...props.snapshot, runoutAction: 'pause' }} />)
+    expect(screen.getByTestId('filament-action-pause')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByText(/Продолжение — вручную/)).toBeInTheDocument()
+  })
+
+  it.each([
+    { isStale: true },
+    { pendingCommand: 'setFilamentRunoutAction' as const },
+    { runoutActionBlockReason: 'Настройка недоступна во время печати.' },
+    { snapshot: { ...createProps().snapshot, runoutAction: undefined } },
+  ])('блокирует смену реакции при недоступном состоянии %j', (overrides) => {
+    render(<FilamentSensorControlPanel {...createProps(overrides)} />)
+    expect(screen.getByTestId('filament-action-pause')).toBeDisabled()
+    expect(screen.getByTestId('filament-action-recover')).toBeDisabled()
+  })
+
   it('renders device-backed presence status and keeps sensitivity available in presence mode', () => {
     render(<FilamentSensorControlPanel {...createProps()} />)
 

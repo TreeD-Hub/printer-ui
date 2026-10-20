@@ -24,6 +24,9 @@ export function DriverModeControlPanel({ controls, kind }: {
   const command: ModeCommand = kind === 'drivers' ? 'setDriverMode' : 'setDriverFanMode'
   const domain = kind === 'drivers' ? 'motion' : 'fan'
   const title = kind === 'drivers' ? 'Драйверы XYZ' : 'Обдув драйверов'
+  const description = kind === 'drivers'
+    ? 'Изменится режим XYZ. Экструдер не затрагивается. Переключение доступно после завершения движения и печати.'
+    : 'Обдув включается при нагрузке или длительном удержании XYZ. После нагрузки вентилятор продолжает охлаждать драйверы.'
   const headingId = useId()
   const dialogRef = useRef<HTMLElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -112,8 +115,10 @@ export function DriverModeControlPanel({ controls, kind }: {
   }
 
   return <>
-    {status?.supported && <section className="control-card driver-mode-card" aria-label={title}>
-    <div><strong>{title}</strong><p>Режим: {status.mode === 'quiet' ? 'тихий' : status.mode === 'normal' ? (kind === 'fan' ? 'обычный' : 'громкий') : 'неизвестен'}</p>
+    {status?.supported && <section className={`control-card driver-mode-card driver-mode-card--${kind}`} aria-label={title}>
+    <div className="driver-mode-summary">
+      <p>{kind === 'drivers' ? 'Режим XYZ' : 'Режим обдува'}</p>
+      <strong>{status.mode === 'quiet' ? 'Тихий' : status.mode === 'normal' ? (kind === 'fan' ? 'Обычный' : 'Громкий') : 'Неизвестен'}</strong>
       {kind === 'fan' && <>
         <p>Сейчас: {status.speedPercent ?? '—'}% · При нагрузке: {status.activePercent ?? '—'}%</p>
         {status.loadReason && <p>{loadLabel[status.loadReason] ?? 'Состояние нагрузки неизвестно'}</p>}
@@ -132,6 +137,7 @@ export function DriverModeControlPanel({ controls, kind }: {
           setTarget(status.mode ?? 'normal'); setError('')
         }}>Мощность</button>}
     </div>
+    <div className="driver-mode-description"><p>{description}</p></div>
     {kind === 'fan' && status.powerControlSupported && !powerEditable && <p className="driver-mode-hint">Устройство разрешает только фиксированную мощность обдува.</p>}
     {status.state === 'fault' && <p role="alert">{status.message}</p>}
     </section>}
@@ -147,9 +153,7 @@ export function DriverModeControlPanel({ controls, kind }: {
     }}>
       <section ref={dialogRef} className="driver-mode-dialog" role="dialog" aria-modal="true" aria-labelledby={headingId}>
         <h2 id={headingId}>{targetPower === null ? `${title}: ${target === 'quiet' ? 'тихий' : kind === 'fan' ? 'обычный' : 'громкий'} режим` : 'Мощность обдува при нагрузке'}</h2>
-        <p>{kind === 'drivers'
-          ? 'Изменится режим XYZ. Экструдер не затрагивается. Переключение доступно после завершения движения и печати.'
-          : 'Обдув включается при нагрузке или длительном удержании XYZ. После нагрузки вентилятор продолжает охлаждать драйверы.'}</p>
+        <p>{description}</p>
         {targetPower !== null && <div className="driver-fan-power-editor">
           <label htmlFor={`${headingId}-power`}>Мощность при нагрузке: {targetPower}%</label>
           <div>

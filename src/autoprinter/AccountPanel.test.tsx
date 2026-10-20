@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 import { AccountPanel } from './AccountPanel'
@@ -34,6 +35,7 @@ function controller(overrides: Partial<AutoPrinterController> = {}): AutoPrinter
     lastAction: null,
     pairing: null,
     requestPairing: vi.fn(async () => undefined),
+    cancelPairing: vi.fn(async () => undefined),
     requestUnlink: vi.fn(async () => undefined),
     control: vi.fn(async () => undefined),
     refresh: vi.fn(async () => undefined),
@@ -43,13 +45,81 @@ function controller(overrides: Partial<AutoPrinterController> = {}): AutoPrinter
 }
 
 describe('AccountPanel', () => {
+  it('requests a code once on opening, without retrying after errors or cancellation', () => {
+    const api = controller({
+      status: { ...controller().status!, binding_state: 'unpaired', capabilities: { account_linking: true, pairing_cancel: true } },
+    })
+    const panel = (value: AutoPrinterController) => <StrictMode><AccountPanel controller={value} /></StrictMode>
+    const view = render(panel({ ...api, availability: 'loading', stale: true }))
+    expect(api.requestPairing).not.toHaveBeenCalled()
+    view.rerender(panel(api))
+    expect(api.requestPairing).toHaveBeenCalledTimes(1)
+    view.rerender(panel({ ...api, error: 'Не удалось запросить код привязки.' }))
+    view.rerender(panel(api))
+    expect(api.requestPairing).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByRole('button', { name: 'Получить код' }))
+    expect(api.requestPairing).toHaveBeenCalledTimes(2)
+    view.rerender(panel({ ...api, pairing: { code: 'ABCD2345', expires_at: null, verification_url: 'https://treed.example/autoprinter/connect#code=ABCD2345' } }))
+    expect(screen.getByRole('img', { name: 'QR-код для привязки аккаунта TreeD' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить привязку' }))
+    expect(api.cancelPairing).toHaveBeenCalledTimes(1)
+    view.rerender(panel(api))
+    expect(api.requestPairing).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    { enabled: false },
+    { configured: false },
+    { unlink_pending: true },
+    { connection: 'offline' },
+    { capabilities: { account_linking: false } },
+  ])('does not request a code when pairing is unavailable: %j', (status) => {
+    const api = controller({ status: { ...controller().status!, binding_state: 'unpaired', ...status } })
+    render(<AccountPanel controller={api} />)
+    expect(api.requestPairing).not.toHaveBeenCalled()
+  })
+
+  it('keeps a persistent code without a deadline or rotation and offers explicit cancellation', () => {
+    vi.useFakeTimers()
+    const api = controller({
+      status: { ...controller().status!, binding_state: 'unpaired', capabilities: { account_linking: true, pairing_cancel: true } },
+      pairing: { code: 'ABCD2345', expires_at: null, verification_url: 'https://treed.example/autoprinter/connect#code=ABCD2345' },
+    })
+    const view = render(<AccountPanel controller={api} />)
+    try {
+      act(() => vi.advanceTimersByTime(31 * 24 * 60 * 60 * 1_000))
+      expect(screen.getByText('ABCD2345')).toBeInTheDocument()
+      expect(screen.queryByText(/Код действует до/)).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Обновить код' })).not.toBeInTheDocument()
+      expect(api.requestPairing).not.toHaveBeenCalled()
+      fireEvent.click(screen.getByRole('button', { name: 'Отменить привязку' }))
+      expect(api.cancelPairing).toHaveBeenCalledTimes(1)
+    } finally { view.unmount(); vi.useRealTimers() }
+  })
+
+  it('shows the website profile, falls back on image failure and hides it after revocation', () => {
+    const profile = { display_name: 'Анна Волкова', avatar_url: 'https://treed.example/avatar.jpg' }
+    const api = controller({ status: { ...controller().status!, owner_profile: profile, display_name: 'TreeD V2' } })
+    const view = render(<AccountPanel controller={api} />)
+    expect(screen.getByText(profile.display_name)).toBeInTheDocument()
+    const avatar = screen.getByRole('img', { name: 'Аватар Анна Волкова' })
+    expect(avatar).toHaveAttribute('src', profile.avatar_url)
+    fireEvent.error(avatar)
+    expect(screen.getByText('АВ')).toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    view.rerender(<AccountPanel controller={{ ...api, status: { ...api.status!, binding_state: 'revoked' } }} />)
+    expect(screen.queryByText(profile.display_name)).not.toBeInTheDocument()
+    expect(screen.queryByText('АВ')).not.toBeInTheDocument()
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+
   it('keeps a legacy paired printer paired and shows safe fallback names', () => {
     const api = controller({ status: { ...controller().status!, capabilities: undefined } })
     render(<AccountPanel controller={api} />)
 
     expect(screen.getByText('Аккаунт подключён')).toBeInTheDocument()
     expect(screen.getByText('Имя принтера не задано')).toBeInTheDocument()
-    expect(screen.queryByText('Получите временный код, чтобы начать привязку.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Получите код, чтобы начать привязку.')).not.toBeInTheDocument()
     expect(screen.getByText('Управление привязкой недоступно в этой версии Core.')).toBeInTheDocument()
   })
 
@@ -78,14 +148,14 @@ describe('AccountPanel', () => {
     const api = controller({ status: unpaired, pairing })
     const view = render(<AccountPanel controller={api} />)
 
-    expect(screen.getByText('ABCD-2345')).toBeInTheDocument()
+    expect(screen.getByText('ABCD2345')).toBeInTheDocument()
     expect(screen.getByRole('img', { name: 'QR-код для привязки аккаунта TreeD' })).toBeInTheDocument()
     expect(api.requestPairing).not.toHaveBeenCalled()
     view.unmount()
 
     render(<AccountPanel controller={controller({ status: unpaired, stale: true, pairing })} />)
     expect(screen.queryByRole('img', { name: 'QR-код для привязки аккаунта TreeD' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Получить код' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Получить код' })).not.toBeInTheDocument()
   })
 
   it('hides the code and QR when pairing expires without a controller update', () => {
@@ -104,7 +174,7 @@ describe('AccountPanel', () => {
       expect(screen.getByRole('img', { name: 'QR-код для привязки аккаунта TreeD' })).toBeInTheDocument()
       act(() => vi.advanceTimersByTime(1_000))
       expect(screen.queryByRole('img', { name: 'QR-код для привязки аккаунта TreeD' })).not.toBeInTheDocument()
-      expect(screen.queryByText('ABCD-2345')).not.toBeInTheDocument()
+      expect(screen.queryByText('ABCD2345')).not.toBeInTheDocument()
     } finally {
       view.unmount()
       vi.useRealTimers()

@@ -1,17 +1,24 @@
 import type { AutoPrinterClient } from '../src/core/autoprinter/client'
 import type { AutoPrinterAction, AutoPrinterActionType, AutoPrinterStatus } from '@treed/printer-logic/autoprinter'
+import accountAvatar from './account-avatar.svg'
 
-export type AutoPrinterMockScenario = 'disabled' | 'occupied' | 'unknown' | 'offline' | 'revoked'
+export type AutoPrinterMockScenario = 'disabled' | 'unpaired' | 'paired' | 'unlink-pending' | 'occupied' | 'unknown' | 'offline' | 'revoked'
 const sampleId = '11111111-1111-4111-8111-111111111111'
 export function createMockAutoPrinterClient(scenario: AutoPrinterMockScenario = 'disabled'): AutoPrinterClient {
   const queueAvailable = scenario !== 'disabled' && scenario !== 'revoked'
+  const bindingState = scenario === 'revoked' ? 'revoked' : scenario === 'disabled' || scenario === 'unpaired' ? 'unpaired' : 'paired'
+  const hasActiveRun = scenario === 'occupied' || scenario === 'unlink-pending'
   let status: AutoPrinterStatus = {
-    enabled: scenario !== 'disabled', configured: scenario !== 'disabled', binding_state: scenario === 'revoked' ? 'revoked' : scenario === 'disabled' ? 'unpaired' : 'paired', binding_epoch: 1,
-    protocol_version: 1, configuration_version: 1, execution_enabled: scenario === 'occupied', physical_execution_enabled: false,
-    queue: scenario === 'occupied' ? [{ run_id: sampleId, position: 1, state: 'printing', series_id: sampleId, copies_per_run: 1 }] : [], queueAvailable, queue_total: scenario === 'occupied' ? 1 : 0, queue_truncated: false,
-    local_pause: false, remote_pause: false, current_run_id: scenario === 'occupied' ? sampleId : null, run_state: scenario === 'occupied' ? 'printing' : null,
-    ready: scenario === 'occupied' ? true : undefined, blocked_reason: scenario === 'unknown' ? 'bed_proof_unavailable' : null, last_sync_at: null, executionSnapshotAvailable: scenario !== 'disabled' && scenario !== 'revoked',
-    capabilities: scenario === 'disabled' || scenario === 'revoked' ? undefined : { queue: true, pairing: true, bed_check: false, bed_check_diagnostic: true },
+    enabled: scenario !== 'disabled', configured: scenario !== 'disabled', binding_state: bindingState, binding_epoch: 1,
+    protocol_version: 1, configuration_version: 1, execution_enabled: hasActiveRun, physical_execution_enabled: false,
+    queue: hasActiveRun ? [{ run_id: sampleId, position: 1, state: 'printing', series_id: sampleId, copies_per_run: 1 }] : [], queueAvailable, queue_total: hasActiveRun ? 1 : 0, queue_truncated: false,
+    local_pause: false, remote_pause: false, current_run_id: hasActiveRun ? sampleId : null, run_state: hasActiveRun ? 'printing' : null,
+    ready: hasActiveRun ? true : undefined, blocked_reason: scenario === 'unknown' ? 'bed_proof_unavailable' : null, last_sync_at: null, executionSnapshotAvailable: scenario !== 'disabled' && scenario !== 'revoked',
+    connection: 'online', unlink_pending: scenario === 'unlink-pending',
+    owner_profile: bindingState === 'paired' ? { display_name: 'Александр Волков', avatar_url: accountAvatar } : null,
+    display_name: bindingState === 'paired' ? 'TreeD V2 · Демо' : undefined,
+    pairing: null,
+    capabilities: scenario === 'disabled' ? undefined : { queue: queueAvailable, pairing: true, pairing_cancel: true, account_linking: true, bed_check: false, bed_check_diagnostic: true },
     bed_check: scenario === 'unknown' ? { model_version: 'mock', live_qualified: false, last_check: { state: 'unknown', reason: 'bed_proof_unavailable', checked_at: new Date().toISOString() } } : undefined,
   }
   return {
@@ -19,7 +26,15 @@ export function createMockAutoPrinterClient(scenario: AutoPrinterMockScenario = 
     async pair() {
       if (scenario === 'offline') throw new Error('Mock AutoPrinter офлайн.')
       if (!status.enabled || !status.configured) throw new Error('Mock AutoPrinter не настроен.')
-      return { code: 'MOCK-AUTOPRINTER-CODE', expires_at: new Date(Date.now() + 60_000).toISOString() }
+      if (status.binding_state !== 'unpaired') throw new Error('Принтер уже привязан.')
+      const pairing = status.pairing ?? { code: 'ABCD2345', expires_at: null, verification_url: 'https://treed.example/autoprinter/connect#code=ABCD2345' }
+      status = { ...status, pairing }
+      return pairing
+    },
+    async cancelPairing() {
+      if (scenario === 'offline') throw new Error('Mock AutoPrinter офлайн.')
+      if (status.binding_state !== 'unpaired') throw new Error('Принтер уже привязан.')
+      status = { ...status, pairing: null }
     },
     async unlinkAccount() {
       if (scenario === 'offline') throw new Error('Mock AutoPrinter офлайн.')

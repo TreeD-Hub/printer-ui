@@ -4,7 +4,7 @@ import { useAutoPrinter } from './useAutoPrinter'
 import { AutoPrinterClientError } from '../autoprinter/client'
 
 const { client, createClient } = vi.hoisted(() => {
-  const client = { getStatus: vi.fn(), pair: vi.fn(), unlinkAccount: vi.fn(), control: vi.fn() }
+  const client = { getStatus: vi.fn(), pair: vi.fn(), cancelPairing: vi.fn(), unlinkAccount: vi.fn(), control: vi.fn() }
   return { client, createClient: vi.fn(() => client) }
 })
 vi.mock('#runtime', () => ({ createAutoPrinterClient: createClient }))
@@ -12,6 +12,24 @@ const fresh = { enabled: true, configured: true, binding_state: 'paired', bindin
 
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks() })
 describe('useAutoPrinter', () => {
+  it('restores a persistent code, avoids reissuing it and retains it when cancellation fails', async () => {
+    const pairing = { code: 'ABCD2345', expires_at: null, verification_url: 'https://treed.example/autoprinter/connect#code=ABCD2345' }
+    client.getStatus.mockResolvedValue({ ...fresh, binding_state: 'unpaired', pairing, capabilities: { account_linking: true, pairing_cancel: true } })
+    const { result, unmount } = renderHook(() => useAutoPrinter(true))
+    await waitFor(() => expect(result.current.pairing).toEqual(pairing))
+    await act(async () => { await result.current.requestPairing() })
+    expect(client.pair).not.toHaveBeenCalled()
+    client.cancelPairing.mockRejectedValueOnce(new Error('offline'))
+    await act(async () => { await result.current.cancelPairing() })
+    expect(result.current.pairing).toEqual(pairing)
+    expect(result.current.error).toMatch(/Не удалось отменить/)
+    client.cancelPairing.mockResolvedValueOnce(undefined)
+    await act(async () => { await result.current.cancelPairing() })
+    expect(result.current.pairing).toBeNull()
+    expect(result.current.error).toBeNull()
+    unmount()
+  })
+
   it('polls one client and refuses to replay an unconfirmed control', async () => {
     client.getStatus.mockResolvedValue(fresh)
     client.control.mockRejectedValue(new Error('network'))

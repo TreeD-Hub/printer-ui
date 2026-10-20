@@ -2,12 +2,18 @@ import {
   type CSSProperties,
   type ChangeEvent,
   type MouseEvent,
-  type SelectHTMLAttributes,
+  type ButtonHTMLAttributes,
+  useEffect,
+  useId,
+  useLayoutEffect,
   useRef,
+  useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { IconMask } from './IconMask'
 import { joinClassNames } from './classNames'
 import type { UiIconName } from './iconAssets'
+import { useModalFocus } from './useModalFocus'
 
 export type SettingsMenuOption<T extends string> = {
   id: T
@@ -144,7 +150,7 @@ export function SettingsToggleRow({
   )
 }
 
-type SettingsSelectFieldProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange' | 'children'> & {
+type SettingsSelectFieldProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'value' | 'onChange' | 'children'> & {
   label: string
   value: string
   options: readonly string[]
@@ -157,24 +163,68 @@ export function SettingsSelectField({
   options,
   onChange,
   className,
-  ...selectProps
+  disabled = false,
+  ...buttonProps
 }: SettingsSelectFieldProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const labelId = useId()
+  const valueId = useId()
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useModalFocus<HTMLElement>(isOpen && !disabled, () => setIsOpen(false))
+
+  useEffect(() => {
+    if (disabled) setIsOpen(false)
+  }, [disabled])
+
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    const list = dialogRef.current?.querySelector<HTMLElement>('.settings-select-options')
+    const selected = list?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (list && selected) {
+      list.scrollTop = selected.offsetTop - list.offsetTop - (list.clientHeight - selected.clientHeight) / 2
+    }
+  }, [isOpen, value, dialogRef])
+
   return (
-    <label className={joinClassNames('settings-select-field', className)}>
-      <span className="settings-select-label">{label}</span>
-      <select
+    <div className={joinClassNames('settings-select-field', className)}>
+      <span id={labelId} className="settings-select-label">{label}</span>
+      <button
+        {...buttonProps}
+        ref={triggerRef}
+        type="button"
         className="settings-select-control"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        {...selectProps}
+        aria-labelledby={`${labelId} ${valueId}`}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen && !disabled}
+        disabled={disabled}
+        tabIndex={-1}
+        onClick={() => setIsOpen(true)}
       >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span id={valueId}>{value}</span>
+        <span aria-hidden="true">⌄</span>
+      </button>
+      {isOpen && !disabled ? createPortal(
+        <div className="settings-select-layer" onClick={() => setIsOpen(false)}>
+          <section ref={dialogRef} className="settings-select-dialog" role="dialog" aria-modal="true"
+            aria-labelledby={`${labelId}-dialog`} onClick={(event) => event.stopPropagation()}>
+            <header>
+              <h3 id={`${labelId}-dialog`}>{label}</h3>
+              <button type="button" className="settings-select-close" tabIndex={-1} onClick={() => setIsOpen(false)}>Назад</button>
+            </header>
+            <div className="settings-select-options" role="listbox" aria-label={label}>
+              {options.map((option) => (
+                <button key={option} type="button" role="option" aria-selected={option === value}
+                  className="settings-select-option" tabIndex={-1}
+                  onClick={() => { onChange(option); setIsOpen(false) }}>
+                  {option}
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>,
+        triggerRef.current?.closest('.screen-shell') ?? document.body,
+      ) : null}
+    </div>
   )
 }
 
@@ -199,6 +249,7 @@ type SettingsVirtualKeyboardProps = {
   valueLabel: string
   value: string
   placeholder: string
+  isPassword?: boolean
   language?: VirtualKeyboardLanguage
   isCapsEnabled?: boolean
   rows?: ReadonlyArray<ReadonlyArray<string>>
@@ -222,6 +273,7 @@ export function SettingsVirtualKeyboard({
   valueLabel,
   value,
   placeholder,
+  isPassword = false,
   language = 'ru',
   isCapsEnabled = false,
   rows,
@@ -235,10 +287,20 @@ export function SettingsVirtualKeyboard({
   testId,
   previewTestId,
 }: SettingsVirtualKeyboardProps) {
-  const previewInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const previewInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null)
+  const PreviewInput = isPassword ? 'input' : 'textarea'
   const keyboardRows = rows ?? VIRTUAL_KEYBOARD_LAYOUT[language]
   const nextLanguage = language === 'ru' ? 'EN' : 'RU'
   const enterLabel = showEnterKey ? 'Enter' : 'Готово'
+
+  useLayoutEffect(() => {
+    const input = previewInputRef.current
+    if (!showEnterKey || input === null) return
+    const previousScrollTop = input.scrollTop
+    input.style.height = 'auto'
+    input.style.height = `${input.scrollHeight}px`
+    input.scrollTop = input.selectionEnd === value.length ? input.scrollHeight : previousScrollTop
+  }, [value, showEnterKey])
 
   function getPreviewSelection(): VirtualKeyboardSelection | undefined {
     const input = previewInputRef.current
@@ -247,8 +309,8 @@ export function SettingsVirtualKeyboard({
     }
 
     return {
-      selectionStart: input.selectionStart,
-      selectionEnd: input.selectionEnd,
+      selectionStart: input.selectionStart ?? input.value.length,
+      selectionEnd: input.selectionEnd ?? input.value.length,
     }
   }
 
@@ -279,10 +341,10 @@ export function SettingsVirtualKeyboard({
     })
   }
 
-  function handlePreviewChange(event: ChangeEvent<HTMLTextAreaElement>): void {
+  function handlePreviewChange(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void {
     onPreviewChange?.(event.currentTarget.value, {
-      selectionStart: event.currentTarget.selectionStart,
-      selectionEnd: event.currentTarget.selectionEnd,
+      selectionStart: event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+      selectionEnd: event.currentTarget.selectionEnd ?? event.currentTarget.value.length,
     })
   }
 
@@ -303,20 +365,21 @@ export function SettingsVirtualKeyboard({
   }
 
   return (
-    <div className="virtual-keyboard-panel" data-testid={testId}>
+    <div className="virtual-keyboard-panel" data-testid={testId}
+      style={{ '--keyboard-columns': Math.max(...keyboardRows.map((row) => row.length)) } as CSSProperties}>
       <div className="virtual-keyboard-preview">
-        <p className="virtual-keyboard-preview-label">{valueLabel}</p>
-        <textarea
-          ref={previewInputRef}
+        <PreviewInput
+          ref={(element: HTMLInputElement | HTMLTextAreaElement | null) => { previewInputRef.current = element }}
+          type={isPassword ? 'password' : undefined}
           data-modal-initial-focus
-          className="virtual-keyboard-preview-value virtual-keyboard-preview-input"
+          className={`virtual-keyboard-preview-value virtual-keyboard-preview-input${showEnterKey ? ' is-multiline' : ''}`}
           value={value}
           onChange={handlePreviewChange}
           placeholder={placeholder}
           aria-label={valueLabel}
           data-testid={previewTestId}
           rows={1}
-          wrap="off"
+          wrap={showEnterKey ? 'soft' : 'off'}
           spellCheck={false}
         />
       </div>

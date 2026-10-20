@@ -45,6 +45,7 @@ const ALL_COMMAND_IDS: PrinterCommandId[] = [
   'loadFilament',
   'unloadFilament',
   'setFilamentSensorMode',
+  'setFilamentRunoutAction',
   'setFilamentEncoderSensitivity',
   'zParkZeroEddy',
   'eddyDriveCurrentCalibrate',
@@ -518,6 +519,20 @@ describe('TREE_D_COMMAND_CATALOG', () => {
   })
 
   it('gates filament sensor settings by print state and degraded hardware', () => {
+    const actionContext = {
+      ...IDLE_CONTEXT,
+      filamentSensor: { ...IDLE_CONTEXT.filamentSensor!, runoutAction: 'recover' as const },
+    }
+    expect(getTreeDCommandBlockReason('setFilamentRunoutAction', actionContext)).toBeNull()
+    for (const printContext of [PRINTING_CONTEXT, PAUSED_CONTEXT]) {
+      expect(getTreeDCommandBlockReason('setFilamentRunoutAction', {
+        ...actionContext, printJob: printContext.printJob,
+      })).not.toBeNull()
+    }
+    expect(getTreeDCommandBlockReason('setFilamentRunoutAction', IDLE_CONTEXT)).toContain('обновите конфигурацию')
+    expect(getTreeDCommandBlockReason('setFilamentRunoutAction', {
+      ...actionContext, filamentSensor: { ...actionContext.filamentSensor, motionSupported: false },
+    })).toContain('канал движения')
     expect(getTreeDCommandBlockReason('setFilamentSensorMode', IDLE_CONTEXT, {
       command: 'setFilamentSensorMode',
       mode: 'motion',

@@ -41,6 +41,7 @@ function controller(overrides: Partial<AutoPrinterController> = {}): AutoPrinter
     lastAction: null,
     pairing: null,
     requestPairing: vi.fn(async () => undefined),
+    cancelPairing: vi.fn(async () => undefined),
     requestUnlink: vi.fn(async () => undefined),
     control: vi.fn(async () => undefined),
     refresh: vi.fn(async () => undefined),

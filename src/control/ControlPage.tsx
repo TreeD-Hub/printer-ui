@@ -89,36 +89,28 @@ export const ControlPage = memo(function ControlPage({
           <header className="control-view-header">
             {activeControlGroup === 'maintenance' ? (
               <div className="control-maintenance-header">
-                <div className="control-maintenance-heading">
-                  <p className="control-tab-label" data-testid="control-active-tab-label">Т.О</p>
-                  <p className="control-maintenance-subtitle">
-                    Сервисное обслуживание и напоминания для вашего 3D-принтера.
-                  </p>
-                </div>
-                <div className="control-maintenance-header-actions">
-                  <p className="control-maintenance-status-pill">
-                    {maintenanceStatusLabel}
-                    <span aria-hidden="true" />
-                  </p>
-                  <button
-                    type="button"
-                    className="control-maintenance-history-button"
-                    aria-label="История ТО — в разработке"
-                    title="История ТО — в разработке"
-                    data-testid="maintenance-history-button"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <circle cx="12" cy="12" r="7.5" />
-                      <path d="M12 7.7v4.6l3 1.9" />
-                    </svg>
-                  </button>
-                </div>
+                <p className="control-tab-label" data-testid="control-active-tab-label">Т.О</p>
+                <p className="control-maintenance-status-pill">
+                  {maintenanceStatusLabel}
+                  <span aria-hidden="true" />
+                </p>
               </div>
             ) : (
               <p className="control-tab-label" data-testid="control-active-tab-label">
                 {activeControlGroupOption.label}
               </p>
             )}
+            {activeControlGroup === 'movement' ? (
+              <h3 className="control-tab-label control-parking-label">Парковка</h3>
+            ) : activeControlGroup === 'heating' ? (
+              <h3 className="control-tab-label">
+                {heating.temperatureKeyboardTarget === null ? 'Предустановки' : 'Ввод температуры'}
+              </h3>
+            ) : activeControlGroup === 'filament' ? (
+              <h3 id="filament-sensitivity-title" className="control-tab-label">Чувствительность</h3>
+            ) : activeControlGroup === 'drivers' && driverControls?.fanMode?.supported ? (
+              <h3 className="control-tab-label">Обдув драйверов</h3>
+            ) : null}
           </header>
           <div className="control-scroll-area">
             {activeControlGroup === 'movement' ? (

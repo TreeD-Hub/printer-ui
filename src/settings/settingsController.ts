@@ -5,7 +5,7 @@ import {
 } from '@treed/printer-logic'
 import { runtimeMode } from '#runtime'
 import { requestAiDetectionSettings } from '../core/hostDetection'
-import { usePrinterNotifications } from '../core/store/printerNotifications'
+import { subscribePrinterGcodeResponses, usePrinterNotifications } from '../core/store/printerNotifications'
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { downloadDiagnosticReport } from '../diagnostics'
@@ -182,7 +182,15 @@ export function useSettingsController({
   const [resetOverridesNotice, setResetOverridesNotice] = useState('')
   const [consoleCommandValue, setConsoleCommandValue] = useState<string>('')
   const [pendingConsoleCommand, setPendingConsoleCommand] = useState<string | null>(null)
-  const [consoleHistory, setConsoleHistory] = useState<Array<{ id: string; command: string; createdAt: string }>>([])
+  const [consoleHistory, setConsoleHistory] = useState<SettingsPageProps['console']['history']>([])
+  const consoleEntryId = useRef(0)
+  const appendConsoleEntry = useCallback((command: string, kind: 'command' | 'response' | 'error') => {
+    const entry = { id: String(++consoleEntryId.current), command, kind, createdAt: new Date().toLocaleTimeString('ru-RU') }
+    setConsoleHistory((current) => [entry, ...current].slice(0, 200))
+  }, [])
+  useEffect(() => subscribePrinterGcodeResponses((message) => {
+    appendConsoleEntry(message, message.startsWith('!!') ? 'error' : 'response')
+  }), [appendConsoleEntry])
   const [consoleNotice, setConsoleNotice] = useState<string>('Введите G-code или макрос и отправьте команду.')
   const [hostNetworkStatus, setHostNetworkStatus] = useState<HostNetworkStatus>(() =>
     createUnavailableHostNetworkStatus('Host network bridge недоступен.'),
@@ -776,21 +784,14 @@ export function useSettingsController({
       return
     }
 
-    const now = new Date().toLocaleTimeString('ru-RU')
-    setConsoleHistory((current) => [
-      {
-        id: `${Date.now()}-${current.length}`,
-        command: trimmed,
-        createdAt: now,
-      },
-      ...current,
-    ])
+    appendConsoleEntry(trimmed, 'command')
     setConsoleNotice(`Команда отправлена: ${trimmed}`)
     setConsoleCommandValue('')
     setPendingConsoleCommand(null)
     void executeCommand({ command: 'consoleGcode', gcode: trimmed }).then((ok) => {
       if (!ok) {
         setConsoleNotice(`Команда не выполнена: ${trimmed}`)
+        appendConsoleEntry(`Команда не выполнена: ${trimmed}`, 'error')
       }
     })
   }

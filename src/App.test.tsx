@@ -97,7 +97,7 @@ describe('App', () => {
   })
 
   it('renders idle placeholder on dashboard before print start', async () => {
-    render(<App />)
+    await act(async () => { render(<App />) })
 
     expect(screen.getByTestId('screen-shell')).toBeInTheDocument()
     expect(screen.getByText('TreeD')).toBeInTheDocument()
@@ -111,6 +111,8 @@ describe('App', () => {
     const idleNotesInput = screen.getByTestId('idle-notes-input') as HTMLTextAreaElement
     expect(idleNotesInput.value.length).toBeGreaterThan(0)
     fireEvent.focus(idleNotesInput)
+    expect(screen.queryByTestId('idle-notes-keyboard')).not.toBeInTheDocument()
+    fireEvent.click(idleNotesInput)
     expect(screen.getByTestId('idle-notes-keyboard')).toBeInTheDocument()
     const idleNotesKeyboardPreview = screen.getByTestId('idle-notes-keyboard-preview') as HTMLTextAreaElement
     fireEvent.focus(idleNotesKeyboardPreview)
@@ -120,8 +122,15 @@ describe('App', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: /Символ о/i }))
     expect(idleNotesInput.value.endsWith('о')).toBe(true)
+    fireEvent.change(idleNotesKeyboardPreview, { target: { value: 'Первая строка\nВторая строка' } })
+    idleNotesKeyboardPreview.setSelectionRange(idleNotesKeyboardPreview.value.length, idleNotesKeyboardPreview.value.length)
+    fireEvent.click(screen.getByRole('button', { name: 'Перенос строки' }))
+    expect(idleNotesInput.value).toBe('Первая строка\nВторая строка\n')
     fireEvent.click(screen.getByRole('button', { name: 'Скрыть клавиатуру' }))
     expect(screen.queryByTestId('idle-notes-keyboard')).not.toBeInTheDocument()
+    fireEvent.click(idleNotesInput)
+    expect(screen.getByTestId('idle-notes-keyboard')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть клавиатуру' }))
     expect(screen.getByRole('navigation', { name: /Основная навигация/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Уведомления' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Пауза' })).not.toBeInTheDocument()
@@ -143,7 +152,7 @@ describe('App', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Статус Wi-Fi' }))
         expect(screen.getByTestId('top-popup-wifi')).toBeInTheDocument()
       } else if (openWindow === 'Клавиатура') {
-        fireEvent.focus(screen.getByTestId('idle-notes-input'))
+        fireEvent.click(screen.getByTestId('idle-notes-input'))
         expect(screen.getByTestId('idle-notes-keyboard')).toBeInTheDocument()
       } else if (openWindow === 'PID') {
         fireEvent.click(screen.getByRole('button', { name: 'Макросы' }))
@@ -188,6 +197,7 @@ describe('App', () => {
       expect(screen.getByRole('button', { name: 'Печать' })).toHaveAttribute('aria-current', 'page')
       expect(getMockCommandOperations()).toHaveLength(commandCount)
     },
+    20000,
   )
 
   it('keeps idle dashboard chrome and sidebar visible during a Klipper diagnostic', async () => {
@@ -595,8 +605,8 @@ describe('App', () => {
     })
   }, 10000)
 
-  it('keeps the exclude-object button hidden while printer is idle', () => {
-    render(<App />)
+  it('keeps the exclude-object button hidden while printer is idle', async () => {
+    await act(async () => { render(<App />) })
 
     expect(screen.queryByTestId('open-exclude-object-modal')).not.toBeInTheDocument()
   })
@@ -781,8 +791,8 @@ describe('App', () => {
     })
   }, 20000)
 
-  it('switches between screens from bottom navigation', () => {
-    render(<App />)
+  it('switches between screens from bottom navigation', async () => {
+    await act(async () => { render(<App />) })
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
 
@@ -1289,6 +1299,7 @@ describe('App', () => {
   }, 10000)
 
   it('opens Wi-Fi popup with network details and navigates to settings', async () => {
+    setMockNetworkStatus({ available: false, ssid: null, ipAddress: null, message: '', networks: [] })
     render(<App />)
 
     const wifiButton = screen.getByRole('button', { name: 'Статус Wi-Fi' })
@@ -1309,14 +1320,11 @@ describe('App', () => {
     expect(screen.getByTestId('screen-settings')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Статус Wi-Fi' })).not.toBeInTheDocument()
     expect(screen.getByTestId('settings-group-network')).toHaveAttribute('aria-pressed', 'true')
-    const wifiSearchInput = screen.getByTestId('settings-network-search') as HTMLInputElement
-    expect(wifiSearchInput).toBeDisabled()
-    fireEvent.focus(wifiSearchInput)
-    expect(screen.queryByTestId('settings-wifi-search-keyboard')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-network-search')).not.toBeInTheDocument()
     expect(screen.queryByTestId('settings-keyboard-layer')).not.toBeInTheDocument()
     expect(screen.queryByTestId('settings-wifi-search-keyboard')).not.toBeInTheDocument()
 
-    expect(screen.getByTestId('settings-network-scan')).toBeDisabled()
+    expect(screen.queryByTestId('settings-network-scan')).not.toBeInTheDocument()
     expect(screen.queryByTestId('settings-network-item-office-main-5g')).not.toBeInTheDocument()
     expect(screen.queryByTestId('settings-network-connect-button')).not.toBeInTheDocument()
     expect(screen.queryByTestId('settings-network-forget-button')).not.toBeInTheDocument()
@@ -1355,17 +1363,74 @@ describe('App', () => {
       expect(screen.getByTestId('settings-network-scan')).not.toBeDisabled()
     })
 
+    expect(screen.queryByTestId('settings-network-password-input')).not.toBeInTheDocument()
     fireEvent.click(screen.getByTestId('settings-network-item-office-main-5g'))
+    expect(screen.getByRole('button', { name: 'К списку сетей' })).not.toHaveFocus()
+    expect(screen.queryByRole('group', { name: 'Список Wi-Fi сетей' })).not.toBeInTheDocument()
     const passwordInput = screen.getByTestId('settings-network-password-input') as HTMLInputElement
-    fireEvent.focus(passwordInput)
-    expect(screen.getByTestId('settings-wifi-keyboard')).toBeInTheDocument()
-
-    fireEvent.change(passwordInput, { target: { value: '12345678' } })
+    fireEvent.change(passwordInput, { target: { value: 'short' } })
     fireEvent.click(screen.getByTestId('settings-network-connect-button'))
+    expect(getMockNetworkOperations()).not.toContain('connect:Office_Main_5G')
+    expect(screen.getByTestId('settings-network-notice')).toHaveTextContent('минимум 8 символов')
+
+    fireEvent.focus(passwordInput)
+    expect(screen.queryByTestId('settings-wifi-keyboard')).not.toBeInTheDocument()
+    passwordInput.focus()
+    fireEvent.click(passwordInput)
+    expect(screen.getByTestId('settings-wifi-keyboard')).toBeInTheDocument()
+    const keyboardInput = screen.getByTestId('settings-wifi-keyboard-preview')
+    expect(keyboardInput).toHaveAttribute('type', 'password')
+    fireEvent.change(keyboardInput, { target: { value: '12345678' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Готово' }))
+    expect(screen.queryByTestId('settings-wifi-keyboard')).not.toBeInTheDocument()
+    expect(passwordInput).toHaveValue('12345678')
+    fireEvent.click(screen.getByTestId('settings-network-connect-button'))
+    expect(screen.getByTestId('settings-network-connect-button')).toBeDisabled()
+    expect(screen.getByTestId('settings-network-forget-button')).toBeDisabled()
 
     await waitFor(() => {
       expect(getMockNetworkOperations()).toContain('connect:Office_Main_5G')
+      expect(screen.queryByTestId('settings-network-password-input')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('settings-network-connect-button')).not.toBeInTheDocument()
     })
+  })
+
+  it('handles empty Wi-Fi results, open networks and returning from connection details', async () => {
+    setMockNetworkStatus({ available: true, ssid: null, ipAddress: null, message: '', networks: [] })
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Настройки' }))
+    fireEvent.click(screen.getByTestId('settings-group-network'))
+    await waitFor(() => expect(screen.getByTestId('settings-network-scan')).toBeEnabled())
+    expect(screen.getByText('Сети не найдены')).toBeInTheDocument()
+    expect(screen.queryByTestId('settings-network-connect-button')).not.toBeInTheDocument()
+
+    setMockNetworkStatus({
+      available: true, ssid: null, ipAddress: null, message: '',
+      networks: [{ id: 'guest', ssid: 'Guest', signalPercent: 70, security: 'open', saved: false, connected: false }],
+    })
+    fireEvent.click(screen.getByTestId('settings-network-scan'))
+    expect(screen.getByTestId('settings-network-scan')).toBeDisabled()
+    expect(screen.queryByText('Сети не найдены')).not.toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('settings-network-item-guest')).toBeEnabled())
+    expect(getMockNetworkOperations()).toContain('scan')
+
+    expect(screen.queryByTestId('settings-network-search')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('settings-network-item-guest'))
+    expect(screen.queryByTestId('settings-network-password-input')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('settings-network-forget-button')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('settings-network-connect-button'))
+    await waitFor(() => expect(screen.getByTestId('settings-network-forget-button')).toBeEnabled())
+    expect(getMockNetworkOperations()).toContain('connect:Guest')
+    expect(screen.queryByTestId('settings-network-connect-button')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'К списку сетей' }))
+    expect(screen.getByTestId('settings-network-item-guest')).not.toHaveFocus()
+    expect(screen.getByTestId('settings-network-item-guest')).toHaveTextContent('Подключено')
+    fireEvent.click(screen.getByTestId('settings-network-item-guest'))
+    fireEvent.click(screen.getByTestId('settings-network-forget-button'))
+    await waitFor(() => expect(screen.getByTestId('settings-network-connect-button')).toBeEnabled())
+    expect(getMockNetworkOperations()).toContain('forget:Guest')
+    expect(screen.queryByTestId('settings-network-forget-button')).not.toBeInTheDocument()
   })
 
   it('renders extended settings sections and handles interactions', async () => {
@@ -1384,10 +1449,11 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Интерфейс' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-dark-theme-toggle')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByTestId('settings-max-performance-toggle')).toHaveAttribute('aria-checked', 'false')
-    expect((screen.getByRole('combobox', { name: 'Спящий режим' }) as HTMLSelectElement).value).toBe('5 мин')
-    expect(
-      within(screen.getByRole('combobox', { name: 'Временная зона UTC' })).getAllByRole('option').length,
-    ).toBeGreaterThan(20)
+    expect(screen.getByRole('button', { name: 'Спящий режим 5 мин' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^Временная зона UTC / }))
+    const timezoneDialog = screen.getByRole('dialog', { name: 'Временная зона UTC' })
+    expect(within(timezoneDialog).getAllByRole('option').length).toBeGreaterThan(20)
+    fireEvent.click(within(timezoneDialog).getByRole('button', { name: 'Назад' }))
 
     fireEvent.click(screen.getByTestId('settings-max-performance-toggle'))
     expect(document.querySelector('.app-root')).toHaveClass('is-performance-mode')
@@ -1430,8 +1496,9 @@ describe('App', () => {
     expect(screen.getByTestId('settings-console-keyboard')).toBeInTheDocument()
     expect(screen.getByTestId('settings-keyboard-layer')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('settings-console-quick-0'))
+    fireEvent.change(screen.getByTestId('settings-console-keyboard-preview'), { target: { value: 'G28' } })
     expect(consoleInput.value).toBe('G28')
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть клавиатуру' }))
 
     fireEvent.click(screen.getByTestId('settings-console-send-button'))
     expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('подтверждения')
@@ -1445,11 +1512,11 @@ describe('App', () => {
         ]),
       )
     })
-    expect(screen.getByText('G28', { selector: 'strong' })).toBeInTheDocument()
+    expect(within(screen.getByRole('log', { name: 'Команды и ответы принтера' })).getByText('G28')).toBeInTheDocument()
   })
 
-  it('shows disabled cloud capability state instead of QR redirect', () => {
-    render(<App />)
+  it('shows disabled cloud capability state instead of QR redirect', async () => {
+    await act(async () => { render(<App />) })
 
     const cloudButton = screen.getByRole('button', { name: 'Статус облака' })
     fireEvent.click(cloudButton)
