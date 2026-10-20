@@ -18,6 +18,7 @@ export function createMockAutoPrinterClient(scenario: AutoPrinterMockScenario = 
     owner_profile: bindingState === 'paired' ? { display_name: 'Александр Волков', avatar_url: accountAvatar } : null,
     display_name: bindingState === 'paired' ? 'TreeD V2 · Демо' : undefined,
     pairing: null,
+    active_package: null, hold: null, recovery_required: false,
     capabilities: scenario === 'disabled' ? undefined : { queue: queueAvailable, pairing: true, pairing_cancel: true, account_linking: true, bed_check: false, bed_check_diagnostic: true },
     bed_check: scenario === 'unknown' ? { model_version: 'mock', live_qualified: false, last_check: { state: 'unknown', reason: 'bed_proof_unavailable', checked_at: new Date().toISOString() } } : undefined,
   }
@@ -47,6 +48,7 @@ export function createMockAutoPrinterClient(scenario: AutoPrinterMockScenario = 
     async control(action: AutoPrinterAction) {
       if (scenario === 'offline') throw new Error('Mock AutoPrinter офлайн.')
       const command_id = 'action_id' in action ? action.action_id : null
+      if (action.type === 'cancel_package') return { type: action.type, command_id, state: 'rejected', result: { code: 'offline_packages_unsupported' } }
       if (status.binding_state !== 'paired') return { type: action.type as AutoPrinterActionType, command_id, state: 'rejected', result: { code: 'not_paired' } }
       if (action.type === 'pause_queue') status = { ...status, local_pause: true, queue_control: 'paused' }
       else if (action.type === 'resume_queue') status = { ...status, local_pause: false, stop_after_current: false, queue_control: 'running' }

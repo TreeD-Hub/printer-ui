@@ -29,6 +29,9 @@ const status: AutoPrinterStatus = {
   last_sync_at: new Date().toISOString(),
   capabilities: { queue: true, pairing: false, bed_check: false, bed_check_diagnostic: true },
   connection: 'online',
+  active_package: null,
+  hold: null,
+  recovery_required: false,
 }
 
 function controller(overrides: Partial<AutoPrinterController> = {}): AutoPrinterController {
@@ -44,6 +47,7 @@ function controller(overrides: Partial<AutoPrinterController> = {}): AutoPrinter
     cancelPairing: vi.fn(async () => undefined),
     requestUnlink: vi.fn(async () => undefined),
     control: vi.fn(async () => undefined),
+    cancelRemaining: vi.fn(async () => undefined),
     refresh: vi.fn(async () => undefined),
     manualStartBlockReason: 'Управление очередью AutoPrinter активно',
     ...overrides,
@@ -68,6 +72,41 @@ describe('AutoPrinterPanel', () => {
     expect(screen.getByText('Эта версия системы не поддерживает AutoPrinter.')).toBeInTheDocument()
     expect(screen.queryByText('В очереди нет запусков.')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Приостановить очередь' })).toBeDisabled()
+  })
+
+  it('keeps cancelling remaining package runs and resuming a held series as separate local actions', () => {
+    const api = controller({ status: {
+      ...status,
+      active_package: { package_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', version: 4, manifest_hash: 'a'.repeat(64), state: 'active', run_count: 2, remaining_count: 3 },
+      hold: { reason: 'ai_detection', created_at: new Date().toISOString(), context: {} },
+      recovery_required: true,
+      capabilities: { ...status.capabilities, offline_packages_v1: true },
+    } })
+    render(<AutoPrinterPanel controller={api} moonrakerConnected onOpenDashboard={vi.fn()} />)
+
+    expect(screen.getByText(/Требуется восстановление очереди/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Отменить оставшиеся задания' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Продолжить серию' }))
+    expect(api.cancelRemaining).toHaveBeenCalledOnce()
+    expect(api.control).toHaveBeenCalledWith('resume_queue')
+  })
+
+  it('requires a live Moonraker connection and remaining runs before package cancellation', () => {
+    const api = controller({ status: {
+      ...status,
+      active_package: { package_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', version: 4, manifest_hash: 'a'.repeat(64), state: 'active', run_count: 2, remaining_count: 3 },
+      hold: null, recovery_required: false,
+      capabilities: { ...status.capabilities, offline_packages_v1: true },
+    } })
+    const { rerender } = render(<AutoPrinterPanel controller={api} moonrakerConnected={false} onOpenDashboard={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Отменить оставшиеся задания' })).toBeDisabled()
+    rerender(<AutoPrinterPanel controller={controller({ status: {
+      ...status,
+      active_package: { package_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', version: 4, manifest_hash: 'a'.repeat(64), state: 'active', run_count: 5, remaining_count: 0 },
+      hold: null, recovery_required: false,
+      capabilities: { ...status.capabilities, offline_packages_v1: true },
+    } })} moonrakerConnected onOpenDashboard={vi.fn()} />)
+    expect(screen.getByRole('button', { name: 'Отменить оставшиеся задания' })).toBeDisabled()
   })
 
   it('stops showing a qualified empty bed when its check expires without a status update', () => {

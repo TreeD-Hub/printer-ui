@@ -78,6 +78,11 @@
 .autoprinter-next { min-height: 0; overflow: hidden; }
 .autoprinter-section-label { justify-content: space-between; min-height: 20px; font-size: 14px; }
 .autoprinter-next p { margin: 8px 0; font-size: 16px; }
+.autoprinter-package-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid var(--color-border-subtle); }
+.autoprinter-package-info p { margin: 0; font-size: 14px; }
+.autoprinter-package-info p[role="alert"] { flex-basis: 100%; color: var(--color-error); }
+.autoprinter-package-info button { min-height: 56px; padding: 0 12px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; font-size: 14px; }
+.autoprinter-local-resume { min-height: 56px; padding: 0 12px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; font-size: 14px; }
 .autoprinter-run { min-height: 56px; gap: 12px; border-top: 1px solid var(--color-border-subtle); }
 .autoprinter-run > span { width: 24px; color: var(--color-text-soft); }
 .autoprinter-run strong { overflow: hidden; flex: 1; font-size: 14px; font-weight: 400; text-overflow: ellipsis; }

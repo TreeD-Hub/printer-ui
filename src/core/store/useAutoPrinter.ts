@@ -16,7 +16,8 @@ export type AutoPrinterController = {
   requestPairing: () => Promise<void>
   cancelPairing: () => Promise<void>
   requestUnlink: () => Promise<void>
-  control: (type: AutoPrinterActionType) => Promise<void>
+  control: (type: Exclude<AutoPrinterActionType, 'cancel_package'>) => Promise<void>
+  cancelRemaining: () => Promise<void>
   refresh: () => Promise<void>
   manualStartBlockReason: string | null
 }
@@ -164,10 +165,12 @@ export function useAutoPrinter(moonrakerConnected: boolean): AutoPrinterControll
     } finally { pendingRef.current = false; if (mountedRef.current) setPending(null) }
   }, [availability, cancelStatusRead, client, moonrakerConnected, readStatus, stale, status])
 
-  const control = useCallback(async (type: AutoPrinterActionType) => {
+  const control = useCallback(async (type: Exclude<AutoPrinterActionType, 'cancel_package'>) => {
     const isLocalPrintAction = type === 'pause_current_print' || type === 'cancel_current_print'
+    const isLocalSeriesResume = type === 'resume_queue' && status?.capabilities?.offline_packages_v1 === true
+      && (status.hold !== null || status.recovery_required)
     if (!moonrakerConnected || pendingRef.current || stale || availability !== 'available' || !status
-      || (status.unlink_pending === true && !isLocalPrintAction)) return
+      || (status.unlink_pending === true && !isLocalPrintAction && !isLocalSeriesResume)) return
     let action: AutoPrinterAction
     const id = crypto.randomUUID()
     if (type === 'pause_current_print' || type === 'cancel_current_print') {
@@ -193,6 +196,31 @@ export function useAutoPrinter(moonrakerConnected: boolean): AutoPrinterControll
     } finally { pendingRef.current = false; if (mountedRef.current) setPending(null) }
   }, [availability, cancelStatusRead, client, moonrakerConnected, readStatus, status, stale])
 
+  const cancelRemaining = useCallback(async () => {
+    const activePackage = status?.active_package
+    if (!moonrakerConnected || pendingRef.current || stale || availability !== 'available' || !status
+      || status.capabilities?.offline_packages_v1 !== true || !activePackage || activePackage.remaining_count < 1) return
+    const action = { type: 'cancel_package' as const, package_id: activePackage.package_id, action_id: crypto.randomUUID() }
+    cancelStatusRead()
+    pendingRef.current = true; setPending({ id: action.action_id, type: action.type })
+    try {
+      const receipt = await client.control(action)
+      if (!mountedRef.current) return
+      const confirmed = receipt.type === action.type
+      const state = confirmed ? receipt.state : 'uncertain'
+      setLastAction({ id: action.action_id, type: action.type, state,
+        message: state === 'executed' ? 'Оставшиеся задания отменены' : state === 'rejected' ? 'Отмена оставшихся заданий отклонена' : 'Результат отмены неизвестен; проверьте состояние очереди вручную.' })
+      await readStatus(true)
+      if (state === 'uncertain' && mountedRef.current) setError('Core не подтвердил отмену оставшихся заданий. Автоматического повтора не будет.')
+    } catch (cause) {
+      if (mountedRef.current) {
+        setLastAction({ id: action.action_id, type: action.type, state: 'uncertain', message: 'Результат отмены неизвестен; автоматического повтора не будет.' })
+        await readStatus(true)
+        if (mountedRef.current) setError(cause instanceof AutoPrinterClientError ? cause.message : 'Не удалось подтвердить отмену оставшихся заданий.')
+      }
+    } finally { pendingRef.current = false; if (mountedRef.current) setPending(null) }
+  }, [availability, cancelStatusRead, client, moonrakerConnected, readStatus, status, stale])
+
   const manualStartBlockReason = getAutoPrinterStartBlockReason({ status, availability, stale, connected: moonrakerConnected })
-  return { status, availability, stale, error, pending, lastAction, pairing, requestPairing, cancelPairing, requestUnlink, control, refresh: () => refresh(), manualStartBlockReason }
+  return { status, availability, stale, error, pending, lastAction, pairing, requestPairing, cancelPairing, requestUnlink, control, cancelRemaining, refresh: () => refresh(), manualStartBlockReason }
 }

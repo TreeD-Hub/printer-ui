@@ -33,7 +33,7 @@ export const SETTINGS_GROUP_OPTIONS: Array<SettingsMenuOption<SettingsGroupId>> 
   { id: 'system', label: 'Система', icon: 'menuSettings' },
   { id: 'interface', label: 'Интерфейс', icon: 'menuInterface' },
   { id: 'notifications', label: 'Уведомления', icon: 'statusNotification' },
-  { id: 'cloud', label: 'Облако', icon: 'statusCloud' },
+  { id: 'cloud', label: 'Анализ', icon: 'statusNotification' },
   { id: 'autoprinter', label: 'AutoPrinter', icon: 'menuDevice' },
   { id: 'account', label: 'Аккаунт', icon: 'statusCloud' },
   { id: 'device', label: 'Устройство', icon: 'menuDevice' },

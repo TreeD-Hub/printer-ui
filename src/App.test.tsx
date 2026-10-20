@@ -1465,9 +1465,10 @@ describe('App', () => {
     expect(screen.getAllByText('Печать завершена').length).toBeGreaterThan(0)
 
     fireEvent.click(screen.getByTestId('settings-group-cloud'))
+    expect(screen.getByRole('heading', { name: 'Локальный анализ' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-cloud-ai-toggle')).toBeDisabled()
-    expect(screen.getByText('AI-детекция недоступна на этом принтере.')).toBeInTheDocument()
-    expect(screen.getByText('Выключен')).toBeInTheDocument()
+    expect(screen.getByText('Локальный анализ недоступен на этом принтере.')).toBeInTheDocument()
+    expect(screen.getByText('Настройка принтера')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('settings-group-autoprinter'))
     expect(screen.getByTestId('autoprinter-panel')).toBeInTheDocument()
@@ -1524,7 +1525,7 @@ describe('App', () => {
     expect(screen.getByRole('dialog', { name: 'Состояние облака' })).toBeInTheDocument()
     expect(cloudButton).toHaveClass('is-active')
     expect(screen.getByText('Недоступно')).toBeInTheDocument()
-    expect(screen.getByText('AI-детекция недоступна на этом принтере.')).toBeInTheDocument()
+    expect(screen.getByText('Локальный анализ недоступен на этом принтере.')).toBeInTheDocument()
 
     expect(screen.queryByRole('link', { name: 'Открыть treed.pro для добавления устройства' })).not.toBeInTheDocument()
   })
