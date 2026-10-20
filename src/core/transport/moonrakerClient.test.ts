@@ -682,7 +682,7 @@ describe('createMoonrakerClient', () => {
       if (url.includes('/printer/objects/query')) {
         return Promise.resolve(moonrakerResponse({
           status: {
-            'gcode_macro FILAMENT_SENSOR_STATUS': { mode: 'motion' },
+            'gcode_macro FILAMENT_SENSOR_STATUS': { mode: 'motion', runout_action: 'pause' },
             'gcode_macro _FILAMENT_SENSOR_SENSITIVITY_STATE': { sensitivity: 'high' },
             'filament_switch_sensor filament_switch': { enabled: true, filament_detected: false },
             'filament_motion_sensor filament_motion': { enabled: true, filament_detected: true },
@@ -700,6 +700,7 @@ describe('createMoonrakerClient', () => {
     const sensor = await client.fetchFilamentSensor()
 
     expect(sensor.sensitivity).toBe('high')
+    expect(sensor.runoutAction).toBe('pause')
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0]?.[0]).toContain('filament_switch_sensor%20filament_switch')
     expect(fetchMock.mock.calls[0]?.[0]).not.toContain('toolhead')

@@ -1161,6 +1161,7 @@ function normalizeFilamentSensor(
   const supported = isRecord(switchStatus)
   const motionSupported = isRecord(motionStatus)
   const modeValue = readMacro(macros.values, 'FILAMENT_SENSOR_STATUS')?.mode
+  const actionValue = readMacro(macros.values, 'FILAMENT_SENSOR_STATUS')?.runout_action
   const sensitivityValue = readMacro(macros.values, '_FILAMENT_SENSOR_SENSITIVITY_STATE')?.sensitivity
   const mode = modeValue === 'motion' || modeValue === 'presence'
     ? modeValue
@@ -1186,6 +1187,7 @@ function normalizeFilamentSensor(
     supported,
     motionSupported,
     mode,
+    runoutAction: actionValue === 'pause' || actionValue === 'recover' ? actionValue : undefined,
     sensitivity,
     filamentDetected: isRecord(switchStatus) && typeof switchStatus.filament_detected === 'boolean'
       ? switchStatus.filament_detected

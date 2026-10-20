@@ -2499,7 +2499,7 @@ body {
   gap: var(--space-xs);
 }
 
-.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan),
+.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles),
 .control-movement-grid .control-card.control-card-parking,
 .control-heating-grid .control-card.control-subpanel {
   border: 0;
@@ -2507,11 +2507,11 @@ body {
   box-shadow: none;
 }
 
-.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan) {
+.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles) {
   padding: 0;
 }
 
-.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan) .control-tab-label {
+.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles) .control-tab-label {
   color: var(--color-text-highlight);
 }
 
@@ -2987,7 +2987,7 @@ body {
   min-height: 0;
   height: 100%;
   display: grid;
-  padding: var(--space-sm);
+  padding: 0;
   gap: 24px;
   grid-template-rows: minmax(144px, 1fr) auto;
   overflow-y: auto;
@@ -3006,7 +3006,7 @@ body {
 
 .control-light-preferences {
   display: grid;
-  gap: 0;
+  gap: var(--space-xs);
   margin-bottom: 0;
 }
 
@@ -3019,12 +3019,13 @@ body {
 }
 
 .control-light-preferences h3 {
-  margin: 0 0 var(--space-xs);
-  color: var(--color-text-soft);
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-regular);
+  margin: 0;
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
+  font-size: 22px;
+  font-weight: var(--font-weight-accent);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  line-height: 1.05;
 }
 
 .screen-shell .control-lighting-list .settings-toggle-row {
@@ -3054,7 +3055,10 @@ body {
 }
 
 .control-lighting-list .settings-toggle-label {
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
   font-size: var(--font-size-body-large);
+  font-weight: var(--font-weight-accent);
 }
 
 .control-lighting-list .settings-toggle-switch {
@@ -3067,15 +3071,10 @@ body {
 }
 
 .screen-shell .control-light-preferences .settings-toggle-row {
-  border: 0;
-  border-bottom: var(--border-width) solid var(--color-border-subtle);
-  border-radius: 0;
-  background: transparent;
-  padding: var(--space-xs) 0;
-}
-
-.screen-shell .control-light-preferences .settings-toggle-row:last-of-type {
-  border-bottom: 0;
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-elevated);
+  padding: var(--space-xs) var(--space-sm);
 }
 
 .control-light-preferences p {

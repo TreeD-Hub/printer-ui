@@ -397,6 +397,11 @@ function applyMockCommandEffect(args: ExecuteCommandArgs): void {
         }
       })
       return
+    case 'setFilamentRunoutAction':
+      updateMockSnapshot((snapshot) => {
+        snapshot.filamentSensor = { ...snapshot.filamentSensor, runoutAction: args.action }
+      })
+      return
     case 'eddyTemperatureStart':
       mockTemperatureUpdatedAt = Date.now()
       updateMockSnapshot((snapshot) => {
@@ -829,6 +834,7 @@ export function createMockSnapshot(): PrinterSnapshot {
       supported: true,
       motionSupported: true,
       mode: 'motion',
+      runoutAction: 'recover',
       sensitivity: 'medium',
       filamentDetected: true,
       switchEnabled: true,

@@ -103,6 +103,8 @@ function isCommandConfirmed(
       )
     case 'setFilamentEncoderSensitivity':
       return context.filamentSensor?.sensitivity === args.sensitivity
+    case 'setFilamentRunoutAction':
+      return context.filamentSensor?.runoutAction === args.action
     default:
       return null
   }

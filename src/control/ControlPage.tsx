@@ -125,6 +125,10 @@ export const ControlPage = memo(function ControlPage({
               <h3 className="control-tab-label">
                 {heating.temperatureKeyboardTarget === null ? 'Предустановки' : 'Ввод температуры'}
               </h3>
+            ) : activeControlGroup === 'filament' ? (
+              <h3 id="filament-sensitivity-title" className="control-tab-label">Чувствительность</h3>
+            ) : activeControlGroup === 'drivers' && driverControls?.fanMode?.supported ? (
+              <h3 className="control-tab-label">Обдув драйверов</h3>
             ) : null}
           </header>
           <div className="control-scroll-area">

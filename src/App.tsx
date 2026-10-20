@@ -60,7 +60,7 @@ import { useMaintenanceController } from './maintenance'
 import { ExcludeObjectModal, getExcludeObjectOpenBlockReason } from './excludeObject'
 import { recordOperationalDiagnostic } from './diagnostics'
 import type { PrinterConnectionState } from './core/transport/types'
-import type { FilamentSensorMode, FilamentSensorSensitivity } from '@treed/printer-logic'
+import type { FilamentRunoutAction, FilamentSensorMode, FilamentSensorSensitivity } from '@treed/printer-logic'
 import treeDLogoAsset from './assets/logo_treeD-28.svg'
 import './App.css'
 import './styles/ui-kit.css'
@@ -623,6 +623,14 @@ function App() {
     return ok
   }
 
+  async function handleFilamentRunoutActionChange(action: FilamentRunoutAction): Promise<boolean> {
+    const ok = await executeCommand({ command: 'setFilamentRunoutAction', action })
+    if (ok) {
+      void refreshFilamentSensor()
+    }
+    return ok
+  }
+
   function flashControlAction(nextKey: string): void {
     setActiveControlFlashKey(nextKey)
 
@@ -920,6 +928,7 @@ function App() {
             onAxisMove: handleAxisMove,
             onFilamentMove: handleFilamentMove,
             onFilamentSensorModeChange: handleFilamentSensorModeChange,
+            onFilamentRunoutActionChange: handleFilamentRunoutActionChange,
             onFilamentSensitivityChange: handleFilamentSensitivityChange,
             getLastCommandError,
             heating: heatingProps,

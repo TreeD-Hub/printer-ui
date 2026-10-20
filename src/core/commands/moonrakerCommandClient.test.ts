@@ -30,6 +30,20 @@ function createDeferred<T>() {
 }
 
 describe('createMoonrakerCommandClient', () => {
+  it.each(['pause', 'recover'] as const)('передаёт реакцию на остановку нити %s в Klipper', async (action) => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ result: 'ok' }) })
+    const client = createMoonrakerCommandClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock })
+    await client.execute({ command: 'setFilamentRunoutAction', action })
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).script).toBe(`FILAMENT_SENSOR_SET_RUNOUT_ACTION ACTION=${action.toUpperCase()}`)
+  })
+
+  it('отклоняет постороннее действие до отправки в Klipper', async () => {
+    const fetchMock = vi.fn()
+    const client = createMoonrakerCommandClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock })
+    await expect(client.execute({ command: 'setFilamentRunoutAction', action: 'pause\nG28' } as unknown as ExecuteCommandArgs)).rejects.toThrow('ACTION')
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('сохраняет только выбранный флаг света на принтере', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ result: 'ok' }) })
     const client = createMoonrakerCommandClient({ moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock })
