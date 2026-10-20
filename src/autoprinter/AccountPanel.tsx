@@ -41,7 +41,7 @@ export function AccountPanel({ controller }: AccountPanelProps) {
   const [isConfirmOpen, setConfirmOpen] = useState(false)
   const now = useCurrentTime(controller.pairing?.expires_at != null)
   const dialogRef = useModalFocus<HTMLElement>(isConfirmOpen, () => setConfirmOpen(false))
-  const { status, availability, stale, error, pending, pairing } = controller
+  const { status, availability, stale, error, pending, pairing, requestPairing } = controller
   const isCurrent = availability === 'available' && !stale && status !== null
   const accountLinkingSupported = status?.capabilities?.account_linking === true
   const accountLinkingAvailable = isCurrent && accountLinkingSupported
@@ -61,8 +61,8 @@ export function AccountPanel({ controller }: AccountPanelProps) {
     if (pairing !== null) autoPairingRequested.current = true
     if (!canPair || autoPairingRequested.current) return
     autoPairingRequested.current = true
-    void controller.requestPairing()
-  }, [canPair, pairing, controller.requestPairing])
+    void requestPairing()
+  }, [canPair, pairing, requestPairing])
 
   return (
     <section className="account-panel" aria-labelledby="account-title" data-testid="account-panel">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import type { TemperatureChartPoint } from '../control/types'
 import type { PrinterSnapshot } from '../core/transport/types'
@@ -606,7 +606,7 @@ export function EddyCalibrationScreen({
   const activeCalibrationPrint = activePrint && firstLayerStartedPath !== null
     && firstLayerObservedPath === firstLayerStartedPath
     && observedPrintPath === firstLayerObservedPath
-  const probedMatrix = calibration?.mesh.probedMatrix ?? []
+  const probedMatrix = useMemo(() => calibration?.mesh.probedMatrix ?? [], [calibration?.mesh.probedMatrix])
   const matrix = probedMatrix.length > 0 ? probedMatrix : calibration?.mesh.meshMatrix ?? []
   const matrixIsLatestProbe = probedMatrix.length > 0
   const meshScanHasNewMatrix = meshScanCommandAccepted

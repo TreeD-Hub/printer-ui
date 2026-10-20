@@ -97,7 +97,7 @@ describe('App', () => {
   })
 
   it('renders idle placeholder on dashboard before print start', async () => {
-    render(<App />)
+    await act(async () => { render(<App />) })
 
     expect(screen.getByTestId('screen-shell')).toBeInTheDocument()
     expect(screen.getByText('TreeD')).toBeInTheDocument()
@@ -197,6 +197,7 @@ describe('App', () => {
       expect(screen.getByRole('button', { name: 'Печать' })).toHaveAttribute('aria-current', 'page')
       expect(getMockCommandOperations()).toHaveLength(commandCount)
     },
+    20000,
   )
 
   it('keeps idle dashboard chrome and sidebar visible during a Klipper diagnostic', async () => {
@@ -604,8 +605,8 @@ describe('App', () => {
     })
   }, 10000)
 
-  it('keeps the exclude-object button hidden while printer is idle', () => {
-    render(<App />)
+  it('keeps the exclude-object button hidden while printer is idle', async () => {
+    await act(async () => { render(<App />) })
 
     expect(screen.queryByTestId('open-exclude-object-modal')).not.toBeInTheDocument()
   })
@@ -790,8 +791,8 @@ describe('App', () => {
     })
   }, 20000)
 
-  it('switches between screens from bottom navigation', () => {
-    render(<App />)
+  it('switches between screens from bottom navigation', async () => {
+    await act(async () => { render(<App />) })
 
     fireEvent.click(screen.getByRole('button', { name: 'Файлы' }))
 
@@ -1448,10 +1449,11 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'Интерфейс' })).toBeInTheDocument()
     expect(screen.getByTestId('settings-dark-theme-toggle')).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByTestId('settings-max-performance-toggle')).toHaveAttribute('aria-checked', 'false')
-    expect((screen.getByRole('combobox', { name: 'Спящий режим' }) as HTMLSelectElement).value).toBe('5 мин')
-    expect(
-      within(screen.getByRole('combobox', { name: 'Временная зона UTC' })).getAllByRole('option').length,
-    ).toBeGreaterThan(20)
+    expect(screen.getByRole('button', { name: 'Спящий режим 5 мин' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^Временная зона UTC / }))
+    const timezoneDialog = screen.getByRole('dialog', { name: 'Временная зона UTC' })
+    expect(within(timezoneDialog).getAllByRole('option').length).toBeGreaterThan(20)
+    fireEvent.click(within(timezoneDialog).getByRole('button', { name: 'Назад' }))
 
     fireEvent.click(screen.getByTestId('settings-max-performance-toggle'))
     expect(document.querySelector('.app-root')).toHaveClass('is-performance-mode')
@@ -1494,8 +1496,9 @@ describe('App', () => {
     expect(screen.getByTestId('settings-console-keyboard')).toBeInTheDocument()
     expect(screen.getByTestId('settings-keyboard-layer')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('settings-console-quick-0'))
+    fireEvent.change(screen.getByTestId('settings-console-keyboard-preview'), { target: { value: 'G28' } })
     expect(consoleInput.value).toBe('G28')
+    fireEvent.click(screen.getByRole('button', { name: 'Скрыть клавиатуру' }))
 
     fireEvent.click(screen.getByTestId('settings-console-send-button'))
     expect(screen.getByTestId('settings-console-notice')).toHaveTextContent('подтверждения')
@@ -1509,11 +1512,11 @@ describe('App', () => {
         ]),
       )
     })
-    expect(screen.getByText('G28', { selector: 'strong' })).toBeInTheDocument()
+    expect(within(screen.getByRole('log', { name: 'Команды и ответы принтера' })).getByText('G28')).toBeInTheDocument()
   })
 
-  it('shows disabled cloud capability state instead of QR redirect', () => {
-    render(<App />)
+  it('shows disabled cloud capability state instead of QR redirect', async () => {
+    await act(async () => { render(<App />) })
 
     const cloudButton = screen.getByRole('button', { name: 'Статус облака' })
     fireEvent.click(cloudButton)

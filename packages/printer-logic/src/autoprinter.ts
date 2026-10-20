@@ -196,6 +196,7 @@ export function parseAutoPrinterPairing(value: unknown): AutoPrinterPairing {
 }
 
 function accountAvatarUrl(value: unknown): string | null {
+  // eslint-disable-next-line no-control-regex -- Управляющие символы в URL намеренно запрещены до нормализации URL-парсером.
   if (typeof value !== 'string' || value.length > 2048 || /[\s\\\u0000-\u001f]/.test(value)) return null
   try {
     const url = new URL(value)

@@ -41,21 +41,19 @@ export function useAutoPrinter(moonrakerConnected: boolean): AutoPrinterControll
   const statusRead = useRef<{ id: number; controller: AbortController; promise: Promise<void> } | null>(null)
   connectedRef.current = moonrakerConnected
 
-  useEffect(() => {
-    mountedRef.current = true
-    return () => {
-      mountedRef.current = false
-      sequence.current++
-      statusRead.current?.controller.abort()
-      statusRead.current = null
-    }
-  }, [])
-
   const cancelStatusRead = useCallback(() => {
     sequence.current++
     statusRead.current?.controller.abort()
     statusRead.current = null
   }, [])
+
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      cancelStatusRead()
+    }
+  }, [cancelStatusRead])
 
   const readStatus = useCallback((force = false): Promise<void> => {
     if (!connectedRef.current) { if (mountedRef.current) setStale(true); return Promise.resolve() }
