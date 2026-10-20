@@ -10,6 +10,15 @@ function respond(status: number, body: unknown): void {
 }
 
 describe('Moonraker AutoPrinter client HTTP boundary', () => {
+  it('requires explicit confirmation before accepting pairing cancellation', async () => {
+    const client = createMoonrakerAutoPrinterClient()
+    respond(200, {})
+    await expect(client.cancelPairing()).rejects.toMatchObject({ kind: 'invalid-result' })
+    respond(200, { cancelled: true })
+    await expect(client.cancelPairing()).resolves.toBeUndefined()
+    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/pairing/cancel'), expect.objectContaining({ method: 'POST' }))
+  })
+
   it.each([404, 405])('classifies HTTP %i as unsupported', async (status) => {
     respond(status, { error: 'not found' })
     const client = createMoonrakerAutoPrinterClient()

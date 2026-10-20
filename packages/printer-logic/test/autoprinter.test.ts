@@ -3,6 +3,23 @@ import { getAutoPrinterStartBlockReason, parseAutoPrinterActionResult, parseAuto
 
 const status = (overrides: Record<string, unknown> = {}) => ({ enabled: true, configured: true, binding_state: 'paired', binding_epoch: 1, protocol_version: 1, configuration_version: 1, execution_enabled: false, physical_execution_enabled: false, local_pause: false, remote_pause: false, blocked_reason: null, last_sync_at: null, queue: [], queue_total: 0, queue_truncated: false, ...overrides })
 describe('AutoPrinter contract', () => {
+  it('accepts an explicit persistent deadline and restores the code only for an unpaired printer', () => {
+    const pairing = { code: 'ABCD2345', expires_at: null, verification_url: 'https://treed.example/autoprinter/connect#code=ABCD2345' }
+    expect(parseAutoPrinterPairing(pairing)).toEqual(pairing)
+    expect(parseAutoPrinterStatus(status({ binding_state: 'unpaired', pairing })).pairing).toEqual(pairing)
+    expect(parseAutoPrinterStatus(status({ pairing })).pairing).toBeNull()
+    expect(() => parseAutoPrinterPairing({ ...pairing, expires_at: undefined })).toThrow()
+  })
+
+  it('preserves an HTTPS owner avatar, drops unsafe images and hides revoked profiles', () => {
+    const profile = { display_name: 'Owner', avatar_url: 'https://treed.example/avatar.jpg' }
+    expect(parseAutoPrinterStatus(status({ owner_profile: profile })).owner_profile).toEqual(profile)
+    for (const avatar_url of [null, 42, 'javascript:alert(1)', 'http://treed.example/a.jpg', 'https://user:pass@treed.example/a.jpg', 'https://treed.example/\na.jpg']) {
+      expect(parseAutoPrinterStatus(status({ owner_profile: { ...profile, avatar_url } })).owner_profile?.avatar_url).toBeNull()
+    }
+    expect(parseAutoPrinterStatus(status({ binding_state: 'revoked', owner_profile: profile })).owner_profile).toBeNull()
+  })
+
   it('rejects malformed queue rows and bounds queue size', () => {
     expect(() => parseAutoPrinterStatus(status({ queue: [{ run_id: 'bad' }] }))).toThrow()
     expect(() => parseAutoPrinterStatus(status({ queue: Array(1001).fill({}) }))).toThrow()

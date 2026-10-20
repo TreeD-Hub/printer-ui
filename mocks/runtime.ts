@@ -16,7 +16,19 @@ export { createMockAutoPrinterClient }
 export const runtimeMode: PrinterSource = 'mock'
 
 export function createAutoPrinterClient() {
-  return createMockAutoPrinterClient()
+  const scenario = new URLSearchParams(globalThis.location?.search ?? '').get('mockAccount')
+  switch (scenario) {
+    case 'unpaired':
+    case 'paired':
+    case 'unlink-pending':
+    case 'occupied':
+    case 'unknown':
+    case 'offline':
+    case 'revoked':
+      return createMockAutoPrinterClient(scenario)
+    default:
+      return createMockAutoPrinterClient()
+  }
 }
 
 let mockCommandFailure: { command: PrinterCommandId; message: string } | null = null

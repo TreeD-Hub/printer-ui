@@ -14,6 +14,7 @@ export type AutoPrinterController = {
   lastAction: { id: string; type: AutoPrinterActionType; state: 'executed' | 'rejected' | 'uncertain'; message: string } | null
   pairing: AutoPrinterPairing | null
   requestPairing: () => Promise<void>
+  cancelPairing: () => Promise<void>
   requestUnlink: () => Promise<void>
   control: (type: AutoPrinterActionType) => Promise<void>
   refresh: () => Promise<void>
@@ -78,13 +79,14 @@ export function useAutoPrinter(moonrakerConnected: boolean): AutoPrinterControll
           : value
         setStatus(current); setAvailability('available'); setStale(false); setError(null)
         if (current.binding_state !== 'unpaired' || current.unlink_pending === true) setPairing(null)
+        else if (current.pairing !== undefined) setPairing(current.pairing)
       } catch (cause) {
         if (!mountedRef.current || requestId !== sequence.current || controller.signal.aborted) return
         if (cause instanceof AutoPrinterClientError && cause.kind === 'unsupported') {
           setAvailability('unsupported'); setStale(false); setError(null); lastFreshAt.current = Date.now()
         } else {
           setAvailability('error'); setStale(true)
-          setError(cause instanceof AutoPrinterClientError ? cause.message : 'Не удалось получить состояние AutoPrinter.')
+          setError(cause instanceof AutoPrinterClientError ? cause.message : 'Не удалось получить данные принтера.')
         }
       }
     })().finally(() => { if (statusRead.current?.id === requestId) statusRead.current = null })
@@ -106,17 +108,18 @@ export function useAutoPrinter(moonrakerConnected: boolean): AutoPrinterControll
   }, [cancelStatusRead, moonrakerConnected, refresh])
 
   useEffect(() => {
-    if (!pairing) return
+    if (!pairing || pairing.expires_at === null) return
     const delay = Math.max(0, Date.parse(pairing.expires_at) - Date.now())
     const timer = window.setTimeout(() => setPairing(null), delay)
     return () => window.clearTimeout(timer)
   }, [pairing])
 
   const requestPairing = useCallback(async () => {
-    if (!moonrakerConnected || pendingRef.current || stale || availability !== 'available'
+    if (!moonrakerConnected || pendingRef.current || pairing || stale || availability !== 'available'
       || !status || status.capabilities?.account_linking !== true || status.binding_state !== 'unpaired'
       || status.capabilities.pairing === false || status.connection === 'offline' || status.connection === 'disconnected') return
     pendingRef.current = true; setPending({ id: crypto.randomUUID(), type: 'pairing' })
+    cancelStatusRead()
     setPairing(null)
     try {
       const response = await client.pair()
@@ -124,7 +127,20 @@ export function useAutoPrinter(moonrakerConnected: boolean): AutoPrinterControll
     }
     catch (cause) { if (mountedRef.current) setError(cause instanceof AutoPrinterClientError ? cause.message : 'Не удалось запросить код привязки.') }
     finally { pendingRef.current = false; if (mountedRef.current) setPending(null) }
-  }, [availability, client, moonrakerConnected, stale, status])
+  }, [availability, cancelStatusRead, client, moonrakerConnected, pairing, stale, status])
+
+  const cancelPairing = useCallback(async () => {
+    if (!moonrakerConnected || pendingRef.current || stale || availability !== 'available'
+      || status?.binding_state !== 'unpaired' || status.capabilities?.pairing_cancel !== true) return
+    pendingRef.current = true; setPending({ id: crypto.randomUUID(), type: 'pairing_cancel' })
+    cancelStatusRead()
+    try {
+      await client.cancelPairing()
+      if (mountedRef.current) { setPairing(null); setError(null) }
+    } catch (cause) {
+      if (mountedRef.current) setError(cause instanceof AutoPrinterClientError ? cause.message : 'Не удалось отменить привязку. Код остаётся действующим.')
+    } finally { pendingRef.current = false; if (mountedRef.current) setPending(null) }
+  }, [availability, cancelStatusRead, client, moonrakerConnected, stale, status])
 
   const requestUnlink = useCallback(async () => {
     if (!moonrakerConnected || pendingRef.current || stale || availability !== 'available' || !status
@@ -139,7 +155,7 @@ export function useAutoPrinter(moonrakerConnected: boolean): AutoPrinterControll
         ? result.binding_epoch <= status.binding_epoch
         : result.binding_epoch !== status.binding_epoch
       if (invalidEpoch) {
-        throw new AutoPrinterClientError('invalid-result', 'AutoPrinter вернул состояние другой привязки.')
+        throw new AutoPrinterClientError('invalid-result', 'Принтер вернул состояние другой привязки.')
       }
       unlinkIntentEpoch.current = result.binding_state === 'unpaired' ? null : result.binding_epoch
       setStatus(result)
@@ -174,11 +190,11 @@ export function useAutoPrinter(moonrakerConnected: boolean): AutoPrinterControll
       if (mountedRef.current) {
         setLastAction({ id, type, state: 'uncertain', message: 'Результат действия неизвестен; автоматического повтора не будет.' })
         await readStatus(true)
-        if (mountedRef.current) setError(cause instanceof AutoPrinterClientError ? cause.message : 'Не удалось подтвердить действие AutoPrinter.')
+        if (mountedRef.current) setError(cause instanceof AutoPrinterClientError ? cause.message : 'Не удалось подтвердить действие принтера.')
       }
     } finally { pendingRef.current = false; if (mountedRef.current) setPending(null) }
   }, [availability, cancelStatusRead, client, moonrakerConnected, readStatus, status, stale])
 
   const manualStartBlockReason = getAutoPrinterStartBlockReason({ status, availability, stale, connected: moonrakerConnected })
-  return { status, availability, stale, error, pending, lastAction, pairing, requestPairing, requestUnlink, control, refresh: () => refresh(), manualStartBlockReason }
+  return { status, availability, stale, error, pending, lastAction, pairing, requestPairing, cancelPairing, requestUnlink, control, refresh: () => refresh(), manualStartBlockReason }
 }

@@ -18,15 +18,15 @@
 .account-content { min-height: 0; display: grid; grid-auto-rows: min-content; align-content: center; gap: 12px; }
 .account-notice { margin: 0; font-size: 16px; }
 .account-error { color: var(--color-error); }
-.account-pairing { min-height: 0; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 1.15fr); align-items: center; gap: 24px; }
+.account-pairing { min-height: 0; display: grid; grid-template-columns: 298px minmax(0, 1fr); align-items: center; gap: 24px; }
 .account-qr-area { display: grid; place-items: center; min-width: 0; }
 .account-qr-area > p { max-width: 280px; margin: 0; color: var(--color-text-soft); text-align: center; }
-.account-qr { box-sizing: content-box; width: 208px; height: 208px; display: grid; place-items: center; padding: 8px; background: #fff; }
-.account-qr svg { display: block; width: 208px; height: 208px; }
+.account-qr { box-sizing: content-box; width: 280px; height: 280px; display: grid; place-items: center; padding: 8px; border: 1px solid var(--color-border-default); background: var(--color-block-surface); }
+.account-qr svg { display: block; width: 280px; height: 280px; }
 .account-pairing-copy { min-width: 0; display: grid; justify-items: start; gap: 12px; }
 .account-pairing-copy h3 { margin: 0; font-size: 20px; font-weight: 400; }
 .account-pairing-copy p { max-width: 420px; margin: 0; font-size: 14px; line-height: 1.4; }
-.account-code { max-width: 100%; overflow-wrap: anywhere; font-family: var(--font-family-mono); font-size: 30px; font-weight: 400; letter-spacing: 0.08em; user-select: text; }
+.account-code { max-width: 100%; overflow-wrap: anywhere; font-family: var(--font-family-accent); font-size: var(--font-size-heading-large); font-weight: 400; letter-spacing: 0.22em; user-select: text; }
 .account-pairing-copy .account-expiry { color: var(--color-text-soft); }
 .account-panel button { min-width: 48px; min-height: 56px; padding: 0 16px; border: 1px solid var(--color-border-default); border-radius: var(--radius-control); background: var(--color-block-surface); color: var(--color-text-primary); font: inherit; font-size: 16px; }
 .account-panel button:focus-visible { outline: 2px solid var(--color-primary-light); outline-offset: 2px; }
@@ -37,6 +37,15 @@
 .account-details span { color: var(--color-text-soft); font-size: 14px; }
 .account-details strong { overflow-wrap: anywhere; font-size: 20px; font-weight: 400; }
 .account-details p { max-width: 580px; margin: 0; font-size: 14px; line-height: 1.4; }
+.account-details > .account-owner { display: flex; align-items: center; gap: 24px; min-width: 0; width: 100%; }
+.account-avatar { flex: 0 0 112px; width: 112px; height: 112px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--color-border-default); border-radius: 50%; background: var(--color-block-surface); }
+.account-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.account-avatar span { color: var(--color-text-primary); font-family: var(--font-family-accent); font-size: 40px; }
+.account-owner-copy { min-width: 0; display: grid; gap: 8px; }
+.account-owner-copy strong { font-size: 26px; line-height: 1.25; }
+.account-owner-status { display: flex; align-items: center; gap: 8px; }
+.account-owner-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--color-text-primary); }
+.account-details > .account-printer { width: 100%; padding-top: 20px; border-top: 1px solid var(--color-border-subtle); }
 .account-pending { color: var(--color-warning); }
 .account-offline { color: var(--color-text-soft); }
 .account-dialog-layer { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: var(--color-overlay); }

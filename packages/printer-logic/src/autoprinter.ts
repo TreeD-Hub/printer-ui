@@ -10,13 +10,14 @@ export interface AutoPrinterStatus {
   executionSnapshotAvailable: boolean
   current_run_id: string | null; run_state: AutoPrinterRunState | null; stop_after_current?: boolean
   ready?: boolean; blocked_reason: string | null; connection?: string; last_sync_at: string | null
-  display_name?: string; owner_profile?: { display_name: string } | null; unlink_pending?: boolean
-  capabilities?: { queue?: boolean; pairing?: boolean; account_linking?: boolean; bed_check?: boolean; bed_check_diagnostic?: boolean }
+  display_name?: string; owner_profile?: { display_name: string; avatar_url?: string | null } | null; unlink_pending?: boolean
+  pairing?: AutoPrinterPairing | null
+  capabilities?: { queue?: boolean; pairing?: boolean; pairing_cancel?: boolean; account_linking?: boolean; bed_check?: boolean; bed_check_diagnostic?: boolean }
   bed_check?: { model_version?: string; live_qualified?: boolean; last_check?: { state: string; reason: string | null; checked_at: string | null } }
 }
-export type AutoPrinterPendingType = AutoPrinterActionType | 'pairing' | 'account_unlink'
+export type AutoPrinterPendingType = AutoPrinterActionType | 'pairing' | 'pairing_cancel' | 'account_unlink'
 export interface AutoPrinterActionResult { type: AutoPrinterActionType; command_id: string | null; state: 'executed' | 'rejected' | 'uncertain'; result: { code?: string } }
-export interface AutoPrinterPairing { code: string; expires_at: string; verification_url?: string }
+export interface AutoPrinterPairing { code: string; expires_at: string | null; verification_url?: string }
 export type AutoPrinterUnlinkResult = AutoPrinterStatus
 
 export class AutoPrinterSchemaError extends Error {
@@ -146,9 +147,14 @@ export function parseAutoPrinterStatus(value: unknown): AutoPrinterStatus {
     current_run_id: (value.current_run_id as string | null | undefined) ?? null, run_state: (value.run_state as AutoPrinterRunState | null | undefined) ?? null,
     stop_after_current: value.stop_after_current as boolean | undefined, ready: value.ready as boolean | undefined,
     blocked_reason: (value.blocked_reason as string | null | undefined) ?? null, connection: value.connection as string | undefined, last_sync_at: (value.last_sync_at as string | null | undefined) ?? null,
-    capabilities: capabilityInput ? { ...capabilities, account_linking: optionalBoolean(capabilityInput, 'account_linking') } : undefined,
+    capabilities: capabilityInput ? { ...capabilities, account_linking: optionalBoolean(capabilityInput, 'account_linking'), pairing_cancel: optionalBoolean(capabilityInput, 'pairing_cancel') } : undefined,
+    pairing: value.binding_state !== 'unpaired' || value.pairing === null ? null
+      : value.pairing === undefined ? undefined : parseAutoPrinterPairing(value.pairing),
     display_name: typeof value.display_name === 'string' ? value.display_name : undefined,
-    owner_profile: value.owner_profile === null ? null : record(value.owner_profile) ? { display_name: value.owner_profile.display_name as string } : undefined,
+    owner_profile: !paired || value.owner_profile === null ? null : record(value.owner_profile) ? {
+      display_name: value.owner_profile.display_name as string,
+      ...(value.owner_profile.avatar_url !== undefined ? { avatar_url: accountAvatarUrl(value.owner_profile.avatar_url) } : {}),
+    } : undefined,
     unlink_pending: value.unlink_pending as boolean | undefined,
     bed_check: bedCheck,
   }
@@ -175,7 +181,7 @@ export function parseAutoPrinterPairing(value: unknown): AutoPrinterPairing {
   const legacyCode = /^[A-Z0-9]{20}$/.test(value.code)
   if (!newCode && !legacyCode) fail()
   const expiresAt = value.expires_at
-  if (!date(expiresAt) || Date.parse(expiresAt) <= Date.now()) fail()
+  if (expiresAt !== null && (!date(expiresAt) || Date.parse(expiresAt) <= Date.now())) fail()
   if (newCode && value.verification_url === undefined) fail()
   if (value.verification_url !== undefined) {
     if (typeof value.verification_url !== 'string') fail()
@@ -187,6 +193,16 @@ export function parseAutoPrinterPairing(value: unknown): AutoPrinterPairing {
     } catch { fail() }
   }
   return { code: value.code, expires_at: expiresAt, ...(typeof value.verification_url === 'string' ? { verification_url: value.verification_url } : {}) }
+}
+
+function accountAvatarUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || value.length > 2048 || /[\s\\\u0000-\u001f]/.test(value)) return null
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && url.hostname && !url.username && !url.password ? value : null
+  } catch {
+    return null
+  }
 }
 
 export function parseAutoPrinterUnlinkResult(value: unknown): AutoPrinterUnlinkResult {
