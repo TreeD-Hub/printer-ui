@@ -121,6 +121,10 @@ export const ControlPage = memo(function ControlPage({
             )}
             {activeControlGroup === 'movement' ? (
               <h3 className="control-tab-label control-parking-label">Парковка</h3>
+            ) : activeControlGroup === 'heating' ? (
+              <h3 className="control-tab-label">
+                {heating.temperatureKeyboardTarget === null ? 'Предустановки' : 'Ввод температуры'}
+              </h3>
             ) : null}
           </header>
           <div className="control-scroll-area">

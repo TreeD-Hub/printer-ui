@@ -2499,28 +2499,30 @@ body {
   gap: var(--space-xs);
 }
 
-.control-content-shell:has(.control-movement-grid),
-.control-movement-grid .control-card.control-card-parking {
+.control-content-shell:has(.control-movement-grid, .control-heating-grid),
+.control-movement-grid .control-card.control-card-parking,
+.control-heating-grid .control-card.control-subpanel {
   border: 0;
   background: transparent;
   box-shadow: none;
 }
 
-.control-content-shell:has(.control-movement-grid) {
+.control-content-shell:has(.control-movement-grid, .control-heating-grid) {
   padding: 0;
 }
 
-.control-content-shell:has(.control-movement-grid) .control-tab-label {
+.control-content-shell:has(.control-movement-grid, .control-heating-grid) .control-tab-label {
   color: var(--color-text-highlight);
 }
 
-.control-content-shell:has(.control-movement-grid) .control-view-header {
+.control-content-shell:has(.control-movement-grid, .control-heating-grid) .control-view-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(214px, 230px);
   gap: 10px;
 }
 
-.control-movement-grid .control-subpanel {
+.control-movement-grid .control-subpanel,
+.control-heating-grid .control-subpanel {
   border-color: transparent;
   border-radius: var(--radius-panel);
 }
@@ -3539,14 +3541,14 @@ body {
 .control-card-heating-presets,
 .control-card-heating-keyboard {
   min-height: 0;
-  padding: 10px;
+  padding: 0;
   gap: 10px;
   height: 100%;
   overflow: hidden;
 }
 
 .control-card-heating-presets {
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
 .control-heating-rows {
@@ -3598,10 +3600,11 @@ body {
 
 .control-heating-sensor-text h3 {
   margin: 0;
+  font-family: var(--font-family-accent);
   font-size: var(--font-size-body-large);
   line-height: 1.1;
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
+  font-weight: var(--font-weight-accent);
+  color: var(--color-text-highlight);
 }
 
 .control-heating-current {
@@ -3674,7 +3677,7 @@ body {
 .control-heating-chart-block .print-temp-chart {
   min-height: 0;
   height: 100%;
-  border-color: color-mix(in srgb, var(--color-border-default) 42%, transparent);
+  border-color: transparent;
   background: var(--color-surface-elevated);
   box-shadow: none;
 }
@@ -3707,8 +3710,10 @@ body {
 
 .control-heating-chart-head .print-temp-chart-title {
   align-self: center;
-  font-size: var(--font-size-small);
-  color: var(--color-text-soft);
+  font-family: var(--font-family-accent);
+  font-size: var(--layout-block-label-size);
+  font-weight: var(--font-weight-accent);
+  color: var(--color-text-highlight);
 }
 
 .control-heating-chart-legend {
@@ -3817,6 +3822,7 @@ body {
 }
 
 .control-heating-preset-label {
+  color: var(--color-text-highlight);
   font-family: var(--font-family-accent);
   font-size: var(--font-size-body-large);
   font-weight: var(--font-weight-accent);
@@ -3829,8 +3835,7 @@ body {
   line-height: 1.1;
 }
 
-.control-heating-preset-btn.is-active,
-.control-heating-cooldown-btn.is-active {
+.control-heating-preset-btn.is-active {
   border-color: var(--color-primary-ring);
   background: var(--color-primary-surface-soft);
   color: var(--color-text-primary);
@@ -3843,6 +3848,9 @@ body {
 }
 
 .control-heating-cooldown-btn {
+  border-color: color-mix(in srgb, var(--color-cooling) 32%, var(--color-border-default));
+  background: color-mix(in srgb, var(--color-cooling) 6%, var(--color-background));
+  color: var(--color-cooling);
   display: grid;
   grid-template-columns: 20px max-content;
   align-items: center;
@@ -3855,13 +3863,20 @@ body {
   text-align: left;
 }
 
+.control-heating-cooldown-btn.is-active,
+.control-heating-cooldown-btn:active {
+  border-color: var(--color-cooling);
+  background: color-mix(in srgb, var(--color-cooling) 12%, var(--color-background));
+  box-shadow: none;
+}
+
 .control-heating-cooldown-icon {
   width: 20px;
   height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-secondary);
+  color: currentColor;
 }
 
 .control-heating-cooldown-btn > span:last-child {
@@ -3872,7 +3887,6 @@ body {
 .control-card-heating-keyboard {
   grid-template-rows: minmax(0, 1fr);
   min-height: calc(5 * var(--control-height) + 6 * var(--space-xs) + 2 * var(--border-width));
-  padding: var(--space-xs);
 }
 
 .print-temp-keyboard-side.is-control {
@@ -3926,6 +3940,10 @@ body {
   width: var(--control-height);
   height: var(--control-height);
   border-radius: 10px;
+}
+
+.screen-shell .control-heating-grid :is(button, .print-tune-compact-stepper-input-wrap, .print-temp-chart) {
+  border-radius: var(--radius-panel);
 }
 
 .print-temp-keyboard-side.is-control .print-temp-keyboard-display {

@@ -28,6 +28,7 @@
   --color-primary-dark: #b91414; /* Тёмный красный для нажатых состояний. */
   --color-success: #d9f7e5; /* Светлый терминальный success без зелёного доминирования. */
   --color-warning: #fff0b8; /* Тёплый warning, читаемый на чёрном фоне. */
+  --color-cooling: #b9e6f2; /* Ледяной акцент отключения нагрева. */
   --color-temperature-nozzle: var(--color-primary); /* Сопло: линия графика и её легенда. */
   --color-temperature-bed: var(--color-warning); /* Стол: линия графика и её легенда. */
   /* Шкала высоты стола Mainsail: отрицательные значения → ноль → положительные. */
