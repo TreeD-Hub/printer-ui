@@ -2360,7 +2360,7 @@ body {
 .settings-group-stack-console {
   min-height: 0;
   height: 100%;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
 .settings-console-quick {
@@ -4589,20 +4589,20 @@ body {
 
 .axis-cross-xy {
   --axis-cross-btn-size: 64px;
-  --axis-cross-dot-color: var(--color-border-guide);
+  --axis-cross-dot-color: var(--color-text-highlight);
   position: relative;
   width: 100%;
   min-width: 224px;
-  height: 156px;
+  height: 180px;
 }
 
 .axis-cross-z,
 .axis-cross-e {
-  --axis-cross-dot-color: var(--color-border-guide);
+  --axis-cross-dot-color: var(--color-text-highlight);
   position: relative;
   width: 100%;
-  min-height: 156px;
-  height: 156px;
+  min-height: 180px;
+  height: 180px;
 }
 
 .axis-cross-xy > button:nth-of-type(1) {
@@ -4613,13 +4613,13 @@ body {
 
 .axis-cross-xy > button:nth-of-type(2) {
   position: absolute;
-  top: 49px;
+  top: calc(50% - (var(--axis-cross-btn-size) / 2));
   left: 0;
 }
 
 .axis-cross-xy > button:nth-of-type(3) {
   position: absolute;
-  top: 49px;
+  top: calc(50% - (var(--axis-cross-btn-size) / 2));
   right: 0;
 }
 
@@ -4690,7 +4690,7 @@ body {
 .axis-cross-e::before {
   content: '';
   position: absolute;
-  opacity: 0.42;
+  opacity: 1;
   pointer-events: none;
 }
 

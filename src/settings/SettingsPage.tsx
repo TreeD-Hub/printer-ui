@@ -7,7 +7,6 @@ import {
   useModalFocus,
 } from '../ui'
 import {
-  CONSOLE_QUICK_COMMANDS,
   DEVICE_INFO_LINES,
   LANGUAGE_OPTIONS,
   SETTINGS_GROUP_OPTIONS,
@@ -586,38 +585,6 @@ export function SettingsPage({
                 <h3>Консоль</h3>
               </header>
 
-              <div className="settings-console-history" role="log" aria-label="Команды и ответы принтера" aria-live="polite" tabIndex={-1}>
-                {console.history.length > 0 ? (
-                  console.history.map((item) => (
-                    <article className={`settings-console-history-item is-${item.kind}`} key={item.id}>
-                      <time>{item.createdAt}</time>
-                      <span className="settings-console-history-marker" aria-label={item.kind === 'command' ? 'Команда' : item.kind === 'error' ? 'Ошибка' : 'Ответ'}>
-                        {item.kind === 'command' ? '>' : item.kind === 'error' ? '!' : '<'}
-                      </span>
-                      <p>{item.command}</p>
-                    </article>
-                  ))
-                ) : (
-                  <p className="settings-console-empty">Здесь появятся команды и ответы принтера.<br />Последние записи — сверху.</p>
-                )}
-              </div>
-
-              <div className="settings-console-quick">
-                {CONSOLE_QUICK_COMMANDS.map((command, index) => (
-                  <button
-                    key={command}
-                    type="button"
-                    className="settings-console-chip"
-                    onClick={() => console.onQuickCommandInsert(command)}
-                    data-testid={`settings-console-quick-${index}`}
-                  >
-                    {command}
-                  </button>
-                ))}
-              </div>
-
-              <p className="settings-console-notice" role="status" data-testid="settings-console-notice">{console.notice}</p>
-
               <div className="settings-console-compose">
                 <textarea
                   ref={console.inputRef}
@@ -638,6 +605,24 @@ export function SettingsPage({
                 >
                   Отправить
                 </button>
+              </div>
+
+              <p className="settings-console-notice" role="status" data-testid="settings-console-notice">{console.notice}</p>
+
+              <div className="settings-console-history" role="log" aria-label="Команды и ответы принтера" aria-live="polite" tabIndex={-1}>
+                {console.history.length > 0 ? (
+                  console.history.map((item) => (
+                    <article className={`settings-console-history-item is-${item.kind}`} key={item.id}>
+                      <time>{item.createdAt}</time>
+                      <span className="settings-console-history-marker" aria-label={item.kind === 'command' ? 'Команда' : item.kind === 'error' ? 'Ошибка' : 'Ответ'}>
+                        {item.kind === 'command' ? '>' : item.kind === 'error' ? '!' : '<'}
+                      </span>
+                      <p>{item.command}</p>
+                    </article>
+                  ))
+                ) : (
+                  <p className="settings-console-empty">Здесь появятся команды и ответы принтера.<br />Последние записи — сверху.</p>
+                )}
               </div>
             </div>
           )}
