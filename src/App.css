@@ -1446,6 +1446,101 @@ body {
   font-size: var(--font-size-body-large);
   font-family: var(--font-family-ui);
   outline: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-select-control > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.screen-shell .settings-select-field .settings-select-control {
+  border-radius: var(--radius-panel);
+}
+
+.screen-shell .settings-select-field .settings-select-control:focus {
+  outline: none;
+  border-color: var(--color-border-default);
+  box-shadow: none;
+}
+
+.screen-shell > .settings-select-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1000;
+  padding: var(--space-sm);
+  display: grid;
+  place-items: center;
+  background: var(--color-overlay);
+}
+
+.settings-select-dialog {
+  --radius-control: var(--radius-panel);
+  width: min(640px, 100%);
+  max-height: 100%;
+  min-height: 0;
+  padding: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  border: var(--border-width) solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-background);
+}
+
+.settings-select-dialog > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.settings-select-dialog h3 {
+  margin: 0;
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
+  font-size: var(--layout-block-label-size);
+  font-weight: var(--font-weight-accent);
+  text-transform: uppercase;
+}
+
+.settings-select-options {
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  gap: var(--space-xs);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-default) transparent;
+}
+
+.settings-select-option,
+.settings-select-close {
+  flex-shrink: 0;
+  min-height: var(--control-height);
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--border-width) solid var(--color-border-default);
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-select-option[aria-selected='true'],
+.settings-select-option:active {
+  background: var(--color-control-active-surface);
+  color: var(--color-text-highlight);
+}
+
+.screen-shell .settings-select-layer .settings-select-dialog:focus-visible,
+.screen-shell .settings-select-dialog button:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .settings-select-control:focus {
@@ -1917,7 +2012,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-.settings-screen .settings-content-shell:has(.settings-group-stack-network) {
+.settings-screen .settings-content-shell:has(.settings-group-stack-network, .settings-group-stack-interface) {
   padding: 0;
   border: 0;
   background: transparent;
@@ -1925,7 +2020,8 @@ body {
   overflow: hidden;
 }
 
-.settings-group-stack-network {
+.settings-group-stack-network,
+.settings-group-stack-interface {
   --radius-control: var(--radius-panel);
   gap: 10px;
 }
@@ -1933,7 +2029,9 @@ body {
 .settings-group-stack-network .settings-group-head h3,
 .settings-group-stack-network .settings-network-selected h4,
 .settings-group-stack-network .settings-network-password-field > label,
-.settings-group-stack-network .settings-network-empty-title {
+.settings-group-stack-network .settings-network-empty-title,
+.settings-group-stack-interface .settings-group-head h3,
+.settings-group-stack-interface .settings-select-label {
   color: var(--color-text-highlight);
   font-family: var(--font-family-accent);
   font-size: var(--layout-block-label-size);
@@ -1944,7 +2042,9 @@ body {
 
 .settings-group-stack-network .settings-network-btn,
 .settings-group-stack-network .settings-network-item,
-.settings-group-stack-network .settings-network-password-control input {
+.settings-group-stack-network .settings-network-password-control input,
+.settings-group-stack-interface .settings-toggle-row,
+.settings-group-stack-interface .settings-select-control {
   border-radius: var(--radius-panel);
   background: var(--color-surface-elevated);
 }
@@ -1976,6 +2076,18 @@ body {
 
 .settings-group-stack-network .settings-network-actions {
   margin-top: auto;
+}
+
+.settings-group-stack-interface .settings-select-field {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: var(--space-xs);
+}
+
+.settings-group-stack-interface .settings-select-control {
+  min-height: var(--control-height);
 }
 
 .app-virtual-keyboard-popup:has([data-testid='settings-wifi-keyboard']) {

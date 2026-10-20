@@ -364,7 +364,7 @@ export function SettingsPage({
               </div>
             </div>
           ) : activeSettingsGroup === 'interface' ? (
-            <div className="settings-group-stack">
+            <div className="settings-group-stack settings-group-stack-interface">
               <header className="settings-group-head">
                 <h3>Интерфейс</h3>
                 <p>Базовые параметры отображения и поведения экрана.</p>

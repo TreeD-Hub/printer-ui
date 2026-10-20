@@ -94,6 +94,16 @@ const CONNECTION_LABELS: Record<PrinterConnectionState, string> = {
 }
 
 function App() {
+  useEffect(() => {
+    const preventTabNavigation = (event: KeyboardEvent) => {
+      if (event.key !== 'Tab') return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+    }
+    window.addEventListener('keydown', preventTabNavigation, true)
+    return () => window.removeEventListener('keydown', preventTabNavigation, true)
+  }, [])
+
   const {
     snapshot,
     refresh,

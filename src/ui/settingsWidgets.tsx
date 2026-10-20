@@ -2,13 +2,18 @@ import {
   type CSSProperties,
   type ChangeEvent,
   type MouseEvent,
-  type SelectHTMLAttributes,
+  type ButtonHTMLAttributes,
+  useEffect,
+  useId,
   useLayoutEffect,
   useRef,
+  useState,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { IconMask } from './IconMask'
 import { joinClassNames } from './classNames'
 import type { UiIconName } from './iconAssets'
+import { useModalFocus } from './useModalFocus'
 
 export type SettingsMenuOption<T extends string> = {
   id: T
@@ -145,7 +150,7 @@ export function SettingsToggleRow({
   )
 }
 
-type SettingsSelectFieldProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'value' | 'onChange' | 'children'> & {
+type SettingsSelectFieldProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'value' | 'onChange' | 'children'> & {
   label: string
   value: string
   options: readonly string[]
@@ -158,24 +163,68 @@ export function SettingsSelectField({
   options,
   onChange,
   className,
-  ...selectProps
+  disabled = false,
+  ...buttonProps
 }: SettingsSelectFieldProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const labelId = useId()
+  const valueId = useId()
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useModalFocus<HTMLElement>(isOpen && !disabled, () => setIsOpen(false))
+
+  useEffect(() => {
+    if (disabled) setIsOpen(false)
+  }, [disabled])
+
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    const list = dialogRef.current?.querySelector<HTMLElement>('.settings-select-options')
+    const selected = list?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (list && selected) {
+      list.scrollTop = selected.offsetTop - list.offsetTop - (list.clientHeight - selected.clientHeight) / 2
+    }
+  }, [isOpen, value, dialogRef])
+
   return (
-    <label className={joinClassNames('settings-select-field', className)}>
-      <span className="settings-select-label">{label}</span>
-      <select
+    <div className={joinClassNames('settings-select-field', className)}>
+      <span id={labelId} className="settings-select-label">{label}</span>
+      <button
+        {...buttonProps}
+        ref={triggerRef}
+        type="button"
         className="settings-select-control"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        {...selectProps}
+        aria-labelledby={`${labelId} ${valueId}`}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen && !disabled}
+        disabled={disabled}
+        tabIndex={-1}
+        onClick={() => setIsOpen(true)}
       >
-        {options.map((option) => (
-          <option key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span id={valueId}>{value}</span>
+        <span aria-hidden="true">⌄</span>
+      </button>
+      {isOpen && !disabled ? createPortal(
+        <div className="settings-select-layer" onClick={() => setIsOpen(false)}>
+          <section ref={dialogRef} className="settings-select-dialog" role="dialog" aria-modal="true"
+            aria-labelledby={`${labelId}-dialog`} onClick={(event) => event.stopPropagation()}>
+            <header>
+              <h3 id={`${labelId}-dialog`}>{label}</h3>
+              <button type="button" className="settings-select-close" tabIndex={-1} onClick={() => setIsOpen(false)}>Назад</button>
+            </header>
+            <div className="settings-select-options" role="listbox" aria-label={label}>
+              {options.map((option) => (
+                <button key={option} type="button" role="option" aria-selected={option === value}
+                  className="settings-select-option" tabIndex={-1}
+                  onClick={() => { onChange(option); setIsOpen(false) }}>
+                  {option}
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>,
+        triggerRef.current?.closest('.screen-shell') ?? document.body,
+      ) : null}
+    </div>
   )
 }
 
