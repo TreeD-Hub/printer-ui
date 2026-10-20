@@ -2012,7 +2012,7 @@ body {
   overflow-wrap: anywhere;
 }
 
-.settings-screen .settings-content-shell:has(.settings-group-stack-network, .settings-group-stack-interface) {
+.settings-screen .settings-content-shell:has(.settings-group-stack-network, .settings-group-stack-interface, .settings-group-stack-notifications, .settings-group-stack-cloud, .settings-group-stack-device) {
   padding: 0;
   border: 0;
   background: transparent;
@@ -2021,7 +2021,10 @@ body {
 }
 
 .settings-group-stack-network,
-.settings-group-stack-interface {
+.settings-group-stack-interface,
+.settings-group-stack-notifications,
+.settings-group-stack-cloud,
+.settings-group-stack-device {
   --radius-control: var(--radius-panel);
   gap: 10px;
 }
@@ -2031,7 +2034,13 @@ body {
 .settings-group-stack-network .settings-network-password-field > label,
 .settings-group-stack-network .settings-network-empty-title,
 .settings-group-stack-interface .settings-group-head h3,
-.settings-group-stack-interface .settings-select-label {
+.settings-group-stack-interface .settings-select-label,
+.settings-group-stack-notifications .settings-group-head h3,
+.settings-notification-heading,
+.settings-group-stack-cloud .settings-group-head h3,
+.settings-cloud-heading,
+.settings-group-stack-device .settings-group-head h3,
+.settings-device-heading {
   color: var(--color-text-highlight);
   font-family: var(--font-family-accent);
   font-size: var(--layout-block-label-size);
@@ -2044,7 +2053,9 @@ body {
 .settings-group-stack-network .settings-network-item,
 .settings-group-stack-network .settings-network-password-control input,
 .settings-group-stack-interface .settings-toggle-row,
-.settings-group-stack-interface .settings-select-control {
+.settings-group-stack-interface .settings-select-control,
+.settings-group-stack-notifications .settings-toggle-row,
+.settings-group-stack-cloud .settings-toggle-row {
   border-radius: var(--radius-panel);
   background: var(--color-surface-elevated);
 }
@@ -2119,8 +2130,7 @@ body {
   overflow-y: auto;
   display: grid;
   align-content: start;
-  gap: var(--space-xxs);
-  padding-right: 4px;
+  gap: 10px;
   scrollbar-width: thin;
   scrollbar-color: var(--color-border-default) transparent;
 }
@@ -2139,10 +2149,9 @@ body {
 }
 
 .settings-notification-item {
-  border-radius: 10px;
-  border: 1px solid var(--color-border-default);
-  background: var(--color-surface-elevated);
-  padding: var(--space-xs);
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
+  padding: var(--space-sm);
   display: grid;
   gap: var(--space-micro);
 }
@@ -2156,12 +2165,15 @@ body {
 }
 
 .settings-notification-title strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
 }
 
 .settings-notification-title span {
+  flex-shrink: 0;
   font-size: var(--font-size-tiny);
   color: var(--color-text-secondary);
 }
@@ -2171,6 +2183,27 @@ body {
   font-size: var(--font-size-small);
   color: var(--color-text-secondary);
   line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.settings-notification-heading {
+  margin: 0;
+}
+
+.settings-notification-list:has(.settings-notification-empty) {
+  align-content: stretch;
+}
+
+.settings-notification-empty {
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-md);
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: 1.4;
 }
 
 .settings-cloud-actions {
@@ -2186,8 +2219,85 @@ body {
   line-height: 1.25;
 }
 
-.settings-group-stack-notifications {
+.settings-cloud-heading {
+  margin: 0;
+}
+
+.settings-group-stack-cloud .settings-description-card,
+.settings-group-stack-cloud .settings-cloud-notice {
+  padding: var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
+  box-shadow: none;
+  overflow-wrap: anywhere;
+}
+
+.settings-group-stack-cloud .settings-description-card {
+  gap: var(--space-sm);
+}
+
+.settings-group-stack-cloud .settings-cloud-notice:empty {
+  display: none;
+}
+
+.settings-group-stack-device {
+  min-height: 0;
+  height: 100%;
   grid-template-rows: auto auto auto minmax(0, 1fr);
+}
+
+.settings-group-stack-device .settings-description-card,
+.settings-device-care-item {
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
+  box-shadow: none;
+  padding: var(--space-sm);
+}
+
+.settings-device-heading {
+  margin: 0;
+}
+
+.settings-device-care {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-device-care-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.settings-device-care-item svg {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  color: var(--color-text-primary);
+}
+
+.settings-device-care-item h4 {
+  margin: 0 0 var(--space-xs);
+  color: var(--color-text-highlight);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-medium);
+}
+
+.settings-device-care-item p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.settings-group-stack-notifications {
+  min-height: 0;
+  height: 100%;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
 }
 
 .settings-group-stack-console {

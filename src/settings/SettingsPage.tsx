@@ -401,7 +401,6 @@ export function SettingsPage({
             <div className="settings-group-stack settings-group-stack-notifications">
               <header className="settings-group-head">
                 <h3>Уведомления</h3>
-                <p>Включение/отключение уведомлений и журнал последних событий.</p>
               </header>
               <SettingsToggleRow
                 label="Всплывающие уведомления"
@@ -415,8 +414,9 @@ export function SettingsPage({
                 onChange={notifications.onNotificationSoundsEnabledChange}
                 testId="settings-notification-sound-toggle"
               />
-              <div className="settings-notification-list">
-                {notifications.history.length === 0 ? <p>Событий в текущем сеансе пока нет.</p> : null}
+              <h3 className="settings-notification-heading" id="settings-notification-history-title">Журнал событий</h3>
+              <div className="settings-notification-list" role="region" aria-labelledby="settings-notification-history-title">
+                {notifications.history.length === 0 ? <p className="settings-notification-empty" role="status">Событий в текущем сеансе пока нет.</p> : null}
                 {notifications.history.map((item) => (
                   <article className="settings-notification-item" key={item.id}>
                     <p className="settings-notification-title">
@@ -441,7 +441,7 @@ export function SettingsPage({
               <div className="settings-group-stack" role="status">Состояние аккаунта недоступно.</div>
             )
           ) : activeSettingsGroup === 'cloud' ? (
-            <div className="settings-group-stack">
+            <div className="settings-group-stack settings-group-stack-cloud">
               <header className="settings-group-head">
                 <h3>Облако</h3>
                 <p>AI-детекция спагетти и автоматическая отмена печати.</p>
@@ -453,6 +453,7 @@ export function SettingsPage({
                 testId="settings-cloud-ai-toggle"
                 disabled={!cloud.isCapabilityAvailable || cloud.isBusy}
               />
+              <h3 className="settings-cloud-heading">Состояние сервиса</h3>
               <article className="settings-description-card">
                 <p><span>Управление</span><strong>{cloud.isConnected ? 'Доступно' : 'Недоступно'}</strong></p>
                 <p><span>Сервис</span><strong>TreeD AI</strong></p>
@@ -461,16 +462,32 @@ export function SettingsPage({
               <p className="settings-cloud-notice" role="status">{cloud.notice}</p>
             </div>
           ) : activeSettingsGroup === 'device' ? (
-            <div className="settings-group-stack">
+            <div className="settings-group-stack settings-group-stack-device">
               <header className="settings-group-head">
                 <h3>Об устройстве</h3>
-                <p>Основная информация о контроллере и программной конфигурации.</p>
               </header>
               <article className="settings-description-card">
                 {DEVICE_INFO_LINES.map(([label, value]) => (
                   <p key={label}><span>{label}</span><strong>{value}</strong></p>
                 ))}
               </article>
+              <h3 className="settings-device-heading" id="settings-device-care-title">Эксплуатация и утилизация</h3>
+              <section className="settings-device-care" aria-labelledby="settings-device-care-title">
+                <article className="settings-device-care-item">
+                  <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 16h24l-3 34H25l-4-34ZM18 16h30M28 16v-5h11v5M25 50v5M42 50v5" />
+                    <circle cx="40" cy="53" r="3" />
+                    <path d="M12 8l43 49M53 8 12 57" />
+                  </svg>
+                  <div><h4>Раздельный сбор</h4><p>Не выбрасывайте с бытовым мусором. Сдайте устройство в пункт приёма электроники.</p></div>
+                </article>
+                <article className="settings-device-care-item">
+                  <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M32 18c-7-6-16-7-25-4v35c9-3 18-2 25 4 7-6 16-7 25-4V14c-9-3-18-2-25 4ZM32 18v35M14 23c4-1 8 0 12 2M14 31c4-1 8 0 12 2M38 25c4-2 8-3 12-2M38 33c4-2 8-3 12-2" />
+                  </svg>
+                  <div><h4>Руководство</h4><p>Перед использованием и обслуживанием прочитайте руководство по эксплуатации.</p></div>
+                </article>
+              </section>
             </div>
           ) : activeSettingsGroup === 'updates' ? (
             <div className="settings-group-stack settings-updates">
