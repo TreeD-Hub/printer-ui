@@ -1917,6 +1917,91 @@ body {
   overflow-wrap: anywhere;
 }
 
+.settings-screen .settings-content-shell:has(.settings-group-stack-network) {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.settings-group-stack-network {
+  --radius-control: var(--radius-panel);
+  gap: 10px;
+}
+
+.settings-group-stack-network .settings-group-head h3,
+.settings-group-stack-network .settings-network-selected h4,
+.settings-group-stack-network .settings-network-password-field > label,
+.settings-group-stack-network .settings-network-empty-title {
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
+  font-size: var(--layout-block-label-size);
+  font-weight: var(--font-weight-accent);
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.settings-group-stack-network .settings-network-btn,
+.settings-group-stack-network .settings-network-item,
+.settings-group-stack-network .settings-network-password-control input {
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-elevated);
+}
+
+.settings-group-stack-network .settings-network-list {
+  padding: 0;
+}
+
+.settings-group-stack-network .settings-network-item.is-active {
+  border-color: var(--color-selection);
+  background: var(--color-selection-surface);
+  box-shadow: none;
+}
+
+.settings-group-stack-network .settings-network-details {
+  min-height: 0;
+  padding-top: 0;
+  gap: var(--space-sm);
+}
+
+.settings-group-stack-network .settings-network-selected,
+.settings-group-stack-network .settings-network-open-note,
+.settings-group-stack-network .settings-network-empty,
+.settings-group-stack-network > .settings-network-notice {
+  padding: var(--space-sm);
+  border-radius: var(--radius-panel);
+  background: var(--color-block-surface);
+}
+
+.settings-group-stack-network .settings-network-actions {
+  margin-top: auto;
+}
+
+.app-virtual-keyboard-popup:has([data-testid='settings-wifi-keyboard']) {
+  border: 0;
+  background: var(--color-background);
+  box-shadow: none;
+}
+
+.app-virtual-keyboard-popup [data-testid='settings-wifi-keyboard'] {
+  --radius-control: var(--radius-panel);
+  border: 0;
+  border-radius: var(--radius-panel);
+  background: transparent;
+}
+
+[data-testid='settings-wifi-keyboard'] .virtual-keyboard-key,
+[data-testid='settings-wifi-keyboard'] .virtual-keyboard-preview-input {
+  border-radius: var(--radius-panel);
+}
+
+[data-testid='settings-wifi-keyboard'] .virtual-keyboard-preview-label {
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
+  font-weight: var(--font-weight-accent);
+}
+
 .settings-notification-list {
   min-height: 0;
   overflow-y: auto;
@@ -2499,7 +2584,7 @@ body {
   gap: var(--space-xs);
 }
 
-.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles),
+.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles, .maintenance-overview),
 .control-movement-grid .control-card.control-card-parking,
 .control-heating-grid .control-card.control-subpanel {
   border: 0;
@@ -2507,11 +2592,11 @@ body {
   box-shadow: none;
 }
 
-.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles) {
+.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles, .maintenance-overview) {
   padding: 0;
 }
 
-.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles) .control-tab-label {
+.control-content-shell:has(.control-movement-grid, .control-heating-grid, .control-card-fan, .control-card-lighting, .control-filament-panel, .control-driver-profiles, .maintenance-overview) .control-tab-label {
   color: var(--color-text-highlight);
 }
 

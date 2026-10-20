@@ -8,29 +8,31 @@
 
 .maintenance-overview-progress-actions {
   min-width: 0;
-  max-width: 52%;
   display: grid;
-  justify-items: end;
-  gap: 6px;
-  text-align: right;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 16px;
 }
 
 .maintenance-overview-progress-actions p {
-  max-width: none;
-  text-align: right;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  line-height: 1.35;
 }
 
 .maintenance-overview-complete-button {
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: var(--control-height);
+  padding: 0 24px;
   border: 1px solid color-mix(in srgb, var(--color-border-default) 72%, transparent);
-  border-radius: 9px;
-  background: var(--color-block-surface);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface-elevated);
   color: var(--color-text-primary);
   font-family: var(--font-family-ui);
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
+  white-space: nowrap;
   transition:
     border-color 0.16s ease,
     background-color 0.16s ease,
@@ -58,6 +60,7 @@
 }
 
 .maintenance-overview-completion-error {
+  grid-column: 1 / -1;
   max-width: 280px;
   color: var(--color-error);
   font-family: var(--font-family-ui);
@@ -72,7 +75,7 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-panel);
   background: var(--color-overlay);
   backdrop-filter: blur(8px);
 }
@@ -83,7 +86,7 @@
   display: grid;
   gap: 12px;
   border: 1px solid color-mix(in srgb, var(--color-border-default) 88%, transparent);
-  border-radius: 12px;
+  border-radius: var(--radius-panel);
   background: var(--color-surface-elevated);
   box-shadow:
     0 18px 44px color-mix(in srgb, var(--color-background) 74%, transparent);
@@ -96,9 +99,10 @@
 }
 
 .maintenance-complete-dialog h3 {
-  color: var(--color-text-primary);
+  color: var(--color-text-highlight);
+  font-family: var(--font-family-accent);
   font-size: var(--font-size-body-large);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-accent);
 }
 
 .maintenance-complete-dialog p {
@@ -118,9 +122,9 @@
 }
 
 .maintenance-complete-dialog button {
-  min-height: 40px;
+  min-height: var(--control-height);
   border: 1px solid var(--color-border-default);
-  border-radius: 9px;
+  border-radius: var(--radius-panel);
   background: var(--color-block-surface);
   color: var(--color-text-primary);
   font-family: var(--font-family-ui);
@@ -139,12 +143,8 @@
 }
 
 @media (max-width: 720px) {
-  .maintenance-overview-progress-actions {
-    max-width: 56%;
-  }
-
   .maintenance-overview-complete-button {
-    min-height: 32px;
+    min-height: var(--control-height);
     padding-inline: 10px;
   }
 }
