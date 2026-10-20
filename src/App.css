@@ -2499,6 +2499,22 @@ body {
   gap: var(--space-xs);
 }
 
+/* Прозрачные рамки сохраняют геометрию кнопок при разделении блоков чёрным фоном. */
+.control-content-shell:has(.control-movement-grid) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.control-content-shell:has(.control-movement-grid) .control-tab-label {
+  color: var(--color-text-highlight);
+}
+
+.control-movement-grid .axis-cross-group {
+  border-color: transparent;
+  background: transparent;
+}
+
 .control-tab-label {
   margin: 0;
   padding: 0 2px;
