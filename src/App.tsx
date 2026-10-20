@@ -999,6 +999,7 @@ function App() {
                 valueLabel={keyboardDialogLabel}
                 value={keyboardDialogValue}
                 placeholder={keyboardDialogPlaceholder}
+                isPassword={activeKeyboardTarget === 'wifiPassword' && !settingsPageProps.network.isPasswordVisible}
                 language={keyboardLanguage}
                 isCapsEnabled={isKeyboardCapsEnabled}
                 onToggleLanguage={handleVirtualKeyboardLanguageToggle}

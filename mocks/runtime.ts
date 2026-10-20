@@ -44,8 +44,36 @@ let mockResonanceReports: Record<'full' | 'light', PrinterShaperResonanceReport>
   full: { mode: 'full', axes: { x: null, y: null } },
   light: { mode: 'light', axes: { x: null, y: null } },
 }
-let mockNetworkStatus = createUnavailableHostNetworkStatus('Host network bridge недоступен.')
+let mockNetworkStatus: HostNetworkStatus | null = null
 let mockNetworkOperations: string[] = []
+
+function getMockNetworkStatus(): HostNetworkStatus {
+  if (mockNetworkStatus !== null) return mockNetworkStatus
+  const scenario = new URLSearchParams(globalThis.location?.search ?? '').get('mockNetwork')
+  if (scenario === 'unavailable') {
+    mockNetworkStatus = createUnavailableHostNetworkStatus('Управление Wi-Fi недоступно.')
+    return mockNetworkStatus
+  }
+  const connected = scenario === 'connected' || scenario === 'forget-error'
+  const networks: HostNetworkStatus['networks'] = [
+    { id: 'home', ssid: 'TreeD_Home', signalPercent: 92, security: 'wpa2', saved: true, connected },
+    { id: 'guest', ssid: 'TreeD_Guest', signalPercent: 74, security: 'open', saved: false, connected: false },
+    { id: 'workshop', ssid: 'TreeD_Workshop_Main_Floor_5GHz_001', signalPercent: 61, security: 'wpa3', saved: false, connected: false },
+    { id: 'weak', ssid: 'TreeD_Storage', signalPercent: 18, security: 'wpa2', saved: false, connected: false },
+  ]
+  if (scenario === 'long-names') {
+    networks.push(...Array.from({ length: 8 }, (_, index) => ({
+      id: `floor-${index}`, ssid: `TreeD_Production_Network_Floor_${index + 1}`, signalPercent: 55 - index * 5,
+      security: 'wpa2' as const, saved: false, connected: false,
+    })))
+  }
+  mockNetworkStatus = {
+    available: true, ssid: connected ? networks[0].ssid : null,
+    ipAddress: connected ? '192.168.0.120' : null, message: '',
+    networks: scenario === 'empty' ? [] : networks,
+  }
+  return mockNetworkStatus
+}
 
 const mockUpdateStatus: HostUpdateStatus = {
   available: true,
@@ -693,7 +721,7 @@ export function getMockNetworkOperations(): string[] {
 }
 
 export function clearMockNetworkRuntime(): void {
-  mockNetworkStatus = createUnavailableHostNetworkStatus('Host network bridge недоступен.')
+  mockNetworkStatus = null
   mockNetworkOperations = []
 }
 
@@ -1147,39 +1175,58 @@ export function createCommandClient(): CommandClient {
 }
 
 export function createHostNetworkClient(): HostNetworkClient {
+  const scenario = new URLSearchParams(globalThis.location?.search ?? '').get('mockNetwork')
+  async function beforeOperation(operation: 'scan' | 'connect' | 'forget'): Promise<void> {
+    if (scenario === 'slow') await new Promise((resolve) => setTimeout(resolve, 4000))
+    if (scenario === `${operation}-error`) {
+      const messages = {
+        scan: 'Не удалось найти сети. Служба Wi-Fi не ответила. Повторите поиск.',
+        connect: 'Не удалось подключиться к сети. Повторите попытку.',
+        forget: 'Не удалось забыть сеть. Соединение сохранено. Повторите попытку.',
+      }
+      throw new Error(messages[operation])
+    }
+  }
   return {
     async getStatus() {
-      return cloneHostNetworkStatus(mockNetworkStatus)
+      return cloneHostNetworkStatus(getMockNetworkStatus())
     },
     async scan() {
       mockNetworkOperations.push('scan')
-      return cloneHostNetworkStatus(mockNetworkStatus)
+      await beforeOperation('scan')
+      return cloneHostNetworkStatus(getMockNetworkStatus())
     },
     async connect({ ssid }) {
       mockNetworkOperations.push(`connect:${ssid}`)
+      await beforeOperation('connect')
+      const status = getMockNetworkStatus()
       mockNetworkStatus = {
-        ...mockNetworkStatus,
+        ...status,
         ssid,
-        networks: mockNetworkStatus.networks.map((network) => ({
+        ipAddress: '192.168.0.120',
+        networks: status.networks.map((network) => ({
           ...network,
           connected: network.ssid === ssid,
           saved: network.ssid === ssid ? true : network.saved,
         })),
-        message: `Mock: connected to ${ssid}`,
+        message: `Подключено к ${ssid}.`,
       }
       return cloneHostNetworkStatus(mockNetworkStatus)
     },
     async forget({ ssid }) {
       mockNetworkOperations.push(`forget:${ssid}`)
+      await beforeOperation('forget')
+      const status = getMockNetworkStatus()
       mockNetworkStatus = {
-        ...mockNetworkStatus,
-        ssid: mockNetworkStatus.ssid === ssid ? null : mockNetworkStatus.ssid,
-        networks: mockNetworkStatus.networks.map((network) => (
+        ...status,
+        ssid: status.ssid === ssid ? null : status.ssid,
+        ipAddress: status.ssid === ssid ? null : status.ipAddress,
+        networks: status.networks.map((network) => (
           network.ssid === ssid
             ? { ...network, connected: false, saved: false }
             : network
         )),
-        message: `Mock: forgot ${ssid}`,
+        message: `Сеть ${ssid} удалена.`,
       }
       return cloneHostNetworkStatus(mockNetworkStatus)
     },
