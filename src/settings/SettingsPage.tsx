@@ -29,6 +29,7 @@ export type ConsoleHistoryItem = {
   id: string
   command: string
   createdAt: string
+  kind: 'command' | 'response' | 'error'
 }
 
 export type SettingsPageProps = {
@@ -492,8 +493,7 @@ export function SettingsPage({
           ) : activeSettingsGroup === 'updates' ? (
             <div className="settings-group-stack settings-updates">
               <header className="settings-group-head">
-                <h3>Проверка обновлений</h3>
-                <p>Новые версии системы и интерфейса TreeD.</p>
+                <h3>Обновления</h3>
               </header>
               <div className="settings-updates-versions" aria-live="polite">
                 {updates.releaseResults.map((release) => (
@@ -502,25 +502,27 @@ export function SettingsPage({
                       <span className="settings-update-code">{release.id === 'printer-ui' ? 'UI' : 'CORE'}</span>
                       <h4>{release.label}</h4>
                     </header>
-                    <div className={`settings-update-versions${release.status === 'available' ? ' has-update' : ' is-current'}`}>
-                      <div><span>Установлено</span><strong>{updateVersionLabel(release.currentVersion)}</strong></div>
-                      {release.status === 'available' ? (
-                        <>
-                          <svg className="settings-update-arrow" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                            <path d="M4 16h23M18 7l9 9-9 9" />
+                    <div className="settings-update-body">
+                      <div className={`settings-update-versions${release.status === 'available' ? ' has-update' : ' is-current'}`}>
+                        <div><span>Установлено</span><strong>{updateVersionLabel(release.currentVersion)}</strong></div>
+                        {release.status === 'available' ? (
+                          <>
+                            <svg className="settings-update-arrow" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                              <path d="M4 16h23M18 7l9 9-9 9" />
+                            </svg>
+                            <div className="settings-update-next"><span>Новая версия</span><strong>{updates.isCheckingUpdates ? '…' : updateVersionLabel(release.latestVersion)}</strong></div>
+                          </>
+                        ) : release.status === 'latest' && !updates.isCheckingUpdates ? (
+                          <svg className="settings-update-check" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                            <circle cx="16" cy="16" r="13" />
+                            <path d="m9 16 5 5 9-10" />
                           </svg>
-                          <div className="settings-update-next"><span>Новая версия</span><strong>{updates.isCheckingUpdates ? '…' : updateVersionLabel(release.latestVersion)}</strong></div>
-                        </>
-                      ) : release.status === 'latest' && !updates.isCheckingUpdates ? (
-                        <svg className="settings-update-check" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <circle cx="16" cy="16" r="13" />
-                          <path d="m9 16 5 5 9-10" />
-                        </svg>
-                      ) : null}
+                        ) : null}
+                      </div>
+                      <p className={`settings-update-status${release.canApply === true ? ' is-available' : ''}`}>
+                        {updates.isCheckingUpdates ? 'Проверяем версии…' : updateReleaseStatusLabel(release)}
+                      </p>
                     </div>
-                    <p className={`settings-update-status${release.canApply === true ? ' is-available' : ''}`}>
-                      {updates.isCheckingUpdates ? 'Проверяем версии…' : updateReleaseStatusLabel(release)}
-                    </p>
                   </article>
                 ))}
               </div>
@@ -564,11 +566,7 @@ export function SettingsPage({
               </p>
             </div>
           ) : activeSettingsGroup === 'language' ? (
-            <div className="settings-group-stack">
-              <header className="settings-group-head">
-                <h3>Язык</h3>
-                <p>Локализация интерфейса и голосовых подсказок.</p>
-              </header>
+            <div className="settings-group-stack settings-group-stack-language">
               <SettingsSelectField
                 label="Язык интерфейса"
                 value={language.languageValue}
@@ -586,8 +584,23 @@ export function SettingsPage({
             <div className="settings-group-stack settings-group-stack-console">
               <header className="settings-group-head">
                 <h3>Консоль</h3>
-                <p>Отправка G-code и макросов через виртуальную клавиатуру.</p>
               </header>
+
+              <div className="settings-console-history" role="log" aria-label="Команды и ответы принтера" aria-live="polite" tabIndex={-1}>
+                {console.history.length > 0 ? (
+                  console.history.map((item) => (
+                    <article className={`settings-console-history-item is-${item.kind}`} key={item.id}>
+                      <time>{item.createdAt}</time>
+                      <span className="settings-console-history-marker" aria-label={item.kind === 'command' ? 'Команда' : item.kind === 'error' ? 'Ошибка' : 'Ответ'}>
+                        {item.kind === 'command' ? '>' : item.kind === 'error' ? '!' : '<'}
+                      </span>
+                      <p>{item.command}</p>
+                    </article>
+                  ))
+                ) : (
+                  <p className="settings-console-empty">Здесь появятся команды и ответы принтера.<br />Последние записи — сверху.</p>
+                )}
+              </div>
 
               <div className="settings-console-quick">
                 {CONSOLE_QUICK_COMMANDS.map((command, index) => (
@@ -603,21 +616,20 @@ export function SettingsPage({
                 ))}
               </div>
 
-              <label className="settings-console-input-wrap">
-                <span>Команда</span>
+              <p className="settings-console-notice" role="status" data-testid="settings-console-notice">{console.notice}</p>
+
+              <div className="settings-console-compose">
                 <textarea
                   ref={console.inputRef}
                   className="settings-console-input"
                   value={console.commandValue}
                   onChange={console.onInputChange}
                   onFocus={console.onKeyboardOpen}
-                  placeholder="Например: G28 или START_PRINT"
+                  aria-label="Команда"
+                  placeholder="Введите G-code или макрос"
                   spellCheck={false}
                   data-testid="settings-console-input"
                 />
-              </label>
-
-              <div className="settings-console-actions">
                 <button
                   type="button"
                   className="settings-network-btn settings-network-btn-primary"
@@ -626,28 +638,6 @@ export function SettingsPage({
                 >
                   Отправить
                 </button>
-                <button
-                  type="button"
-                  className="settings-network-btn"
-                  onClick={console.onKeyboardOpen}
-                  data-testid="settings-console-keyboard-open-button"
-                >
-                  Клавиатура
-                </button>
-              </div>
-
-              <p className="settings-console-notice" data-testid="settings-console-notice">{console.notice}</p>
-
-              <div className="settings-console-history">
-                {console.history.length > 0 ? (
-                  console.history.map((item) => (
-                    <article className="settings-console-history-item" key={item.id}>
-                      <p><strong>{item.command}</strong><span>{item.createdAt}</span></p>
-                    </article>
-                  ))
-                ) : (
-                  <p className="settings-network-empty">История команд пока пуста.</p>
-                )}
               </div>
             </div>
           )}
@@ -655,7 +645,7 @@ export function SettingsPage({
       </div>
       {updates.isConfigReviewOpen ? (
         <div className="system-reset-layer">
-          <section ref={configReviewFocusRef} className="system-reset-dialog settings-config-review" role="dialog" aria-modal="true" aria-labelledby="config-review-title" aria-describedby="config-review-detail">
+          <section ref={configReviewFocusRef} className="system-reset-dialog settings-update-dialog settings-config-review" role="dialog" aria-modal="true" aria-labelledby="config-review-title" aria-describedby="config-review-detail">
             <h2 id="config-review-title">Локальные изменения конфигов</h2>
             <p id="config-review-detail">Чтобы сохранить нужные настройки, перенесите их в local_overrides.cfg через редактор конфигов, затем выберите сброс исходного файла. Если уже восстановили его вручную — проверьте снова. Сброс вернёт файл к новой версии из репозитория.</p>
             <div className="settings-config-conflicts">
@@ -683,7 +673,7 @@ export function SettingsPage({
       ) : null}
       {updates.pausedUpdateTarget !== null ? (
         <div className="system-reset-layer">
-          <section ref={pausedUpdateFocusRef} className="system-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="paused-update-title" aria-describedby="paused-update-detail">
+          <section ref={pausedUpdateFocusRef} className="system-reset-dialog settings-update-dialog" role="dialog" aria-modal="true" aria-labelledby="paused-update-title" aria-describedby="paused-update-detail">
             <h2 id="paused-update-title">Отменить печать и обновить?</h2>
             <p id="paused-update-detail">Печать стоит на паузе. Для обновления она будет отменена; продолжить это задание после обновления не получится.</p>
             <div className="system-reset-actions">

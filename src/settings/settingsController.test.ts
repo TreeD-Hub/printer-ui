@@ -9,6 +9,7 @@ import { createHostUpdateClient, createMockSnapshot } from '../../mocks/runtime'
 import type { HostNetworkClient, HostNetworkStatus } from '../core/hostNetwork'
 import type { HostUpdateClient, HostUpdateOperation, HostUpdateStatus } from '../core/hostUpdate'
 import { MoonrakerHostUpdateError } from '../core/hostUpdate'
+import { receivePrinterGcodeResponse } from '../core/store/printerNotifications'
 import {
   getSettingsKeyboardMeta,
   isSettingsKeyboardTarget,
@@ -520,6 +521,37 @@ describe('settings controller helpers', () => {
       previewTestId: 'settings-console-keyboard-preview',
       isMultiline: true,
     })
+  })
+
+  it('сохраняет ответы и ошибки в журнале консоли, ограничивая его последними 200 записями', async () => {
+    const { result, unmount } = renderHook(() => useSettingsController({
+      snapshot: createMockSnapshot(), connectionLabel: 'Подключено',
+      networkClient: unavailableNetworkClient, updateClient: unavailableUpdateClient,
+      executeCommand: vi.fn().mockResolvedValue(false), getCommandBlockReason: () => null,
+      activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
+    }))
+    act(() => result.current.pageProps.console.onInputChange(changeEvent('M105')))
+    act(() => result.current.pageProps.console.onSubmit())
+    expect(result.current.pageProps.console.history).toEqual([])
+    await act(async () => result.current.pageProps.console.onSubmit())
+    expect(result.current.pageProps.console.history.map(({ kind }) => kind)).toEqual(['error', 'command'])
+    act(() => {
+      receivePrinterGcodeResponse('ok T:215\nB:60')
+      receivePrinterGcodeResponse('!! Unknown command')
+    })
+    expect(result.current.pageProps.console.history.slice(0, 2)).toMatchObject([
+      { command: '!! Unknown command', kind: 'error' },
+      { command: 'ok T:215\nB:60', kind: 'response' },
+    ])
+    act(() => {
+      for (let i = 0; i < 210; i += 1) receivePrinterGcodeResponse(`response ${i}`)
+    })
+    const history = result.current.pageProps.console.history
+    expect(history).toHaveLength(200)
+    expect(history[0].command).toBe('response 209')
+    expect(history[199].command).toBe('response 10')
+    expect(new Set(history.map(({ id }) => id)).size).toBe(200)
+    unmount()
   })
 
   it('requires an explicit second submit before sending raw console G-code', async () => {
