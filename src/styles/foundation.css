@@ -14,9 +14,9 @@
 
 :root {
   /* 00_Foundation: colors */
-  --color-window-background: #101010; /* Тёмная подложка окна Tauri вокруг terminal-панели. */
+  --color-window-background: var(--color-background); /* Подложка окна Tauri совпадает с фоном интерфейса. */
   --color-update-background: #000000; /* Чисто чёрная полноэкранная заставка обновления. */
-  --color-background: #101010; /* Основной почти чёрный фон интерфейса. */
+  --color-background: #000000; /* Чисто чёрный фон интерфейса для AMOLED. */
   --color-surface: var(--color-background); /* Фон системных баров и крупных зон. */
   --color-block-surface: #161616; /* Однотонные карточки и панели. */
   --color-surface-elevated: #1c1c1c; /* Вложенные контролы и приподнятые поверхности. */
