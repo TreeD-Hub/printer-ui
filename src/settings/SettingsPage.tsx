@@ -102,6 +102,13 @@ export type SettingsPageProps = {
     isBusy: boolean
     notice: string
     onAiMonitoringToggle: (checked: boolean) => void
+    lightWarning: {
+      isOpen: boolean
+      isBusy: boolean
+      error: string | null
+      onClose: () => void
+      onEnable: () => Promise<void>
+    }
     detectionStatus: DetectionStatus | null
     detectionStatusError: string | null
     detectionFrame: DetectionFrame | null
@@ -312,6 +319,7 @@ export function SettingsPage({
 }: SettingsPageProps) {
   const pausedUpdateFocusRef = useModalFocus<HTMLElement>(updates.pausedUpdateTarget !== null, updates.onCancelPausedUpdate)
   const configReviewFocusRef = useModalFocus<HTMLElement>(updates.isConfigReviewOpen, updates.onCancelConfigReview)
+  const aiLightFocusRef = useModalFocus<HTMLElement>(cloud.lightWarning.isOpen, cloud.lightWarning.onClose)
   return (
     <section className="settings-screen" data-testid="screen-settings">
       <div className="settings-layout">
@@ -650,6 +658,19 @@ export function SettingsPage({
           )}
         </div>
       </div>
+      {cloud.lightWarning.isOpen ? (
+        <div className="system-reset-layer">
+          <section ref={aiLightFocusRef} className="system-reset-dialog settings-update-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-light-title" aria-describedby="ai-light-detail">
+            <h2 id="ai-light-title">Свет для AI-детекции</h2>
+            <p id="ai-light-detail">Автовключение света при печати отключено. Без освещения AI-детекция может не обнаружить дефекты. Включить свет при начале печати и AI-детекцию? При закрытии настройки не изменятся.</p>
+            {cloud.lightWarning.error && <p role="alert">{cloud.lightWarning.error}</p>}
+            <div className="system-reset-actions">
+              <button type="button" className="file-modal-action" data-modal-initial-focus disabled={cloud.lightWarning.isBusy} onClick={cloud.lightWarning.onClose}>Закрыть</button>
+              <button type="button" className="file-modal-action" disabled={cloud.lightWarning.isBusy} onClick={() => void cloud.lightWarning.onEnable()}>{cloud.lightWarning.isBusy ? 'Включаем…' : 'Включить свет'}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {updates.isConfigReviewOpen ? (
         <div className="system-reset-layer">
           <section ref={configReviewFocusRef} className="system-reset-dialog settings-update-dialog settings-config-review" role="dialog" aria-modal="true" aria-labelledby="config-review-title" aria-describedby="config-review-detail">

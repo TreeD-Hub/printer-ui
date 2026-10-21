@@ -158,6 +158,10 @@ export function useSettingsController({
   const [isAiMonitoringBusy, setIsAiMonitoringBusy] = useState(false)
   const aiToggleInFlight = useRef(false)
   const aiSettingsRevision = useRef(0)
+  const [isAiLightWarningOpen, setIsAiLightWarningOpen] = useState(false)
+  const [isAiLightBusy, setIsAiLightBusy] = useState(false)
+  const [aiLightError, setAiLightError] = useState('')
+  const aiLightInFlight = useRef(false)
   const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Проверяем настройку локального анализа...')
   const detectionStatusInFlight = useRef(false)
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
@@ -603,7 +607,16 @@ export function useSettingsController({
   }
 
   async function handleCloudAiMonitoringToggle(nextValue: boolean): Promise<void> {
-    if (!isCloudCapabilityAvailable || aiToggleInFlight.current) return
+    if (!isCloudCapabilityAvailable || aiToggleInFlight.current || aiLightInFlight.current) return
+    if (nextValue && snapshot.lightPreferences?.onPrintStart === false) {
+      setAiLightError('')
+      setIsAiLightWarningOpen(true)
+      return
+    }
+    await saveAiMonitoring(nextValue)
+  }
+
+  async function saveAiMonitoring(nextValue: boolean): Promise<boolean> {
     aiToggleInFlight.current = true
     aiSettingsRevision.current += 1
     setIsAiMonitoringBusy(true)
@@ -612,11 +625,39 @@ export function useSettingsController({
       const enabled = runtimeMode === 'mock' ? nextValue : await requestAiDetectionSettings(nextValue)
       setIsCloudAiMonitoringEnabled(enabled)
       setCloudConnectionNotice('')
+      return true
     } catch (error) {
       setCloudConnectionNotice(error instanceof Error ? error.message : 'Не удалось сохранить настройку локального анализа.')
+      return false
     } finally {
       aiToggleInFlight.current = false
       setIsAiMonitoringBusy(false)
+    }
+  }
+
+  async function handleEnableAiLight(): Promise<void> {
+    if (aiLightInFlight.current || aiToggleInFlight.current || !isCloudCapabilityAvailable) return
+    const blockReason = getCommandBlockReason('setLightPreference')
+    if (blockReason !== null) {
+      setAiLightError(blockReason)
+      return
+    }
+    aiLightInFlight.current = true
+    setIsAiLightBusy(true)
+    setAiLightError('')
+    try {
+      const accepted = await executeCommand({ command: 'setLightPreference', setting: 'onPrintStart', enabled: true })
+      if (!accepted) {
+        setAiLightError('Не удалось включить автосвет. AI-детекция не включена. Попробуйте ещё раз.')
+        return
+      }
+      if (await saveAiMonitoring(true)) setIsAiLightWarningOpen(false)
+      else setAiLightError('Настройка автосвета отправлена, но включить AI-детекцию не удалось. Попробуйте ещё раз.')
+    } catch (error) {
+      setAiLightError(error instanceof Error ? error.message : 'Не удалось включить автосвет.')
+    } finally {
+      aiLightInFlight.current = false
+      setIsAiLightBusy(false)
     }
   }
 
@@ -984,6 +1025,13 @@ export function useSettingsController({
       isBusy: isAiMonitoringBusy,
       notice: cloudCapabilityNotice,
       onAiMonitoringToggle: handleCloudAiMonitoringToggle,
+      lightWarning: {
+        isOpen: isAiLightWarningOpen,
+        isBusy: isAiLightBusy,
+        error: aiLightError || getCommandBlockReason('setLightPreference'),
+        onClose: () => { if (!aiLightInFlight.current) setIsAiLightWarningOpen(false) },
+        onEnable: handleEnableAiLight,
+      },
       detectionStatus,
       detectionStatusError,
       detectionFrame,
