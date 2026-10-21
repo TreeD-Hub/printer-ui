@@ -12,6 +12,7 @@ import { PRINT_FILE_LIBRARY } from '../src/printFiles'
 import { createMockAutoPrinterClient } from './autoprinter'
 
 export { createMockAutoPrinterClient }
+export { requestMockCameraPreview as requestCameraPreview } from './camera'
 
 export const runtimeMode: PrinterSource = 'mock'
 

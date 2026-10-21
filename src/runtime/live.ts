@@ -17,6 +17,7 @@ import { createMoonrakerAutoPrinterClient } from '../core/autoprinter/client'
 import type { PrinterSource, TransportClient } from '../core/transport/types'
 
 export const runtimeMode: PrinterSource = 'live'
+export { requestCameraPreview } from '../core/hostDetection'
 
 export function createTransportClient(): TransportClient {
   return createMoonrakerClient()
