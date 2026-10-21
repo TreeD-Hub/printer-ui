@@ -8,7 +8,7 @@ import type {
 } from '@treed/printer-logic'
 import type { AxisId, UiIconName } from '../ui'
 
-export type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'filament' | 'drivers' | 'maintenance'
+export type ControlGroupId = 'movement' | 'heating' | 'fans' | 'lighting' | 'filament' | 'drivers' | 'maintenance' | 'camera'
 export type ParkingMode = 'all' | 'axis'
 export type ZParkingSensor = 'upper' | 'lower'
 export type MovementMode = 'buttons' | 'joystick'

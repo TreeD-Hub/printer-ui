@@ -22,6 +22,7 @@ export const CONTROL_GROUP_OPTIONS: Array<SettingsMenuOption<ControlGroupId>> = 
   { id: 'filament', label: 'Датчик нити', icon: 'menuDevice' },
   { id: 'drivers', label: 'Драйверы', icon: 'menuControl' },
   { id: 'maintenance', label: 'Т.О', icon: 'menuDevice' },
+  { id: 'camera', label: 'Камера AI', icon: 'menuInterface' },
 ]
 
 export const CONTROL_PARKING_AXIS_OPTIONS: Array<ControlOption<AxisId>> = [

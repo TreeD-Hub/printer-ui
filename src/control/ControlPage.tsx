@@ -8,6 +8,7 @@ import { LightingControlPanel } from './panels/LightingControlPanel'
 import { MaintenanceControlPanel } from './panels/MaintenanceControlPanel'
 import { MovementControlPanel } from './panels/MovementControlPanel'
 import { DriverModeControlPanel } from './panels/DriverModeControlPanel'
+import { CameraControlPanel } from './panels/CameraControlPanel'
 import type { DriverControlsProps } from './panels/DriverModeControlPanel'
 import type {
   ControlGroupId,
@@ -57,6 +58,10 @@ export const ControlPage = memo(function ControlPage({
     : maintenance.status.cycleState === 'loading'
       ? 'Загрузка данных ТО'
       : 'Расчёт ТО недоступен'
+
+  if (activeControlGroup === 'camera') {
+    return <CameraControlPanel onBack={() => onControlGroupChange('movement')} />
+  }
 
   return (
     <section className="control-screen" data-testid="screen-control">

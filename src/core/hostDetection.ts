@@ -22,13 +22,13 @@ function detectionRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-async function detectionRequest(path: 'status' | 'frame', body?: { session_id: string; frame_id: string }): Promise<unknown> {
+async function detectionRequest(path: 'status' | 'frame' | 'preview', body?: { session_id: string; frame_id: string }, signal?: AbortSignal): Promise<unknown> {
   const response = await fetch(`${moonrakerUrl}/server/treed/detection/${path}`, {
     method: body ? 'POST' : 'GET',
     headers: body ? { 'Content-Type': 'application/json' } : undefined,
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'same-origin',
-    signal: AbortSignal.timeout(5_000),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(path === 'preview' ? 35_000 : 5_000)]) : AbortSignal.timeout(5_000),
   })
   if (!response.ok) throw new Error(`Состояние локального анализа недоступно (HTTP ${response.status}).`)
   return response.json()
@@ -71,17 +71,64 @@ export async function requestDetectionFrame(frame: DetectionStatus['recent_frame
     || typeof value.captured_at !== 'string' || !Number.isFinite(Date.parse(value.captured_at))
     || !['spaghetti', 'normal', 'unknown', 'unavailable'].includes(String(value.verdict))
     || typeof value.model_version !== 'string' || typeof value.worker_generation !== 'string'
-    || typeof value.jpeg_base64 !== 'string' || value.jpeg_base64.length > 11_184_812
-    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value.jpeg_base64)) {
+    || typeof value.jpeg_base64 !== 'string') {
     throw new Error('Принтер вернул некорректный кадр детектора.')
   }
-  const jpeg = atob(value.jpeg_base64)
+  validateCameraJpeg(value.jpeg_base64)
+  return value as DetectionFrame
+}
+
+function validateCameraJpeg(encoded: string): void {
+  if (encoded.length > 11_184_812 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) {
+    throw new Error('Принтер вернул некорректный JPEG кадра.')
+  }
+  const jpeg = atob(encoded)
   if (jpeg.length > 8 * 1024 * 1024 || jpeg.length < 4
     || jpeg.charCodeAt(0) !== 0xff || jpeg.charCodeAt(1) !== 0xd8
     || jpeg.charCodeAt(jpeg.length - 2) !== 0xff || jpeg.charCodeAt(jpeg.length - 1) !== 0xd9) {
     throw new Error('Принтер вернул некорректный JPEG кадра.')
   }
-  return value as DetectionFrame
+}
+
+export type CameraPreview = {
+  jpeg_base64: string
+  captured_at: string
+  task: 'bed' | 'spaghetti' | null
+  verdict: 'occupied' | 'unknown' | 'spaghetti' | 'normal' | 'unavailable'
+  score: number | null
+  threshold: number | null
+  consecutive_count?: number | null
+  boxes: [number, number, number, number][]
+  model_version: string | null
+  reason: string | null
+}
+
+export async function requestCameraPreview(signal: AbortSignal): Promise<CameraPreview> {
+  const value = await detectionRequest('preview', undefined, signal)
+  const confidence = (number: unknown) => number === null || (typeof number === 'number' && Number.isFinite(number) && number >= 0 && number <= 1)
+  if (!detectionRecord(value) || typeof value.jpeg_base64 !== 'string'
+    || typeof value.captured_at !== 'string' || !Number.isFinite(Date.parse(value.captured_at))
+    || ![null, 'bed', 'spaghetti'].includes(value.task as CameraPreview['task'])
+    || !['occupied', 'unknown', 'spaghetti', 'normal', 'unavailable'].includes(String(value.verdict))
+    || !confidence(value.score) || !confidence(value.threshold)
+    || (value.consecutive_count != null && (!Number.isSafeInteger(value.consecutive_count)
+      || (value.consecutive_count as number) < 0 || value.task !== 'spaghetti'))
+    || (value.model_version !== null && (typeof value.model_version !== 'string' || value.model_version.length > 128))
+    || (value.reason !== null && (typeof value.reason !== 'string' || !/^[a-z0-9_]{1,64}$/.test(value.reason)))
+    || !Array.isArray(value.boxes) || value.boxes.length > 100
+    || value.boxes.some((box: unknown) => !Array.isArray(box) || box.length !== 4
+      || box.some((coordinate: unknown) => typeof coordinate !== 'number' || !Number.isFinite(coordinate))
+      || !(0 <= box[0] && box[0] < box[2] && box[2] <= 8192 && 0 <= box[1] && box[1] < box[3] && box[3] <= 8192))
+    || (value.task !== 'bed' && value.boxes.length !== 0)
+    || (value.verdict === 'occupied' && (value.task !== 'bed' || value.boxes.length === 0 || value.score === null))
+    || (value.task === null && (value.verdict !== 'unavailable' || value.reason === null || value.threshold !== null || value.model_version !== null))
+    || (value.verdict !== 'occupied' && value.boxes.length !== 0)
+    || (['unknown', 'unavailable'].includes(String(value.verdict)) && value.score !== null)
+    || (['normal', 'spaghetti'].includes(String(value.verdict)) && (value.task !== 'spaghetti' || value.score === null))) {
+    throw new Error('Принтер вернул некорректную разметку камеры.')
+  }
+  validateCameraJpeg(value.jpeg_base64)
+  return value as CameraPreview
 }
 
 // Настройка принадлежит Moonraker; секрет сервера изображений остаётся на принтере.
