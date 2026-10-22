@@ -12,11 +12,6 @@ it('keeps a trailing decimal point visible while typing with the keypad', () => 
   expect(screen.getByLabelText('K-factor')).toHaveValue('0.')
 })
 
-function formatTime(timestamp: number): string {
-  const date = new Date(timestamp)
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
-
 describe('TemperatureTrendChart', () => {
   it('uses real timestamps and confirmed targets for chart lines and scale', () => {
     const firstTimestamp = Date.parse('2026-06-24T12:07:00Z')
@@ -34,8 +29,8 @@ describe('TemperatureTrendChart', () => {
     render(<TemperatureTrendChart series={series} testId="chart" />)
 
     expect(screen.getByTestId('chart-target-nozzle')).toHaveAttribute('points', expect.stringContaining(','))
-    expect(screen.getByTestId('chart')).toHaveTextContent(formatTime(firstTimestamp))
-    expect(screen.getByTestId('chart')).toHaveTextContent(formatTime(secondTimestamp))
+    expect(screen.getByTestId('chart')).toHaveTextContent('15:07')
+    expect(screen.getByTestId('chart')).toHaveTextContent('15:12')
     expect(screen.getByTestId('chart')).toHaveTextContent('250')
   })
 
