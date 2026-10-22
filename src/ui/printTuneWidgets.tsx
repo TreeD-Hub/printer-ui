@@ -1,5 +1,6 @@
 import { type ChangeEvent } from 'react'
 import { joinClassNames } from './classNames'
+import { formatUiDateTime, useTimeZoneOffset } from './timeZone'
 
 type TuneNumberControlProps = {
   label: string
@@ -192,16 +193,13 @@ function buildAreaPoints(
   return `${firstX.toFixed(2)},${bottomY.toFixed(2)} ${polylinePoints} ${lastX.toFixed(2)},${bottomY.toFixed(2)}`
 }
 
-function formatChartTime(timestamp: number): string {
-  const date = new Date(timestamp)
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${hours}:${minutes}`
+function formatChartTime(timestamp: number, timezoneOffsetMinutes: number): string {
+  return formatUiDateTime(timestamp, timezoneOffsetMinutes, { hour: '2-digit', minute: '2-digit' })
 }
 
-function buildTimeTickLabels(minTime: number, maxTime: number): Array<{ timestamp: number; label: string }> {
+function buildTimeTickLabels(minTime: number, maxTime: number, timezoneOffsetMinutes: number): Array<{ timestamp: number; label: string }> {
   if (minTime === maxTime) {
-    return [{ timestamp: minTime, label: formatChartTime(minTime) }]
+    return [{ timestamp: minTime, label: formatChartTime(minTime, timezoneOffsetMinutes) }]
   }
 
   const durationMinutes = Math.max(1, Math.ceil((maxTime - minTime) / 60_000))
@@ -212,7 +210,7 @@ function buildTimeTickLabels(minTime: number, maxTime: number): Array<{ timestam
     const timestamp = minTime + ((maxTime - minTime) * ratio)
     return {
       timestamp,
-      label: formatChartTime(timestamp),
+      label: formatChartTime(timestamp, timezoneOffsetMinutes),
     }
   })
 }
@@ -329,6 +327,7 @@ export function TuneCompactStepperInput({
 }
 
 export function TemperatureTrendChart({ series, testId, height = CHART_HEIGHT }: TemperatureTrendChartProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const normalizedSeries = series.filter((item) => item.points.length > 0)
   const allPoints = normalizedSeries.flatMap((item) => item.points)
   const allValues = allPoints.flatMap((point) => point.target > 0
@@ -343,7 +342,7 @@ export function TemperatureTrendChart({ series, testId, height = CHART_HEIGHT }:
   const plotHeight = height - CHART_PADDING.top - CHART_PADDING.bottom
   const minTime = allPoints.length > 0 ? Math.min(...allPoints.map((point) => point.timestamp)) : 0
   const maxTime = allPoints.length > 0 ? Math.max(...allPoints.map((point) => point.timestamp)) : minTime
-  const timeTicks = buildTimeTickLabels(minTime, maxTime)
+  const timeTicks = buildTimeTickLabels(minTime, maxTime, timezoneOffsetMinutes)
 
   function resolveY(value: number): number {
     return CHART_PADDING.top + plotHeight - (((value - minValue) / Math.max(1, maxValue - minValue)) * plotHeight)

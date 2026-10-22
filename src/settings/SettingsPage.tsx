@@ -24,6 +24,7 @@ import { AutoPrinterPanel } from '../autoprinter/AutoPrinterPanel'
 import { AccountPanel } from '../autoprinter/AccountPanel'
 import '../autoprinter/autoprinter.css'
 import type { DetectionFrame, DetectionStatus } from '../core/hostDetection'
+import { formatUiDateTime, useTimeZoneOffset } from '../ui/timeZone'
 
 export type ConsoleHistoryItem = {
   id: string
@@ -56,6 +57,8 @@ export type SettingsPageProps = {
     isMaxPerformanceModeEnabled: boolean
     sleepModeValue: string
     timezoneValue: string
+    timezoneNotice: string
+    themeNotice: string
     onDarkThemeChange: (checked: boolean) => void
     onMaxPerformanceModeChange: (checked: boolean) => void
     onSleepModeChange: (value: string) => void
@@ -90,10 +93,8 @@ export type SettingsPageProps = {
   }
   notifications: {
     isNotificationsEnabled: boolean
-    isNotificationSoundsEnabled: boolean
     history: SettingsNotificationItem[]
     onNotificationsEnabledChange: (checked: boolean) => void
-    onNotificationSoundsEnabledChange: (checked: boolean) => void
   }
   cloud: {
     isCapabilityAvailable: boolean
@@ -139,9 +140,7 @@ export type SettingsPageProps = {
   }
   language: {
     languageValue: string
-    isExternalVoiceEnabled: boolean
     onLanguageChange: (value: string) => void
-    onExternalVoiceChange: (checked: boolean) => void
   }
   console: {
     inputRef: RefObject<HTMLTextAreaElement | null>
@@ -317,6 +316,7 @@ export function SettingsPage({
   console,
   autoPrinter,
 }: SettingsPageProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const pausedUpdateFocusRef = useModalFocus<HTMLElement>(updates.pausedUpdateTarget !== null, updates.onCancelPausedUpdate)
   const configReviewFocusRef = useModalFocus<HTMLElement>(updates.isConfigReviewOpen, updates.onCancelConfigReview)
   const aiLightFocusRef = useModalFocus<HTMLElement>(cloud.lightWarning.isOpen, cloud.lightWarning.onClose)
@@ -390,6 +390,7 @@ export function SettingsPage({
                 onChange={interfaceSettings.onDarkThemeChange}
                 testId="settings-dark-theme-toggle"
               />
+              {interfaceSettings.themeNotice && <p role="status">{interfaceSettings.themeNotice}</p>}
               <SettingsToggleRow
                 label="Режим максимальной производительности"
                 checked={interfaceSettings.isMaxPerformanceModeEnabled}
@@ -408,6 +409,7 @@ export function SettingsPage({
                 options={TIMEZONE_OPTIONS}
                 onChange={interfaceSettings.onTimezoneChange}
               />
+              {interfaceSettings.timezoneNotice && <p role="status">{interfaceSettings.timezoneNotice}</p>}
             </div>
           ) : activeSettingsGroup === 'network' ? (
             <NetworkSettings key={String(network.isCapabilityAvailable)} network={network} />
@@ -421,12 +423,6 @@ export function SettingsPage({
                 checked={notifications.isNotificationsEnabled}
                 onChange={notifications.onNotificationsEnabledChange}
                 testId="settings-notifications-enabled-toggle"
-              />
-              <SettingsToggleRow
-                label="Звуки уведомлений"
-                checked={notifications.isNotificationSoundsEnabled}
-                onChange={notifications.onNotificationSoundsEnabledChange}
-                testId="settings-notification-sound-toggle"
               />
               <h3 className="settings-notification-heading" id="settings-notification-history-title">Журнал событий</h3>
               <div className="settings-notification-list" role="region" aria-labelledby="settings-notification-history-title">
@@ -486,7 +482,7 @@ export function SettingsPage({
                   </button>
                   {cloud.detectionFrame && <figure>
                     <img src={`data:image/jpeg;base64,${cloud.detectionFrame.jpeg_base64}`} alt={`Кадр анализатора: ${cloud.detectionFrame.verdict}`} />
-                    <figcaption>{cloud.detectionFrame.verdict} · {cloud.detectionFrame.captured_at}</figcaption>
+                    <figcaption>{cloud.detectionFrame.verdict} · {formatUiDateTime(cloud.detectionFrame.captured_at, timezoneOffsetMinutes, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</figcaption>
                   </figure>}
                 </div>
               )}
@@ -601,12 +597,6 @@ export function SettingsPage({
                 value={language.languageValue}
                 options={LANGUAGE_OPTIONS}
                 onChange={language.onLanguageChange}
-              />
-              <SettingsToggleRow
-                label="Внешний голосовой ассистент"
-                checked={language.isExternalVoiceEnabled}
-                onChange={language.onExternalVoiceChange}
-                testId="settings-external-voice-toggle"
               />
             </div>
           ) : (

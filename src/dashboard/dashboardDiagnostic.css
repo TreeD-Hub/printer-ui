@@ -21,6 +21,8 @@
   place-items: center;
   color: var(--color-error);
   font-family: var(--font-family-accent);
+  letter-spacing: var(--letter-spacing-accent);
+  -webkit-text-stroke-width: var(--text-stroke-accent);
   font-size: 54px;
   line-height: 1;
 }
@@ -88,7 +90,7 @@
 
 .dashboard-diagnostic-action.is-armed {
   background: var(--color-control-active-surface);
-  color: var(--color-primary-light);
+  color: var(--color-signal-text);
 }
 
 .dashboard-diagnostic-action:disabled {
@@ -97,7 +99,7 @@
 }
 
 .dashboard-diagnostic-action-error {
-  color: var(--color-error);
+  color: var(--color-signal-text);
   font-size: var(--font-size-small);
   overflow-wrap: anywhere;
 }

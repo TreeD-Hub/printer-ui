@@ -14,7 +14,7 @@
 .eddy-workflow button[aria-pressed="true"] { border-color: var(--color-selection); background: var(--color-selection-surface); }
 .eddy-workflow button:focus-visible, .eddy-workflow select:focus-visible, .eddy-workflow input:focus-visible { outline: var(--focus-width) solid var(--color-focus-ring); outline-offset: var(--focus-offset); }
 .eddy-workflow .is-secondary { background: var(--color-surface); }
-.eddy-workflow .eddy-danger { border-color: var(--color-selection); color: var(--color-selection); }
+.eddy-workflow .eddy-danger { border-color: var(--color-selection); color: var(--color-signal-text); }
 .eddy-steps { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-xs); color: var(--color-text-secondary); font-size: var(--font-size-small); }
 .eddy-steps li { padding-bottom: var(--space-xs); border-bottom: var(--border-width) solid var(--color-border-default); }
 .eddy-body { min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-start; gap: var(--space-xs); }
@@ -55,7 +55,7 @@
 .eddy-testz::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: var(--border-width); background: var(--color-border-default); pointer-events: none; }
 .eddy-metric { min-height: 0; display: grid; align-content: center; gap: var(--space-xs); }
 .eddy-metric > span, .eddy-metric small { color: var(--color-text-secondary); font-size: var(--font-size-small); }
-.eddy-metric > strong { font: var(--font-weight-regular) var(--font-size-heading-large)/1.2 var(--font-family-accent); font-variant-numeric: tabular-nums; }
+.eddy-metric > strong { color: var(--color-text-dotted, inherit); font: var(--font-weight-regular) var(--font-size-heading-large)/1.2 var(--font-family-accent); letter-spacing: var(--letter-spacing-accent); -webkit-text-stroke-width: var(--text-stroke-accent); font-variant-numeric: tabular-nums; }
 .eddy-chart-area { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); align-items: center; gap: var(--space-xs); }
 .eddy-chart-readings { display: grid; gap: var(--space-sm); }
 .eddy-chart-readings strong { font: var(--font-size-metric) var(--font-family-ui); }
@@ -119,14 +119,14 @@
 .eddy-babystep { display: grid; gap: var(--space-xs); }
 .eddy-babystep > span { color: var(--color-text-secondary); font-size: var(--font-size-small); }
 .eddy-message { padding: var(--space-xs) var(--space-sm); border-left: calc(2 * var(--border-width)) solid var(--color-border-default); flex-shrink: 0; }
-.eddy-message.is-error { border-color: var(--color-selection); color: var(--color-selection); }
+.eddy-message.is-error { border-color: var(--color-selection); color: var(--color-signal-text); }
 .eddy-overview-grid { min-height: 0; flex: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: var(--space-xs); }
 .eddy-workflow .eddy-overview-card { min-width: 0; min-height: 88px; padding: var(--space-xs); padding-left: var(--space-sm); display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: minmax(48px, auto) auto; grid-template-areas: "preview title" "state state"; align-content: center; align-items: center; gap: var(--space-xxs) var(--space-xs); text-align: left; background: var(--color-block-surface); }
 .eddy-overview-card .calibration-preview { width: 40px; height: 40px; }
 .eddy-overview-card strong { grid-area: title; font-size: var(--font-size-body); font-weight: var(--font-weight-regular); }
 .eddy-overview-card .eddy-card-state { grid-area: state; color: var(--color-text-secondary); font-size: var(--font-size-small); }
 .eddy-status { min-width: 0; min-height: 40px; max-height: 40px; overflow: auto; color: var(--color-text-secondary); font-size: var(--font-size-small); }
-.eddy-status.is-error { color: var(--color-selection); }
+.eddy-status.is-error { color: var(--color-signal-text); }
 .eddy-footer { display: grid; grid-template-columns: 240px minmax(0, 1fr) 240px; gap: var(--space-xs); align-items: center; min-width: 0; }
 .eddy-footer-details, .eddy-footer-secondary, .eddy-footer-primary { min-width: 0; }
 .eddy-footer button { height: var(--control-height); padding: var(--space-xxs) var(--space-xs); line-height: 1.25; text-align: center; }

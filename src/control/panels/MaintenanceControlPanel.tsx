@@ -1,12 +1,12 @@
 import { memo, useEffect, useState, type CSSProperties } from 'react'
 import type { MaintenanceControlPanelProps, MaintenanceIconName } from '../types'
+import { formatUiDateTime, useTimeZoneOffset } from '../../ui/timeZone'
 import '../maintenance.css'
 import '../maintenanceCycle.css'
 
 const HOURS_FORMATTER = new Intl.NumberFormat('ru-RU', {
   maximumFractionDigits: 1,
 })
-const DATE_FORMATTER = new Intl.DateTimeFormat('ru-RU')
 const MAINTENANCE_CONFIRM_TITLE_ID = 'maintenance-complete-confirm-title'
 
 export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
@@ -18,6 +18,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
   completionBlockReason,
   onMaintenanceComplete,
 }: MaintenanceControlPanelProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const [isConfirmOpen, setIsConfirmOpen] = useState(false)
   const safeProgressPercent = Math.max(0, Math.min(100, progressPercent))
   const progressTickDenominator = Math.max(1, progressTicks.length - 1)
@@ -29,7 +30,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
   const intervalHoursLabel = `${HOURS_FORMATTER.format(status.intervalHours)} ч`
   const lastMaintenanceLabel = (status.lastMaintenanceAt ?? null) === null
     ? 'ТО ещё не фиксировалось'
-    : `Последнее ТО ${DATE_FORMATTER.format(new Date(status.lastMaintenanceAt ?? 0))}`
+    : `Последнее ТО ${formatUiDateTime(status.lastMaintenanceAt ?? 0, timezoneOffsetMinutes, { day: '2-digit', month: '2-digit', year: 'numeric' })}`
   const progressStatusLabel = status.isCycleBacked === true
     ? status.hoursLeft > 0
       ? `До планового обслуживания осталось ${hoursLeftLabel}`

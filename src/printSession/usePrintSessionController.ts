@@ -9,6 +9,7 @@ import { isPrintJobActive, type PrinterSnapshot } from '../core/transport/types'
 import { DASHBOARD_VALUES } from '../dashboard/config'
 import { statusLabel } from '../dashboard/helpers'
 import { PRINT_FILE_LIBRARY, type PrintFileItem } from '../printFiles'
+import { formatUiDateTime } from '../ui/timeZone'
 
 type ActivePrintUiState = 'printing' | 'paused'
 const DASHBOARD_FILE_NAME_VISIBLE_CHARS = 20
@@ -49,7 +50,7 @@ export type UsePrintSessionControllerResult = {
   displayPrintFileName: string | null
   displayPrintFileNameScrollDistanceCh: number
   isDisplayPrintFileNameScrollable: boolean
-  adjustedEtaTime: string
+  getAdjustedEtaTime: (timezoneOffsetMinutes: number) => string
   activePrintUiState: ActivePrintUiState | null
   effectiveActivePrintState: string
   hasActivePrint: boolean
@@ -112,7 +113,6 @@ export function usePrintSessionController({
   const printFill = snapshot.source === 'live'
     ? Math.round(clampValue(snapshot.printJob.progress * 100, 0, 100))
     : Math.max(0, Math.min(100, DASHBOARD_VALUES.progressPercent))
-  const adjustedEtaTime = getPrintEndTime(snapshot.updatedAt, activePrintFile, printFill)
   const displayLayerCurrent = snapshot.printJob.currentLayer
   const displayLayerTotal = snapshot.printJob.totalLayer
   const effectiveActivePrintState = snapshot.source === 'live'
@@ -353,7 +353,7 @@ export function usePrintSessionController({
     displayPrintFileName,
     displayPrintFileNameScrollDistanceCh,
     isDisplayPrintFileNameScrollable,
-    adjustedEtaTime,
+    getAdjustedEtaTime: (timezoneOffsetMinutes) => getPrintEndTime(snapshot.updatedAt, activePrintFile, printFill, timezoneOffsetMinutes),
     activePrintUiState,
     effectiveActivePrintState,
     hasActivePrint,
@@ -416,7 +416,7 @@ function parsePrintTimeSeconds(printTime: string | undefined): number | null {
   return seconds > 0 ? seconds : null
 }
 
-function getPrintEndTime(updatedAt: string, activePrintFile: PrintFileItem | null, printFill: number): string {
+function getPrintEndTime(updatedAt: string, activePrintFile: PrintFileItem | null, printFill: number, timezoneOffsetMinutes: number): string {
   const totalSeconds = parsePrintTimeSeconds(activePrintFile?.printTime)
   if (totalSeconds === null) {
     return '—'
@@ -428,9 +428,6 @@ function getPrintEndTime(updatedAt: string, activePrintFile: PrintFileItem | nul
   }
 
   const remainingRatio = 1 - (clampValue(printFill, 0, 100) / 100)
-  const endTime = new Date(baseTimeMs + Math.round(totalSeconds * remainingRatio * 1000))
-  const hours = String(endTime.getHours()).padStart(2, '0')
-  const minutes = String(endTime.getMinutes()).padStart(2, '0')
-
-  return `${hours}:${minutes}`
+  const endTime = baseTimeMs + Math.round(totalSeconds * remainingRatio * 1000)
+  return formatUiDateTime(endTime, timezoneOffsetMinutes, { hour: '2-digit', minute: '2-digit' })
 }

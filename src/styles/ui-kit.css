@@ -21,6 +21,13 @@
 .screen-shell .macros-eddy-step-count,
 .screen-shell .macros-eddy-testz-panel p {
   font-family: var(--font-family-ui);
+  letter-spacing: normal;
+  -webkit-text-stroke-width: 0;
+}
+
+.screen-shell input::placeholder,
+.screen-shell textarea::placeholder {
+  color: var(--color-text-soft);
 }
 
 .screen-shell :is(button, input, select, textarea, a, [tabindex]):focus-visible:not(.print-tune-compact-stepper-input),
@@ -87,9 +94,15 @@
   box-shadow: none;
 }
 
-.screen-shell .control-lighting-row.is-active :is(.control-lighting-icon, .control-lighting-state, .control-lighting-switch-mark),
+.screen-shell .control-lighting-row.is-active :is(.control-lighting-icon, .control-lighting-state, .control-lighting-switch-mark) {
+  color: var(--color-text-primary);
+}
+
 .screen-shell .macros-manager-workflow strong,
-.screen-shell .macros-eddy-summary strong,
+.screen-shell .macros-eddy-summary strong {
+  color: var(--color-text-dotted, var(--color-text-primary));
+}
+
 .screen-shell .macros-eddy-step-count {
   color: var(--color-text-primary);
 }
@@ -105,7 +118,7 @@
 }
 
 .screen-shell .file-modal-action-delete {
-  color: var(--color-error);
+  color: var(--color-signal-text);
   border-color: var(--color-primary-ring);
   background: var(--color-primary-surface-soft);
 }
@@ -113,7 +126,7 @@
 .screen-shell :is(.action-cancel, .file-modal-action-danger, .top-popup-action-danger, .control-action-btn-danger) {
   border-color: var(--color-primary);
   background: var(--color-primary-surface);
-  color: var(--color-primary-light);
+  color: var(--color-signal-text);
 }
 
 .screen-shell :is(button, select, input)[class]:is(:disabled, [aria-disabled='true']) {

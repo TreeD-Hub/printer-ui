@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { describeAutoPrinterReason, describeAutoPrinterState, type AutoPrinterActionType } from '@treed/printer-logic/autoprinter'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 import { useCurrentTime } from './useCurrentTime'
+import { formatUiDateTime, useTimeZoneOffset } from '../ui/timeZone'
 
 type AutoPrinterPanelProps = {
   controller: AutoPrinterController
@@ -40,9 +41,9 @@ function bedLabel(status: NonNullable<AutoPrinterController['status']>, now: num
   return 'Состояние стола неизвестно'
 }
 
-function bedCheckedAt(status: NonNullable<AutoPrinterController['status']>): string {
+function bedCheckedAt(status: NonNullable<AutoPrinterController['status']>, timezoneOffsetMinutes: number): string {
   const checkedAt = status.bed_check?.last_check?.checked_at
-  return checkedAt ? `Проверено: ${new Date(checkedAt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : 'Время проверки неизвестно'
+  return checkedAt ? `Проверено: ${formatUiDateTime(checkedAt, timezoneOffsetMinutes, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : 'Время проверки неизвестно'
 }
 
 function resultLabel(state: NonNullable<AutoPrinterController['lastAction']>['state']): string {
@@ -52,6 +53,7 @@ function resultLabel(state: NonNullable<AutoPrinterController['lastAction']>['st
 }
 
 export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboard }: AutoPrinterPanelProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const [view, setView] = useState<View>('queue')
   const { status, availability, stale, error, pending, lastAction } = controller
   const isCurrent = availability === 'available' && !stale && status !== null
@@ -162,7 +164,7 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
           <p><span>Состояние системы</span><strong>{stateLabel(availability, stale)}</strong></p>
           <p><span>Управление очередью</span><strong>{!isCurrent ? 'Нет свежих данных' : isManaged ? 'Активно' : 'Не активно'}</strong></p>
           <p><span>Привязка</span><strong>{!isCurrent ? 'Последние данные: привязка неизвестна' : `${status?.binding_state === 'paired' ? 'Привязано' : status?.binding_state === 'revoked' ? 'Отозвана' : status?.binding_state === 'unpaired' ? 'Не привязано' : 'Нет данных'}${status?.unlink_pending ? ' · ожидает отвязки' : ''}`}</strong></p>
-          <p><span>Стол</span><strong>{status === null || availability !== 'available' || stale ? 'Состояние стола неизвестно' : `${bedLabel(status, now)} · ${bedCheckedAt(status)}`}</strong></p>
+          <p><span>Стол</span><strong>{status === null || availability !== 'available' || stale ? 'Состояние стола неизвестно' : `${bedLabel(status, now)} · ${bedCheckedAt(status, timezoneOffsetMinutes)}`}</strong></p>
           <div className="autoprinter-inline-actions">
             <button type="button" disabled={!isCurrent || pending !== null || status?.capabilities?.bed_check_diagnostic !== true} onClick={() => run('recheck_bed')}>
               Повторить проверку стола

@@ -4,6 +4,7 @@ import type { TopStatusButtonId } from '../dashboard/config'
 import type { PrinterDisplayNotification } from '../dashboard/printerStatusState'
 import { usePrinterNotifications } from '../core/store/printerNotifications'
 import { useModalFocus } from '../ui'
+import { formatUiDateTime, useTimeZoneOffset } from '../ui/timeZone'
 import {
   CLOUD_LINK_URL,
   CLOUD_QR_IMAGE_URL,
@@ -54,6 +55,7 @@ export function TopStatusPopups({
   onOpenWifiSettings,
   onPowerMenuAction,
 }: TopStatusPopupsProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const dialogRef = useModalFocus<HTMLElement>(activeTopPopup !== null, onClose)
   const { history } = usePrinterNotifications()
   if (activeTopPopup === null) {
@@ -161,7 +163,7 @@ export function TopStatusPopups({
               {history.map((entry) => (
                 <li key={entry.id}>
                   <strong>{entry.title}</strong> — {entry.details}
-                  <small> {new Date(entry.receivedAt).toLocaleTimeString('ru-RU')}</small>
+                  <small> {formatUiDateTime(entry.receivedAt, timezoneOffsetMinutes)}</small>
                 </li>
               ))}
               {commandError || currentPrinterNotification !== null || history.length > 0 ? null : <li>Новых уведомлений нет.</li>}
