@@ -29,17 +29,17 @@ export type SettingsNotificationItem = {
 }
 
 export const SETTINGS_GROUP_OPTIONS: Array<SettingsMenuOption<SettingsGroupId>> = [
-  { id: 'network', label: 'Сеть', icon: 'statusWifi' },
-  { id: 'system', label: 'Система', icon: 'menuSettings' },
-  { id: 'interface', label: 'Интерфейс', icon: 'menuInterface' },
-  { id: 'notifications', label: 'Уведомления', icon: 'statusNotification' },
-  { id: 'cloud', label: 'Анализ', icon: 'statusNotification' },
-  { id: 'autoprinter', label: 'AutoPrinter', icon: 'menuDevice' },
-  { id: 'account', label: 'Аккаунт', icon: 'statusCloud' },
-  { id: 'device', label: 'Устройство', icon: 'menuDevice' },
-  { id: 'updates', label: 'Обновления', icon: 'menuUpdates' },
-  { id: 'language', label: 'Язык', icon: 'menuLanguage' },
-  { id: 'console', label: 'Консоль', icon: 'menuControl' },
+  { id: 'network', label: 'Сеть', icon: 'network' },
+  { id: 'system', label: 'Система', icon: 'system' },
+  { id: 'interface', label: 'Интерфейс', icon: 'interface' },
+  { id: 'notifications', label: 'Уведомления', icon: 'notifications' },
+  { id: 'cloud', label: 'Анализ', icon: 'analysis' },
+  { id: 'autoprinter', label: 'AutoPrinter', icon: 'autoprinter' },
+  { id: 'account', label: 'Аккаунт', icon: 'account' },
+  { id: 'device', label: 'Устройство', icon: 'device' },
+  { id: 'updates', label: 'Обновления', icon: 'updates' },
+  { id: 'language', label: 'Язык', icon: 'language' },
+  { id: 'console', label: 'Консоль', icon: 'console' },
 ]
 
 export const SLEEP_MODE_OPTIONS = ['30 сек', '1 мин', '5 мин', '10 мин'] as const

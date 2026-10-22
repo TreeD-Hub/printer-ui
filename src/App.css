@@ -3067,10 +3067,10 @@ body {
 
 .control-fan-summary {
   min-height: 74px;
-  padding: 0;
+  padding: var(--space-xs) 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
+  align-items: center;
   gap: 12px;
 }
 
@@ -3079,7 +3079,7 @@ body {
   display: grid;
   align-content: start;
   gap: 8px;
-  padding-top: 2px;
+  padding-top: 0;
 }
 
 .control-fan-summary-copy h4,

@@ -11,6 +11,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { IconMask } from './IconMask'
+import { SidebarIcon, type SidebarIconName } from './SidebarIcon'
 import { joinClassNames } from './classNames'
 import type { UiIconName } from './iconAssets'
 import { useModalFocus } from './useModalFocus'
@@ -18,7 +19,7 @@ import { useModalFocus } from './useModalFocus'
 export type SettingsMenuOption<T extends string> = {
   id: T
   label: string
-  icon: UiIconName
+  icon: SidebarIconName
 }
 
 type SettingsSidebarMenuProps<T extends string> = {
@@ -37,7 +38,7 @@ export function SettingsSidebarMenu<T extends string>({
   onChange,
   ariaLabel,
   testIdPrefix,
-  iconSize = 20,
+  iconSize = 28,
   disabledReasons,
 }: SettingsSidebarMenuProps<T>) {
   return (
@@ -59,7 +60,7 @@ export function SettingsSidebarMenu<T extends string>({
             disabled={isDisabled}
             onClick={() => onChange(option.id)}
           >
-            <IconMask name={option.icon} size={iconSize} />
+            <SidebarIcon name={option.icon} size={iconSize} />
             <span className="settings-sidebar-label">{option.label}</span>
           </button>
         )

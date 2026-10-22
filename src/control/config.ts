@@ -15,14 +15,14 @@ type FanPreset = {
 }
 
 export const CONTROL_GROUP_OPTIONS: Array<SettingsMenuOption<ControlGroupId>> = [
-  { id: 'movement', label: 'Перемещение', icon: 'menuControl' },
-  { id: 'heating', label: 'Нагрев', icon: 'metricNozzle' },
-  { id: 'fans', label: 'Вентиляторы', icon: 'metricFan' },
-  { id: 'lighting', label: 'Освещение', icon: 'metricLight' },
-  { id: 'filament', label: 'Датчик нити', icon: 'menuDevice' },
-  { id: 'drivers', label: 'Драйверы', icon: 'menuControl' },
-  { id: 'maintenance', label: 'Т.О', icon: 'menuDevice' },
-  { id: 'camera', label: 'Камера AI', icon: 'menuInterface' },
+  { id: 'movement', label: 'Перемещение', icon: 'movement' },
+  { id: 'heating', label: 'Нагрев', icon: 'heat' },
+  { id: 'fans', label: 'Вентиляторы', icon: 'fan' },
+  { id: 'lighting', label: 'Освещение', icon: 'light' },
+  { id: 'filament', label: 'Датчик нити', icon: 'filament' },
+  { id: 'drivers', label: 'Драйверы', icon: 'drivers' },
+  { id: 'maintenance', label: 'Т.О', icon: 'maintenance' },
+  { id: 'camera', label: 'Камера AI', icon: 'camera' },
 ]
 
 export const CONTROL_PARKING_AXIS_OPTIONS: Array<ControlOption<AxisId>> = [
