@@ -3,6 +3,43 @@
   background: currentColor;
 }
 
+.settings-sidebar-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Самостоятельные панели имеют тот же контур, что и регулятор вентилятора. */
+.screen-shell :is(
+  .control-coordinate-summary,
+  .control-axis-controls,
+  .control-heating-row,
+  .control-lighting-list .settings-toggle-row,
+  .control-light-preferences .settings-toggle-row,
+  .control-filament-status,
+  .control-filament-mode-description,
+  .control-filament-action-description,
+  .driver-mode-summary,
+  .driver-mode-description,
+  .maintenance-overview-metric,
+  .maintenance-overview-progress,
+  .system-status-card-body,
+  .system-compact-item,
+  .system-settings-empty,
+  .system-settings-footer,
+  .settings-network-selected,
+  .settings-network-open-note,
+  .settings-network-empty,
+  .settings-network-notice,
+  .settings-description-card,
+  .settings-cloud-notice,
+  .settings-device-care-item,
+  .settings-update-body,
+  .settings-updates-notice,
+  .settings-console-history
+) {
+  border: var(--border-width) solid var(--color-border-muted);
+}
+
 /* Общий touch-контракт. Визуальная иконка может быть меньше зоны нажатия. */
 .screen-shell button[class],
 .screen-shell select[class],

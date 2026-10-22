@@ -10,6 +10,7 @@ export type SidebarIconName =
   | 'maintenance'
   | 'camera'
   | 'network'
+  | 'network-off'
   | 'system'
   | 'interface'
   | 'notifications'
@@ -24,6 +25,7 @@ export type SidebarIconName =
 type SidebarIconProps = {
   name: SidebarIconName
   size?: number
+  className?: string
 }
 
 const shape = {
@@ -35,7 +37,7 @@ const shape = {
   vectorEffect: 'non-scaling-stroke' as const,
 }
 
-export function SidebarIcon({ name, size = 28 }: SidebarIconProps) {
+export function SidebarIcon({ name, size = 28, className = '' }: SidebarIconProps) {
   let glyph: ReactNode = null
 
   switch (name) {
@@ -88,9 +90,11 @@ export function SidebarIcon({ name, size = 28 }: SidebarIconProps) {
       </>
       break
     case 'network':
+    case 'network-off':
       glyph = <>
         <path {...shape} d="M2.5 8.5a14 14 0 0 1 19 0M5.5 12a9.5 9.5 0 0 1 13 0m-10 3.5a5 5 0 0 1 7 0" />
         <circle {...shape} cx="12" cy="19" r="1" />
+        {name === 'network-off' ? <path {...shape} d="m3 3 18 18" /> : null}
       </>
       break
     case 'system':
@@ -155,7 +159,7 @@ export function SidebarIcon({ name, size = 28 }: SidebarIconProps) {
 
   return (
     <svg
-      className="settings-sidebar-icon"
+      className={`settings-sidebar-icon ${className}`.trim()}
       width={size}
       height={size}
       viewBox="0 0 24 24"

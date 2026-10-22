@@ -25,6 +25,7 @@ import { AccountPanel } from '../autoprinter/AccountPanel'
 import '../autoprinter/autoprinter.css'
 import type { DetectionFrame, DetectionStatus } from '../core/hostDetection'
 import { formatUiDateTime, useTimeZoneOffset } from '../ui/timeZone'
+import { SidebarIcon } from '../ui/SidebarIcon'
 
 export type ConsoleHistoryItem = {
   id: string
@@ -196,10 +197,7 @@ function NetworkSettings({ network }: { network: SettingsPageProps['network'] })
 
       {!network.isCapabilityAvailable ? (
         <div className="settings-network-empty" role="status">
-          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M5 18a29 29 0 0 1 38 0M11 25a20 20 0 0 1 26 0M18 32a9 9 0 0 1 12 0M7 7l34 34" />
-            <circle cx="24" cy="39" r="1" fill="currentColor" />
-          </svg>
+          <SidebarIcon name="network-off" size={48} />
           <p className="settings-network-empty-title" data-testid="settings-network-notice">{network.capabilityNotice}</p>
         </div>
       ) : selected ? (

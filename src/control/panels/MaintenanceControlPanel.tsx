@@ -1,6 +1,7 @@
 import { memo, useEffect, useState, type CSSProperties } from 'react'
 import type { MaintenanceControlPanelProps, MaintenanceIconName } from '../types'
 import { formatUiDateTime, useTimeZoneOffset } from '../../ui/timeZone'
+import { SidebarIcon } from '../../ui/SidebarIcon'
 import '../maintenance.css'
 import '../maintenanceCycle.css'
 
@@ -222,10 +223,6 @@ function MaintenanceLineIcon({ name }: { name: MaintenanceIconName }) {
   }
 
   return (
-    <svg className="maintenance-overview-line-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 3.8 18.9 7.8v8.1L12 20 5.1 15.9V7.8L12 3.8Z" />
-      <circle cx="12" cy="10" r="2.1" />
-      <path d="M8.6 15.2c.8-1.6 1.9-2.4 3.4-2.4s2.6.8 3.4 2.4" />
-    </svg>
+    <SidebarIcon name="maintenance" size={26} className="maintenance-overview-line-icon" />
   )
 }
