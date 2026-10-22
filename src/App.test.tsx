@@ -445,7 +445,7 @@ describe('App', () => {
       applyPrinterSnapshot({
         ...previousSnapshot,
         source: 'live',
-        updatedAt: '2026-06-25T09:15:00',
+        updatedAt: '2026-06-25T09:15:00Z',
         printJob: {
           ...previousSnapshot.printJob,
           filename: 'queue/very_long_calibration_tower_for_scroll.gcode',
@@ -492,7 +492,7 @@ describe('App', () => {
       expect(previewImage).toHaveAttribute('src', 'http://127.0.0.1:7125/server/files/gcodes/.thumbs/tower-300x300.png')
       expect(screen.getByText('very_long_calibration_tower_for_scroll.gcode')).toHaveClass('is-scrollable')
       expect(screen.getByText('25%')).toBeInTheDocument()
-      expect(screen.getByText('09:45')).toBeInTheDocument()
+      expect(screen.getByText('12:45')).toBeInTheDocument()
       expect(screen.getByText('12 / 48')).toBeInTheDocument()
       expect(document.querySelector('.job-meter-fill')).toHaveStyle({ width: '25%' })
     } finally {
