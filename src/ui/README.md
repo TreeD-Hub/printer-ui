@@ -16,6 +16,7 @@
 - `numericTuneWidgets.tsx` / `.css` — общий редактор числового значения и цифровая клавиатура; без команд устройства.
 - `settingsWidgets.tsx` - settings cards/select/toggle/sidebar/virtual keyboard.
 - `classNames.ts` - минимальный helper сборки CSS-классов.
+- `timeZone.ts` — список фиксированных смещений UTC, сохранённый выбор и форматирование дат и времени UI; по умолчанию Москва, UTC+03:00.
 - `useModalFocus.ts` - начальный фокус, цикл Tab внутри модалки, закрытие по Escape и возврат фокуса, включая вложенные окна.
 - `index.ts` - публичные экспорты UI слоя.
 

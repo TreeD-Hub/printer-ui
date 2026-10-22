@@ -3,6 +3,43 @@
   background: currentColor;
 }
 
+.settings-sidebar-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* Самостоятельные панели имеют тот же контур, что и регулятор вентилятора. */
+.screen-shell :is(
+  .control-coordinate-summary,
+  .control-axis-controls,
+  .control-heating-row,
+  .control-lighting-list .settings-toggle-row,
+  .control-light-preferences .settings-toggle-row,
+  .control-filament-status,
+  .control-filament-mode-description,
+  .control-filament-action-description,
+  .driver-mode-summary,
+  .driver-mode-description,
+  .maintenance-overview-metric,
+  .maintenance-overview-progress,
+  .system-status-card-body,
+  .system-compact-item,
+  .system-settings-empty,
+  .system-settings-footer,
+  .settings-network-selected,
+  .settings-network-open-note,
+  .settings-network-empty,
+  .settings-network-notice,
+  .settings-description-card,
+  .settings-cloud-notice,
+  .settings-device-care-item,
+  .settings-update-body,
+  .settings-updates-notice,
+  .settings-console-history
+) {
+  border: var(--border-width) solid var(--color-border-muted);
+}
+
 /* Общий touch-контракт. Визуальная иконка может быть меньше зоны нажатия. */
 .screen-shell button[class],
 .screen-shell select[class],
@@ -21,6 +58,13 @@
 .screen-shell .macros-eddy-step-count,
 .screen-shell .macros-eddy-testz-panel p {
   font-family: var(--font-family-ui);
+  letter-spacing: normal;
+  -webkit-text-stroke-width: 0;
+}
+
+.screen-shell input::placeholder,
+.screen-shell textarea::placeholder {
+  color: var(--color-text-soft);
 }
 
 .screen-shell :is(button, input, select, textarea, a, [tabindex]):focus-visible:not(.print-tune-compact-stepper-input),
@@ -87,9 +131,15 @@
   box-shadow: none;
 }
 
-.screen-shell .control-lighting-row.is-active :is(.control-lighting-icon, .control-lighting-state, .control-lighting-switch-mark),
+.screen-shell .control-lighting-row.is-active :is(.control-lighting-icon, .control-lighting-state, .control-lighting-switch-mark) {
+  color: var(--color-text-primary);
+}
+
 .screen-shell .macros-manager-workflow strong,
-.screen-shell .macros-eddy-summary strong,
+.screen-shell .macros-eddy-summary strong {
+  color: var(--color-text-dotted, var(--color-text-primary));
+}
+
 .screen-shell .macros-eddy-step-count {
   color: var(--color-text-primary);
 }
@@ -105,7 +155,7 @@
 }
 
 .screen-shell .file-modal-action-delete {
-  color: var(--color-error);
+  color: var(--color-signal-text);
   border-color: var(--color-primary-ring);
   background: var(--color-primary-surface-soft);
 }
@@ -113,7 +163,7 @@
 .screen-shell :is(.action-cancel, .file-modal-action-danger, .top-popup-action-danger, .control-action-btn-danger) {
   border-color: var(--color-primary);
   background: var(--color-primary-surface);
-  color: var(--color-primary-light);
+  color: var(--color-signal-text);
 }
 
 .screen-shell :is(button, select, input)[class]:is(:disabled, [aria-disabled='true']) {
@@ -156,6 +206,14 @@
 
 .screen-shell .settings-sidebar-item {
   font-size: var(--font-size-body);
+}
+
+.settings-sidebar-menu .settings-sidebar-icon {
+  display: block;
+  justify-self: center;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
 }
 
 .screen-shell .settings-sidebar-label {

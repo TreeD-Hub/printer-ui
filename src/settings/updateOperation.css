@@ -8,7 +8,7 @@
   grid-template-rows: 24px 1fr 24px;
   overflow: hidden;
   background: var(--color-update-background);
-  color: var(--color-text-primary);
+  color: var(--color-on-media);
   font-family: var(--font-family-ui);
   outline: none;
 }
@@ -18,7 +18,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  color: var(--color-text-secondary);
+  color: var(--color-on-media-secondary);
   font-size: var(--font-size-body);
 }
 
@@ -27,7 +27,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--color-text-soft);
+  color: var(--color-on-media-secondary);
 }
 
 .update-operation-content {
@@ -51,8 +51,10 @@
 
 .update-operation-screen h2 {
   margin: 0;
-  color: var(--color-text-highlight);
+  color: var(--color-on-media);
   font-family: var(--font-family-accent);
+  letter-spacing: var(--letter-spacing-accent);
+  -webkit-text-stroke-width: var(--text-stroke-accent);
   font-size: var(--font-size-heading-large);
   font-weight: var(--font-weight-regular);
   line-height: 1.25;
@@ -64,7 +66,7 @@
   max-height: 72px;
   overflow-y: auto;
   margin: 12px auto 0;
-  color: var(--color-text-secondary);
+  color: var(--color-on-media-secondary);
   font-size: var(--font-size-body);
   line-height: 24px;
   overflow-wrap: anywhere;
@@ -88,14 +90,14 @@
 .update-operation-progress-track {
   height: 16px;
   overflow: hidden;
-  background: var(--color-border-subtle);
+  background: color-mix(in srgb, var(--color-on-media) 24%, var(--color-media-background));
 }
 
 .update-operation-progress-track > span {
   display: block;
   width: 100%;
   height: 100%;
-  background: var(--color-text-primary);
+  background: var(--color-on-media);
   transform-origin: left;
   transition: transform 220ms ease-out;
 }
@@ -105,7 +107,7 @@
   display: block;
   width: 24%;
   height: 100%;
-  background: var(--color-text-primary);
+  background: var(--color-on-media);
   animation: update-operation-indeterminate 2s ease-in-out infinite;
 }
 
@@ -122,7 +124,7 @@
 
 .update-operation-footer {
   text-align: left;
-  color: var(--color-text-soft);
+  color: var(--color-on-media-secondary);
   font-size: var(--font-size-small);
   line-height: 24px;
 }
@@ -131,18 +133,18 @@
   min-width: 288px;
   min-height: 56px;
   padding: 0 24px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--color-on-media-secondary);
   border-radius: var(--radius-panel);
-  background: var(--color-surface-elevated);
-  color: var(--color-text-primary);
+  background: var(--color-media-background);
+  color: var(--color-on-media);
   font: inherit;
   cursor: pointer;
   touch-action: manipulation;
 }
 
 .update-operation-dismiss:active {
-  background: var(--color-control-active-surface);
-  border-color: var(--color-control-active-border);
+  background: color-mix(in srgb, var(--color-on-media) 14%, var(--color-media-background));
+  border-color: var(--color-on-media);
 }
 
 .update-operation-dismiss:focus-visible {

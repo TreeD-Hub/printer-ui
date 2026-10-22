@@ -62,7 +62,7 @@
 .maintenance-overview-completion-error {
   grid-column: 1 / -1;
   max-width: 280px;
-  color: var(--color-error);
+  color: var(--color-signal-text);
   font-family: var(--font-family-ui);
   font-size: var(--font-size-tiny);
   line-height: 1.2;
@@ -88,8 +88,7 @@
   border: 1px solid color-mix(in srgb, var(--color-border-default) 88%, transparent);
   border-radius: var(--radius-panel);
   background: var(--color-surface-elevated);
-  box-shadow:
-    0 18px 44px color-mix(in srgb, var(--color-background) 74%, transparent);
+  box-shadow: none;
 }
 
 .maintenance-complete-dialog h3,
@@ -99,8 +98,10 @@
 }
 
 .maintenance-complete-dialog h3 {
-  color: var(--color-text-highlight);
+  color: var(--color-text-dotted, var(--color-text-highlight));
   font-family: var(--font-family-accent);
+  letter-spacing: var(--letter-spacing-accent);
+  -webkit-text-stroke-width: var(--text-stroke-accent);
   font-size: var(--font-size-body-large);
   font-weight: var(--font-weight-accent);
 }
@@ -112,7 +113,7 @@
 }
 
 .maintenance-complete-dialog .maintenance-complete-dialog-error {
-  color: var(--color-error);
+  color: var(--color-signal-text);
 }
 
 .maintenance-complete-dialog > div {

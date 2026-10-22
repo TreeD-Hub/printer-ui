@@ -4,6 +4,7 @@
 .eddy-diagram figcaption { color: var(--color-text-secondary); font: var(--font-size-small)/1.35 var(--font-family-ui); }
 .eddy-diagram figcaption span { display: block; }
 .eddy-selected-point { color: var(--color-selection); }
+.eddy-selected-point text { color: var(--color-signal-text); }
 .eddy-screw-turn { display: flex; align-items: center; gap: var(--space-xs); font: var(--font-size-body) var(--font-family-ui); }
 .eddy-screw-turn svg { width: 72px; height: 72px; flex: 0 0 72px; }
 .eddy-mesh-diagram { height: 100%; grid-template-columns: minmax(0, 1fr) 224px; grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: var(--space-sm); }

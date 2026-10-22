@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { runtimeMode } from '#runtime'
+import { formatUiDateTime } from '../ui/timeZone'
 import type { MaintenanceHistoryItem, MaintenanceStatus } from '../control'
 import { isPrintJobActive, type PrinterPrintJobSnapshot, type PrinterUsageSnapshot } from '../core/transport/types'
 import {
@@ -33,6 +34,7 @@ type MaintenanceLedgerState = {
 }
 
 type UseMaintenanceControllerArgs = {
+  timezoneOffsetMinutes?: number
   usage: PrinterUsageSnapshot
   printJob: PrinterPrintJobSnapshot
   systemStatus: MoonrakerSystemStatus
@@ -126,10 +128,10 @@ export function createMaintenanceStatus(
   }
 }
 
-function historyItems(ledger: MaintenanceLedger): MaintenanceHistoryItem[] {
+function historyItems(ledger: MaintenanceLedger, timezoneOffsetMinutes: number): MaintenanceHistoryItem[] {
   return ledger.records.map((item) => ({
     id: item.id,
-    date: new Intl.DateTimeFormat('ru-RU').format(new Date(item.completedAt)),
+    date: formatUiDateTime(item.completedAt, timezoneOffsetMinutes, { day: '2-digit', month: '2-digit', year: 'numeric' }),
     runtimeHours: hours(item.runtimeSec),
     label: 'Плановое ТО',
   }))
@@ -239,7 +241,7 @@ export function useMaintenanceController(args: UseMaintenanceControllerArgs) {
 
   return {
     status,
-    historyItems: historyItems(ledgerState.ledger),
+    historyItems: historyItems(ledgerState.ledger, args.timezoneOffsetMinutes ?? 180),
     checklistItems: EMPTY_MAINTENANCE_CHECKLIST_ITEMS,
     progressTicks: MAINTENANCE_PROGRESS_TICKS,
     progressPercent,

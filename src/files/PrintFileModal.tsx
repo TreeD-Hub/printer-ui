@@ -3,6 +3,7 @@ import type { PrinterCommandId } from '../core/commands'
 import type { PrintFileItem } from '../printFiles'
 import { IconMask, PrintPreviewIcon, joinClassNames, useModalFocus } from '../ui'
 import { getPreferredPreviewImage, getPreviewSrcSet } from '../ui/printFilePreview'
+import { formatUiDateTime, useTimeZoneOffset } from '../ui/timeZone'
 
 const FILE_MODAL_TITLE_ID = 'print-file-modal-title'
 
@@ -18,13 +19,8 @@ type PrintFileModalProps = {
   onDelete: () => void
 }
 
-function formatFileDate(addedAt: string): string {
-  const date = new Date(addedAt)
-  if (Number.isNaN(date.getTime())) {
-    return '—'
-  }
-
-  return date.toLocaleDateString('ru-RU', {
+function formatFileDate(addedAt: string, timezoneOffsetMinutes: number): string {
+  return formatUiDateTime(addedAt, timezoneOffsetMinutes, {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
@@ -42,6 +38,7 @@ export function PrintFileModal({
   onStart,
   onDelete,
 }: PrintFileModalProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const dialogRef = useModalFocus<HTMLElement>(true, onClose)
   const preferredPreview = getPreferredPreviewImage(file.preview)
   const [failedPreviewSrc, setFailedPreviewSrc] = useState<string | null>(null)
@@ -107,7 +104,7 @@ export function PrintFileModal({
               </div>
               <div>
                 <dt>Дата</dt>
-                <dd>{formatFileDate(file.addedAt)}</dd>
+                <dd>{formatFileDate(file.addedAt, timezoneOffsetMinutes)}</dd>
               </div>
               {file.directory !== null ? (
                 <div className="file-modal-path">

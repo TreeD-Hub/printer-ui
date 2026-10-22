@@ -33,8 +33,10 @@
 }
 
 .system-reset-dialog h2 {
-  color: var(--color-text-highlight);
+  color: var(--color-text-dotted, var(--color-text-highlight));
   font-family: var(--font-family-accent);
+  letter-spacing: var(--letter-spacing-accent);
+  -webkit-text-stroke-width: var(--text-stroke-accent);
   font-size: var(--font-size-heading-medium);
   font-weight: var(--font-weight-accent);
 }
@@ -81,8 +83,10 @@
 .system-settings-head h3,
 .system-settings-section-head h4 {
   margin: 0;
-  color: var(--color-text-highlight);
+  color: var(--color-text-dotted, var(--color-text-highlight));
   font-family: var(--font-family-accent);
+  letter-spacing: var(--letter-spacing-accent);
+  -webkit-text-stroke-width: var(--text-stroke-accent);
   font-weight: var(--font-weight-accent);
   text-transform: uppercase;
 }
@@ -142,7 +146,7 @@
 
 .system-status-badge.is-error {
   border-color: color-mix(in srgb, var(--color-error) 62%, var(--color-border-default));
-  color: var(--color-error);
+  color: var(--color-signal-text);
   background: var(--color-surface-elevated);
 }
 
@@ -205,8 +209,10 @@
 
 .system-status-card-title strong {
   min-width: 0;
-  color: var(--color-text-highlight);
+  color: var(--color-text-dotted, var(--color-text-highlight));
   font-family: var(--font-family-accent);
+  letter-spacing: var(--letter-spacing-accent);
+  -webkit-text-stroke-width: var(--text-stroke-accent);
   font-size: var(--font-size-body-large);
   font-weight: var(--font-weight-accent);
   text-transform: uppercase;
@@ -463,8 +469,10 @@
 }
 
 .system-settings-footer strong {
-  color: var(--color-text-highlight);
+  color: var(--color-text-dotted, var(--color-text-highlight));
   font-family: var(--font-family-accent);
+  letter-spacing: var(--letter-spacing-accent);
+  -webkit-text-stroke-width: var(--text-stroke-accent);
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-accent);
   text-transform: uppercase;

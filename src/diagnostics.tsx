@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { isPrintJobActive, type PrinterSnapshot } from './core/transport/types'
+import { formatUiDateTime, getTimeZoneOffsetMinutes, readTimeZonePreference } from './ui/timeZone'
 
 export type RuntimeDiagnosticKind = 'react-render' | 'window-error' | 'unhandled-rejection'
 
@@ -240,7 +241,9 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
               </div>
               <div>
                 <dt>Время</dt>
-                <dd>{this.state.entry.at}</dd>
+                <dd>{formatUiDateTime(this.state.entry.at, getTimeZoneOffsetMinutes(readTimeZonePreference()), {
+                  day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit',
+                })}</dd>
               </div>
             </dl>
           </section>

@@ -6,6 +6,7 @@ import {
 } from '@treed/printer-logic'
 import type { PrinterFileListStatusSnapshot } from '../core/transport/types'
 import { PrintFileCard } from '../ui'
+import { formatUiDateTime, useTimeZoneOffset } from '../ui/timeZone'
 
 const FILES_SORT_OPTIONS: Array<{ id: PrinterFileSortKey; label: string }> = [
   { id: 'name', label: 'По имени' },
@@ -51,13 +52,8 @@ function getFileNameScrollDurationSec(files: readonly PrinterFileItem[]): number
   )
 }
 
-function formatFileDate(addedAt: string): string {
-  const date = new Date(addedAt)
-  if (Number.isNaN(date.getTime())) {
-    return '—'
-  }
-
-  return date.toLocaleDateString('ru-RU', {
+function formatFileDate(addedAt: string, timezoneOffsetMinutes: number): string {
+  return formatUiDateTime(addedAt, timezoneOffsetMinutes, {
     day: '2-digit',
     month: '2-digit',
     year: '2-digit',
@@ -65,6 +61,7 @@ function formatFileDate(addedAt: string): string {
 }
 
 export function FilesPage({ files, fileListStatus, onFileSelect, onMetadataRequest }: FilesPageProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const scrollAreaRef = useRef<HTMLDivElement | null>(null)
   const [sortKey, setSortKey] = useState<PrinterFileSortKey>('addedAt')
   const [scrollTop, setScrollTop] = useState(0)
@@ -188,7 +185,7 @@ export function FilesPage({ files, fileListStatus, onFileSelect, onMetadataReque
                   printTime={item.printTime}
                   weight={item.weight}
                   material={item.material}
-                  addedAt={formatFileDate(item.addedAt)}
+                  addedAt={formatFileDate(item.addedAt, timezoneOffsetMinutes)}
                   metadataStatus={item.metadataStatus}
                   preview={item.preview}
                   isNameScrollable={item.name.length > FILE_NAME_VISIBLE_CHARS}

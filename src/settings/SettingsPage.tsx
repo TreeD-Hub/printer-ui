@@ -24,6 +24,8 @@ import { AutoPrinterPanel } from '../autoprinter/AutoPrinterPanel'
 import { AccountPanel } from '../autoprinter/AccountPanel'
 import '../autoprinter/autoprinter.css'
 import type { DetectionFrame, DetectionStatus } from '../core/hostDetection'
+import { formatUiDateTime, useTimeZoneOffset } from '../ui/timeZone'
+import { SidebarIcon } from '../ui/SidebarIcon'
 
 export type ConsoleHistoryItem = {
   id: string
@@ -56,6 +58,8 @@ export type SettingsPageProps = {
     isMaxPerformanceModeEnabled: boolean
     sleepModeValue: string
     timezoneValue: string
+    timezoneNotice: string
+    themeNotice: string
     onDarkThemeChange: (checked: boolean) => void
     onMaxPerformanceModeChange: (checked: boolean) => void
     onSleepModeChange: (value: string) => void
@@ -90,10 +94,8 @@ export type SettingsPageProps = {
   }
   notifications: {
     isNotificationsEnabled: boolean
-    isNotificationSoundsEnabled: boolean
     history: SettingsNotificationItem[]
     onNotificationsEnabledChange: (checked: boolean) => void
-    onNotificationSoundsEnabledChange: (checked: boolean) => void
   }
   cloud: {
     isCapabilityAvailable: boolean
@@ -102,6 +104,13 @@ export type SettingsPageProps = {
     isBusy: boolean
     notice: string
     onAiMonitoringToggle: (checked: boolean) => void
+    lightWarning: {
+      isOpen: boolean
+      isBusy: boolean
+      error: string | null
+      onClose: () => void
+      onEnable: () => Promise<void>
+    }
     detectionStatus: DetectionStatus | null
     detectionStatusError: string | null
     detectionFrame: DetectionFrame | null
@@ -132,9 +141,7 @@ export type SettingsPageProps = {
   }
   language: {
     languageValue: string
-    isExternalVoiceEnabled: boolean
     onLanguageChange: (value: string) => void
-    onExternalVoiceChange: (checked: boolean) => void
   }
   console: {
     inputRef: RefObject<HTMLTextAreaElement | null>
@@ -190,10 +197,7 @@ function NetworkSettings({ network }: { network: SettingsPageProps['network'] })
 
       {!network.isCapabilityAvailable ? (
         <div className="settings-network-empty" role="status">
-          <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M5 18a29 29 0 0 1 38 0M11 25a20 20 0 0 1 26 0M18 32a9 9 0 0 1 12 0M7 7l34 34" />
-            <circle cx="24" cy="39" r="1" fill="currentColor" />
-          </svg>
+          <SidebarIcon name="network-off" size={48} />
           <p className="settings-network-empty-title" data-testid="settings-network-notice">{network.capabilityNotice}</p>
         </div>
       ) : selected ? (
@@ -310,8 +314,10 @@ export function SettingsPage({
   console,
   autoPrinter,
 }: SettingsPageProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const pausedUpdateFocusRef = useModalFocus<HTMLElement>(updates.pausedUpdateTarget !== null, updates.onCancelPausedUpdate)
   const configReviewFocusRef = useModalFocus<HTMLElement>(updates.isConfigReviewOpen, updates.onCancelConfigReview)
+  const aiLightFocusRef = useModalFocus<HTMLElement>(cloud.lightWarning.isOpen, cloud.lightWarning.onClose)
   return (
     <section className="settings-screen" data-testid="screen-settings">
       <div className="settings-layout">
@@ -382,6 +388,7 @@ export function SettingsPage({
                 onChange={interfaceSettings.onDarkThemeChange}
                 testId="settings-dark-theme-toggle"
               />
+              {interfaceSettings.themeNotice && <p role="status">{interfaceSettings.themeNotice}</p>}
               <SettingsToggleRow
                 label="Режим максимальной производительности"
                 checked={interfaceSettings.isMaxPerformanceModeEnabled}
@@ -400,6 +407,7 @@ export function SettingsPage({
                 options={TIMEZONE_OPTIONS}
                 onChange={interfaceSettings.onTimezoneChange}
               />
+              {interfaceSettings.timezoneNotice && <p role="status">{interfaceSettings.timezoneNotice}</p>}
             </div>
           ) : activeSettingsGroup === 'network' ? (
             <NetworkSettings key={String(network.isCapabilityAvailable)} network={network} />
@@ -413,12 +421,6 @@ export function SettingsPage({
                 checked={notifications.isNotificationsEnabled}
                 onChange={notifications.onNotificationsEnabledChange}
                 testId="settings-notifications-enabled-toggle"
-              />
-              <SettingsToggleRow
-                label="Звуки уведомлений"
-                checked={notifications.isNotificationSoundsEnabled}
-                onChange={notifications.onNotificationSoundsEnabledChange}
-                testId="settings-notification-sound-toggle"
               />
               <h3 className="settings-notification-heading" id="settings-notification-history-title">Журнал событий</h3>
               <div className="settings-notification-list" role="region" aria-labelledby="settings-notification-history-title">
@@ -478,7 +480,7 @@ export function SettingsPage({
                   </button>
                   {cloud.detectionFrame && <figure>
                     <img src={`data:image/jpeg;base64,${cloud.detectionFrame.jpeg_base64}`} alt={`Кадр анализатора: ${cloud.detectionFrame.verdict}`} />
-                    <figcaption>{cloud.detectionFrame.verdict} · {cloud.detectionFrame.captured_at}</figcaption>
+                    <figcaption>{cloud.detectionFrame.verdict} · {formatUiDateTime(cloud.detectionFrame.captured_at, timezoneOffsetMinutes, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</figcaption>
                   </figure>}
                 </div>
               )}
@@ -594,12 +596,6 @@ export function SettingsPage({
                 options={LANGUAGE_OPTIONS}
                 onChange={language.onLanguageChange}
               />
-              <SettingsToggleRow
-                label="Внешний голосовой ассистент"
-                checked={language.isExternalVoiceEnabled}
-                onChange={language.onExternalVoiceChange}
-                testId="settings-external-voice-toggle"
-              />
             </div>
           ) : (
             <div className="settings-group-stack settings-group-stack-console">
@@ -650,6 +646,19 @@ export function SettingsPage({
           )}
         </div>
       </div>
+      {cloud.lightWarning.isOpen ? (
+        <div className="system-reset-layer">
+          <section ref={aiLightFocusRef} className="system-reset-dialog settings-update-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-light-title" aria-describedby="ai-light-detail">
+            <h2 id="ai-light-title">Свет для AI-детекции</h2>
+            <p id="ai-light-detail">Автовключение света при печати отключено. Без освещения AI-детекция может не обнаружить дефекты. Включить свет при начале печати и AI-детекцию? При закрытии настройки не изменятся.</p>
+            {cloud.lightWarning.error && <p role="alert">{cloud.lightWarning.error}</p>}
+            <div className="system-reset-actions">
+              <button type="button" className="file-modal-action" data-modal-initial-focus disabled={cloud.lightWarning.isBusy} onClick={cloud.lightWarning.onClose}>Закрыть</button>
+              <button type="button" className="file-modal-action" disabled={cloud.lightWarning.isBusy} onClick={() => void cloud.lightWarning.onEnable()}>{cloud.lightWarning.isBusy ? 'Включаем…' : 'Включить свет'}</button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {updates.isConfigReviewOpen ? (
         <div className="system-reset-layer">
           <section ref={configReviewFocusRef} className="system-reset-dialog settings-update-dialog settings-config-review" role="dialog" aria-modal="true" aria-labelledby="config-review-title" aria-describedby="config-review-detail">

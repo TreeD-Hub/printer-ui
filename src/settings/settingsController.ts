@@ -9,6 +9,8 @@ import { subscribePrinterGcodeResponses, usePrinterNotifications } from '../core
 import { type ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ExecuteCommandArgs, PrinterCommandId } from '../core/commands'
 import { downloadDiagnosticReport } from '../diagnostics'
+import { formatUiDateTime, getTimeZoneOffsetMinutes, isTimeZoneOption, readTimeZonePreference, TIMEZONE_STORAGE_KEY } from '../ui/timeZone'
+import { applyTheme, readThemePreference, THEME_STORAGE_KEY } from '../ui/theme'
 import {
   areHostNetworkStatusesEqual,
   createUnavailableHostNetworkStatus,
@@ -28,10 +30,8 @@ import {
 } from '../core/hostUpdate'
 import { isPrintJobActive, type PrinterSnapshot } from '../core/transport/types'
 import {
-  DEFAULT_TIMEZONE_OPTION,
   LANGUAGE_OPTIONS,
   SLEEP_MODE_OPTIONS,
-  TIMEZONE_OPTIONS,
   PRINTER_UI_CURRENT_VERSION,
   UPDATE_RELEASE_TARGETS,
   type SettingsGroupId,
@@ -135,20 +135,19 @@ export function useSettingsController({
   closeKeyboard,
 }: UseSettingsControllerArgs): UseSettingsControllerResult {
   const [activeSettingsGroup, setActiveSettingsGroup] = useState<SettingsGroupId>('system')
-  const [isDarkThemeEnabled, setIsDarkThemeEnabled] = useState<boolean>(true)
+  const [isDarkThemeEnabled, setIsDarkThemeEnabled] = useState(() => readThemePreference() === 'dark')
+  const [themeNotice, setThemeNotice] = useState('')
   const [isMaxPerformanceModeEnabled, setIsMaxPerformanceModeEnabled] = useState<boolean>(false)
   const [sleepModeValue, setSleepModeValue] = useState<string>(SLEEP_MODE_OPTIONS[2])
-  const [timezoneValue, setTimezoneValue] = useState<string>(
-    TIMEZONE_OPTIONS.find((option) => option === DEFAULT_TIMEZONE_OPTION) ?? TIMEZONE_OPTIONS[0],
-  )
+  const [timezoneValue, setTimezoneValue] = useState(readTimeZonePreference)
+  const [timezoneNotice, setTimezoneNotice] = useState('')
+  const timezoneOffsetMinutes = getTimeZoneOffsetMinutes(timezoneValue)
   const [languageValue, setLanguageValue] = useState<string>(LANGUAGE_OPTIONS[0])
-  const [isExternalVoiceEnabled, setIsExternalVoiceEnabled] = useState<boolean>(false)
   const [isNotificationsEnabled, setIsNotificationsEnabled] = useState<boolean>(true)
-  const [isNotificationSoundsEnabled, setIsNotificationSoundsEnabled] = useState<boolean>(true)
   const printerNotifications = usePrinterNotifications()
-  const notificationHistory = printerNotifications.history.map((entry) => ({
-    ...entry, createdAt: new Date(entry.receivedAt).toLocaleTimeString('ru-RU'),
-  }))
+  const notificationHistory = useMemo(() => printerNotifications.history.map((entry) => ({
+    ...entry, createdAt: formatUiDateTime(entry.receivedAt, timezoneOffsetMinutes),
+  })), [printerNotifications.history, timezoneOffsetMinutes])
   const [isCloudConnected, setIsCloudConnected] = useState<boolean>(runtimeMode === 'mock' && snapshot.capabilities.cloud)
   const [isCloudAiMonitoringEnabled, setIsCloudAiMonitoringEnabled] = useState<boolean>(false)
   const [detectionStatus, setDetectionStatus] = useState<DetectionStatus | null>(null)
@@ -158,6 +157,10 @@ export function useSettingsController({
   const [isAiMonitoringBusy, setIsAiMonitoringBusy] = useState(false)
   const aiToggleInFlight = useRef(false)
   const aiSettingsRevision = useRef(0)
+  const [isAiLightWarningOpen, setIsAiLightWarningOpen] = useState(false)
+  const [isAiLightBusy, setIsAiLightBusy] = useState(false)
+  const [aiLightError, setAiLightError] = useState('')
+  const aiLightInFlight = useRef(false)
   const [cloudConnectionNotice, setCloudConnectionNotice] = useState<string>('Проверяем настройку локального анализа...')
   const detectionStatusInFlight = useRef(false)
   const [isCheckingUpdates, setIsCheckingUpdates] = useState<boolean>(false)
@@ -188,9 +191,12 @@ export function useSettingsController({
   const [consoleCommandValue, setConsoleCommandValue] = useState<string>('')
   const [pendingConsoleCommand, setPendingConsoleCommand] = useState<string | null>(null)
   const [consoleHistory, setConsoleHistory] = useState<SettingsPageProps['console']['history']>([])
+  const formattedConsoleHistory = useMemo(() => consoleHistory.map((entry) => ({
+    ...entry, createdAt: formatUiDateTime(entry.createdAt, timezoneOffsetMinutes),
+  })), [consoleHistory, timezoneOffsetMinutes])
   const consoleEntryId = useRef(0)
   const appendConsoleEntry = useCallback((command: string, kind: 'command' | 'response' | 'error') => {
-    const entry = { id: String(++consoleEntryId.current), command, kind, createdAt: new Date().toLocaleTimeString('ru-RU') }
+    const entry = { id: String(++consoleEntryId.current), command, kind, createdAt: new Date().toISOString() }
     setConsoleHistory((current) => [entry, ...current].slice(0, 200))
   }, [])
   useEffect(() => subscribePrinterGcodeResponses((message) => {
@@ -603,7 +609,16 @@ export function useSettingsController({
   }
 
   async function handleCloudAiMonitoringToggle(nextValue: boolean): Promise<void> {
-    if (!isCloudCapabilityAvailable || aiToggleInFlight.current) return
+    if (!isCloudCapabilityAvailable || aiToggleInFlight.current || aiLightInFlight.current) return
+    if (nextValue && snapshot.lightPreferences?.onPrintStart === false) {
+      setAiLightError('')
+      setIsAiLightWarningOpen(true)
+      return
+    }
+    await saveAiMonitoring(nextValue)
+  }
+
+  async function saveAiMonitoring(nextValue: boolean): Promise<boolean> {
     aiToggleInFlight.current = true
     aiSettingsRevision.current += 1
     setIsAiMonitoringBusy(true)
@@ -612,11 +627,39 @@ export function useSettingsController({
       const enabled = runtimeMode === 'mock' ? nextValue : await requestAiDetectionSettings(nextValue)
       setIsCloudAiMonitoringEnabled(enabled)
       setCloudConnectionNotice('')
+      return true
     } catch (error) {
       setCloudConnectionNotice(error instanceof Error ? error.message : 'Не удалось сохранить настройку локального анализа.')
+      return false
     } finally {
       aiToggleInFlight.current = false
       setIsAiMonitoringBusy(false)
+    }
+  }
+
+  async function handleEnableAiLight(): Promise<void> {
+    if (aiLightInFlight.current || aiToggleInFlight.current || !isCloudCapabilityAvailable) return
+    const blockReason = getCommandBlockReason('setLightPreference')
+    if (blockReason !== null) {
+      setAiLightError(blockReason)
+      return
+    }
+    aiLightInFlight.current = true
+    setIsAiLightBusy(true)
+    setAiLightError('')
+    try {
+      const accepted = await executeCommand({ command: 'setLightPreference', setting: 'onPrintStart', enabled: true })
+      if (!accepted) {
+        setAiLightError('Не удалось включить автосвет. AI-детекция не включена. Попробуйте ещё раз.')
+        return
+      }
+      if (await saveAiMonitoring(true)) setIsAiLightWarningOpen(false)
+      else setAiLightError('Настройка автосвета отправлена, но включить AI-детекцию не удалось. Попробуйте ещё раз.')
+    } catch (error) {
+      setAiLightError(error instanceof Error ? error.message : 'Не удалось включить автосвет.')
+    } finally {
+      aiLightInFlight.current = false
+      setIsAiLightBusy(false)
     }
   }
 
@@ -914,6 +957,29 @@ export function useSettingsController({
     return activeSettingsGroup === 'console'
   }, [activeSettingsGroup])
 
+  function handleTimezoneChange(value: string): void {
+    if (!isTimeZoneOption(value)) return
+    setTimezoneValue(value)
+    try {
+      window.localStorage.setItem(TIMEZONE_STORAGE_KEY, value)
+      setTimezoneNotice('')
+    } catch {
+      setTimezoneNotice('Часовой пояс применён на этот сеанс. Не удалось сохранить настройку.')
+    }
+  }
+
+  function handleDarkThemeChange(checked: boolean): void {
+    const theme = checked ? 'dark' : 'light'
+    setIsDarkThemeEnabled(checked)
+    applyTheme(theme)
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+      setThemeNotice('')
+    } catch {
+      setThemeNotice('Тема применена на этот сеанс. Не удалось сохранить настройку.')
+    }
+  }
+
   const pageProps: SettingsPageProps = {
     activeSettingsGroup,
     onSettingsGroupChange: handleSettingsGroupChange,
@@ -938,10 +1004,12 @@ export function useSettingsController({
       isMaxPerformanceModeEnabled,
       sleepModeValue,
       timezoneValue,
-      onDarkThemeChange: setIsDarkThemeEnabled,
+      timezoneNotice,
+      themeNotice,
+      onDarkThemeChange: handleDarkThemeChange,
       onMaxPerformanceModeChange: setIsMaxPerformanceModeEnabled,
       onSleepModeChange: setSleepModeValue,
-      onTimezoneChange: setTimezoneValue,
+      onTimezoneChange: handleTimezoneChange,
     },
     network: {
       isCapabilityAvailable: isNetworkCapabilityAvailable,
@@ -972,10 +1040,8 @@ export function useSettingsController({
     },
     notifications: {
       isNotificationsEnabled,
-      isNotificationSoundsEnabled,
       history: notificationHistory,
       onNotificationsEnabledChange: setIsNotificationsEnabled,
-      onNotificationSoundsEnabledChange: setIsNotificationSoundsEnabled,
     },
     cloud: {
       isCapabilityAvailable: isCloudCapabilityAvailable,
@@ -984,6 +1050,13 @@ export function useSettingsController({
       isBusy: isAiMonitoringBusy,
       notice: cloudCapabilityNotice,
       onAiMonitoringToggle: handleCloudAiMonitoringToggle,
+      lightWarning: {
+        isOpen: isAiLightWarningOpen,
+        isBusy: isAiLightBusy,
+        error: aiLightError || getCommandBlockReason('setLightPreference'),
+        onClose: () => { if (!aiLightInFlight.current) setIsAiLightWarningOpen(false) },
+        onEnable: handleEnableAiLight,
+      },
       detectionStatus,
       detectionStatusError,
       detectionFrame,
@@ -1020,15 +1093,13 @@ export function useSettingsController({
     },
     language: {
       languageValue,
-      isExternalVoiceEnabled,
       onLanguageChange: setLanguageValue,
-      onExternalVoiceChange: setIsExternalVoiceEnabled,
     },
     console: {
       inputRef: consoleInputRef,
       commandValue: consoleCommandValue,
       notice: consoleNotice,
-      history: consoleHistory,
+      history: formattedConsoleHistory,
       onInputChange: handleConsoleInputChange,
       onKeyboardOpen: handleConsoleKeyboardOpen,
       onSubmit: handleConsoleSubmit,

@@ -2,6 +2,7 @@ import { type MouseEvent, useCallback, useEffect, useMemo, useRef, useState } fr
 import { createHostNetworkClient, createHostUpdateClient, runtimeMode } from '#runtime'
 import { AppScreenContent } from './app/AppScreenContent'
 import { ScreenSleepGuard } from './app/ScreenSleepGuard'
+import { formatUiDateTime, getTimeZoneOffsetMinutes, TimeZoneContext } from './ui/timeZone'
 import { UpdateOperationScreen } from './settings/UpdateOperationScreen'
 import {
   getTreeDCommandBlockReason,
@@ -254,7 +255,7 @@ function App() {
     displayPrintFileName,
     displayPrintFileNameScrollDistanceCh,
     isDisplayPrintFileNameScrollable,
-    adjustedEtaTime,
+    getAdjustedEtaTime,
     hasActivePrint,
     isPrintPaused,
     printPauseCommand,
@@ -317,13 +318,6 @@ function App() {
   } = heatingController
   printTuneFanChangeRef.current = handleFanPercentChange
   const isFilesScreenActive = activeScreen === 'files'
-  const formattedSnapshotTime = useMemo(() => {
-    const parsed = new Date(snapshot.updatedAt)
-    if (Number.isNaN(parsed.getTime())) {
-      return '—'
-    }
-    return parsed.toLocaleTimeString('ru-RU')
-  }, [snapshot.updatedAt])
   const isRuntimeCurrent = moonrakerConnected
   const connectionLabel = CONNECTION_LABELS[connection]
   const snapshotWifiSsidLabel = isRuntimeCurrent ? snapshot.wifiSsid : 'Не подключено'
@@ -350,6 +344,11 @@ function App() {
     closeKeyboard: () => setActiveKeyboardTarget(null),
   })
   const settingsPageProps = settingsController.pageProps
+  const timezoneOffsetMinutes = getTimeZoneOffsetMinutes(settingsPageProps.interfaceSettings.timezoneValue)
+  const formattedSnapshotTime = useMemo(
+    () => formatUiDateTime(snapshot.updatedAt, timezoneOffsetMinutes),
+    [snapshot.updatedAt, timezoneOffsetMinutes],
+  )
   const isCloudCapabilityAvailable = settingsPageProps.cloud.isCapabilityAvailable
   const wifiSsidLabel = settingsPageProps.network.currentSsid ?? snapshotWifiSsidLabel
   const wifiIpLabel = settingsPageProps.network.wifiIpLabel !== '—'
@@ -384,6 +383,7 @@ function App() {
     systemStatus,
   })
   const maintenanceController = useMaintenanceController({
+    timezoneOffsetMinutes,
     usage: snapshot.usage,
     printJob: snapshot.printJob,
     systemStatus,
@@ -852,7 +852,7 @@ function App() {
       isDisplayPrintFileNameScrollable,
       printFilePreview: activePrintFile?.preview,
       printFill,
-      adjustedEtaTime,
+      adjustedEtaTime: getAdjustedEtaTime(timezoneOffsetMinutes),
       displayLayerCurrent,
       displayLayerTotal,
       isPrintPaused,
@@ -900,6 +900,7 @@ function App() {
   }
 
   return (
+    <TimeZoneContext.Provider value={timezoneOffsetMinutes}>
     <main className={`app-root ${isMaxPerformanceModeEnabled ? 'is-performance-mode' : ''}`}>
       <section className="screen-shell" data-testid="screen-shell" ref={screenShellRef}>
         <AppScreenContent
@@ -1175,6 +1176,7 @@ function App() {
         )}
       </section>
     </main>
+    </TimeZoneContext.Provider>
   )
 }
 

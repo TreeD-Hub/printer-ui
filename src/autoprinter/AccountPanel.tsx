@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 import { useModalFocus } from '../ui'
 import { useCurrentTime } from './useCurrentTime'
+import { formatUiDateTime, useTimeZoneOffset } from '../ui/timeZone'
 import './account.css'
 
 type AccountPanelProps = {
@@ -36,6 +37,7 @@ function AccountOwner({ name, avatar }: { name?: string; avatar?: string | null 
 }
 
 export function AccountPanel({ controller }: AccountPanelProps) {
+  const timezoneOffsetMinutes = useTimeZoneOffset()
   const qrDotsId = useId()
   const autoPairingRequested = useRef(false)
   const [isConfirmOpen, setConfirmOpen] = useState(false)
@@ -136,7 +138,7 @@ export function AccountPanel({ controller }: AccountPanelProps) {
                         <title>Ссылка для привязки принтера к аккаунту TreeD.</title>
                         <defs>
                           <pattern id={qrDotsId} width={1} height={1} patternUnits="userSpaceOnUse">
-                            <circle cx={0.5} cy={0.5} r={0.47} fill="#000000" shapeRendering="geometricPrecision" />
+                            <circle cx={0.5} cy={0.5} r={0.47} fill="var(--color-qr-foreground)" shapeRendering="geometricPrecision" />
                           </pattern>
                         </defs>
                         <QRCodeSVG
@@ -146,7 +148,7 @@ export function AccountPanel({ controller }: AccountPanelProps) {
                           level="H"
                           role="presentation"
                           aria-hidden="true"
-                          bgColor="#ffffff"
+                          bgColor="var(--color-qr-background)"
                           fgColor={`url(#${qrDotsId})`}
                         />
                       </svg>
@@ -161,7 +163,7 @@ export function AccountPanel({ controller }: AccountPanelProps) {
                   {pairingIsFresh && pairing && (
                     <>
                       <strong className="account-code">{pairing.code}</strong>
-                      {pairing.expires_at !== null && <p className="account-expiry">Код действует до {new Date(pairing.expires_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}.</p>}
+                      {pairing.expires_at !== null && <p className="account-expiry">Код действует до {formatUiDateTime(pairing.expires_at, timezoneOffsetMinutes, { hour: '2-digit', minute: '2-digit' })}.</p>}
                     </>
                   )}
                   {isOffline && <p className="account-offline" role="status">TreeD сейчас недоступен. Новый код можно получить после восстановления связи.</p>}
