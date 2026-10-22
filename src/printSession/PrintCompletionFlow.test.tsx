@@ -52,6 +52,36 @@ beforeEach(() => {
 })
 
 describe('PrintCompletionFlow', () => {
+  it('фиксирует фактическую статистику завершённой печати и массу её файла', async () => {
+    const view = mount()
+    const done = snapshot('complete')
+    done.printJob.printDurationSec = 6000
+    done.printJob.filamentUsedMm = 7340
+    done.printFiles = [
+      { ...done.printFiles[0], path: 'other.gcode', weight: '99 г' },
+      { ...done.printFiles[0], path: filename, weight: '22 г' },
+    ]
+    await complete(view, done)
+    expect(screen.getByText('1 ч 40 мин')).toBeVisible()
+    expect(screen.getByText('7,34 м')).toBeVisible()
+    expect(screen.getByText('22 г')).toBeVisible()
+    expect(screen.queryByText('99 г')).not.toBeInTheDocument()
+    view.change(snapshot('idle'))
+    expect(screen.getByText('1 ч 40 мин')).toBeVisible()
+    expect(screen.getByText('7,34 м')).toBeVisible()
+    expect(screen.getByText('22 г')).toBeVisible()
+  })
+
+  it('не подменяет отсутствующую статистику и массу оценочными значениями', async () => {
+    const view = mount()
+    const done = snapshot('complete')
+    done.printJob.printDurationSec = Number.NaN
+    done.printJob.filamentUsedMm = -1
+    done.printFiles = []
+    await complete(view, done)
+    expect(screen.getAllByText('—')).toHaveLength(3)
+  })
+
   it('не открывает старую завершённую печать после загрузки приложения', () => {
     mount(snapshot('complete'))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -188,7 +218,7 @@ describe('PrintCompletionFlow', () => {
     fireEvent.click(screen.getByRole('checkbox'))
     expect(screen.getByRole('button', { name: 'Печатать снова' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Повторить' }))
-    await waitFor(() => expect(screen.getByText('Оценка сохранена: плохо')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Печатать снова' })).toBeEnabled())
     expect(api.save.mock.calls).toEqual([[feedback, 'bad'], [feedback, 'bad']])
   })
 
@@ -233,7 +263,7 @@ describe('PrintCompletionFlow', () => {
     view.change(snapshot('complete'))
     view.change(snapshot('printing'))
     view.change(snapshot('complete'))
-    expect(await screen.findByText('Оценка сохранена: плохо')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Плохо' })).toHaveAttribute('aria-pressed', 'true'))
     expect((api.load.mock.calls[0][1] as AbortSignal).aborted).toBe(true)
     await act(async () => { old.resolve({ ...feedback, rating: 'good' }) })
     expect(screen.getByRole('button', { name: 'Плохо' })).toHaveAttribute('aria-pressed', 'true')

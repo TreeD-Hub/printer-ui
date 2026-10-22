@@ -4,7 +4,8 @@ import { PrintCompletionModal, type PrintCompletionModalProps } from './PrintCom
 
 function props(overrides: Partial<PrintCompletionModalProps> = {}): PrintCompletionModalProps {
   return {
-    filename: 'parts/bracket.gcode', rating: null, ratingStatus: '', ratingError: null,
+    filename: 'parts/bracket.gcode', printDurationSec: 6000, filamentUsedMm: 7340, weight: '22 г',
+    rating: null, ratingStatus: '', ratingError: null,
     isRatingBusy: false, isRatingAvailable: true, onRate: vi.fn(), onRetryRating: vi.fn(),
     restartBlockReason: null, restartError: null, isPrintBusy: false, onRestart: vi.fn(), onClose: vi.fn(),
     ...overrides,
@@ -55,7 +56,7 @@ describe('PrintCompletionModal', () => {
     expect(restart).toBeDisabled()
     fireEvent.click(restart)
     expect(data.onRestart).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Деталь снята со стола. Можно печатать снова' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Деталь снята со стола' }))
     expect(restart).toBeEnabled()
     fireEvent.click(restart)
     expect(data.onRestart).toHaveBeenCalledOnce()

@@ -11,10 +11,17 @@ type Props = {
   getRestartError: () => string
   onOpenChange?: (isOpen: boolean) => void
 }
-type CompletedJob = { id: number; filename: string; source: 'live' | 'mock' }
+type CompletedJob = {
+  id: number
+  filename: string
+  source: 'live' | 'mock'
+  printDurationSec: number
+  filamentUsedMm: number
+  weight: string
+}
 
 export function PrintCompletionFlow({ snapshot, onOpenChange, ...actions }: Props) {
-  const active = useRef<CompletedJob | null>(null)
+  const active = useRef<Pick<CompletedJob, 'id' | 'filename' | 'source'> | null>(null)
   const sequence = useRef(0)
   const [job, setJob] = useState<CompletedJob | null>(null)
 
@@ -38,10 +45,16 @@ export function PrintCompletionFlow({ snapshot, onOpenChange, ...actions }: Prop
     active.current = null
     if (state === 'complete' && completed !== null && completed.source === source
       && (!filename || filename === completed.filename)) {
-      setJob(completed)
+      setJob({
+        ...completed,
+        printDurationSec: snapshot.printJob.printDurationSec,
+        filamentUsedMm: snapshot.printJob.filamentUsedMm,
+        weight: snapshot.printFiles.find((file) => file.path === completed.filename)?.weight ?? '—',
+      })
     }
   }, [snapshot.source, snapshot.transport.state, snapshot.klippy.state, snapshot.printJob.state,
-    snapshot.printJob.filePath, snapshot.printJob.filename])
+    snapshot.printJob.filePath, snapshot.printJob.filename, snapshot.printJob.printDurationSec,
+    snapshot.printJob.filamentUsedMm, snapshot.printFiles])
 
   const isOpen = job !== null
   useEffect(() => { onOpenChange?.(isOpen) }, [isOpen, onOpenChange])
@@ -159,12 +172,11 @@ function PrintCompletionDialog({ job, isPrintBusy, restartBlockReason, onRestart
     }
   }
 
-  const status = loading ? 'Ищем запись печати…' : saving ? 'Сохраняем оценку…'
-    : (feedback?.rating ? `Оценка сохранена: ${feedback.rating === 'good' ? 'хорошо' : 'плохо'}${job.source === 'mock' ? ' (симуляция)' : ''}`
-      : job.source === 'mock' ? 'Симуляция: оценка хранится только в этом окне.' : '')
+  const status = loading ? 'Ищем запись печати…' : saving ? 'Сохраняем оценку…' : ''
 
   return (
-    <PrintCompletionModal filename={job.filename} rating={selected} ratingStatus={status}
+    <PrintCompletionModal filename={job.filename} printDurationSec={job.printDurationSec}
+      filamentUsedMm={job.filamentUsedMm} weight={job.weight} rating={selected} ratingStatus={status}
       ratingError={feedbackError || null} isRatingBusy={loading || saving || starting}
       isRatingAvailable={feedback !== null} onRate={(rating) => void save(rating)} onRetryRating={retryRating}
       restartBlockReason={blockReason} restartError={startError || (starting ? 'Запускаем печать…' : null)}
