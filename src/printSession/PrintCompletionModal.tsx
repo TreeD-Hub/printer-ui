@@ -84,7 +84,7 @@ export function PrintCompletionModal({
             </button>
           ))}
         </div>
-        <div className={`print-completion-status${ratingError || ratingStatus ? '' : ' visually-hidden'}`}>
+        <div className="print-completion-status">
           <p role="status" aria-live="polite">{ratingError || ratingStatus}</p>
           {ratingError && <button type="button" className="print-completion-button" disabled={isRatingBusy || isPrintBusy}
             onClick={onRetryRating}>Повторить</button>}
@@ -93,11 +93,11 @@ export function PrintCompletionModal({
           <input type="checkbox" checked={tableClear} disabled={isPrintBusy} onChange={(event) => setTableClear(event.target.checked)} />
           <span>Деталь снята со стола</span>
         </label>
-        <p className={`print-completion-start-notice${startNotice ? '' : ' visually-hidden'}`} id={startHintId} role="status">{startNotice}</p>
-        <div className="print-completion-pair">
-          <button type="button" className="print-completion-button" data-modal-initial-focus disabled={isRatingBusy} onClick={close}>Закрыть</button>
+        <p className="print-completion-start-notice" id={startHintId} role="status">{startNotice}</p>
+        <div className="print-completion-pair print-completion-actions">
           <button type="button" className="print-completion-button print-completion-restart" aria-describedby={startHintId}
             disabled={!canRestart} onClick={() => { if (canRestart) onRestart() }}>Печатать снова</button>
+          <button type="button" className="print-completion-button" data-modal-initial-focus disabled={isRatingBusy} onClick={close}>Закрыть</button>
         </div>
       </div>
     </div>

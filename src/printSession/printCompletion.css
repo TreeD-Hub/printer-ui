@@ -12,6 +12,7 @@
 .print-completion-dialog {
   box-sizing: border-box;
   width: 760px;
+  height: 512px;
   max-height: 100%;
   overflow-y: auto;
   padding: 16px;
@@ -27,6 +28,7 @@
   font-weight: 400;
 }
 
+.print-completion-dialog > * { flex-shrink: 0; }
 .print-completion-dialog :is(h2, p) { margin: 0; font-weight: 400; }
 .print-completion-dialog h2 { font-size: var(--font-size-heading-medium); line-height: 28px; }
 .print-completion-filename {
@@ -49,6 +51,7 @@
 .print-completion-summary dt { font-size: var(--font-size-small); color: var(--color-text-secondary); }
 .print-completion-summary dd { margin: 4px 0 0; font-size: var(--font-size-metric); line-height: 1.2; }
 .print-completion-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.print-completion-dialog .print-completion-actions { margin-top: auto; }
 .print-completion-button {
   min-width: var(--control-min-width);
   min-height: var(--control-height);
@@ -77,12 +80,19 @@
   background: color-mix(in srgb, var(--completion-accent) 12%, var(--color-background));
 }
 .print-completion-button:disabled { color: var(--color-text-secondary); opacity: .55; cursor: default; }
-.print-completion-status { display: flex; align-items: center; gap: 16px; }
+/* Выбранная оценка остаётся различимой при блокировке кнопок на время записи. */
+.print-completion-dialog .print-completion-button[data-rating][aria-pressed='true'] {
+  border-color: var(--color-selection);
+  background: var(--color-selection-surface);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 0 0 1px var(--color-selection);
+}
+.print-completion-status { display: flex; align-items: center; gap: 16px; min-height: 20px; }
 .print-completion-status p { flex: 1; line-height: 20px; }
 .print-completion-status button { flex: 0 0 144px; }
 .print-completion-table { display: flex; align-items: center; gap: 16px; min-height: 56px; font-size: var(--font-size-body-large); cursor: pointer; touch-action: manipulation; }
 .print-completion-table input { width: 32px; height: 32px; flex-shrink: 0; accent-color: var(--color-selection); }
-.print-completion-start-notice { font-size: var(--font-size-small); line-height: 20px; color: var(--color-text-secondary); }
+.print-completion-start-notice { min-height: 20px; font-size: var(--font-size-small); line-height: 20px; color: var(--color-text-secondary); }
 .print-completion-dialog :is(button, input):focus-visible {
   outline: var(--focus-width) solid var(--color-focus-ring);
   outline-offset: var(--focus-offset);
