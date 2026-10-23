@@ -8129,6 +8129,11 @@ select {
   z-index: 19;
 }
 
+.screen-shell > .print-completion-backdrop {
+  position: absolute;
+  z-index: 120;
+}
+
 .printer-event-popup.is-error {
   border-color: var(--color-error);
 }
