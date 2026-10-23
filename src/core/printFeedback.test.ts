@@ -60,14 +60,55 @@ describe('printFeedback', () => {
     await expect(client.load(filename)).rejects.toMatchObject({ statusCode: 503 })
   })
 
-  it('объединяет отмену чтения с ограничением времени запроса', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(json(feedback))
+  it('прерывает зависшее чтение по таймауту 5 секунд', async () => {
+    vi.useFakeTimers()
+    let requestSignal!: AbortSignal
+    const fetchMock = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      requestSignal = init.signal as AbortSignal
+      requestSignal.addEventListener('abort', () => reject(requestSignal.reason), { once: true })
+    }))
     vi.stubGlobal('fetch', fetchMock)
+    try {
+      const request = createPrintFeedbackClient('live', '').load(filename)
+      const timedOut = expect(request).rejects.toMatchObject({ name: 'TimeoutError' })
+      await vi.advanceTimersByTimeAsync(5_000)
+      await timedOut
+      expect(fetchMock).toHaveBeenCalledOnce()
+      expect(requestSignal.aborted).toBe(true)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('работает в Chromium без AbortSignal.any', async () => {
+    const any = vi.spyOn(AbortSignal, 'any').mockImplementation(() => { throw new TypeError('AbortSignal.any is unavailable') })
+    vi.useFakeTimers()
     const controller = new AbortController()
-    await createPrintFeedbackClient('live', '').load(filename, controller.signal)
-    const requestSignal = (fetchMock.mock.calls[0][1] as RequestInit).signal!
-    controller.abort()
-    expect(requestSignal.aborted).toBe(true)
+    const reason = new Error('user cancelled')
+    const removeListener = vi.spyOn(controller.signal, 'removeEventListener')
+    const fetchMock = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      const requestSignal = init.signal as AbortSignal
+      requestSignal.addEventListener('abort', () => reject(requestSignal.reason), { once: true })
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const client = createPrintFeedbackClient('live', '')
+      const request = client.load(filename, controller.signal)
+      controller.abort(reason)
+      await expect(request).rejects.toBe(reason)
+      expect(fetchMock).toHaveBeenCalledOnce()
+      expect(removeListener).toHaveBeenCalledWith('abort', expect.any(Function))
+      expect(vi.getTimerCount()).toBe(0)
+
+      const alreadyAborted = new AbortController()
+      alreadyAborted.abort(reason)
+      await expect(client.load(filename, alreadyAborted.signal)).rejects.toBe(reason)
+      expect(fetchMock).toHaveBeenCalledOnce()
+    } finally {
+      any.mockRestore()
+      vi.useRealTimers()
+    }
   })
 
   it('в mock не обращается к принтеру и не переносит оценку в следующую печать', async () => {

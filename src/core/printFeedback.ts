@@ -29,19 +29,32 @@ export function createPrintFeedbackClient(source: 'live' | 'mock', mockSessionId
       return { ...validateFeedback(mockFeedback, filename) }
     }
     const url = `${moonrakerUrl}/server/treed/print-feedback`
-    const response = await fetch(feedback === undefined ? `${url}?filename=${encodeURIComponent(filename)}` : url, {
-      method: feedback === undefined ? 'GET' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: feedback === undefined ? undefined : JSON.stringify(feedback),
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5_000)]) : AbortSignal.timeout(5_000),
-    })
-    if (response.status === 404) throw Object.assign(new Error('Оценка недоступна: запись этой печати не найдена.'), { statusCode: response.status })
-    if (!response.ok) throw Object.assign(new Error(`Оценка недоступна: ошибка принтера (HTTP ${response.status}).`), { statusCode: response.status })
-    const confirmed = validateFeedback(await response.json(), filename)
-    if (feedback !== undefined && (confirmed.sessionId !== feedback.sessionId || confirmed.rating !== feedback.rating)) {
-      throw new Error('Принтер не подтвердил сохранение выбранной оценки.')
+    const controller = new AbortController()
+    const abort = () => controller.abort(signal?.reason)
+    if (signal?.aborted) abort()
+    else signal?.addEventListener('abort', abort, { once: true })
+    const timer = controller.signal.aborted ? undefined : window.setTimeout(
+      () => controller.abort(new DOMException('The operation timed out', 'TimeoutError')), 5_000,
+    )
+    try {
+      if (controller.signal.aborted) throw controller.signal.reason
+      const response = await fetch(feedback === undefined ? `${url}?filename=${encodeURIComponent(filename)}` : url, {
+        method: feedback === undefined ? 'GET' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: feedback === undefined ? undefined : JSON.stringify(feedback),
+        signal: controller.signal,
+      })
+      if (response.status === 404) throw Object.assign(new Error('Оценка недоступна: запись этой печати не найдена.'), { statusCode: response.status })
+      if (!response.ok) throw Object.assign(new Error(`Оценка недоступна: ошибка принтера (HTTP ${response.status}).`), { statusCode: response.status })
+      const confirmed = validateFeedback(await response.json(), filename)
+      if (feedback !== undefined && (confirmed.sessionId !== feedback.sessionId || confirmed.rating !== feedback.rating)) {
+        throw new Error('Принтер не подтвердил сохранение выбранной оценки.')
+      }
+      return confirmed
+    } finally {
+      if (timer !== undefined) window.clearTimeout(timer)
+      signal?.removeEventListener('abort', abort)
     }
-    return confirmed
   }
 
   return {
