@@ -23,15 +23,29 @@ function detectionRecord(value: unknown): value is Record<string, unknown> {
 }
 
 async function detectionRequest(path: 'status' | 'frame' | 'preview', body?: { session_id: string; frame_id: string }, signal?: AbortSignal): Promise<unknown> {
-  const response = await fetch(`${moonrakerUrl}/server/treed/detection/${path}`, {
-    method: body ? 'POST' : 'GET',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: 'same-origin',
-    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(path === 'preview' ? 35_000 : 5_000)]) : AbortSignal.timeout(5_000),
-  })
-  if (!response.ok) throw new Error(`Состояние локального анализа недоступно (HTTP ${response.status}).`)
-  return response.json()
+  const controller = new AbortController()
+  const abort = () => controller.abort(signal?.reason)
+  if (signal?.aborted) abort()
+  else signal?.addEventListener('abort', abort, { once: true })
+  const timer = controller.signal.aborted ? undefined : window.setTimeout(
+    () => controller.abort(new DOMException('The operation timed out', 'TimeoutError')),
+    path === 'preview' ? 35_000 : 5_000,
+  )
+  try {
+    if (controller.signal.aborted) throw controller.signal.reason
+    const response = await fetch(`${moonrakerUrl}/server/treed/detection/${path}`, {
+      method: body ? 'POST' : 'GET',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      credentials: 'same-origin',
+      signal: controller.signal,
+    })
+    if (!response.ok) throw new Error(`Состояние локального анализа недоступно (HTTP ${response.status}).`)
+    return await response.json()
+  } finally {
+    if (timer !== undefined) window.clearTimeout(timer)
+    signal?.removeEventListener('abort', abort)
+  }
 }
 
 export async function requestDetectionStatus(): Promise<DetectionStatus> {

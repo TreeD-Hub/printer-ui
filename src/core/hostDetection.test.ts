@@ -10,14 +10,47 @@ const frame = {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('camera preview boundary', () => {
-  it('validates the image and coordinates from a single response and supports cancellation', async () => {
+  it('работает в Chromium без AbortSignal.any', async () => {
+    const any = vi.spyOn(AbortSignal, 'any').mockImplementation(() => { throw new TypeError('AbortSignal.any is unavailable') })
+    vi.useFakeTimers()
+    const controller = new AbortController()
+    const removeListener = vi.spyOn(controller.signal, 'removeEventListener')
+    let markBodyStarted!: () => void
+    const bodyStarted = new Promise<void>((resolve) => { markBodyStarted = resolve })
+    const fetchMock = vi.fn((_url: string, init: RequestInit) => Promise.resolve({
+      ok: true,
+      json: () => {
+        const requestSignal = init.signal as AbortSignal
+        const body = new Promise<unknown>((_resolve, reject) => {
+          requestSignal.addEventListener('abort', () => reject(requestSignal.reason), { once: true })
+        })
+        markBodyStarted()
+        return body
+      },
+    } as Response))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      const request = requestCameraPreview(controller.signal)
+      await Promise.race([bodyStarted, request])
+      const timedOut = expect(request).rejects.toMatchObject({ name: 'TimeoutError' })
+      await vi.advanceTimersByTimeAsync(35_000)
+      await timedOut
+      expect(fetchMock).toHaveBeenCalledOnce()
+      expect(removeListener).toHaveBeenCalledWith('abort', expect.any(Function))
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      any.mockRestore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('validates the image and coordinates from a single response', async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => frame })
     vi.stubGlobal('fetch', fetch)
     const controller = new AbortController()
     expect(await requestCameraPreview(controller.signal)).toEqual(frame)
     expect(fetch.mock.calls[0][0]).toContain('/server/treed/detection/preview')
-    controller.abort()
-    expect(fetch.mock.calls[0][1].signal.aborted).toBe(true)
+    expect(fetch.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal)
   })
 
   it.each([
