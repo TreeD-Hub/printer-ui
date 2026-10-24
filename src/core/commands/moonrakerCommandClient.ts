@@ -17,6 +17,7 @@ type MoonrakerCommandClientOptions = {
   fetchImpl?: typeof fetch
   fetchTimeoutMs?: number
   limits?: PrinterLimits
+  isAsyncLightSupported?: () => boolean
 }
 
 type MoonrakerEnvelope = {
@@ -356,6 +357,7 @@ function executeMoonrakerCommand(
   options: Required<Pick<MoonrakerCommandClientOptions, 'fetchImpl' | 'moonrakerUrl'>> & {
     fetchTimeoutMs: number
     limits: PrinterLimits
+    isAsyncLightSupported?: () => boolean
   },
 ): Promise<void> {
   const argumentError = getTreeDCommandArgumentError(args, options.limits)
@@ -425,6 +427,9 @@ function executeMoonrakerCommand(
     case 'setDriverFanMode':
       return sendScript(`TREED_UI_SET_DRIVER_FAN_MODE MODE=${args.mode}${args.percent === undefined ? '' : ` POWER=${args.percent}`}`, options, args.command)
     case 'setMainLightEnabled':
+      if (options.isAsyncLightSupported?.() === true) {
+        return callMoonraker('/printer/treed/light/set', { value: args.enabled ? 1 : 0 }, options, args.command)
+      }
       return sendScript(args.enabled ? 'LIGHT_ON' : 'LIGHT_OFF', options, args.command)
     case 'setLightPreference':
       return sendScript(`TREED_LIGHT_SETTINGS ${args.setting === 'onStartup' ? 'STARTUP' : 'PRINT_START'}=${args.enabled ? 1 : 0}`, options, args.command)
@@ -539,6 +544,7 @@ export function createMoonrakerCommandClient(options: MoonrakerCommandClientOpti
     fetchImpl: options.fetchImpl ?? fetch.bind(globalThis),
     fetchTimeoutMs: options.fetchTimeoutMs ?? DEFAULT_COMMAND_FETCH_TIMEOUT_MS,
     limits: options.limits ?? TREED_V2_COREXY_V1_LIMITS,
+    isAsyncLightSupported: options.isAsyncLightSupported,
   }
 
   return {

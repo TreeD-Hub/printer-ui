@@ -147,7 +147,7 @@ export function usePrinterCommands(
   const autoPrinterStartBlockReasonRef = useRef(autoPrinterStartBlockReason)
 
   const client = useMemo(() => {
-    return createCommandClient()
+    return createCommandClient(() => getPrinterSnapshot().capabilities.lightAsync === true)
   }, [])
 
   runtimeContextRef.current = runtimeContext

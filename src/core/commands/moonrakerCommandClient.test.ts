@@ -600,6 +600,31 @@ describe('createMoonrakerCommandClient', () => {
     )
   })
 
+  it('выбирает API по текущей capability, а старый Core использует макросы', async () => {
+    let lightAsync = true
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ result: { requested_value: 1 } }) })
+    const client = createMoonrakerCommandClient({
+      moonrakerUrl: 'http://moonraker.local', fetchImpl: fetchMock,
+      isAsyncLightSupported: () => lightAsync,
+    })
+    for (const enabled of [true, false]) {
+      await client.execute({ command: 'setMainLightEnabled', enabled })
+      expect(fetchMock).toHaveBeenLastCalledWith('http://moonraker.local/printer/treed/light/set',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ value: enabled ? 1 : 0 }) }))
+    }
+    lightAsync = false
+    await client.execute({ command: 'setMainLightEnabled', enabled: false })
+    expect(fetchMock).toHaveBeenLastCalledWith('http://moonraker.local/printer/gcode/script',
+      expect.objectContaining({ body: JSON.stringify({ script: 'LIGHT_OFF' }) }))
+  })
+
+  it('не повторяет неудачный async-запрос через G-code', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({ error: { message: 'Klipper shutdown' } }) })
+    const client = createMoonrakerCommandClient({ fetchImpl: fetchMock, isAsyncLightSupported: () => true })
+    await expect(client.execute({ command: 'setMainLightEnabled', enabled: true })).rejects.toThrow('Klipper shutdown')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('maps Eddy calibration workflow commands to TreeD wrapper macros', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

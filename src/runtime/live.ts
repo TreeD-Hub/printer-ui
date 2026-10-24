@@ -27,8 +27,8 @@ export function createAutoPrinterClient() {
   return createMoonrakerAutoPrinterClient()
 }
 
-export function createCommandClient(): CommandClient {
-  return createMoonrakerCommandClient()
+export function createCommandClient(isAsyncLightSupported?: () => boolean): CommandClient {
+  return createMoonrakerCommandClient({ isAsyncLightSupported })
 }
 
 function isTauriRuntimeAvailable(): boolean {

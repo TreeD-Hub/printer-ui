@@ -32,12 +32,12 @@ describe('PrintCompletionModal', () => {
       querySelectorAll(selector.includes(',') ? `:is(${selector})` : selector),
     )
     fireEvent.click(screen.getByRole('checkbox'))
-    const restart = screen.getByRole('button', { name: 'Печатать снова' })
-    restart.focus()
-    fireEvent.keyDown(restart, { key: 'Tab' })
+    const close = screen.getByRole('button', { name: 'Закрыть' })
+    close.focus()
+    fireEvent.keyDown(close, { key: 'Tab' })
     expect(screen.getByRole('button', { name: 'Хорошо' })).toHaveFocus()
     fireEvent.keyDown(screen.getByRole('button', { name: 'Хорошо' }), { key: 'Tab', shiftKey: true })
-    expect(restart).toHaveFocus()
+    expect(close).toHaveFocus()
   })
 
   it('передаёт оценку, показывает выбор текстом и aria-pressed', () => {
