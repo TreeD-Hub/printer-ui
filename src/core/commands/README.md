@@ -45,6 +45,7 @@ X/Y. Кнопка доступна только при наличии макро
 - Риск команды и требование confirmation хранятся в общем `TREE_D_COMMAND_CATALOG`, а не выводятся из текста кнопки.
 - Системные команды требуют совместимого UI-контракта, online-транспорта Moonraker и подтверждения. Перезапуски и `rebootHost` разрешены при активном задании и могут его прервать; `shutdownHost` при печати и подготовке заблокирован. Ограничения восстановления, калибровки, автосъёма и прочистки задаёт общий каталог; `restartUi` имеет отдельный допуск.
 - Ошибка Moonraker или timeout возвращается как явный failed result/error, без silent-fail.
+- `setMainLightEnabled` читает текущую capability `lightAsync`: при поддержке отправляет `POST /printer/treed/light/set` с целым `value: 0|1`, иначе вызывает `LIGHT_ON`/`LIGHT_OFF`. Флаг приходит из `capability_light_async` совместимого `_TREED_UI_CONTRACT`; после обновления или отката используется новое значение snapshot. Ошибка async API не запускает повтор через макрос. Ответ означает принятие запроса; подтверждение остаётся по подписке на `output_pin chamber_light.value`.
 - Новые общие command types/rules сначала добавляются в `packages/printer-logic`, затем подключаются здесь.
 
 Полные правила системных команд: [общий пакет](../../../packages/printer-logic/README.md).

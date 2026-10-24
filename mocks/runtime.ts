@@ -1074,7 +1074,7 @@ export function createTransportClient(): TransportClient {
   }
 }
 
-export function createCommandClient(): CommandClient {
+export function createCommandClient(_isAsyncLightSupported?: () => boolean): CommandClient {
   return {
     async execute(args: ExecuteCommandArgs): Promise<CommandResult> {
       await wait(220)

@@ -15,6 +15,28 @@ function buildPayload(status: NonNullable<MoonrakerObjectsQueryPayload['status']
 }
 
 describe('normalizeMoonrakerRuntimeSnapshot', () => {
+  it.each([undefined, 0, 1])('распознаёт light_async=%s без обязательности для старого Core', (flag) => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      webhooks: { state: 'ready' },
+      'gcode_macro _TREED_UI_CONTRACT': {
+        contract_version: '1.0', profile: 'treed_v2_corexy_v1', required_macros: '', capability_light_async: flag,
+      },
+      'gcode_macro LIGHT_ON': {}, 'gcode_macro LIGHT_OFF': {},
+      'output_pin chamber_light': { value: 1 },
+    }))
+    expect(snapshot.uiContract.status).toBe('compatible')
+    expect(snapshot.capabilities.lighting).toBe(true)
+    expect(snapshot.capabilities.lightAsync).toBe(flag === 1)
+    expect(snapshot.mainLightEnabled).toBe(true)
+  })
+
+  it('не включает async light для несовместимого контракта', () => {
+    const snapshot = normalizeMoonrakerRuntimeSnapshot(buildPayload({
+      'gcode_macro _TREED_UI_CONTRACT': { contract_version: '2.0', capability_light_async: 1 },
+      'gcode_macro LIGHT_ON': {}, 'gcode_macro LIGHT_OFF': {},
+    }))
+    expect(snapshot.capabilities.lightAsync).toBe(false)
+  })
   it.each(['pause', 'recover'] as const)('читает выбранную реакцию %s и не придумывает значение для старого runtime', (runout_action) => {
     const status = {
       'gcode_macro FILAMENT_SENSOR_STATUS': { mode: 'motion', runout_action },

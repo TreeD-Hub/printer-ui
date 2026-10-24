@@ -27,6 +27,9 @@ describe('printer-core protocol compatibility', () => {
         },
         'gcode_macro _TREED_SYSTEM_POWER': { enabled: 1 },
         'gcode_macro _TREED_SERVICE_COMMANDS': { enabled: 1 },
+        'gcode_macro LIGHT_ON': {},
+        'gcode_macro LIGHT_OFF': {},
+        'output_pin chamber_light': { value: 0 },
       },
     })
 
@@ -43,5 +46,7 @@ describe('printer-core protocol compatibility', () => {
     expect(snapshot.capabilities.motionTest).toBe(protocol.capabilities.motion_test === 1)
     expect(snapshot.capabilities.systemPower).toBe(protocol.capabilities.system_power === 1)
     expect(snapshot.capabilities.serviceCommands).toBe(protocol.capabilities.service_commands === 1)
+    expect(snapshot.capabilities.lighting).toBe(true)
+    expect(snapshot.capabilities.lightAsync).toBe(protocol.capabilities.light_async === 1)
   })
 })

@@ -470,6 +470,7 @@ export { parsePrinterEvent, readPrinterEvent, describePrinterEvent } from './pri
 export type { PrinterEvent, PrinterNotification } from './printerEvents'
 
 export interface PrinterCapabilitiesSnapshot {
+  lightAsync?: boolean
   lightingPreferences?: boolean
   driverMode?: boolean
   driverFanMode?: boolean
