@@ -236,7 +236,7 @@ function NetworkSettings({ network }: { network: SettingsPageProps['network'] })
               </button>
             )}
             {(selected.saved || selected.connected) && (
-              <button type="button" className="settings-network-btn"
+              <button type="button" className="settings-network-btn is-danger"
                 onClick={network.onForgetSelected} data-testid="settings-network-forget-button" disabled={network.isBusy}>
                 Забыть сеть
               </button>
@@ -654,7 +654,7 @@ export function SettingsPage({
             {cloud.lightWarning.error && <p role="alert">{cloud.lightWarning.error}</p>}
             <div className="system-reset-actions">
               <button type="button" className="file-modal-action" data-modal-initial-focus disabled={cloud.lightWarning.isBusy} onClick={cloud.lightWarning.onClose}>Закрыть</button>
-              <button type="button" className="file-modal-action" disabled={cloud.lightWarning.isBusy} onClick={() => void cloud.lightWarning.onEnable()}>{cloud.lightWarning.isBusy ? 'Включаем…' : 'Включить свет'}</button>
+              <button type="button" className="file-modal-action is-primary" disabled={cloud.lightWarning.isBusy} onClick={() => void cloud.lightWarning.onEnable()}>{cloud.lightWarning.isBusy ? 'Включаем…' : 'Включить свет'}</button>
             </div>
           </section>
         </div>

@@ -109,7 +109,7 @@ export const ControlPage = memo(function ControlPage({
               <h3 className="control-tab-label control-parking-label">Парковка</h3>
             ) : activeControlGroup === 'heating' ? (
               <h3 className="control-tab-label">
-                {heating.temperatureKeyboardTarget === null ? 'Предустановки' : 'Ввод температуры'}
+                {heating.temperatureKeyboardTarget === null ? 'Филамент' : 'Ввод температуры'}
               </h3>
             ) : activeControlGroup === 'filament' ? (
               <h3 id="filament-sensitivity-title" className="control-tab-label">Чувствительность</h3>
@@ -121,7 +121,7 @@ export const ControlPage = memo(function ControlPage({
             {activeControlGroup === 'movement' ? (
               <MovementControlPanel {...movement} />
             ) : activeControlGroup === 'heating' ? (
-              <HeatingControlPanel {...heating} />
+              <HeatingControlPanel {...heating} filament={movement} />
             ) : activeControlGroup === 'fans' ? (
               <FanControlPanel {...fan} />
             ) : activeControlGroup === 'lighting' ? (

@@ -473,6 +473,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
               </button>
               <button
                 type="button"
+                className="is-danger"
                 data-testid="motors-release-confirm"
                 onClick={() => void confirmMotorsRelease()}
                 disabled={isMotionBusy || commandBlockReasons.disableMotors !== null}

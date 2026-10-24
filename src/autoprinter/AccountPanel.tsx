@@ -171,7 +171,7 @@ export function AccountPanel({ controller }: AccountPanelProps) {
                     status.capabilities?.pairing_cancel === true && <button type="button" disabled={!canCancelPairing} onClick={() => void controller.cancelPairing()}>
                       {pending?.type === 'pairing_cancel' ? 'Отменяем…' : 'Отменить привязку'}
                     </button>
-                  ) : <button type="button" disabled={!canPair} onClick={() => void controller.requestPairing()}>
+                  ) : <button type="button" className="is-primary" disabled={!canPair} onClick={() => void controller.requestPairing()}>
                     {pending?.type === 'pairing' ? 'Получаем код…' : 'Получить код'}
                   </button>}
                 </div>

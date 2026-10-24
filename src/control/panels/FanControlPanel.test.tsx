@@ -27,6 +27,15 @@ afterEach(() => {
 })
 
 describe('FanControlPanel', () => {
+  it('commits a keyboard slider adjustment on key release', () => {
+    const { onFanPercentChange } = renderFanControlPanel({ printFanPercent: 50 })
+    const slider = screen.getByRole('slider', { name: 'Скорость вентилятора' })
+    fireEvent.keyDown(slider, { key: 'ArrowRight' })
+    expect(onFanPercentChange).not.toHaveBeenCalled()
+    fireEvent.keyUp(slider, { key: 'ArrowRight' })
+    expect(onFanPercentChange).toHaveBeenCalledExactlyOnceWith(55)
+  })
+
   it('always selects the preset closest to the current fan value', () => {
     renderFanControlPanel({ printFanPercent: 37 })
 

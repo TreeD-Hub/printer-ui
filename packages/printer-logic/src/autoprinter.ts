@@ -258,7 +258,9 @@ export function getAutoPrinterStartBlockReason(context: AutoPrinterStartContext)
   if (context.availability === 'unsupported') return null
   if (context.availability === 'loading' || !context.status) return 'Проверяется состояние AutoPrinter'
   const s = context.status
-  return s.enabled && s.configured && s.binding_state === 'paired' ? 'Управление очередью AutoPrinter активно' : null
+  if (s.current_run_id) return 'Выполняется серийная печать AutoPrinter'
+  if (s.hold || s.recovery_required) return 'Серийная печать AutoPrinter требует проверки'
+  return null
 }
 export const describeAutoPrinterState = (state: AutoPrinterRunState): string => ({ queued:'В очереди', preparing:'Подготовка', printing:'Печать', cooling:'Охлаждение', removing:'Снятие модели', verifying:'Проверка', completed:'Завершено', failed:'Ошибка', cancelled:'Отменено', uncertain:'Результат неизвестен' })[state]
 export const describeAutoPrinterReason = (reason: string | null): string => ({

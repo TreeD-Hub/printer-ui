@@ -166,7 +166,15 @@
   --color-surface-elevated: #f0f0f0;
   --color-border-subtle: #e8e8e8;
   --color-border-default: #787878;
+  --color-control-surface: var(--color-block-surface);
   --color-control-active-border: var(--color-border-default);
+  --color-control-pressed-surface: #dedede;
+  --color-control-primary-surface: #232323;
+  --color-control-primary-pressed-surface: #414141;
+  --color-control-primary-text: #ffffff;
+  --color-control-disabled-surface: #f0f0f0;
+  --color-control-disabled-border: #d0d0d0;
+  --color-control-disabled-text: #858585;
   --color-success: #315b44;
   --color-warning: #755400;
   --color-cooling: #246174;
