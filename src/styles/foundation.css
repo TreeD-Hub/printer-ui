@@ -20,8 +20,8 @@
   --color-background: #000000; /* Чисто чёрный фон интерфейса для AMOLED. */
   --color-surface: var(--color-background); /* Фон системных баров и крупных зон. */
   --color-block-surface: #161616; /* Однотонные карточки и панели. */
-  --color-surface-elevated: #1c1c1c; /* Вложенные контролы и приподнятые поверхности. */
-  --color-border-subtle: #282828; /* Мягкие разделители и активная заливка. */
+  --color-surface-elevated: #202020; /* Вложенные контролы и приподнятые поверхности. */
+  --color-border-subtle: #282828; /* Мягкие разделители. */
   --color-border-default: #3a3a3a; /* Основные рамки карточек, popup и контролов. */
   --color-surface-track: var(--color-background); /* Фон дорожек прогресса и графиков. */
   --color-primary: #ff2a2a; /* Красный Nothing-сигнал опасности, нагрева и ошибок. */
@@ -45,9 +45,9 @@
   --color-mesh-9: #d73027;
   --color-mesh-10: #a50026;
   --color-error: #ff2a2a; /* Критичные действия и ошибки. */
-  --color-text-primary: #cccccc; /* Основной светлый dot-matrix текст. */
+  --color-text-primary: #e0e0e0; /* Основной светлый dot-matrix текст. */
   --color-text-highlight: #ffffff; /* Номер доступной новой версии. */
-  --color-text-secondary: #c0c0c0; /* Подписи и вторичный текст. */
+  --color-text-secondary: #b8b8b8; /* Подписи и вторичный текст. */
   --color-text-soft: #949494; /* Units, meta и muted-информация, читаемые на активной поверхности. */
   --color-overlay: rgba(0, 0, 0, 0.78); /* Затемнение контента под popup. */
   --color-shadow-strong: rgba(0, 0, 0, 0.58); /* Жёсткая тень popup и всплывающих слоёв. */
@@ -110,10 +110,19 @@
 
   /* Общие состояния и геометрия контролов. */
   --color-control-active-border: var(--terminal-border-active);
+  --color-control-border: #707070;
   --color-control-surface: var(--color-surface-elevated);
-  --color-control-active-surface: var(--color-border-subtle);
+  --color-control-active-surface: #2c2c2c;
   --color-control-active-text: var(--color-text-primary);
-  --color-selection: var(--color-primary);
+  --color-control-pressed-surface: #383838;
+  --color-control-primary-surface: #d6d6d6;
+  --color-control-primary-pressed-surface: #bcbcbc;
+  --color-control-primary-text: #161616;
+  --color-control-danger-pressed-surface: var(--color-background);
+  --color-control-disabled-surface: var(--color-block-surface);
+  --color-control-disabled-border: #303030;
+  --color-control-disabled-text: #737373;
+  --color-selection: #d6d6d6;
   --color-selection-surface: var(--color-control-active-surface);
   --color-focus-ring: var(--color-text-primary);
   --control-min-width: 48px;
@@ -166,15 +175,19 @@
   --color-surface-elevated: #f0f0f0;
   --color-border-subtle: #e8e8e8;
   --color-border-default: #787878;
+  --color-control-border: var(--color-border-default);
   --color-control-surface: var(--color-block-surface);
   --color-control-active-border: var(--color-border-default);
+  --color-control-active-surface: var(--color-border-subtle);
   --color-control-pressed-surface: #dedede;
   --color-control-primary-surface: #232323;
   --color-control-primary-pressed-surface: #414141;
   --color-control-primary-text: #ffffff;
+  --color-control-danger-pressed-surface: var(--color-control-pressed-surface);
   --color-control-disabled-surface: #f0f0f0;
   --color-control-disabled-border: #d0d0d0;
   --color-control-disabled-text: #858585;
+  --color-selection: var(--color-primary);
   --color-success: #315b44;
   --color-warning: #755400;
   --color-cooling: #246174;
