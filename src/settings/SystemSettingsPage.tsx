@@ -426,7 +426,7 @@ export function SystemSettingsPage({
               </div>
               <button
                 type="button"
-                className="settings-network-btn"
+                className="settings-network-btn is-danger"
                 disabled={!system.factoryReset.canReset || system.factoryReset.isResetting}
                 onClick={() => setIsResetConfirmOpen(true)}
               >

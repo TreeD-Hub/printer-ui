@@ -197,6 +197,7 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
               <button type="button" onClick={() => setSensitivityToConfirm(null)}>Отмена</button>
               <button
                 type="button"
+                className="is-primary"
                 data-testid="filament-sensitivity-confirm"
                 onClick={() => void confirmSensitivityChange()}
               >

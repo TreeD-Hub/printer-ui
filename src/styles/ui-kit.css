@@ -334,7 +334,142 @@
   align-content: start;
 }
 
+/* Общие роли контролов; палитру каждой темы задаёт foundation.css. */
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button:where(
+  .segmented-toggle-btn, .files-sort-btn, .step-btn,
+  .settings-network-btn, .settings-network-item, .settings-console-chip,
+  .settings-console-key, .settings-toggle-row, .settings-select-control,
+  .settings-select-option, .control-action-btn, .control-target-btn,
+  .control-service-btn, .control-fan-step-btn, .control-fan-preset-btn,
+  .control-heating-preset-btn, .control-heating-cooldown-btn,
+  .control-heating-filament-step-btn, .control-heating-filament-move,
+  .control-filament-choice, .control-filament-sensitivity, .control-driver-mode-btn,
+  .axis-cross-btn, .babystep-btn, .stack-action, .file-modal-action,
+  .top-popup-action, .virtual-keyboard-key, .print-temp-keyboard-key,
+  .print-temp-keyboard-submit, .print-temp-preset-btn, .print-tune-mode-btn,
+  .print-tune-compact-stepper-btn, .print-completion-button, .tune-heater-choice,
+  .exclude-object-open-button, .exclude-object-list-item,
+  .top-popup-close, .file-modal-close, .print-cancel-modal-close, .control-lock-popup-close,
+  .dashboard-diagnostic-action,
+  .macros-eddy-command-btn, .macros-eddy-back-btn,
+  .maintenance-overview-complete-button, .control-maintenance-complete-btn,
+  .calibration-catalog-header > button,
+  :where(.eddy-workflow, .pid-workflow, .pid-temperature-dialog, .account-panel, .autoprinter-panel,
+    .calibration-procedure, .driver-mode-dialog, .driver-fan-power-editor,
+    [role='dialog'], [role='alertdialog']) button
+):not(:where(.update-operation-dismiss)) {
+  --button-surface: var(--color-control-surface);
+  --button-border: var(--color-control-border);
+  --button-text: var(--color-text-primary);
+  --button-pressed-surface: var(--color-control-pressed-surface);
+  border: var(--border-width) solid var(--button-border);
+  border-radius: var(--radius-control);
+  background: var(--button-surface);
+  color: var(--button-text);
+  box-shadow: none;
+  /* Фон и текст меняются вместе: смена роли не оставляет белый текст на белом. */
+  transition: border-color var(--motion-control);
+}
+
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) :is(
+  button.is-primary:not(.is-danger), .stack-action.action-pause,
+  .settings-network-btn-primary, .file-modal-action-start,
+  .settings-update-apply, .print-completion-restart, .maintenance-overview-complete-button,
+  .autoprinter-local-resume, .autoprinter-footer button,
+  .driver-mode-dialog .driver-mode-actions > button:last-child,
+  .top-popup-actions:not(.top-popup-power-actions) > .top-popup-action,
+  .macros-eddy-command-btn:not(.is-secondary),
+  .eddy-workflow .is-primary, .calibration-procedure .is-primary,
+  .calibration-footer-primary > button,
+  .pid-footer > button:not(:first-child):not(.pid-danger),
+  .pid-footer > button:only-child
+) {
+  --button-surface: var(--color-control-primary-surface);
+  --button-border: var(--color-control-primary-surface);
+  --button-text: var(--color-control-primary-text);
+  --button-pressed-surface: var(--color-control-primary-pressed-surface);
+}
+
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) :is(
+  .action-cancel, .file-modal-action-delete, .file-modal-action-danger,
+  .top-popup-action-danger, .control-action-btn-danger, .pid-danger, .eddy-danger,
+  .account-danger, .is-danger
+) {
+  --button-border: var(--color-signal-text);
+  --button-text: var(--color-signal-text);
+  --button-pressed-surface: var(--color-control-danger-pressed-surface);
+}
+
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) .control-heating-cooldown-btn {
+  --button-border: var(--color-cooling);
+  --button-text: var(--color-cooling);
+}
+
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) :is(button, select, input):is(:disabled, [aria-disabled='true']),
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button.is-disabled {
+  border-color: var(--color-control-disabled-border);
+  background: var(--color-control-disabled-surface);
+  color: var(--color-control-disabled-text);
+  box-shadow: none;
+  opacity: 1;
+}
+
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button:is(:disabled, [aria-disabled='true'], .is-disabled) :where(span, strong, small) {
+  color: inherit;
+}
+
+/* Недоступность запрещает изменение, но не скрывает выбранное значение. */
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) :is(
+  button[aria-pressed='true']:not(.settings-sidebar-item),
+  button[aria-selected='true'],
+  .segmented-toggle-btn.is-active, .files-sort-btn.is-active, .step-btn.is-active,
+  .control-target-btn.is-active, .control-service-btn.is-active,
+  .settings-network-item.is-active, .virtual-keyboard-key.is-active
+) {
+  border-color: var(--color-selection);
+  background: var(--color-selection-surface);
+  color: var(--color-text-primary);
+  box-shadow: none;
+}
+
+:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button:active:not(:disabled):not([aria-disabled='true']):not(.is-disabled):not(.update-operation-dismiss) {
+  background: var(--button-pressed-surface, var(--color-control-pressed-surface));
+  box-shadow: none;
+  transform: none;
+}
+
+:root[data-theme='dark'] .control-card-fan .fan-slider-fill {
+  color: var(--color-selection);
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .control-card-fan .fan-slider-thumb {
+  border-color: var(--color-selection);
+  background: var(--color-selection);
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] :is(
+  .files-scroll-area, .settings-menu-shell, .settings-content-shell,
+  .file-modal-dialog, .dashboard-idle-notes-input, .settings-console-history,
+  .print-temp-keyboard-side, .top-popup-content
+) {
+  scrollbar-color: var(--color-control-border) transparent;
+}
+
+:root[data-theme='dark'] :is(
+  .files-scroll-area, .settings-menu-shell, .settings-content-shell,
+  .file-modal-dialog, .dashboard-idle-notes-input, .settings-console-history,
+  .print-temp-keyboard-side, .top-popup-content
+)::-webkit-scrollbar-thumb {
+  background: var(--color-control-border);
+}
+
 @media (prefers-reduced-motion: reduce) {
+  :root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button {
+    transition: none;
+  }
+
   .screen-shell *,
   .screen-shell *::before,
   .screen-shell *::after {

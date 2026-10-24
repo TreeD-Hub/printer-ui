@@ -155,9 +155,12 @@ export const FanControlPanel = memo(function FanControlPanel({
           className="control-fan-slider-core"
           onPointerUpCapture={handleFanSliderCommit}
           onPointerCancelCapture={handleFanSliderCancel}
+          onKeyUpCapture={handleFanSliderCommit}
+          onBlurCapture={handleFanSliderCancel}
         >
           <HorizontalSteppedSlider
             className="control-fan-design-slider"
+            ariaLabel="Скорость вентилятора"
             value={displayFanPercent}
             min={0}
             max={100}

@@ -31,11 +31,29 @@ describe('AutoPrinter contract', () => {
     expect(parsed.queue).toHaveLength(1)
     expect(parsed.queue[0]).toMatchObject({ series_id: null, copies_per_run: null })
   })
-  it('allows normal start only after fresh unmanaged or unsupported response', () => {
+  it('allows normal start after a fresh idle or unsupported response regardless of account binding', () => {
     expect(getAutoPrinterStartBlockReason({ status: parseAutoPrinterStatus(status({ enabled: false, configured: false, binding_state: 'unpaired', display_name: null })), availability: 'available', stale: false, connected: true })).toBeNull()
     expect(getAutoPrinterStartBlockReason({ status: null, availability: 'unsupported', stale: false, connected: true })).toBeNull()
     expect(getAutoPrinterStartBlockReason({ status: null, availability: 'unsupported', stale: true, connected: true })).not.toBeNull()
-    expect(getAutoPrinterStartBlockReason({ status: parseAutoPrinterStatus(status()), availability: 'available', stale: false, connected: true })).not.toBeNull()
+    expect(getAutoPrinterStartBlockReason({ status: parseAutoPrinterStatus(status()), availability: 'available', stale: false, connected: true })).toBeNull()
+  })
+  it('does not reserve the printer for waiting series jobs or an enabled executor', () => {
+    const idle = parseAutoPrinterStatus(status({
+      execution_enabled: true, physical_execution_enabled: true,
+      queue: [{ run_id: '11111111-1111-4111-8111-111111111111', position: 1, state: 'queued', series_id: null, copies_per_run: null }], queue_total: 1,
+      active_package: { package_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', version: 1, manifest_hash: 'a'.repeat(64), state: 'active', run_count: 0, remaining_count: 1 },
+    }))
+    expect(getAutoPrinterStartBlockReason({ status: idle, availability: 'available', stale: false, connected: true })).toBeNull()
+  })
+  it.each(['preparing', 'printing', 'cooling', 'removing', 'verifying', 'uncertain'])('blocks a second print while a series run is %s', (run_state) => {
+    const active = parseAutoPrinterStatus(status({ current_run_id: '11111111-1111-4111-8111-111111111111', run_state }))
+    expect(getAutoPrinterStartBlockReason({ status: active, availability: 'available', stale: false, connected: true })).not.toBeNull()
+  })
+  it.each([
+    { recovery_required: true },
+    { hold: { reason: 'ai_detection', created_at: '2030-01-01T00:00:00Z', context: {} } },
+  ])('blocks manual start while a series needs operator recovery: %j', (overrides) => {
+    expect(getAutoPrinterStartBlockReason({ status: parseAutoPrinterStatus(status(overrides)), availability: 'available', stale: false, connected: true })).not.toBeNull()
   })
   it('accepts an early disabled status without presenting an empty queue or idle execution', () => {
     const legacy = parseAutoPrinterStatus({ enabled: false, configured: false, connection: 'online', display_name: null, protocol_version: 1, configuration_version: 1, last_sync_at: null, binding_state: 'unpaired', execution_enabled: false, physical_execution_enabled: false, queue_recovery_required: false, blocked_reason: null })

@@ -502,6 +502,7 @@ type HorizontalSteppedSliderProps = {
   onBlocked?: () => void
   className?: string
   testId?: string
+  ariaLabel?: string
 }
 
 function snapToStep(value: number, min: number, max: number, step: number): number {
@@ -521,6 +522,7 @@ export function HorizontalSteppedSlider({
   onBlocked,
   className,
   testId,
+  ariaLabel,
 }: HorizontalSteppedSliderProps) {
   const trackRef = useRef<HTMLDivElement | null>(null)
   const activePointerIdRef = useRef<number | null>(null)
@@ -529,7 +531,7 @@ export function HorizontalSteppedSlider({
   const steppedValue = snapToStep(value, min, normalizedMax, step)
   const displayValue = dragValue ?? steppedValue
   const progressRatio = (displayValue - min) / (normalizedMax - min)
-  const rulerTicksCount = Math.max(2, Math.floor((normalizedMax - min) / Math.max(1, step)) + 1)
+  const rulerTicksCount = Math.min(21, Math.max(2, Math.floor((normalizedMax - min) / Math.max(1, step)) + 1))
 
   function resolveValue(clientX: number): number | null {
     const trackElement = trackRef.current
@@ -599,6 +601,22 @@ export function HorizontalSteppedSlider({
         ref={trackRef}
         className={joinClassNames('fan-slider-track', disabled && 'is-disabled')}
         data-testid={testId}
+        role="slider"
+        tabIndex={0}
+        aria-label={ariaLabel}
+        aria-valuemin={min}
+        aria-valuemax={normalizedMax}
+        aria-valuenow={displayValue}
+        aria-disabled={disabled || undefined}
+        onKeyDown={(event) => {
+          const values = { ArrowLeft: displayValue - step, ArrowDown: displayValue - step,
+            ArrowRight: displayValue + step, ArrowUp: displayValue + step, Home: min, End: normalizedMax }
+          const nextValue = values[event.key as keyof typeof values]
+          if (nextValue === undefined) return
+          event.preventDefault()
+          if (disabled) onBlocked?.()
+          else onChange(snapToStep(nextValue, min, normalizedMax, step))
+        }}
         style={{ '--fan-slider-progress': String(progressRatio) } as CSSProperties}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

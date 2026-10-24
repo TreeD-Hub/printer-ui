@@ -3957,7 +3957,7 @@ body {
   padding: 0;
   gap: 12px;
   display: grid;
-  grid-template-rows: auto minmax(180px, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
   overflow: hidden;
 }
@@ -3972,7 +3972,8 @@ body {
 }
 
 .control-card-heating-presets {
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: 56px minmax(0, 1fr) 56px;
+  align-content: stretch;
 }
 
 .control-heating-rows {
@@ -3983,13 +3984,24 @@ body {
 }
 
 .control-heating-row {
-  min-height: 70px;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(92px, 1fr) 76px 226px;
+  grid-template-columns: minmax(0, 1fr) 226px;
+  grid-template-rows: auto 68px;
   align-items: center;
-  gap: 12px;
+  gap: 0 12px;
   padding: 8px 10px;
   border-radius: 12px;
+}
+
+.control-heating-summary {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-inline: 20px;
 }
 
 .control-heating-sensor {
@@ -4035,6 +4047,9 @@ body {
 
 .control-heating-current {
   justify-self: end;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   font-size: var(--font-size-body-large);
   line-height: 1;
   font-weight: var(--font-weight-medium);
@@ -4048,10 +4063,12 @@ body {
 
 .control-heating-row .print-tune-compact-stepper-input-wrap,
 .control-heating-row .print-tune-compact-stepper-btn {
-  height: 54px;
+  height: 56px;
 }
 
 .control-heating-row .print-tune-compact-stepper {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -4093,11 +4110,52 @@ body {
   font-size: var(--font-size-body);
 }
 
+.control-heating-slider {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+}
+
+.control-heating-design-slider {
+  --heating-slider-color: var(--color-temperature-nozzle);
+  gap: 0;
+}
+
+.control-heating-design-slider.is-green {
+  --heating-slider-color: var(--color-temperature-bed);
+}
+
+.control-heating-design-slider .fan-slider-track {
+  height: 56px;
+}
+
+.control-heating-design-slider .fan-slider-fill {
+  color: var(--heating-slider-color);
+  box-shadow: none;
+}
+
+.control-heating-design-slider .fan-slider-thumb {
+  border-color: var(--heating-slider-color);
+  background: var(--heating-slider-color);
+  box-shadow: none;
+}
+
+.control-heating-design-slider .fan-slider-ruler,
+.control-heating-design-slider .fan-slider-ruler span:nth-child(5n + 1) {
+  height: 12px;
+}
+
+.control-heating-design-slider .fan-slider-track:focus-visible {
+  outline: 2px solid var(--color-primary-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-control);
+}
+
 .control-heating-chart-block {
   min-height: 0;
+  height: 100%;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 7px;
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .control-heating-chart-block .print-temp-chart {
@@ -4218,9 +4276,9 @@ body {
 .control-heating-presets-list {
   min-height: 0;
   display: grid;
-  grid-template-rows: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-content: stretch;
-  gap: 9px;
+  gap: 8px;
 }
 
 .control-heating-preset-btn,
@@ -4240,29 +4298,70 @@ body {
 }
 
 .control-heating-preset-btn {
-  min-height: 58px;
-  padding: 10px 12px;
+  min-height: 56px;
+  padding: 4px;
   display: grid;
   gap: 2px;
-  justify-items: start;
+  justify-items: center;
   align-content: center;
-  text-align: left;
+  text-align: center;
 }
 
 .control-heating-preset-label {
   color: var(--color-text-dotted, var(--color-text-highlight));
-  font-family: var(--font-family-accent);
-  letter-spacing: var(--letter-spacing-accent);
-  -webkit-text-stroke-width: var(--text-stroke-accent);
-  font-size: var(--font-size-body-large);
-  font-weight: var(--font-weight-accent);
+  font-family: var(--font-family-ui);
+  font-size: var(--font-size-small);
+  font-weight: 400;
   line-height: 1.1;
 }
 
 .control-heating-preset-values {
-  font-size: var(--font-size-small);
+  font-size: var(--font-size-tiny);
   color: var(--color-text-secondary);
   line-height: 1.1;
+  white-space: nowrap;
+}
+
+.control-heating-filament {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(56px, 1fr) minmax(56px, 1fr);
+  gap: 8px;
+}
+
+.control-heating-filament-step p {
+  margin: 0 0 8px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+}
+
+.control-heating-filament-step-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(48px, 1fr));
+  gap: 8px;
+}
+
+.control-heating-filament-step-btn,
+.control-heating-filament-move {
+  min-width: 48px;
+  min-height: 56px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.control-heating-filament-step-btn.is-active {
+  border-color: var(--color-primary-ring);
+}
+
+.control-heating-filament-move {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: var(--font-size-body);
 }
 
 .control-heating-preset-btn.is-active {
