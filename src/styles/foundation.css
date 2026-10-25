@@ -122,7 +122,7 @@
   --color-control-disabled-surface: var(--color-block-surface);
   --color-control-disabled-border: #303030;
   --color-control-disabled-text: #737373;
-  --color-selection: #d6d6d6;
+  --color-selection: var(--color-primary);
   --color-selection-surface: var(--color-control-active-surface);
   --color-focus-ring: var(--color-text-primary);
   --control-min-width: 48px;
