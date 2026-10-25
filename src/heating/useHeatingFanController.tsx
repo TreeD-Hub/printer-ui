@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
+import type { CommandResult, ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
 import { getPrinterConnectionState, type PrinterSnapshot } from '../core/transport/types'
 import type {
   FanControlPanelProps,
@@ -31,6 +31,7 @@ const COMMAND_BUSY_REASON = 'Команда уже выполняется.'
 type UseHeatingFanControllerArgs = {
   snapshot: HeatingSnapshot
   pendingCommands: PrinterPendingCommands
+  lastResult: CommandResult | null
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   closePrintTuneKeyboard: () => void
@@ -62,6 +63,7 @@ export type UseHeatingFanControllerResult = {
 export function useHeatingFanController({
   snapshot,
   pendingCommands,
+  lastResult,
   executeCommand,
   getCommandBlockReason,
   closePrintTuneKeyboard,
@@ -175,14 +177,14 @@ export function useHeatingFanController({
     },
   ]
 
-  function handleNozzleTargetChange(value: number): void {
+  function handleNozzleTargetChange(value: number): Promise<boolean> {
     const normalized = Math.round(clampHeatingValue(value, 0, 300))
-    void executeCommand({ command: 'setNozzleTarget', targetCelsius: normalized })
+    return executeCommand({ command: 'setNozzleTarget', targetCelsius: normalized })
   }
 
-  function handleBedTargetChange(value: number): void {
+  function handleBedTargetChange(value: number): Promise<boolean> {
     const normalized = Math.round(clampHeatingValue(value, 0, 300))
-    void executeCommand({ command: 'setBedTarget', targetCelsius: normalized })
+    return executeCommand({ command: 'setBedTarget', targetCelsius: normalized })
   }
 
   function openTemperatureKeyboard(target: TemperatureKeyboardTarget): void {
@@ -272,6 +274,7 @@ export function useHeatingFanController({
 
   const heatingProps: HeatingControlPanelProps = {
     rows: heatingControlRows,
+    lastResult,
     chartSeries: temperatureChartSeries,
     temperatureKeyboardTarget,
     temperatureKeyboardValue,

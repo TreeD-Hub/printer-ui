@@ -302,6 +302,7 @@ function App() {
   const heatingController = useHeatingFanController({
     snapshot,
     pendingCommands,
+    lastResult,
     executeCommand,
     getCommandBlockReason,
     closePrintTuneKeyboard,
