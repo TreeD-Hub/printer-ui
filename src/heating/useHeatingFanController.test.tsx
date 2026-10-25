@@ -35,6 +35,7 @@ function TestHarness({
   const controller = useHeatingFanController({
     snapshot,
     pendingCommands: {},
+    lastResult: null,
     executeCommand,
     getCommandBlockReason,
     closePrintTuneKeyboard: () => undefined,

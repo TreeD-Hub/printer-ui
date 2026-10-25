@@ -12,7 +12,7 @@ type Props = HeatingControlPanelProps & {
 
 export const HeatingControlPanel = memo(function HeatingControlPanel({
   rows,
-  isBusy,
+  lastResult,
   chartSeries,
   temperatureKeyboardTarget,
   temperatureKeyboardValue,
@@ -27,15 +27,27 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
 }: Props) {
   const lockPopupIdRef = useRef(0)
   const [lockPopup, setLockPopup] = useState<{ id: number; message: string } | null>(null)
-  const [temperatureDraft, setTemperatureDraft] = useState<{ id: 'nozzle' | 'bed'; value: number } | null>(null)
+  const [temperatureDraft, setTemperatureDraft] = useState<{ id: 'nozzle' | 'bed'; value: number; sourceTarget: number } | null>(null)
   const temperatureDragRef = useRef<'nozzle' | 'bed' | null>(null)
   const filamentPendingRef = useRef(false)
 
   useEffect(() => {
-    if (!isBusy && temperatureDragRef.current === null) {
-      setTemperatureDraft(null)
-    }
-  }, [isBusy, printNozzleTargetTemp, printBedTargetTemp])
+    setTemperatureDraft((current) => {
+      if (current === null || temperatureDragRef.current !== null) return current
+      const target = current.id === 'nozzle' ? printNozzleTargetTemp : printBedTargetTemp
+      return target !== current.sourceTarget ? null : current
+    })
+  }, [printNozzleTargetTemp, printBedTargetTemp])
+
+  useEffect(() => {
+    if (lastResult === null) return
+    const stopsHeating = lastResult.command === 'emergencyStop' || lastResult.command === 'turnOffHeaters'
+    if (lastResult.ok && !stopsHeating) return
+    setTemperatureDraft((current) => {
+      const targetCommand = current?.id === 'nozzle' ? 'setNozzleTarget' : 'setBedTarget'
+      return stopsHeating || lastResult.command === targetCommand ? null : current
+    })
+  }, [lastResult])
 
   useEffect(() => {
     if (lockPopup === null) {
@@ -202,7 +214,7 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
                     disabled={targetBlockReason !== null}
                     onBlocked={() => showLockPopup(targetBlockReason)}
                     onChange={(value) => {
-                      if (temperatureDragRef.current === row.id) setTemperatureDraft({ id: row.id, value })
+                      if (temperatureDragRef.current === row.id) setTemperatureDraft({ id: row.id, value, sourceTarget: row.target })
                       else row.onTargetChange(value)
                     }}
                   />

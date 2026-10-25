@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { PrinterCommandId } from '../core/commands'
+import type { CommandResult, PrinterCommandId } from '../core/commands'
 import type {
   FilamentSensorMode,
   FilamentRunoutAction,
@@ -139,7 +139,7 @@ export type MovementControlPanelProps = {
 
 export type HeatingControlPanelProps = {
   rows: HeatingControlRow[]
-  isBusy: boolean
+  lastResult: CommandResult | null
   chartSeries: TemperatureChartSeries[]
   temperatureKeyboardTarget: TemperatureKeyboardTarget | null
   temperatureKeyboardValue: string

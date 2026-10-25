@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
+import type { CommandResult, ExecuteCommandArgs, PrinterCommandId, PrinterPendingCommands } from '../core/commands'
 import { getPrinterConnectionState, type PrinterSnapshot } from '../core/transport/types'
 import type {
   FanControlPanelProps,
@@ -31,6 +31,7 @@ const COMMAND_BUSY_REASON = 'Команда уже выполняется.'
 type UseHeatingFanControllerArgs = {
   snapshot: HeatingSnapshot
   pendingCommands: PrinterPendingCommands
+  lastResult: CommandResult | null
   executeCommand: (args: ExecuteCommandArgs) => Promise<boolean>
   getCommandBlockReason: (command: PrinterCommandId, args?: ExecuteCommandArgs) => string | null
   closePrintTuneKeyboard: () => void
@@ -62,6 +63,7 @@ export type UseHeatingFanControllerResult = {
 export function useHeatingFanController({
   snapshot,
   pendingCommands,
+  lastResult,
   executeCommand,
   getCommandBlockReason,
   closePrintTuneKeyboard,
@@ -272,7 +274,7 @@ export function useHeatingFanController({
 
   const heatingProps: HeatingControlPanelProps = {
     rows: heatingControlRows,
-    isBusy: isThermalBusy,
+    lastResult,
     chartSeries: temperatureChartSeries,
     temperatureKeyboardTarget,
     temperatureKeyboardValue,

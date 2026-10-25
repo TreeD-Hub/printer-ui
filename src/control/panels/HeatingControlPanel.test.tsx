@@ -12,7 +12,7 @@ function createProps(): ComponentProps<typeof HeatingControlPanel> {
       current: 25, target: id === 'nozzle' ? 220 : 60, maxTarget: id === 'nozzle' ? 300 : 120,
       onTargetChange: vi.fn().mockResolvedValue(true), testIdPrefix: id,
     })),
-    isBusy: false,
+    lastResult: null,
     chartSeries: [
       {
         id: 'nozzle',
@@ -104,7 +104,7 @@ describe('HeatingControlPanel', () => {
   })
 
   it.each([0, 300])('keeps the released target while the previous snapshot still reports %s', async (initialTarget) => {
-    const props = { ...createProps(), isBusy: false }
+    const props = createProps()
     props.rows[0].target = initialTarget
     props.printNozzleTargetTemp = initialTarget
     props.rows[0].onTargetChange = vi.fn().mockResolvedValue(true)
@@ -121,7 +121,13 @@ describe('HeatingControlPanel', () => {
     expect(slider).toHaveAttribute('aria-valuenow', '150')
     expect(screen.getByLabelText('Целевая температура сопло')).toHaveValue('150')
 
-    rerender(<HeatingControlPanel {...props} isBusy={true} />)
+    props.lastResult = {
+      command: 'setNozzleTarget', ok: true, status: 'accepted',
+      message: 'Команда принята.', at: new Date().toISOString(),
+    }
+    props.rows[1].target = 80
+    props.printBedTargetTemp = 80
+    rerender(<HeatingControlPanel {...props} rows={[...props.rows]} />)
     expect(slider).toHaveAttribute('aria-valuenow', '150')
     props.rows[0].target = 150
     props.printNozzleTargetTemp = 150
@@ -135,7 +141,7 @@ describe('HeatingControlPanel', () => {
   })
 
   it.each([false, true])('restores the actual target after an unconfirmed request (accepted=%s)', async (accepted) => {
-    const props = { ...createProps(), isBusy: false }
+    const props = createProps()
     let finishRequest!: (result: boolean) => void
     props.rows[0].onTargetChange = vi.fn(() => new Promise<boolean>((resolve) => { finishRequest = resolve }))
     const { rerender } = render(<HeatingControlPanel {...props} />)
@@ -145,13 +151,36 @@ describe('HeatingControlPanel', () => {
 
     fireEvent.pointerDown(slider, { clientX: 80, pointerId: 1 })
     fireEvent.pointerUp(slider, { pointerId: 1 })
-    rerender(<HeatingControlPanel {...props} isBusy={true} />)
     await act(async () => { finishRequest(accepted) })
     expect(slider).toHaveAttribute('aria-valuenow', accepted ? '150' : '220')
 
+    props.lastResult = {
+      command: 'setNozzleTarget', ok: false, kind: 'confirmation_timeout',
+      message: 'Подтверждение состояния не получено.', at: new Date().toISOString(),
+    }
     rerender(<HeatingControlPanel {...props} />)
     expect(slider).toHaveAttribute('aria-valuenow', '220')
     expect(screen.getByLabelText('Целевая температура сопло')).toHaveValue('220')
+  })
+
+  it('discards a pending target after emergency stop even when the snapshot target stays zero', async () => {
+    const props = createProps()
+    props.rows[0].target = 0
+    props.printNozzleTargetTemp = 0
+    const { rerender } = render(<HeatingControlPanel {...props} />)
+    const slider = screen.getByRole('slider', { name: 'Быстрая температура: сопло' })
+    slider.setPointerCapture = vi.fn()
+    vi.spyOn(slider, 'getBoundingClientRect').mockReturnValue({ left: 0, right: 160, width: 160 } as DOMRect)
+    fireEvent.pointerDown(slider, { clientX: 80, pointerId: 1 })
+    await act(async () => { fireEvent.pointerUp(slider, { pointerId: 1 }) })
+    expect(slider).toHaveAttribute('aria-valuenow', '150')
+
+    props.lastResult = {
+      command: 'emergencyStop', ok: true, status: 'confirmed',
+      message: 'Остановлено.', at: new Date().toISOString(),
+    }
+    rerender(<HeatingControlPanel {...props} />)
+    expect(slider).toHaveAttribute('aria-valuenow', '0')
   })
 
   it('discards cancelled drags and respects a heater lock while keeping keyboard changes available', () => {
