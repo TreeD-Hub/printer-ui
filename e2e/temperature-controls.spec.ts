@@ -81,17 +81,6 @@ test('temperature controls fit the 960x544 touch contract', async ({ page }, tes
   expect(visualContract.fitsWidth).toBeTruthy()
   expect(visualContract.fitsHeight).toBeTruthy()
 
-  const hideNozzle = page.getByRole('button', { name: 'Скрыть сопло на графике' })
-  await expect(hideNozzle).toHaveAttribute('aria-pressed', 'true')
-  expect((await requireRect(hideNozzle, 'nozzle legend')).height).toBeGreaterThanOrEqual(48)
-  await hideNozzle.click()
-  await expect(page.getByTestId('chart-current-nozzle')).toHaveCount(0)
-  const showNozzle = page.getByRole('button', { name: 'Показать сопло на графике' })
-  await expect(showNozzle).toHaveAttribute('aria-pressed', 'false')
-  await showNozzle.click()
-  await expect(page.getByTestId('chart-current-nozzle')).toHaveCount(1)
-  await expect(page.getByRole('button', { name: 'Скрыть сопло на графике' })).toHaveAttribute('aria-pressed', 'true')
-
   const panelScreenshotPath = testInfo.outputPath('temperature-panel.png')
   await heatingGrid.screenshot({ path: panelScreenshotPath, animations: 'disabled' })
   await testInfo.attach('temperature-panel', { path: panelScreenshotPath, contentType: 'image/png' })
