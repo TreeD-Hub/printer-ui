@@ -12,6 +12,7 @@ type Props = HeatingControlPanelProps & {
 
 export const HeatingControlPanel = memo(function HeatingControlPanel({
   rows,
+  isBusy,
   chartSeries,
   temperatureKeyboardTarget,
   temperatureKeyboardValue,
@@ -29,6 +30,12 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
   const [temperatureDraft, setTemperatureDraft] = useState<{ id: 'nozzle' | 'bed'; value: number } | null>(null)
   const temperatureDragRef = useRef<'nozzle' | 'bed' | null>(null)
   const filamentPendingRef = useRef(false)
+
+  useEffect(() => {
+    if (!isBusy && temperatureDragRef.current === null) {
+      setTemperatureDraft(null)
+    }
+  }, [isBusy, printNozzleTargetTemp, printBedTargetTemp])
 
   useEffect(() => {
     if (lockPopup === null) {
@@ -163,18 +170,24 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
                 <div
                   className="control-heating-slider"
                   onPointerDownCapture={() => { temperatureDragRef.current = row.id }}
-                  onPointerUpCapture={() => {
+                  onPointerUpCapture={async () => {
                     if (temperatureDragRef.current !== row.id) return
                     temperatureDragRef.current = null
-                    setTemperatureDraft(null)
-                    if (targetBlockReason !== null) showLockPopup(targetBlockReason)
-                    else if (temperatureDraft?.id === row.id) row.onTargetChange(temperatureDraft.value)
+                    if (targetBlockReason !== null) {
+                      setTemperatureDraft(null)
+                      showLockPopup(targetBlockReason)
+                    } else if (temperatureDraft?.id === row.id) {
+                      const committedDraft = temperatureDraft
+                      const ok = await row.onTargetChange(committedDraft.value)
+                      if (!ok) setTemperatureDraft((current) => current === committedDraft ? null : current)
+                    }
                   }}
                   onPointerCancelCapture={() => {
                     temperatureDragRef.current = null
                     setTemperatureDraft(null)
                   }}
                   onLostPointerCapture={() => {
+                    if (temperatureDragRef.current !== row.id) return
                     temperatureDragRef.current = null
                     setTemperatureDraft(null)
                   }}

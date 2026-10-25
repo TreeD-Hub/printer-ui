@@ -175,14 +175,14 @@ export function useHeatingFanController({
     },
   ]
 
-  function handleNozzleTargetChange(value: number): void {
+  function handleNozzleTargetChange(value: number): Promise<boolean> {
     const normalized = Math.round(clampHeatingValue(value, 0, 300))
-    void executeCommand({ command: 'setNozzleTarget', targetCelsius: normalized })
+    return executeCommand({ command: 'setNozzleTarget', targetCelsius: normalized })
   }
 
-  function handleBedTargetChange(value: number): void {
+  function handleBedTargetChange(value: number): Promise<boolean> {
     const normalized = Math.round(clampHeatingValue(value, 0, 300))
-    void executeCommand({ command: 'setBedTarget', targetCelsius: normalized })
+    return executeCommand({ command: 'setBedTarget', targetCelsius: normalized })
   }
 
   function openTemperatureKeyboard(target: TemperatureKeyboardTarget): void {
@@ -272,6 +272,7 @@ export function useHeatingFanController({
 
   const heatingProps: HeatingControlPanelProps = {
     rows: heatingControlRows,
+    isBusy: isThermalBusy,
     chartSeries: temperatureChartSeries,
     temperatureKeyboardTarget,
     temperatureKeyboardValue,
