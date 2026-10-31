@@ -22,9 +22,25 @@
 - Release asset: `treed-shell-ui.zip`.
 - Archive content: файлы из `dist/**`.
 - Manifest inside archive: `treed-shell-ui-manifest.json`.
-- Manifest fields: `name`, `mode`, `ref`, `sha`, `runNumber`, `runAttempt`, `logicPackage`, `logicVersion`, `logicWorkspace`, `builtAt`.
+- Manifest fields: `name`, `mode`, `ref`, `sha`, `runNumber`, `runAttempt`, `logicPackage`, `logicVersion`, `logicWorkspace`, `builtAt`, `updater`.
 - Production `mode`: `live`.
 - Release tag: `ui-main-<run_number>-<run_attempt>`.
+
+Перед упаковкой `scripts/add-ui-updater.mjs` добавляет в `dist` самостоятельный
+`scripts/treed_ui_updater.py` из того же commit и записывает протокол, entrypoint
+и SHA-256 в `updater`. На принтере проверенный root worker сохраняет архив и
+исполнителя за конкретной операцией; установка и recovery используют этот код,
+даже если установленный updater уже изменился. Исполняемый файл не публикуется
+в каталоге HTTP UI. Старый loader может установить архив как обычный live bundle.
+
+Исполнитель подтверждает простой, безопасно извлекает файлы, сохраняет backup
+и journal до публикации и требует устойчивой HTTP/systemd readiness. После
+сбоя он продолжает подтверждение новой версии либо восстанавливает предыдущую.
+Настройки, учётная запись и калибровки принтера в UI archive не входят.
+
+Адресная офлайн-проверка: `python -B scripts/test_treed_ui_updater.py`. Она
+исполняет установку и recovery на настоящих временных файлах; сеть и systemd
+заменены моделями. Сборка интерфейса для этой проверки не требуется.
 
 Vite встраивает заданный workflow `UI_RELEASE_TAG` в live bundle как
 `VITE_UI_RELEASE_TAG`. Fallback через GitHub Releases сравнивает этот установленный
