@@ -68,6 +68,7 @@ jobs:
 
       - name: Pack UI bundle
         run: |
+          node scripts/add-ui-updater.mjs dist
           cd dist
           zip -r "../${UI_ARCHIVE_NAME}" .
 
