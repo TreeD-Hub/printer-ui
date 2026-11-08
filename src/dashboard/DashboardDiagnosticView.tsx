@@ -55,8 +55,7 @@ export function DashboardDiagnosticView({
     <div
       className={`dashboard-diagnostic is-${diagnostic.severity}`}
       data-testid="dashboard-diagnostic"
-      role="alert"
-      aria-live={diagnostic.severity === 'warning' ? 'polite' : 'assertive'}
+      data-notice="error"
     >
       <div className="dashboard-diagnostic-symbol" aria-hidden="true">!</div>
       <div className="dashboard-diagnostic-copy">
@@ -66,7 +65,7 @@ export function DashboardDiagnosticView({
           {diagnostic.message}
         </p>
         {actionError !== null ? (
-          <p className="dashboard-diagnostic-action-error" role="status">
+          <p className="dashboard-diagnostic-action-error" data-notice="status">
             {actionError}
           </p>
         ) : null}

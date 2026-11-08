@@ -285,7 +285,7 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
             <h2>{TITLES[stage]}</h2>
             <div className="pid-temperature"><span>{nozzle ? 'Сопло' : 'Стол'} сейчас</span><strong>{ready && Number.isFinite(temperature) ? temperature.toFixed(1) : '—'} <small>°C</small></strong><span>Цель {target} °C · обдув {Math.round(snapshot.modelFanPercent)}%</span></div>
             <dl className="pid-progress"><div><dt>Цикл PID</dt><dd>{cycle ?? '—'} / {PID_CYCLES}</dd></div><div><dt>Прошло времени</dt><dd>{String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}</dd></div></dl>
-            <p role="status">{!ready ? 'Нет свежих данных. Проверьте принтер.' : `${phase === 'heating' ? 'Нагрев' : 'Остывание'} · минимум ${PID_CYCLES} циклов`}</p>
+            <p data-notice="status">{!ready ? 'Нет свежих данных. Проверьте принтер.' : `${phase === 'heating' ? 'Нагрев' : 'Остывание'} · минимум ${PID_CYCLES} циклов`}</p>
           </section>
           <section className="pid-graph-panel" aria-label="Температурный график">
             <div className="pid-chart" role="img" aria-label={`График температуры ${nozzle ? 'сопла' : 'стола'}, цель ${target} °C. Сплошная линия — температура, пунктир — цель.`}>
@@ -295,11 +295,11 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
           </section>
         </>}
         {stage === 'result' && <><div className="pid-result">{result}</div><p>Klipper подтвердил окончание калибровки {nozzle ? 'сопла' : 'стола'} при {target} °C.</p><p>Нажмите «Сохранить», чтобы записать коэффициенты и перезапустить Klipper.</p></>}
-        {stage === 'saving' && <><div className="pid-result">{result}</div><p role="status">Сохраняем коэффициенты в printer.cfg. Ожидаем перезапуск и готовность Klipper…</p></>}
-        {stage === 'finish' && <><div className="pid-result">{result}</div><p role="status">Калибровка завершена успешно. Коэффициенты сохранены. Klipper снова готов к работе.</p></>}
-        {stage === 'error' && <p role="alert">{error}</p>}
-        {stage === 'stopped' && <p role="status">Отправлена аварийная остановка. До новой калибровки проверьте принтер и перезапустите Klipper.</p>}
-        {stage !== 'error' && error && <p role="alert">{error}</p>}
+        {stage === 'saving' && <><div className="pid-result">{result}</div><p data-notice="status">Сохраняем коэффициенты в printer.cfg. Ожидаем перезапуск и готовность Klipper…</p></>}
+        {stage === 'finish' && <><div className="pid-result">{result}</div><p data-notice="status">Калибровка завершена успешно. Коэффициенты сохранены. Klipper снова готов к работе.</p></>}
+        {stage === 'error' && <p data-notice="error">{error}</p>}
+        {stage === 'stopped' && <p data-notice="status">Отправлена аварийная остановка. До новой калибровки проверьте принтер и перезапустите Klipper.</p>}
+        {stage !== 'error' && error && <p data-notice="error">{error}</p>}
       </main>
       <footer className="pid-footer" style={calibrationActivity && stage !== 'running' ? { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' } : undefined}>
         {stage === 'finish' ? <button type="button" onClick={onBackToList}>Завершить</button> : stage === 'running' ? <><span>Ожидаем подтверждение Klipper</span><button type="button" className="pid-danger" disabled={getCommandBlockReason('emergencyStop') !== null} onClick={() => void stop()}>Аварийная остановка</button></> : <>
@@ -312,14 +312,14 @@ export function PidCalibrationScreen({ snapshot, pendingCommand, executeCommand,
           {calibrationActivity && stage !== 'stopped' && <button type="button" className="pid-danger" disabled={getCommandBlockReason('emergencyStop') !== null} onClick={() => void stop()}>Аварийная остановка</button>}
         </>}
       </footer>
-      {stage === 'prepare' && block && <p className="pid-block" role="status">{block}</p>}
-      {stage === 'result' && saveBlock && <p className="pid-block" role="status">{saveBlock}</p>}
+      {stage === 'prepare' && block && <p className="pid-block" data-notice="status">{block}</p>}
+      {stage === 'result' && saveBlock && <p className="pid-block" data-notice="status">{saveBlock}</p>}
       {isTemperatureOpen && createPortal(<div className="pid-temperature-dialog tune-value-workspace is-keyboard-open" role="dialog" aria-modal="true" aria-label="Своя температура калибровки" ref={temperatureDialog}>
         <div className="pid-temperature-editor">
           <TuneValueEditor label={`${nozzle ? 'Сопло' : 'Стол'} · PID`} icon={nozzle ? 'metricNozzle' : 'metricBed'}>
-            <label className="pid-temperature-field"><input aria-label="Температура калибровки, °C" aria-describedby="pid-temperature-limits" aria-invalid={!draftValid} type="text" inputMode="numeric" value={temperatureDraft} maxLength={3} onChange={(event) => { setTemperatureDraft(event.target.value); replaceDraft.current = false }} onKeyDown={(event) => { if (event.key === 'Enter') applyCustomTemperature() }} /><span>°C</span></label>
+            <label className="pid-temperature-field"><input aria-label="Температура калибровки, °C" aria-invalid={!draftValid} type="text" inputMode="numeric" value={temperatureDraft} maxLength={3} onChange={(event) => { setTemperatureDraft(event.target.value); replaceDraft.current = false }} onKeyDown={(event) => { if (event.key === 'Enter') applyCustomTemperature() }} /><span>°C</span></label>
           </TuneValueEditor>
-          <p id="pid-temperature-limits" role={draftValid ? undefined : 'status'}>Целое число от 1 до {maxTemperature} °C</p>
+          <p id="pid-temperature-limits" data-notice={draftValid ? undefined : 'status'}>Целое число от 1 до {maxTemperature} °C</p>
           <button type="button" onClick={() => setTemperatureOpen(false)}>Назад</button>
         </div>
         <NumericKeypad label="Температура PID" ariaLabel="Клавиатура температуры PID" closeLabel="Закрыть ввод температуры" value={temperatureDraft} showValue={false} showHeader={false} onDigit={enterTemperatureDigit} onClear={() => { setTemperatureDraft(''); replaceDraft.current = false }} onBackspace={() => { setTemperatureDraft((value) => value.slice(0, -1)); replaceDraft.current = false }} onSubmit={applyCustomTemperature} onClose={() => setTemperatureOpen(false)} />

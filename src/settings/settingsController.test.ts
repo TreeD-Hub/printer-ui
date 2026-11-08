@@ -103,7 +103,7 @@ function changeEvent(value: string): ChangeEvent<HTMLTextAreaElement> {
 }
 
 describe('settings controller helpers', () => {
-  it('требует выбора каждого файла, снимает устаревший выбор и передаёт подтверждённый сброс', async () => {
+  it('обновляет управляемые файлы одним нажатием, включая старую службу со списком сброса', async () => {
     const conflict = { path: 'config/printer.cfg', sha256: 'a'.repeat(64) }
     const status: HostUpdateStatus = {
       ...availableUpdateStatus, supportsConfigReset: true, configConflicts: [conflict],
@@ -118,19 +118,14 @@ describe('settings controller helpers', () => {
       executeCommand: vi.fn().mockResolvedValue(true), getCommandBlockReason: () => null,
       activeKeyboardTarget: null, openKeyboard: () => undefined, closeKeyboard: () => undefined,
     }))
-    await waitFor(() => expect(result.current.pageProps.updates.configConflicts).toEqual([conflict]))
+    await waitFor(() => expect(result.current.pageProps.updates.releaseResults[0]?.id).toBe('printer-core'))
     await act(async () => result.current.pageProps.updates.onApplyUpdate())
-    expect(result.current.pageProps.updates.isConfigReviewOpen).toBe(true)
-    await act(async () => result.current.pageProps.updates.onConfirmConfigReview())
-    expect(apply).not.toHaveBeenCalled()
-    act(() => result.current.pageProps.updates.onToggleConfigReset(conflict))
+    expect(apply).toHaveBeenCalledWith(expect.objectContaining({ targetId: 'printer-core', resetConfigs: [conflict] }))
     const newer = { ...conflict, sha256: 'b'.repeat(64) }
     check.mockResolvedValueOnce({ ...status, configConflicts: [newer] })
     await act(async () => result.current.pageProps.updates.onCheckUpdates())
-    expect(result.current.pageProps.updates.selectedConfigResets).toEqual([])
-    act(() => result.current.pageProps.updates.onToggleConfigReset(newer))
-    await act(async () => result.current.pageProps.updates.onConfirmConfigReview())
-    expect(apply).toHaveBeenCalledWith(expect.objectContaining({ targetId: 'printer-core', resetConfigs: [newer] }))
+    await act(async () => result.current.pageProps.updates.onApplyUpdate())
+    expect(apply).toHaveBeenLastCalledWith(expect.objectContaining({ targetId: 'printer-core', resetConfigs: [newer] }))
     unmount()
   })
   it('allows update after a paused job has been cancelled without remounting the UI', async () => {
@@ -291,7 +286,7 @@ describe('settings controller helpers', () => {
     expect(apply).toHaveBeenCalledWith(expect.objectContaining({ cancelPausedPrint: true }))
   })
 
-  it('keeps the accepted operation active when the apply request times out', async () => {
+  it.each([false, true])('keeps the accepted operation active when the apply request times out (stale result: %s)', async (staleResult) => {
     const runningStatus: HostUpdateStatus = {
       ...availableUpdateStatus,
       busy: true,
@@ -313,7 +308,11 @@ describe('settings controller helpers', () => {
     }
     const getStatus = vi.fn()
       .mockResolvedValueOnce(availableUpdateStatus)
-      .mockResolvedValueOnce(runningStatus)
+    if (staleResult) getStatus.mockResolvedValueOnce({ ...availableUpdateStatus, operation: {
+      ...runningStatus.operation!, operationId: 'old-operation', requestId: 'old-request',
+      status: 'error', phase: 'complete', message: 'Core пакет не новее установленной версии',
+    } })
+    getStatus.mockResolvedValueOnce(runningStatus)
     const updateClient: HostUpdateClient = {
       getStatus,
       check: vi.fn().mockResolvedValue(availableUpdateStatus),
@@ -335,9 +334,9 @@ describe('settings controller helpers', () => {
     await act(async () => {
       await result.current.pageProps.updates.onApplyUpdate()
     })
-    await waitFor(() => expect(result.current.pageProps.updates.operation?.phase).toBe('installing'))
+    await waitFor(() => expect(result.current.pageProps.updates.operation?.phase).toBe('installing'), { timeout: 2000 })
 
-    expect(getStatus).toHaveBeenCalledTimes(2)
+    expect(getStatus).toHaveBeenCalledTimes(staleResult ? 3 : 2)
     expect(result.current.pageProps.updates.operation?.status).toBe('running')
     expect(result.current.pageProps.updates.notice).toBe('Запись новой версии.')
     unmount()
@@ -656,15 +655,13 @@ describe('автоматическое завершение обновления
       expect(view.result.current.pageProps.updates.operation?.status ?? null).toBe(status === 'applied' ? null : status)
       view.unmount()
 
-      if (status === 'applied') {
-        current = { ...current, operation: null, latestOperation: completed }
-        const reloaded = mountController(updateClient, onUpdateApplied)
-        try {
-          await act(async () => { await Promise.resolve() })
-          expect(onUpdateApplied).toHaveBeenCalledTimes(1)
-          expect(reloaded.result.current.pageProps.updates.operation).toBeNull()
-        } finally { reloaded.unmount() }
-      }
+      current = { ...current, operation: null, latestOperation: completed }
+      const reloaded = mountController(updateClient, onUpdateApplied)
+      try {
+        await act(async () => { await Promise.resolve() })
+        expect(onUpdateApplied).toHaveBeenCalledTimes(status === 'applied' ? 1 : 0)
+        expect(reloaded.result.current.pageProps.updates.operation).toBeNull()
+      } finally { reloaded.unmount() }
     } finally {
       view.unmount()
       vi.useRealTimers()

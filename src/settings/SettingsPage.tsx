@@ -18,7 +18,7 @@ import {
   type WifiNetworkSecurity,
 } from './config'
 import type { UpdateReleaseResult } from './updateReleaseClient'
-import type { HostConfigConflict, HostUpdateOperation, HostUpdateTargetId } from '../core/hostUpdate'
+import type { HostUpdateOperation, HostUpdateTargetId } from '../core/hostUpdate'
 import type { AutoPrinterController } from '../core/store/useAutoPrinter'
 import { AutoPrinterPanel } from '../autoprinter/AutoPrinterPanel'
 import { AccountPanel } from '../autoprinter/AccountPanel'
@@ -118,12 +118,6 @@ export type SettingsPageProps = {
     onShowDetectionFrame: () => void
   }
   updates: {
-    configConflicts: HostConfigConflict[]
-    selectedConfigResets: HostConfigConflict[]
-    isConfigReviewOpen: boolean
-    onToggleConfigReset: (conflict: HostConfigConflict) => void
-    onCancelConfigReview: () => void
-    onConfirmConfigReview: () => Promise<void>
     releaseResults: UpdateReleaseResult[]
     isCheckingUpdates: boolean
     applyingUpdateTarget: HostUpdateTargetId | null
@@ -196,7 +190,7 @@ function NetworkSettings({ network }: { network: SettingsPageProps['network'] })
       </header>
 
       {!network.isCapabilityAvailable ? (
-        <div className="settings-network-empty" role="status">
+        <div className="settings-network-empty" data-notice="status">
           <SidebarIcon name="network-off" size={48} />
           <p className="settings-network-empty-title" data-testid="settings-network-notice">{network.capabilityNotice}</p>
         </div>
@@ -270,7 +264,7 @@ function NetworkSettings({ network }: { network: SettingsPageProps['network'] })
         </>
       )}
       {network.isCapabilityAvailable && network.notice && (
-        <p className="settings-network-notice" role="status" data-testid="settings-network-notice">{network.notice}</p>
+        <p className="settings-network-notice" data-notice="status" data-testid="settings-network-notice">{network.notice}</p>
       )}
     </div>
   )
@@ -316,7 +310,6 @@ export function SettingsPage({
 }: SettingsPageProps) {
   const timezoneOffsetMinutes = useTimeZoneOffset()
   const pausedUpdateFocusRef = useModalFocus<HTMLElement>(updates.pausedUpdateTarget !== null, updates.onCancelPausedUpdate)
-  const configReviewFocusRef = useModalFocus<HTMLElement>(updates.isConfigReviewOpen, updates.onCancelConfigReview)
   const aiLightFocusRef = useModalFocus<HTMLElement>(cloud.lightWarning.isOpen, cloud.lightWarning.onClose)
   return (
     <section className="settings-screen" data-testid="screen-settings">
@@ -363,7 +356,7 @@ export function SettingsPage({
                   loadPercent={38}
                 />
               </div>
-              <div className="settings-network-notice" role="status">
+              <div className="settings-network-notice" data-notice="status">
                 <p>{system.contractStatus}</p>
                 <p>{system.runtimeStatus}</p>
                 <button
@@ -388,7 +381,7 @@ export function SettingsPage({
                 onChange={interfaceSettings.onDarkThemeChange}
                 testId="settings-dark-theme-toggle"
               />
-              {interfaceSettings.themeNotice && <p role="status">{interfaceSettings.themeNotice}</p>}
+              {interfaceSettings.themeNotice && <p data-notice="status">{interfaceSettings.themeNotice}</p>}
               <SettingsToggleRow
                 label="Режим максимальной производительности"
                 checked={interfaceSettings.isMaxPerformanceModeEnabled}
@@ -407,7 +400,7 @@ export function SettingsPage({
                 options={TIMEZONE_OPTIONS}
                 onChange={interfaceSettings.onTimezoneChange}
               />
-              {interfaceSettings.timezoneNotice && <p role="status">{interfaceSettings.timezoneNotice}</p>}
+              {interfaceSettings.timezoneNotice && <p data-notice="status">{interfaceSettings.timezoneNotice}</p>}
             </div>
           ) : activeSettingsGroup === 'network' ? (
             <NetworkSettings key={String(network.isCapabilityAvailable)} network={network} />
@@ -424,7 +417,7 @@ export function SettingsPage({
               />
               <h3 className="settings-notification-heading" id="settings-notification-history-title">Журнал событий</h3>
               <div className="settings-notification-list" role="region" aria-labelledby="settings-notification-history-title">
-                {notifications.history.length === 0 ? <p className="settings-notification-empty" role="status">Событий в текущем сеансе пока нет.</p> : null}
+                {notifications.history.length === 0 ? <p className="settings-notification-empty" data-notice="status">Событий в текущем сеансе пока нет.</p> : null}
                 {notifications.history.map((item) => (
                   <article className="settings-notification-item" key={item.id}>
                     <p className="settings-notification-title">
@@ -440,13 +433,13 @@ export function SettingsPage({
             autoPrinter ? (
               <AutoPrinterPanel {...autoPrinter} />
             ) : (
-              <div className="settings-group-stack" role="status">Состояние AutoPrinter недоступно.</div>
+              <div className="settings-group-stack" data-notice="status">Состояние AutoPrinter недоступно.</div>
             )
           ) : activeSettingsGroup === 'account' ? (
             autoPrinter ? (
               <AccountPanel controller={autoPrinter.controller} />
             ) : (
-              <div className="settings-group-stack" role="status">Состояние аккаунта недоступно.</div>
+              <div className="settings-group-stack" data-notice="status">Состояние аккаунта недоступно.</div>
             )
           ) : activeSettingsGroup === 'cloud' ? (
             <div className="settings-group-stack settings-group-stack-cloud">
@@ -467,10 +460,10 @@ export function SettingsPage({
                 <p><span>Анализ кадров</span><strong>{cloud.detectionStatus?.analysis_state === 'available' ? 'Работает' : cloud.detectionStatus?.analysis_state === 'idle' ? 'Ожидает печать' : 'Недоступен'}</strong></p>
                 {cloud.detectionStatus && <p><span>Подтверждения</span><strong>{cloud.detectionStatus.counter} / {cloud.detectionStatus.threshold}</strong></p>}
                 <p><span>Пауза печати</span><strong>{cloud.detectionStatus?.pause_state === 'confirmed' ? 'Подтверждена' : cloud.detectionStatus?.pause_state === 'requested' ? 'Ожидает подтверждения' : cloud.detectionStatus?.pause_state === 'failed' ? 'Не подтверждена' : 'Не запрошена'}</strong></p>
-                {cloud.detectionStatus?.pause_error && <p role="alert"><span>Причина</span><strong>{cloud.detectionStatus.pause_error}</strong></p>}
+                {cloud.detectionStatus?.pause_error && <p data-notice="error"><span>Причина</span><strong>{cloud.detectionStatus.pause_error}</strong></p>}
                 {cloud.detectionStatus?.model_version && <p><span>Модель</span><strong>{cloud.detectionStatus.model_version}</strong></p>}
               </article>
-              <p className="settings-cloud-notice" role={cloud.detectionStatusError ? 'alert' : 'status'}>{cloud.detectionStatusError ?? cloud.notice}</p>
+              <p className="settings-cloud-notice" data-notice={cloud.detectionStatusError ? 'error' : 'status'}>{cloud.detectionStatusError ?? cloud.notice}</p>
               {cloud.detectionStatus?.recent_frame && (
                 <div className="settings-detection-frame">
                   <button type="button" className="settings-network-btn"
@@ -518,7 +511,7 @@ export function SettingsPage({
               <header className="settings-group-head">
                 <h3>Обновления</h3>
               </header>
-              <div className="settings-updates-versions" aria-live="polite">
+              <div className="settings-updates-versions">
                 {updates.releaseResults.map((release) => (
                   <article key={release.id} className="settings-update-component" aria-label={release.label}>
                     <header>
@@ -580,7 +573,7 @@ export function SettingsPage({
                     </button>
                   )}
               </div>
-              <p className="settings-updates-notice" role="status">
+              <p className="settings-updates-notice" data-notice="status">
                 {updates.notice || (updates.isApplyBlockedByActivePrint
                   ? 'Обновление будет доступно после завершения печати.'
                   : updates.releaseResults.length > 0 && updates.releaseResults.every((release) => release.status === 'latest') && !updates.isCheckingUpdates
@@ -625,9 +618,9 @@ export function SettingsPage({
                 </button>
               </div>
 
-              <p className="settings-console-notice" role="status" data-testid="settings-console-notice">{console.notice}</p>
+              <p className="settings-console-notice" data-notice="status" data-testid="settings-console-notice">{console.notice}</p>
 
-              <div className="settings-console-history" role="log" aria-label="Команды и ответы принтера" aria-live="polite" tabIndex={-1}>
+              <div className="settings-console-history" data-notice="log" aria-label="Команды и ответы принтера" tabIndex={-1}>
                 {console.history.length > 0 ? (
                   console.history.map((item) => (
                     <article className={`settings-console-history-item is-${item.kind}`} key={item.id}>
@@ -648,10 +641,10 @@ export function SettingsPage({
       </div>
       {cloud.lightWarning.isOpen ? (
         <div className="system-reset-layer">
-          <section ref={aiLightFocusRef} className="system-reset-dialog settings-update-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-light-title" aria-describedby="ai-light-detail">
+          <section ref={aiLightFocusRef} className="system-reset-dialog settings-update-dialog" role="dialog" aria-modal="true" aria-labelledby="ai-light-title">
             <h2 id="ai-light-title">Свет для AI-детекции</h2>
             <p id="ai-light-detail">Автовключение света при печати отключено. Без освещения AI-детекция может не обнаружить дефекты. Включить свет при начале печати и AI-детекцию? При закрытии настройки не изменятся.</p>
-            {cloud.lightWarning.error && <p role="alert">{cloud.lightWarning.error}</p>}
+            {cloud.lightWarning.error && <p data-notice="error">{cloud.lightWarning.error}</p>}
             <div className="system-reset-actions">
               <button type="button" className="file-modal-action" data-modal-initial-focus disabled={cloud.lightWarning.isBusy} onClick={cloud.lightWarning.onClose}>Закрыть</button>
               <button type="button" className="file-modal-action is-primary" disabled={cloud.lightWarning.isBusy} onClick={() => void cloud.lightWarning.onEnable()}>{cloud.lightWarning.isBusy ? 'Включаем…' : 'Включить свет'}</button>
@@ -659,37 +652,9 @@ export function SettingsPage({
           </section>
         </div>
       ) : null}
-      {updates.isConfigReviewOpen ? (
-        <div className="system-reset-layer">
-          <section ref={configReviewFocusRef} className="system-reset-dialog settings-update-dialog settings-config-review" role="dialog" aria-modal="true" aria-labelledby="config-review-title" aria-describedby="config-review-detail">
-            <h2 id="config-review-title">Локальные изменения конфигов</h2>
-            <p id="config-review-detail">Чтобы сохранить нужные настройки, перенесите их в local_overrides.cfg через редактор конфигов, затем выберите сброс исходного файла. Если уже восстановили его вручную — проверьте снова. Сброс вернёт файл к новой версии из репозитория.</p>
-            <div className="settings-config-conflicts">
-              {updates.configConflicts.map((conflict) => {
-                const selected = updates.selectedConfigResets.some((row) => row.path === conflict.path && row.sha256 === conflict.sha256)
-                return <div key={conflict.path} className="settings-config-conflict">
-                  <code>{conflict.path.replace(/^config\//, '')}</code>
-                  <button type="button" className={`file-modal-action${selected ? ' file-modal-action-danger' : ''}`} aria-pressed={selected}
-                    aria-label={`${selected ? 'Отменить сброс' : 'Сбросить'} ${conflict.path}`} disabled={updates.isCheckingUpdates}
-                    onClick={() => updates.onToggleConfigReset(conflict)}>{selected ? 'Отменить сброс' : 'Сбросить'}</button>
-                </div>
-              })}
-            </div>
-            <p aria-live="polite">{updates.notice || 'Сброс выполнится при обновлении. Старые файлы сохранятся в резервной копии. Калибровки SAVE_CONFIG сохраняются.'}</p>
-            <div className="system-reset-actions settings-config-review-actions">
-              <button type="button" className="file-modal-action" data-modal-initial-focus onClick={updates.onCancelConfigReview}>Назад</button>
-              <button type="button" className="file-modal-action" onClick={updates.onCheckUpdates} disabled={updates.isCheckingUpdates}>{updates.isCheckingUpdates ? 'Проверяем…' : 'Проверить снова'}</button>
-              <button type="button" className="file-modal-action file-modal-action-danger" onClick={() => void updates.onConfirmConfigReview()}
-                disabled={updates.isCheckingUpdates || updates.configConflicts.some((conflict) => !updates.selectedConfigResets.some((row) => row.path === conflict.path && row.sha256 === conflict.sha256))}>
-                {updates.configConflicts.length ? 'Сбросить и обновить' : 'Обновить'}
-              </button>
-            </div>
-          </section>
-        </div>
-      ) : null}
       {updates.pausedUpdateTarget !== null ? (
         <div className="system-reset-layer">
-          <section ref={pausedUpdateFocusRef} className="system-reset-dialog settings-update-dialog" role="dialog" aria-modal="true" aria-labelledby="paused-update-title" aria-describedby="paused-update-detail">
+          <section ref={pausedUpdateFocusRef} className="system-reset-dialog settings-update-dialog" role="dialog" aria-modal="true" aria-labelledby="paused-update-title">
             <h2 id="paused-update-title">Отменить печать и обновить?</h2>
             <p id="paused-update-detail">Печать стоит на паузе. Для обновления она будет отменена; продолжить это задание после обновления не получится.</p>
             <div className="system-reset-actions">

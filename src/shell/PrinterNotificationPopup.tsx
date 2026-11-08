@@ -25,8 +25,8 @@ export function PrinterNotificationPopup({ enabled, activeScreen, readTopPopupPo
 
   if (!popup || !canShowPopup || !position) return null
   return (
-    <aside className={`top-popup-dialog printer-event-popup is-${popup.severity}`} role="alertdialog" aria-modal="false"
-      aria-labelledby="printer-event-title" aria-describedby="printer-event-details"
+    <aside className={`top-popup-dialog printer-event-popup is-${popup.severity}`} role="dialog" aria-modal="false"
+      aria-labelledby="printer-event-title"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
@@ -38,7 +38,7 @@ export function PrinterNotificationPopup({ enabled, activeScreen, readTopPopupPo
           aria-label="Закрыть уведомление">×</button>
       </header>
       <div className="top-popup-content">
-        <p id="printer-event-details" aria-live="polite">{popup.details}</p>
+        <p id="printer-event-details">{popup.details}</p>
       </div>
     </aside>
   )

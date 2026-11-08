@@ -62,7 +62,7 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
     >
       <div className="control-filament-layout-v2">
         <div className="control-filament-primary-column">
-          <section className="control-filament-status control-subpanel" aria-live="polite">
+          <section className="control-filament-status control-subpanel">
             <div>
               <p>Состояние нити</p>
               <strong>{filamentStatus}</strong>
@@ -73,10 +73,10 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
             />
           </section>
 
-          <div className="control-filament-notices" aria-live="polite">
+          <div className="control-filament-notices">
             {isStale ? <p className="control-filament-notice is-warning">Снимок состояния устарел.</p> : null}
             {snapshot.message !== null ? <p className="control-filament-notice">{snapshot.message}</p> : null}
-            {commandError ? <p className="control-filament-notice is-error" role="alert">{commandError}</p> : null}
+            {commandError ? <p className="control-filament-notice is-error" data-notice="error">{commandError}</p> : null}
           </div>
 
           <section className="control-filament-section control-filament-mode-section" aria-labelledby="filament-mode-title">
@@ -168,7 +168,7 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
                 </button>
               ))}
             </div>
-            <div className="control-filament-action-description" aria-live="polite">
+            <div className="control-filament-action-description">
               <p>{snapshot.runoutAction === 'recover'
                 ? 'До 5 попыток восстановить подачу. При успехе печать продолжится, иначе останется на паузе.'
                 : snapshot.runoutAction === 'pause'
@@ -178,7 +178,7 @@ export const FilamentSensorControlPanel = memo(function FilamentSensorControlPan
                 ? 'Сейчас движение не контролируется. Реакция применяется в режиме «Наличие и движение».'
                 : 'Если нить закончилась — всегда пауза.'}</p>
             </div>
-            {runoutActionBlockReason !== null ? <p className="control-filament-block-reason" role="status">{runoutActionBlockReason}</p> : null}
+            {runoutActionBlockReason !== null ? <p className="control-filament-block-reason" data-notice="status">{runoutActionBlockReason}</p> : null}
           </section>
         </div>
       </div>

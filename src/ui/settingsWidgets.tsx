@@ -54,7 +54,6 @@ export function SettingsSidebarMenu<T extends string>({
             className={joinClassNames('settings-sidebar-item', value === option.id && 'is-active')}
             aria-pressed={value === option.id}
             aria-disabled={isDisabled}
-            aria-label={option.label}
             title={disabledReason ?? option.label}
             data-testid={testIdPrefix ? `${testIdPrefix}-${option.id}` : undefined}
             disabled={isDisabled}
@@ -430,7 +429,6 @@ export function SettingsVirtualKeyboard({
           className="virtual-keyboard-key virtual-keyboard-key-space"
           onMouseDown={onKeyMouseDown}
           onClick={() => handlePreviewKeyPress('space')}
-          aria-label="Пробел"
         >
           Пробел
         </button>

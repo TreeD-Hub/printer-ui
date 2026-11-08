@@ -77,18 +77,13 @@ export function DashboardPrintView({
             type="button"
             className="exclude-object-open-button"
             aria-label="Исключить объект"
-            aria-describedby={excludeObjectOpenBlockReason !== null ? 'exclude-object-open-block-reason' : undefined}
+            title={excludeObjectOpenBlockReason ?? 'Исключить объект'}
             data-testid="open-exclude-object-modal"
             disabled={excludeObjectOpenBlockReason !== null}
             onClick={onExcludeObjectOpen}
           >
             <IconMask name="actionExcludeObject" size={24} />
           </button>
-          {excludeObjectOpenBlockReason !== null ? (
-            <span id="exclude-object-open-block-reason" className="visually-hidden">
-              {excludeObjectOpenBlockReason}
-            </span>
-          ) : null}
         </div>
 
         <div className="job-info">

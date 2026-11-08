@@ -139,7 +139,7 @@ export function DriverModeControlPanel({ controls, kind }: {
     </div>
     <div className="driver-mode-description"><p>{description}</p></div>
     {kind === 'fan' && status.powerControlSupported && !powerEditable && <p className="driver-mode-hint">Устройство разрешает только фиксированную мощность обдува.</p>}
-    {status.state === 'fault' && <p role="alert">{status.message}</p>}
+    {status.state === 'fault' && <p data-notice="error">{status.message}</p>}
     </section>}
     {target && createPortal(<div className="driver-mode-overlay" onKeyDown={event => {
       if (event.key === 'Escape' && !busy) setTarget(null)
@@ -167,9 +167,9 @@ export function DriverModeControlPanel({ controls, kind }: {
           <p>Диапазон устройства: {minPower}–{maxPower}%. Настройка не включает вентилятор без нагрузки.</p>
         </div>}
         <p>Настройка сохранится. Обычно применяется без перезапуска Klipper.</p>
-        {(error || dialogStatus?.message || reason) && <p role="alert">{error || dialogStatus?.message || reason}</p>}
-        {!status?.supported && <p role="status">Текущее состояние принтера недоступно. Выбранный режим сохранён в окне; применение заблокировано до восстановления состояния.</p>}
-        {busy && <p role="status">Ожидание подтверждения принтера…</p>}
+        {(error || dialogStatus?.message || reason) && <p data-notice="error">{error || dialogStatus?.message || reason}</p>}
+        {!status?.supported && <p data-notice="status">Текущее состояние принтера недоступно. Выбранный режим сохранён в окне; применение заблокировано до восстановления состояния.</p>}
+        {busy && <p data-notice="status">Ожидание подтверждения принтера…</p>}
         <div className="driver-mode-actions">
           <button autoFocus type="button" disabled={busy} onClick={() => setTarget(null)}>Отмена</button>
           {dialogStatus?.needsRestart ? <button type="button" disabled={busy || Boolean(controls.getCommandBlockReason('firmwareRestart'))}

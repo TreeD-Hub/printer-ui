@@ -229,7 +229,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
   render(): ReactNode {
     if (this.state.entry !== null) {
       return (
-        <main className="runtime-error-shell" role="alert" aria-live="assertive">
+        <main className="runtime-error-shell" data-notice="error">
           <section className="runtime-error-panel">
             <p className="runtime-error-kicker">Runtime diagnostic</p>
             <h1>Ошибка интерфейса</h1>

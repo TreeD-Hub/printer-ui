@@ -45,7 +45,7 @@
 .calibration-procedure-details { min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: var(--space-xs); }
 .has-study .calibration-procedure-details { border-left: var(--border-width) solid var(--color-border-default); padding-left: var(--space-sm); }
 .calibration-procedure-details > p { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-body); line-height: 1.35; }
-.calibration-procedure-details > [role="alert"] { color: var(--color-text-primary); border-left: 2px solid var(--color-selection); padding-left: var(--space-sm); }
+.calibration-procedure-details > [data-notice="error"] { color: var(--color-text-primary); border-left: 2px solid var(--color-selection); padding-left: var(--space-sm); }
 .calibration-procedure-details .calibration-blocked-diagnostics { font-size: var(--font-size-small); }
 .calibration-choice-row, .calibration-action-row { display: flex; flex-wrap: wrap; gap: var(--space-xs); }
 .calibration-choice-row { display: grid; }

@@ -4,6 +4,7 @@ import { createMockSnapshot, createHostNetworkClient, createHostUpdateClient } f
 import { useSettingsController } from './settingsController'
 import { SettingsPage } from './SettingsPage'
 import { requestAiDetectionSettings, requestDetectionFrame, requestDetectionStatus } from '../core/hostDetection'
+import { noticeScreen } from '../test/noticeQueries'
 
 vi.mock('#runtime', async (importOriginal) => ({
   ...await importOriginal<typeof import('../../mocks/runtime')>(), runtimeMode: 'live',
@@ -65,7 +66,7 @@ it('кнопка предупреждения включает существу�
   expect(execute).toHaveBeenCalledExactlyOnceWith({ command: 'setLightPreference', setting: 'onPrintStart', enabled: true })
   await act(async () => { reply(false) })
   view.rerender(<SettingsPage {...result.current.pageProps} />)
-  expect(screen.getByRole('alert')).toHaveTextContent('Не удалось включить автосвет')
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('Не удалось включить автосвет')
   expect(result.current.pageProps.cloud.isAiMonitoringEnabled).toBe(false)
   expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0)
   fireEvent.click(screen.getByRole('button', { name: 'Включить свет' }))

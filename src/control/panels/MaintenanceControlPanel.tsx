@@ -158,7 +158,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
             ТО выполнено
           </button>
           {completionError ? (
-            <small className="maintenance-overview-completion-error" role="alert">{completionError}</small>
+            <small className="maintenance-overview-completion-error" data-notice="error">{completionError}</small>
           ) : null}
         </div>
       </section>
@@ -186,7 +186,7 @@ export const MaintenanceControlPanel = memo(function MaintenanceControlPanel({
               Общий пробег {runtimeHoursLabel} будет сохранён как начало нового межсервисного цикла.
               Текущий прогресс сбросится до нуля.
             </p>
-            {completionError ? <p className="maintenance-complete-dialog-error" role="alert">{completionError}</p> : null}
+            {completionError ? <p className="maintenance-complete-dialog-error" data-notice="error">{completionError}</p> : null}
             <div>
               <button
                 type="button"

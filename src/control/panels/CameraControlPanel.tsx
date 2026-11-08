@@ -68,7 +68,7 @@ export function CameraControlPanel({ onBack }: { onBack: () => void }) {
               <text x={x1 + 6} y={Math.max(size.width / 60, y1 - 8)} fontSize={Math.max(16, size.width / 60)}>Деталь</text>
             </g>)}
           </svg>}
-          {notice && <p className={`camera-inspector-notice ${!preview ? 'is-empty' : ''} ${danger ? 'is-danger' : ''}`} role="status">{notice}</p>}
+          {notice && <p className={`camera-inspector-notice ${!preview ? 'is-empty' : ''} ${danger ? 'is-danger' : ''}`} data-notice="status">{notice}</p>}
         </div>
         <aside className={`camera-inspector-confidence ${danger ? 'is-danger' : ''}`} aria-label="Анализ спагетти">
           <button className="camera-inspector-back" ref={back} type="button" onClick={onBack}>Назад</button>

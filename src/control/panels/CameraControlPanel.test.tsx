@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { requestCameraPreview } from '#runtime'
 import type { CameraPreview } from '../../core/hostDetection'
 import { CameraControlPanel } from './CameraControlPanel'
+import { noticeScreen } from '../../test/noticeQueries'
 
 vi.mock('#runtime', () => ({ runtimeMode: 'live', requestCameraPreview: vi.fn() }))
 
@@ -54,14 +55,14 @@ describe('CameraControlPanel', () => {
     expect(screen.getByRole('meter')).toHaveAttribute('aria-valuenow', '91')
     await act(async () => { vi.advanceTimersByTime(13_000) })
     expect(screen.queryByRole('meter')).not.toBeInTheDocument()
-    expect(screen.getByRole('status')).toHaveTextContent('Кадр устарел')
+    expect(noticeScreen.getByNotice('status')).toHaveTextContent('Кадр устарел')
   })
 
   it('shows transport failures instead of inventing zero confidence', async () => {
     vi.mocked(requestCameraPreview).mockRejectedValue(new Error('Камера недоступна'))
     render(<CameraControlPanel onBack={vi.fn()} />)
     await act(async () => { await Promise.resolve() })
-    expect(screen.getByRole('status')).toHaveTextContent('Камера недоступна')
+    expect(noticeScreen.getByNotice('status')).toHaveTextContent('Камера недоступна')
     expect(screen.queryByRole('meter')).not.toBeInTheDocument()
   })
 

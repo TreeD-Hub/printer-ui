@@ -17,9 +17,9 @@ describe('попап уведомлений принтера', () => {
     render(<PrinterNotificationPopup enabled activeScreen="control" readTopPopupPosition={readTopPopupPosition} />)
 
     expect(readTopPopupPosition).toHaveBeenCalledWith('notifications')
-    expect(screen.getByRole('alertdialog')).toHaveStyle({ top: '90px', left: '154px' })
+    expect(screen.getByRole('dialog')).toHaveStyle({ top: '90px', left: '154px' })
     fireEvent.click(screen.getByRole('button', { name: 'Закрыть уведомление' }))
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(getPrinterNotifications().history).toContain(entry)
   })
 
@@ -28,10 +28,10 @@ describe('попап уведомлений принтера', () => {
     const entry = getPrinterNotifications().popup
     const readTopPopupPosition = vi.fn(() => ({ top: 90, left: 154, arrowLeft: 180 }))
     const { rerender } = render(<PrinterNotificationPopup enabled activeScreen="control" readTopPopupPosition={readTopPopupPosition} />)
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
 
     rerender(<PrinterNotificationPopup enabled activeScreen="dashboard" readTopPopupPosition={readTopPopupPosition} />)
-    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(screen.queryByRole('dialog')).toBeNull()
     expect(getPrinterNotifications().history).toContain(entry)
   })
 

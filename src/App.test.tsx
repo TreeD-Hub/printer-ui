@@ -17,6 +17,7 @@ import {
 import { getPrinterConnectionState, isPrintJobActive, type PrinterSnapshot } from './core/transport/types'
 import { PRINT_FILE_LIBRARY } from './printFiles'
 import { createLoadingMoonrakerSystemStatus, type MoonrakerSystemStatus } from './settings/systemStatus'
+import { noticeScreen } from './test/noticeQueries'
 
 const systemStatusMock = vi.hoisted(() => ({
   status: undefined as MoonrakerSystemStatus | undefined,
@@ -221,7 +222,6 @@ describe('App', () => {
     const diagnostic = within(idleDashboard).getByTestId('dashboard-diagnostic')
     expect(diagnostic).toBeInTheDocument()
     expect(diagnostic).toHaveClass('is-fatal')
-    expect(diagnostic).toHaveAttribute('aria-live', 'assertive')
     expect(within(idleDashboard).getByText('Klipper остановлен')).toBeInTheDocument()
     expect(within(idleDashboard).getByText("Lost communication with MCU 'eddy'")).toBeInTheDocument()
     expect(within(idleDashboard).getByTestId('idle-widget-temperature')).toBeInTheDocument()
@@ -1513,7 +1513,7 @@ describe('App', () => {
         ]),
       )
     })
-    expect(within(screen.getByRole('log', { name: 'Команды и ответы принтера' })).getByText('G28')).toBeInTheDocument()
+    expect(within(noticeScreen.getByNotice('log', { name: 'Команды и ответы принтера' })).getByText('G28')).toBeInTheDocument()
   })
 
   it('shows disabled cloud capability state instead of QR redirect', async () => {
@@ -1614,7 +1614,7 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(getMockCommandOperations()).toContainEqual({ command: 'firmwareRestart' })
-      expect(screen.getByRole('status')).toHaveTextContent('Прошивка MCU перезапускается')
+      expect(noticeScreen.getByNotice('status')).toHaveTextContent('Прошивка MCU перезапускается')
       expect(systemStatusMock.refresh).toHaveBeenCalled()
     })
     expect(screen.getByRole('button', { name: 'Перезапуск Moonraker' })).toBeDisabled()

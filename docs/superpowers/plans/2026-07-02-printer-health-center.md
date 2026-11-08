@@ -40,8 +40,8 @@
 - Modify: `src/dashboard/DashboardDiagnosticView.tsx`
 - Modify: `src/dashboard/dashboardDiagnostic.css`
 
-- [ ] Добавить failing-проверку `aria-live="assertive"` для fatal-снимка в resolver/App тесте.
-- [ ] Использовать assertive для `fatal` и `error`; fatal визуально использует существующий error-токен.
+- [ ] Проверить видимое предупреждение fatal-снимка в resolver/App тесте.
+- [ ] Для `fatal` и `error` показывать видимое предупреждение; fatal использует существующий error-токен.
 - [ ] Запустить адресные тесты и получить PASS.
 
 ### Task 4: Проверить полный затронутый контур

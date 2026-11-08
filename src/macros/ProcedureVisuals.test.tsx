@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it } from 'vitest'
 import { ShaperSpectrum } from './ProcedureVisuals'
 import { parseShaperSpectrumCsv } from './shaperResonanceCsv'
+import { noticeScreen } from '../test/noticeQueries'
 
 afterEach(cleanup)
 
@@ -30,5 +31,5 @@ it('рисует только фактические точки выбранно
   expect(graph).toHaveTextContent('PSD')
   view.rerender(<ShaperSpectrum axes={axes} axis="y" onAxisChange={() => {}} loading={false} />)
   expect(screen.queryByRole('img')).not.toBeInTheDocument()
-  expect(screen.getByRole('status')).toHaveTextContent('Спектр Y не получен')
+  expect(noticeScreen.getByNotice('status')).toHaveTextContent('Спектр Y не получен')
 })

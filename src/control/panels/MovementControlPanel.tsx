@@ -331,7 +331,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           <p className="control-card-state">Парковка...</p>
         ) : null}
         {commandBlockReasons.parking.all !== null || commandBlockReasons.disableMotors !== null ? (
-          <p className="control-block-reason" id="movement-block-reason" role="status">
+          <p className="control-block-reason" id="movement-block-reason" data-notice="status">
             {commandBlockReasons.parking.all ?? commandBlockReasons.disableMotors}
           </p>
         ) : null}
@@ -339,8 +339,7 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           <div
             key={parkingLockPopup.id}
             className="control-lock-popup"
-            role="alertdialog"
-            aria-live="assertive"
+            role="dialog"
             aria-label="Причина блокировки"
             data-testid="movement-lock-popup"
           >
@@ -361,7 +360,6 @@ export const MovementControlPanel = memo(function MovementControlPanel({
             className={`control-target-btn ${activeControlFlashKey === 'parking-all' ? 'is-active' : ''}`}
             aria-pressed={activeControlFlashKey === 'parking-all'}
             aria-disabled={commandBlockReasons.parking.all !== null || undefined}
-            aria-describedby={commandBlockReasons.parking.all !== null ? 'movement-block-reason' : undefined}
             data-testid="parking-mode-all"
             onClick={() => void handleParkingSelect('all')}
             disabled={isMotionBusy}
@@ -404,7 +402,6 @@ export const MovementControlPanel = memo(function MovementControlPanel({
           data-testid="motors-disable-button"
           onClick={() => void handleMotorsDisableClick()}
           aria-disabled={commandBlockReasons.disableMotors !== null || undefined}
-          aria-describedby={commandBlockReasons.disableMotors !== null ? 'movement-block-reason' : undefined}
           disabled={isMotionBusy}
         >
           Отключить моторы
@@ -569,8 +566,7 @@ const AxisMotionPanel = memo(function AxisMotionPanel({
         <div
           key={lockPopup.id}
           className="control-lock-popup"
-          role="alertdialog"
-          aria-live="assertive"
+          role="dialog"
           aria-label="Причина блокировки"
           data-testid="movement-lock-popup"
         >

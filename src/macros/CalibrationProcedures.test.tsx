@@ -4,6 +4,7 @@ import { createMockSnapshot } from '../../mocks/runtime'
 import { receivePrinterGcodeResponse } from '../core/store/printerNotifications'
 import { MacrosContainer } from './MacrosContainer'
 import type { PrinterCalibrationSnapshot, PrinterShaperResonanceReport } from '../core/transport/types'
+import { noticeScreen } from '../test/noticeQueries'
 
 vi.mock('./EddyCalibrationScreen', () => ({
   EddyCalibrationScreen: ({ initialProcedure, onBackToList }: { initialProcedure: string; onBackToList: () => void }) => <div data-testid="eddy-initial-procedure">{initialProcedure}<button type="button" onClick={onBackToList}>К списку</button></div>,
@@ -99,9 +100,9 @@ it.each([
   })
 
   await waitFor(() => expect(screen.getByRole('region', { name: 'Подробности процедуры' })).toBeInTheDocument())
-  expect(screen.getByRole('status', { name: label })).toHaveTextContent(x)
-  expect(screen.getByRole('status', { name: label })).toHaveTextContent(y)
-  expect(screen.getByRole('status', { name: label })).toHaveTextContent(z)
+  expect(noticeScreen.getByNotice('status', { name: label })).toHaveTextContent(x)
+  expect(noticeScreen.getByNotice('status', { name: label })).toHaveTextContent(y)
+  expect(noticeScreen.getByNotice('status', { name: label })).toHaveTextContent(z)
   expect(screen.queryByRole('button', { name: 'Сохранить и перезапустить' })).not.toBeInTheDocument()
   expect(screen.queryByText(/adxl345 values|axes noise/i)).not.toBeInTheDocument()
 })
@@ -121,17 +122,17 @@ it('переключает результат query на новую диагно
     receivePrinterGcodeResponse('adxl345 values (x, y, z): 0.124, -0.086, 9.812')
     await Promise.resolve()
   })
-  expect(await screen.findByRole('status', { name: 'Показания акселерометра' })).toHaveTextContent('-0.086')
+  expect(await noticeScreen.findByNotice('status', { name: 'Показания акселерометра' })).toHaveTextContent('-0.086')
   fireEvent.click(screen.getByRole('button', { name: 'Измерить шум' }))
   await act(async () => {
     receivePrinterGcodeResponse('Axes noise for xyz-axis accelerometer: 0.021 (x), 0.032 (y), 0.043 (z)')
     await Promise.resolve()
   })
-  const noise = await screen.findByRole('status', { name: 'Шум акселерометра' })
+  const noise = await noticeScreen.findByNotice('status', { name: 'Шум акселерометра' })
   expect(noise).toHaveTextContent('0.021')
   expect(noise).toHaveTextContent('0.032')
   expect(noise).toHaveTextContent('0.043')
-  expect(screen.queryByRole('status', { name: 'Показания акселерометра' })).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('status', { name: 'Показания акселерометра' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Считать ADXL' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'К тесту резонансов' })).toHaveClass('is-primary')
   fireEvent.click(screen.getByRole('button', { name: 'К тесту резонансов' }))
@@ -166,7 +167,7 @@ it('подтверждает shaper save после restart/disconnect толь�
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить и перезапустить' }))
   expect(execute).toHaveBeenLastCalledWith({ command: 'consoleGcode', script: 'TREED_SAVE_CONFIG' })
   expect(document.querySelector('.calibration-procedure-visual')).toBeInTheDocument()
-  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toBeInTheDocument()
+  expect(noticeScreen.getByNotice('status', { name: 'Рекомендация по шейперу' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Сохранение…' })).toBeDisabled()
 
   const restart = { ...snapshot, updatedAt: 'restart-disconnected', klippy: { state: 'disconnected' as const, message: 'restart' } }
@@ -201,11 +202,11 @@ it('сравнивает текущие настройки шейпера с р�
     receivePrinterGcodeResponse('Recommended shaper_type_y = mzv, shaper_freq_y = 55.0 Hz')
     await Promise.resolve()
   })
-  const result = await screen.findByRole('status', { name: 'Рекомендация по шейперу' })
+  const result = await noticeScreen.findByNotice('status', { name: 'Рекомендация по шейперу' })
   expect(result).toHaveTextContent('Рекомендовано')
   expect(result).toHaveTextContent('EI45.0 Гц')
   fireEvent.click(screen.getByRole('tab', { name: 'Y' }))
-  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('Рекомендовано · YMZV55.0 Гц')
+  expect(noticeScreen.getByNotice('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('Рекомендовано · YMZV55.0 Гц')
   fireEvent.click(screen.getByRole('button', { name: 'Подробнее' }))
   expect(screen.getByLabelText('Сейчас и рекомендовано')).toHaveTextContent('mzv · 40.0 Гц')
   expect(screen.getByLabelText('Сейчас и рекомендовано')).toHaveTextContent('ei · 45.0 Гц')
@@ -231,7 +232,7 @@ it('при непринятом измерении отдаёт место со�
   renderCatalog(shaperSnapshot(), vi.fn().mockResolvedValue(false))
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' }))
-  expect(await screen.findByRole('alert')).toHaveTextContent('Команда не подтверждена')
+  expect(await noticeScreen.findByNotice('error')).toHaveTextContent('Команда не подтверждена')
   expect(document.querySelector('.motion-study')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Ожидаем завершения' })).toBeDisabled()
@@ -257,7 +258,7 @@ it.each([
   await act(async () => Promise.resolve())
   expect(screen.queryByRole('button', { name: 'Завершить' })).not.toBeInTheDocument()
   const expectedError = result instanceof Error ? 'RPC failed' : 'Команда не подтверждена'
-  expect(screen.getAllByRole('alert').some((alert) => alert.textContent?.includes(expectedError))).toBe(true)
+  expect(noticeScreen.getAllByNotice('error').some((alert) => alert.textContent?.includes(expectedError))).toBe(true)
 })
 
 it('после таймаута save показывает неопределённый результат и оставляет только аварийную остановку', async () => {
@@ -273,7 +274,7 @@ it('после таймаута save показывает неопределён
   fireEvent.click(screen.getByRole('button', { name: 'Сохранить и перезапустить' }))
   await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
 
-  expect(screen.getByRole('alert')).toHaveTextContent('Состояние принтера неизвестно')
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('Состояние принтера неизвестно')
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Ожидаем завершения' })).toBeDisabled()
 })
@@ -300,16 +301,16 @@ it('проходит ADXL → подготовка → свежие X/Y спек
   fireEvent.click(screen.getByRole('button', { name: 'К тесту резонансов' }))
   await act(async () => { receivePrinterGcodeResponse('Recommended shaper_type_y = zv, shaper_freq_y = 99.0 Hz') })
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' })))
-  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('EI51.4 Гц')
+  expect(noticeScreen.getByNotice('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('EI51.4 Гц')
   expect(screen.getByText('Получаем спектр…')).toBeInTheDocument()
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Повторить замер' })))
   expect(await screen.findByRole('img', { name: 'Измеренный спектр резонансов X' })).toHaveTextContent('1.2e+1')
   fireEvent.click(screen.getByRole('tab', { name: 'Y' }))
   expect(screen.getByRole('img', { name: 'Измеренный спектр резонансов Y' })).toBeInTheDocument()
-  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('MZV42.2 Гц')
+  expect(noticeScreen.getByNotice('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('MZV42.2 Гц')
   await act(async () => { resolveOld(spectrumReport('late', 100)); receivePrinterGcodeResponse('Recommended shaper_type_y = zv, shaper_freq_y = 99.0 Hz') })
   expect(screen.getByRole('img')).toHaveTextContent('1.2e+1')
-  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).not.toHaveTextContent('99.0')
+  expect(noticeScreen.getByNotice('status', { name: 'Рекомендация по шейперу' })).not.toHaveTextContent('99.0')
   expect(fetch).toHaveBeenCalledTimes(4)
 })
 
@@ -323,7 +324,7 @@ it.each(['unchanged', 'baseline failure', 'malformed'] as const)('не пока�
   expect(screen.queryByRole('img')).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Сохранить и перезапустить' })).toBeEnabled()
   if (kind === 'unchanged') expect(screen.getByText(/Данные спектра не получены/)).toBeInTheDocument()
-  else expect(screen.getByRole('alert')).toHaveTextContent(/Ошибка.*спектра/)
+  else expect(noticeScreen.getByNotice('error')).toHaveTextContent(/Ошибка.*спектра/)
 })
 
 it('повторный запуск без собственных рекомендаций не принимает старые ответы', async () => {
@@ -335,8 +336,8 @@ it('повторный запуск без собственных рекомен
   vi.useFakeTimers()
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Повторить замер' })))
   await act(async () => { await vi.advanceTimersByTimeAsync(90_000) })
-  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
-  expect(screen.getByRole('alert')).toHaveTextContent('не вернул рекомендации для обеих осей')
+  expect(noticeScreen.queryByNotice('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('не вернул рекомендации для обеих осей')
 })
 
 it('повторно проверяет готовность после асинхронного baseline до отправки движения', async () => {
@@ -351,7 +352,7 @@ it('повторно проверяет готовность после асин
   view.rerender(<MacrosContainer snapshot={{ ...snapshot, transport: { ...snapshot.transport, state: 'offline' } }} {...props} />)
   await act(async () => { resolveBaseline(spectrumReport('baseline')) })
   expect(execute).not.toHaveBeenCalled()
-  expect(screen.getByRole('alert')).toHaveTextContent('Нужно подключение к готовому принтеру')
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('Нужно подключение к готовому принтеру')
 })
 
 it('удерживает активность ADXL → подготовка → результат → перезапуск до явного Завершить', async () => {
@@ -377,7 +378,7 @@ it('удерживает активность ADXL → подготовка → 
   view.rerender(<MacrosContainer snapshot={{ ...snapshot, klippy: { state: 'disconnected', message: 'restart' } }} {...props} />)
   view.rerender(<MacrosContainer snapshot={{ ...snapshot, updatedAt: 'ready-after-restart', calibration: { ...snapshot.calibration!, config: { savePending: false, pendingSections: [] } } }} {...props} />)
   expect(await screen.findByRole('button', { name: 'Завершить' })).toBeEnabled()
-  expect(screen.getByText('Калибровка завершена успешно. Настройки сохранены.')).toHaveAttribute('role', 'status')
+  expect(screen.getByText('Калибровка завершена успешно. Настройки сохранены.')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Измерить резонансы' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
   expect(activity).toHaveBeenLastCalledWith(true)
@@ -430,7 +431,7 @@ it.each([
   expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
   expect(activity).toHaveBeenLastCalledWith(false)
   await act(async () => { shaperResponses(); finish(lateResult); await Promise.resolve() })
-  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
   expect(execute).toHaveBeenCalledTimes(1)
 
   expect(onViewChange.mock.calls).toEqual([[true], [false]])
@@ -455,7 +456,7 @@ it('завершает pending shaper save при подтверждённом s
   expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
   expect(activity).toHaveBeenLastCalledWith(false)
   await act(async () => { finishSave(true); await Promise.resolve() })
-  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
   expect(execute).toHaveBeenCalledTimes(2)
 })
 
@@ -518,10 +519,10 @@ it('ждёт websocket-рекомендации X и Y после раннего
   expect(screen.queryByRole('button', { name: 'Сохранить и перезапустить' })).not.toBeInTheDocument()
   await act(async () => { receivePrinterGcodeResponse('Recommended shaper_type_x = ei, shaper_freq_x = 51.4 Hz') })
   expect(fetch).toHaveBeenCalledTimes(1)
-  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
   await act(async () => { receivePrinterGcodeResponse('Recommended shaper_type_y = mzv, shaper_freq_y = 42.2 Hz') })
   expect(await screen.findByRole('img', { name: 'Измеренный спектр резонансов X' })).toBeInTheDocument()
-  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('EI51.4 Гц')
+  expect(noticeScreen.getByNotice('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('EI51.4 Гц')
   expect(fetch).toHaveBeenCalledTimes(2)
 })
 
@@ -533,13 +534,13 @@ it('ограничивает ожидание второй рекомендац�
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' })))
   await act(async () => { receivePrinterGcodeResponse('Recommended shaper_type_x = ei, shaper_freq_x = 51.4 Hz'); await vi.advanceTimersByTimeAsync(89_999) })
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('error')).not.toBeInTheDocument()
   await act(async () => { await vi.advanceTimersByTimeAsync(1) })
-  expect(screen.getByRole('alert')).toHaveTextContent('за 90 секунд')
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('за 90 секунд')
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
   expect(activity).toHaveBeenLastCalledWith(true)
   await act(async () => { receivePrinterGcodeResponse('Recommended shaper_type_y = mzv, shaper_freq_y = 42.2 Hz') })
-  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
   expect(fetch).toHaveBeenCalledTimes(1)
 })
 
@@ -553,16 +554,16 @@ it('отмена обрывает ожидание текущего запуск
   await act(async () => { receivePrinterGcodeResponse('Recommended shaper_type_x = zv, shaper_freq_x = 99.0 Hz') })
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' })))
   await act(async () => { shaperResponses(); await vi.advanceTimersByTimeAsync(90_000) })
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('error')).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
   expect(fetch).toHaveBeenCalledTimes(1)
   expect(screen.getByTestId('calibration-catalog')).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: /Шейпер и ADXL/ }))
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Измерить резонансы' })))
   expect(fetch).toHaveBeenCalledTimes(2)
-  expect(screen.queryByRole('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('status', { name: 'Рекомендация по шейперу' })).not.toBeInTheDocument()
   await act(async () => { receivePrinterGcodeResponse('Recommended shaper_type_x = ei, shaper_freq_x = 51.4 Hz'); receivePrinterGcodeResponse('Recommended shaper_type_y = mzv, shaper_freq_y = 42.2 Hz') })
-  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('EI51.4 Гц')
-  expect(screen.getByRole('status', { name: 'Рекомендация по шейперу' })).not.toHaveTextContent('99.0')
+  expect(noticeScreen.getByNotice('status', { name: 'Рекомендация по шейперу' })).toHaveTextContent('EI51.4 Гц')
+  expect(noticeScreen.getByNotice('status', { name: 'Рекомендация по шейперу' })).not.toHaveTextContent('99.0')
   expect(fetch).toHaveBeenCalledTimes(3)
 })
