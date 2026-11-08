@@ -10,7 +10,7 @@ const queryAll = (container: HTMLElement, notice: Notice, { name }: Options = {}
     return typeof name === 'string' ? label === name : name.test(label)
   })
 
-const [queryByNotice, getAllByNotice, getByNotice, , findByNotice] = buildQueries(
+const [queryByNotice, getAllByNotice, getByNotice, , findByNotice] = buildQueries<[Notice, Options?]>(
   queryAll,
   (_, notice) => `Найдено несколько сообщений ${notice}`,
   (_, notice) => `Сообщение ${notice} не найдено`,
