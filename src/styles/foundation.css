@@ -28,6 +28,7 @@
   --color-primary-light: #ff5a5a; /* Светлый красный для активного текста. */
   --color-primary-dark: #b91414; /* Тёмный красный для нажатых состояний. */
   --color-success: #d9f7e5; /* Светлый терминальный success без зелёного доминирования. */
+  --color-calibration-ready: #4ade80; /* Зелёный индикатор подтверждённой калибровки. */
   --color-warning: #fff0b8; /* Тёплый warning, читаемый на чёрном фоне. */
   --color-cooling: #b9e6f2; /* Ледяной акцент отключения нагрева. */
   --color-temperature-nozzle: var(--color-primary); /* Сопло: линия графика и её легенда. */
@@ -189,6 +190,7 @@
   --color-control-disabled-text: #858585;
   --color-selection: var(--color-primary);
   --color-success: #315b44;
+  --color-calibration-ready: #15803d;
   --color-warning: #755400;
   --color-cooling: #246174;
   --color-text-primary: #232323;

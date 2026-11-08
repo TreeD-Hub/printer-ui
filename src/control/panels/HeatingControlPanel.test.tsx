@@ -198,7 +198,7 @@ describe('HeatingControlPanel', () => {
     rerender(<HeatingControlPanel {...props} />)
     fireEvent.keyDown(slider, { key: 'End' })
     expect(props.rows[0].onTargetChange).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('Нет связи с принтером.')
+    expect(screen.getByRole('dialog')).toHaveTextContent('Нет связи с принтером.')
   })
 
   it.each([['Загрузить', -1], ['Выгрузить', 1]] as const)('uses the selected distance for %s and prevents duplicate filament commands', (label, direction) => {
@@ -220,6 +220,6 @@ describe('HeatingControlPanel', () => {
     render(<HeatingControlPanel {...props} />)
     fireEvent.click(screen.getByRole('button', { name: 'Загрузить' }))
     expect(props.filament.onFilamentMove).not.toHaveBeenCalled()
-    expect(screen.getByRole('alertdialog')).toHaveTextContent('170°C')
+    expect(screen.getByRole('dialog')).toHaveTextContent('170°C')
   })
 })

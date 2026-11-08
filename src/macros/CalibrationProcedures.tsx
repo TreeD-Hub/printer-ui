@@ -398,36 +398,36 @@ function CalibrationProcedures({ snapshot, pendingCommand, executeCommand, getCo
             <p>Спектр показывает измеренный PSD_xyz из CSV текущего запуска. Частота — в Гц; физическая единица PSD источником не задана.</p>
             <div className="calibration-shaper-comparison" aria-label="Сейчас и рекомендовано"><div className="calibration-comparison-head"><span>Ось</span><span>Сейчас</span><span>Рекомендовано</span></div>{(['x', 'y'] as const).map((axis) => <div key={axis}><strong>{axis.toUpperCase()}</strong><span>{axis === 'x' ? currentShaper?.typeX ?? '—' : currentShaper?.typeY ?? '—'} · {(axis === 'x' ? currentShaper?.freqXHz : currentShaper?.freqYHz)?.toFixed(1) ?? '—'} Гц</span><span>{axis === 'x' ? shaperTarget.typeX ?? '—' : shaperTarget.typeY ?? '—'} · {(axis === 'x' ? shaperTarget.freqXHz : shaperTarget.freqYHz)?.toFixed(1) ?? '—'} Гц</span></div>)}</div>
             {adxlDiagnostic && <p>{adxlDiagnostic.kind === 'noise' ? `Оси датчика: ${adxlDiagnostic.chipAxes}. Порог нормы не задан.` : 'Показания из ответа датчика; это не временной график.'}</p>}
-            {adxlDiagnostic && <dl className="calibration-adxl-values" role="status" aria-label={adxlDiagnostic.kind === 'query' ? 'Показания акселерометра' : 'Шум акселерометра'}><div><dt>X</dt><dd>{adxlDiagnostic.x.toFixed(3)}</dd></div><div><dt>Y</dt><dd>{adxlDiagnostic.y.toFixed(3)}</dd></div><div><dt>Z</dt><dd>{adxlDiagnostic.z.toFixed(3)}</dd></div></dl>}
+            {adxlDiagnostic && <dl className="calibration-adxl-values" data-notice="status" aria-label={adxlDiagnostic.kind === 'query' ? 'Показания акселерометра' : 'Шум акселерометра'}><div><dt>X</dt><dd>{adxlDiagnostic.x.toFixed(3)}</dd></div><div><dt>Y</dt><dd>{adxlDiagnostic.y.toFixed(3)}</dd></div><div><dt>Z</dt><dd>{adxlDiagnostic.z.toFixed(3)}</dd></div></dl>}
             <div className="calibration-action-row"><button type="button" disabled={blockedCommand({ command: 'accelerometerQuery' }) !== null || isBlocking || baselinePreparing} title={blockedCommand({ command: 'accelerometerQuery' }) ?? undefined} onClick={() => void runAdxlDiagnostic('query')}>Считать ADXL</button><button type="button" disabled={blockedCommand({ command: 'accelerometerMeasureNoise' }) !== null || isBlocking || baselinePreparing} title={blockedCommand({ command: 'accelerometerMeasureNoise' }) ?? undefined} onClick={() => void runAdxlDiagnostic('noise')}>Измерить шум</button></div>
-            {(blockedCommand({ command: 'accelerometerQuery' }) || blockedCommand({ command: 'accelerometerMeasureNoise' })) && <p className="calibration-blocked-diagnostics" role="status">{blockedCommand({ command: 'accelerometerQuery' }) && <>ADXL: {blockedCommand({ command: 'accelerometerQuery' })}</>}{blockedCommand({ command: 'accelerometerMeasureNoise' }) && blockedCommand({ command: 'accelerometerMeasureNoise' }) !== blockedCommand({ command: 'accelerometerQuery' }) && <> Шум: {blockedCommand({ command: 'accelerometerMeasureNoise' })}</>}</p>}
-            {message && <p role="alert">{message}</p>}
+            {(blockedCommand({ command: 'accelerometerQuery' }) || blockedCommand({ command: 'accelerometerMeasureNoise' })) && <p className="calibration-blocked-diagnostics" data-notice="status">{blockedCommand({ command: 'accelerometerQuery' }) && <>ADXL: {blockedCommand({ command: 'accelerometerQuery' })}</>}{blockedCommand({ command: 'accelerometerMeasureNoise' }) && blockedCommand({ command: 'accelerometerMeasureNoise' }) !== blockedCommand({ command: 'accelerometerQuery' }) && <> Шум: {blockedCommand({ command: 'accelerometerMeasureNoise' })}</>}</p>}
+            {message && <p data-notice="error">{message}</p>}
           </>}
         </section> : <>
         <section className="calibration-procedure-visual" aria-label="Измерение резонансов">
           {shaperRecommendation ? <ShaperSpectrum axes={spectra} axis={spectrumAxis} onAxisChange={setSpectrumAxis} loading={spectrumLoading} /> : <MotionStudy diagnostic={shaperAction === 'adxlQuery' ? 'query' : shaperAction === 'adxlNoise' ? 'noise' : null} />}
         </section>
         <div className="calibration-procedure-details">
-        {snapshot.transport.state !== 'online' && <p role="status">Последние данные; связи нет.</p>}
+        {snapshot.transport.state !== 'online' && <p data-notice="status">Последние данные; связи нет.</p>}
         {procedure === 'shaper' && <>
           {stage === 'idle' && <section className="calibration-procedure-stage">
             <p>Освободите зону движения. Измеряем резонансы X/Y.</p>
             <div className="calibration-choice-row"><button type="button" aria-pressed={shaperMode === 'full'} disabled={isBlocking || baselinePreparing} onClick={() => setShaperMode('full')}>Полный тест</button><button type="button" aria-pressed={shaperMode === 'light'} disabled={isBlocking || baselinePreparing} onClick={() => setShaperMode('light')}>Лёгкий прогон</button></div>
-            {!calibration?.shaper && <p role="status">Нет данных шейпера; сохранение нельзя подтвердить.</p>}
+            {!calibration?.shaper && <p data-notice="status">Нет данных шейпера; сохранение нельзя подтвердить.</p>}
           </section>}
           {stage === 'running' && !savingShaper && <section className="calibration-procedure-stage"><h3>Измеряем…</h3></section>}
           {(stage === 'result' || shaperRecommendation) && <section className="calibration-procedure-stage"><h3>{shaperAction === 'calibration' ? stage === 'saved' ? 'Калибровка сохранена' : savingShaper ? 'Сохранение калибровки' : 'Результат калибровки' : 'Диагностика ADXL'}</h3>
-            {shaperAction === 'calibration' && shaperResultValid && <div className="calibration-primary-readout" role="status" aria-label="Рекомендация по шейперу"><span>Рекомендовано · {spectrumAxis.toUpperCase()}</span><strong>{(spectrumAxis === 'x' ? shaperTarget.typeX : shaperTarget.typeY)?.toUpperCase()}</strong><strong>{(spectrumAxis === 'x' ? shaperTarget.freqXHz : shaperTarget.freqYHz)?.toFixed(1)} <small>Гц</small></strong></div>}
-            {shaperAction === 'calibration' && stage === 'result' && shaperSaveBlock && <p role="status">{shaperSaveBlock}</p>}
-            {stage === 'saving' && <p role="status">Настройки сохраняются. Ожидаем готовность принтера.</p>}
+            {shaperAction === 'calibration' && shaperResultValid && <div className="calibration-primary-readout" data-notice="status" aria-label="Рекомендация по шейперу"><span>Рекомендовано · {spectrumAxis.toUpperCase()}</span><strong>{(spectrumAxis === 'x' ? shaperTarget.typeX : shaperTarget.typeY)?.toUpperCase()}</strong><strong>{(spectrumAxis === 'x' ? shaperTarget.freqXHz : shaperTarget.freqYHz)?.toFixed(1)} <small>Гц</small></strong></div>}
+            {shaperAction === 'calibration' && stage === 'result' && shaperSaveBlock && <p data-notice="status">{shaperSaveBlock}</p>}
+            {stage === 'saving' && <p data-notice="status">Настройки сохраняются. Ожидаем готовность принтера.</p>}
           </section>}
         </>}
-        {stage === 'stopped' && <p role="status">Аварийная остановка принята. Проверьте принтер до новой калибровки.</p>}
-        {message && <p role="alert">{message}</p>}
+        {stage === 'stopped' && <p data-notice="status">Аварийная остановка принята. Проверьте принтер до новой калибровки.</p>}
+        {message && <p data-notice="error">{message}</p>}
         </div>
         </>}
       </main>
-      <div className="calibration-procedure-status" role="status">{operationUncertain || message ? 'Нет подтверждения. Проверьте принтер перед продолжением.' : savingShaper ? 'Ожидаем сохранения и перезапуска принтера.' : baselinePreparing ? 'Читаем исходные данные.' : stage === 'running' ? 'Измерение выполняется. Не трогайте принтер.' : stage === 'saved' ? 'Калибровка завершена успешно. Настройки сохранены.' : stage === 'result' && shaperAction === 'calibration' ? 'Сохранение перезапустит принтер.' : stage === 'error' ? 'Нет подтверждения от принтера.' : stage === 'stopped' ? 'Остановлено. Проверьте принтер.' : blockedCommand(shaperArgs) ?? ''}</div>
+      <div className="calibration-procedure-status" data-notice="status">{operationUncertain || message ? 'Нет подтверждения. Проверьте принтер перед продолжением.' : savingShaper ? 'Ожидаем сохранения и перезапуска принтера.' : baselinePreparing ? 'Читаем исходные данные.' : stage === 'running' ? 'Измерение выполняется. Не трогайте принтер.' : stage === 'saved' ? 'Калибровка завершена успешно. Настройки сохранены.' : stage === 'result' && shaperAction === 'calibration' ? 'Сохранение перезапустит принтер.' : stage === 'error' ? 'Нет подтверждения от принтера.' : stage === 'stopped' ? 'Остановлено. Проверьте принтер.' : blockedCommand(shaperArgs) ?? ''}</div>
       <footer className="calibration-procedure-footer">
         <div className="calibration-footer-emergency">{sessionActive.current && <button type="button" className="is-danger" disabled={commandReason('emergencyStop') !== null} onClick={() => void run({ command: 'emergencyStop' }, () => endStoppedWorkflow(true), false)}>Аварийная остановка</button>}</div>
         <div className="calibration-footer-secondary">{stage === 'result' && shaperAction === 'calibration' && <button type="button" className="is-secondary" disabled={blockedCommand(shaperArgs) !== null || baselinePreparing} onClick={() => void startShaper()}>Повторить замер</button>}</div>

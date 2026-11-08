@@ -139,7 +139,7 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
                 <p>Локальный пакет v{status.active_package.version} · {status.active_package.state}</p>
                 <p>Выполнено: {status.active_package.run_count} · Осталось: {status.active_package.remaining_count}</p>
                 {(status.hold || status.recovery_required) && (
-                  <p role="alert">{status.recovery_required ? 'Требуется восстановление очереди.' : 'Серия удерживается.'}{status.hold?.reason ? ` Причина: ${status.hold.reason}` : ''}</p>
+                  <p data-notice="error">{status.recovery_required ? 'Требуется восстановление очереди.' : 'Серия удерживается.'}{status.hold?.reason ? ` Причина: ${status.hold.reason}` : ''}</p>
                 )}
                 <button type="button" disabled={!canControlLocalSeries || pending !== null || status.active_package.remaining_count < 1}
                   onClick={() => { void controller.cancelRemaining() }}>
@@ -148,7 +148,7 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
               </div>
             )}
             {isCurrent && !status.active_package && (status.hold || status.recovery_required) && (
-              <p role="alert">{status.recovery_required ? 'Требуется восстановление очереди.' : 'Очередь удерживается.'}{status.hold?.reason ? ` Причина: ${status.hold.reason}` : ''}</p>
+              <p data-notice="error">{status.recovery_required ? 'Требуется восстановление очереди.' : 'Очередь удерживается.'}{status.hold?.reason ? ` Причина: ${status.hold.reason}` : ''}</p>
             )}
             {hasSeriesHold && (
               <button className="autoprinter-local-resume" type="button" disabled={!canControlLocalSeries || pending !== null}
@@ -174,7 +174,7 @@ export function AutoPrinterPanel({ controller, moonrakerConnected, onOpenDashboa
       )}
 
       <footer className="autoprinter-footer">
-        <p role={error || lastAction?.state === 'rejected' || lastAction?.state === 'uncertain' ? 'alert' : 'status'}>
+        <p data-notice={error || lastAction?.state === 'rejected' || lastAction?.state === 'uncertain' ? 'error' : 'status'}>
           {pendingText ?? error ?? feedback ?? (status?.blocked_reason ? describeAutoPrinterReason(status.blocked_reason) : null) ?? (status?.local_pause ? 'Следующий запуск проверит условия старта.' : 'Текущая печать продолжится.')}
         </p>
         {!hasSeriesHold && <button type="button" disabled={!isManaged || pending !== null || status?.local_pause === null || status?.local_pause === undefined || !status?.capabilities?.queue} onClick={() => run(status?.local_pause ? 'resume_queue' : 'pause_queue')}>

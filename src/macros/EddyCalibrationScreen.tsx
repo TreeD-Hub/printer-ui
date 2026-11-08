@@ -655,26 +655,36 @@ export function EddyCalibrationScreen({
                   : !snapshot.v2.eddy.calibration.meshDone || !snapshot.v2.eddy.calibration.requiredDone ? 'mesh' : 'firstLayer'
 
   function renderOverview() {
+    const confirmed = calibration !== undefined
     const cards = [
-      { id: 'driveCurrent' as const, label: 'Ток катушки', state: snapshot.v2.eddy.calibration.driveCurrentDone ? 'Настроено' : 'Не настроено' },
-      { id: 'height' as const, label: 'Высота Eddy', state: snapshot.v2.eddy.calibration.primaryDone ? 'Настроено' : 'Не настроено' },
-      { id: 'temperature' as const, label: 'Температура', state: snapshot.v2.eddy.calibration.temperatureDone ? 'Настроено' : 'Не настроено' },
-      { id: 'z0' as const, label: 'Z0', state: snapshot.v2.eddy.calibration.z0Done ? 'Подтверждено' : 'Не настроено' },
-      { id: 'offsets' as const, label: 'Смещение Z', state: eddy?.zOffsetMm == null ? 'Не настроено' : 'Есть значение' },
-      { id: 'accuracy' as const, label: 'Повторяемость', state: accuracyResult === null ? 'Не запускалось' : 'Есть замер' },
-      { id: 'screws' as const, label: 'Винты стола', state: screws?.error == null ? 'Не запускалось' : screws.error ? 'Есть ошибка' : 'Есть замер' },
-      { id: 'mesh' as const, label: 'Карта стола', state: measuredMeshValues.length > 0 ? 'Есть замер' : 'Не запускалось' },
+      { id: 'driveCurrent' as const, label: 'Ток катушки', ready: confirmed && snapshot.v2.eddy.calibration.driveCurrentDone },
+      { id: 'height' as const, label: 'Высота Eddy', ready: confirmed && snapshot.v2.eddy.calibration.primaryDone },
+      { id: 'temperature' as const, label: 'Температура', ready: confirmed && snapshot.v2.eddy.calibration.temperatureDone },
+      { id: 'z0' as const, label: 'Z0', ready: confirmed && snapshot.v2.eddy.calibration.z0Done },
+      { id: 'offsets' as const, label: 'Смещение Z', ready: confirmed && snapshot.v2.eddy.calibration.primaryDone && eddy?.heightCalibrated === true },
+      { id: 'accuracy' as const, label: 'Повторяемость', ready: accuracyResult !== null },
+      { id: 'screws' as const, label: 'Винты стола', ready: confirmed && snapshot.v2.eddy.calibration.screwsDone && screws?.error !== true },
+      { id: 'mesh' as const, label: 'Карта стола', ready: confirmed && snapshot.v2.eddy.calibration.meshDone && snapshot.v2.eddy.calibration.requiredDone },
     ]
     return (
       <>
         <section className="eddy-overview-grid" aria-label="Фактическое состояние калибровок">
-          {cards.map((card) => (
-            <button className="eddy-overview-card" key={card.id} type="button" onClick={() => openProcedure(card.id)}>
-              <CalibrationPreview kind={card.id} compact />
-              <strong>{card.label}</strong>
-              <span className="eddy-card-state">{card.state}</span>
-            </button>
-          ))}
+          {cards.map((card) => {
+            const status = card.id === 'accuracy'
+              ? card.ready ? 'Есть замер повторяемости' : 'Замер повторяемости не выполнен'
+              : card.ready ? 'Калибровка не требуется' : 'Требуется калибровка'
+            return (
+              <button className="eddy-overview-card" key={card.id} type="button" onClick={() => openProcedure(card.id)}>
+                <CalibrationPreview kind={card.id} compact />
+                <strong>{card.label}</strong>
+                <span className={joinClassNames('eddy-card-state', card.ready && 'is-ready')} title={`${card.label}: ${status}`}>
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    {card.ready ? <path d="m2.5 6 2.3 2.3 4.7-4.7" /> : <><path d="M6 2.5v4" /><circle cx="6" cy="9" r=".8" fill="currentColor" stroke="none" /></>}
+                  </svg>
+                </span>
+              </button>
+            )
+          })}
         </section>
       </>
     )
@@ -695,7 +705,7 @@ export function EddyCalibrationScreen({
 
   function visualOrDetails(visual: ReactNode) {
     const critical = saveError || (operationUncertain ? 'Операция принтера остаётся неопределённой. Продолжение заблокировано до проверки состояния принтера.' : '')
-    if (critical) return <aside className="eddy-state-panel"><p className="eddy-message is-error" role="alert">{critical}</p></aside>
+    if (critical) return <aside className="eddy-state-panel"><p className="eddy-message is-error" data-notice="error">{critical}</p></aside>
     if (detailsVisible) return renderDetails()
     return visual
   }
@@ -789,7 +799,7 @@ export function EddyCalibrationScreen({
           {!activePrint && <><p>Выберите подготовленный G-code первого слоя и проверьте файл.</p>
           {snapshot.printFiles.length > 0 ? <section className="eddy-file-list" aria-label="Файлы теста первого слоя">
             {snapshot.printFiles.map((file) => <button key={file.id} type="button" aria-label={`Выбрать ${file.name}${file.directory ? `, каталог ${file.directory}` : ', корень'}`} aria-pressed={selectedFile === file.path} onClick={() => setSelectedFile(file.path)}><span>{file.name}</span><small>{file.directory || 'Корень'}</small></button>)}
-          </section> : <p role="status">Нет загруженных файлов теста. Откройте раздел файлов и добавьте G-code.</p>}
+          </section> : <p data-notice="status">Нет загруженных файлов теста. Откройте раздел файлов и добавьте G-code.</p>}
           {selectedCalibrationFile && <div className="eddy-file-summary"><span>Проверьте файл перед запуском</span><strong>{selectedCalibrationFile.path}</strong></div>}</>}
           {activePrint && <>
             <div className="eddy-metric"><span>Текущая печать</span><strong>{snapshot.printJob.filename.split(/[\\/]/).pop()} · {Math.round(snapshot.printJob.progressPercent)}%</strong><small>Слой {snapshot.printJob.currentLayer ?? '—'} / {snapshot.printJob.totalLayer ?? '—'} · Координата Z {valueText(snapshot.toolheadZ)}</small></div>
@@ -934,7 +944,7 @@ export function EddyCalibrationScreen({
         {procedure !== 'overview' && <section className="eddy-procedure-content">{renderProcedure()}</section>}
         {procedure === 'overview' && <>{renderOverview()}</>}
       </main>
-      {!hideMeshStatus && <div className={joinClassNames('eddy-status', statusIsError && 'is-error')} role={statusIsError ? 'alert' : 'status'} aria-hidden={procedureMessageInBody || undefined}>{procedureMessageInBody ? '' : saveError || (operationUncertain ? 'Операция принтера остаётся неопределённой. Продолжение заблокировано.' : saveKind !== null ? 'Ожидаем сохранения и перезапуска принтера.' : message || (!ready ? 'Связи нет · показаны последние данные.' : visibleStatusReason ?? procedureStatus))}</div>}
+      {!hideMeshStatus && <div className={joinClassNames('eddy-status', statusIsError && 'is-error')} data-notice={statusIsError ? 'error' : 'status'} aria-hidden={procedureMessageInBody || undefined}>{procedureMessageInBody ? '' : saveError || (operationUncertain ? 'Операция принтера остаётся неопределённой. Продолжение заблокировано.' : saveKind !== null ? 'Ожидаем сохранения и перезапуска принтера.' : message || (!ready ? 'Связи нет · показаны последние данные.' : visibleStatusReason ?? procedureStatus))}</div>}
       <footer className="eddy-footer">
         <div className="eddy-footer-details">{procedure !== 'overview' && <button type="button" className="is-secondary" aria-expanded={detailsVisible} onClick={() => setDetailsVisible((visible) => !visible)}>{detailsVisible ? 'Скрыть' : 'Подробнее'}</button>}</div>
         <div className="eddy-footer-secondary">
@@ -944,7 +954,7 @@ export function EddyCalibrationScreen({
         <div className="eddy-footer-primary">{footerActions.primary}</div>
       </footer>
       {screwsRawVisible && <div className="eddy-dialog-layer"><div className="eddy-dialog" role="dialog" aria-modal="true" aria-label="Все данные винтового замера" ref={screwsDialogRef}><div className="eddy-table-wrap eddy-raw-table"><table><caption>Результаты винтового замера</caption><thead><tr><th>Винт</th><th>X / Y</th><th>Z</th><th>Знак</th><th>Поворот</th></tr></thead><tbody>{screws?.results.map((item) => <tr key={item.name}><th scope="row">{item.name}{item.isBase === true ? ' · база' : ''}</th><td>{valueText(item.xMm)} / {valueText(item.yMm)}</td><td>{valueText(item.zMm)}</td><td>{item.sign ?? '—'}</td><td>{item.adjust ?? '—'}</td></tr>)}</tbody></table></div><p>Направление показано со стороны вращаемой головки винта. Поворот — обороты:минуты, не время.</p><button type="button" onClick={() => setScrewsRawVisible(false)}>Закрыть данные замера</button></div></div>}
-      {confirmEmergency && <div className="eddy-dialog-layer" role="presentation"><section className="eddy-dialog" role="alertdialog" aria-modal="true" aria-labelledby="eddy-emergency-title" aria-describedby="eddy-emergency-warning"><h2 id="eddy-emergency-title">Аварийная остановка</h2><p id="eddy-emergency-warning">Команда немедленно остановит принтер. После неё проверьте механику и состояние Klipper перед продолжением.</p><div className="eddy-action-row"><button ref={emergencyButtonRef} type="button" className="eddy-danger" disabled={!emergencyAllowed || emergencyPending} onClick={() => void stopEmergency()}>Подтвердить остановку</button><button type="button" className="eddy-btn is-secondary" disabled={emergencyPending} onClick={() => setConfirmEmergency(false)}>Отмена</button></div></section></div>}
+      {confirmEmergency && <div className="eddy-dialog-layer" role="presentation"><section className="eddy-dialog" role="dialog" aria-modal="true" aria-labelledby="eddy-emergency-title"><h2 id="eddy-emergency-title">Аварийная остановка</h2><p id="eddy-emergency-warning">Команда немедленно остановит принтер. После неё проверьте механику и состояние Klipper перед продолжением.</p><div className="eddy-action-row"><button ref={emergencyButtonRef} type="button" className="eddy-danger" disabled={!emergencyAllowed || emergencyPending} onClick={() => void stopEmergency()}>Подтвердить остановку</button><button type="button" className="eddy-btn is-secondary" disabled={emergencyPending} onClick={() => setConfirmEmergency(false)}>Отмена</button></div></section></div>}
     </article>
   )
 }

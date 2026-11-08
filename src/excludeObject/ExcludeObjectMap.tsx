@@ -42,7 +42,7 @@ export function ExcludeObjectMap({
   const xLimit = limits.axis.X
   const yLimit = limits.axis.Y
   if (xLimit === undefined || yLimit === undefined) {
-    return <div className="exclude-object-map-panel" role="status">Границы стола пока недоступны.</div>
+    return <div className="exclude-object-map-panel" data-notice="status">Границы стола пока недоступны.</div>
   }
 
   const xMin = xLimit.min

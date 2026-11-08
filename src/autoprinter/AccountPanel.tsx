@@ -78,28 +78,28 @@ export function AccountPanel({ controller }: AccountPanelProps) {
 
       <main className="account-content">
         {availability === 'unsupported' ? (
-          <p className="account-notice" role="status">Эта версия Core не поддерживает привязку аккаунта.</p>
+          <p className="account-notice" data-notice="status">Эта версия Core не поддерживает привязку аккаунта.</p>
         ) : status === null ? (
-          <p className="account-notice" role={error ? 'alert' : 'status'}>{error ?? 'Получаем состояние аккаунта.'}</p>
+          <p className="account-notice" data-notice={error ? 'error' : 'status'}>{error ?? 'Получаем состояние аккаунта.'}</p>
         ) : (
           <>
-            {stale && <p className="account-notice" role="status">Показано последнее известное состояние. Для действий нужно обновить связь с Moonraker.</p>}
-            {error && <p className="account-notice account-error" role="alert">{error}</p>}
-            {status.enabled === false ? <p className="account-notice" role="status">Подключение к аккаунту выключено в настройках принтера.</p>
-              : status.configured === false && <p className="account-notice" role="status">Подключение к аккаунту ещё не настроено.</p>}
+            {stale && <p className="account-notice" data-notice="status">Показано последнее известное состояние. Для действий нужно обновить связь с Moonraker.</p>}
+            {error && <p className="account-notice account-error" data-notice="error">{error}</p>}
+            {status.enabled === false ? <p className="account-notice" data-notice="status">Подключение к аккаунту выключено в настройках принтера.</p>
+              : status.configured === false && <p className="account-notice" data-notice="status">Подключение к аккаунту ещё не настроено.</p>}
             {status.unlink_pending === true ? (
               status.binding_state === 'unpaired' ? (
-                <p className="account-pending" role="status">Проверяем состояние отвязки.</p>
+                <p className="account-pending" data-notice="status">Проверяем состояние отвязки.</p>
               ) : status.binding_state === 'revoked' ? (
                 <div className="account-details">
                   <div><span>Состояние</span><strong>Доступ отозван</strong></div>
-                  <p className="account-pending" role="status">Сброс ожидает завершения текущей работы и связи с TreeD.</p>
+                  <p className="account-pending" data-notice="status">Сброс ожидает завершения текущей работы и связи с TreeD.</p>
                 </div>
               ) : (
                 <div className="account-details">
                   <AccountOwner name={status.owner_profile?.display_name} avatar={status.owner_profile?.avatar_url} />
                   <div><span>Принтер</span><strong>{status.display_name || 'Имя принтера не задано'}</strong></div>
-                  <p className="account-pending" role="status">Отвязка завершится после окончания текущей работы и восстановления связи с TreeD.</p>
+                  <p className="account-pending" data-notice="status">Отвязка завершится после окончания текущей работы и восстановления связи с TreeD.</p>
                 </div>
               )
             ) : status.binding_state === 'paired' ? (
@@ -109,10 +109,10 @@ export function AccountPanel({ controller }: AccountPanelProps) {
                   <span>Принтер</span>
                   <strong>{status.display_name || 'Имя принтера не задано'}</strong>
                 </div>
-                {pending?.type === 'account_unlink' ? <p className="account-pending" role="status">Сохраняем запрос на отвязку…</p> : accountLinkingSupported ? (
+                {pending?.type === 'account_unlink' ? <p className="account-pending" data-notice="status">Сохраняем запрос на отвязку…</p> : accountLinkingSupported ? (
                   <button className="account-danger" type="button" disabled={!canUnlink} onClick={() => setConfirmOpen(true)}>Отвязать</button>
-                ) : <p className="account-offline" role="status">Управление привязкой недоступно в этой версии Core.</p>}
-                {isOffline && <p className="account-offline" role="status">TreeD сейчас недоступен. Запрос сохранится локально и завершится после восстановления связи.</p>}
+                ) : <p className="account-offline" data-notice="status">Управление привязкой недоступно в этой версии Core.</p>}
+                {isOffline && <p className="account-offline" data-notice="status">TreeD сейчас недоступен. Запрос сохранится локально и завершится после восстановления связи.</p>}
               </div>
             ) : status.binding_state === 'revoked' ? (
               <div className="account-details">
@@ -121,14 +121,14 @@ export function AccountPanel({ controller }: AccountPanelProps) {
                   <strong>Доступ к аккаунту отозван</strong>
                   <p>Профиль скрыт. Можно сбросить локальную привязку, если Core ещё хранит действительные учётные данные устройства.</p>
                 </div>
-                {pending?.type === 'account_unlink' ? <p className="account-pending" role="status">Сохраняем запрос на сброс…</p> : accountLinkingSupported ? (
+                {pending?.type === 'account_unlink' ? <p className="account-pending" data-notice="status">Сохраняем запрос на сброс…</p> : accountLinkingSupported ? (
                   <button className="account-danger" type="button" disabled={!canUnlink} onClick={() => setConfirmOpen(true)}>Сбросить привязку</button>
-                ) : <p className="account-offline" role="status">Сброс недоступен в этой версии Core.</p>}
-                {isOffline && <p className="account-offline" role="status">TreeD сейчас недоступен. Запрос сохранится локально и завершится после восстановления связи.</p>}
+                ) : <p className="account-offline" data-notice="status">Сброс недоступен в этой версии Core.</p>}
+                {isOffline && <p className="account-offline" data-notice="status">TreeD сейчас недоступен. Запрос сохранится локально и завершится после восстановления связи.</p>}
               </div>
             ) : !accountLinkingSupported ? (
               status.enabled !== false && status.configured !== false
-                && <p className="account-notice" role="status">Текущая версия Core не поддерживает привязку аккаунта.</p>
+                && <p className="account-notice" data-notice="status">Текущая версия Core не поддерживает привязку аккаунта.</p>
             ) : (
               <div className="account-pairing">
                 <div className="account-qr-area">
@@ -154,7 +154,7 @@ export function AccountPanel({ controller }: AccountPanelProps) {
                       </svg>
                     </div>
                   ) : (
-                    <p role="status">{pairingIsFresh ? 'Не удалось получить ссылку для QR-кода.' : pending?.type === 'pairing' ? 'Получаем QR-код…' : 'Код привязки не создан.'}</p>
+                    <p data-notice="status">{pairingIsFresh ? 'Не удалось получить ссылку для QR-кода.' : pending?.type === 'pairing' ? 'Получаем QR-код…' : 'Код привязки не создан.'}</p>
                   )}
                 </div>
                 <div className="account-pairing-copy">
@@ -166,7 +166,7 @@ export function AccountPanel({ controller }: AccountPanelProps) {
                       {pairing.expires_at !== null && <p className="account-expiry">Код действует до {formatUiDateTime(pairing.expires_at, timezoneOffsetMinutes, { hour: '2-digit', minute: '2-digit' })}.</p>}
                     </>
                   )}
-                  {isOffline && <p className="account-offline" role="status">TreeD сейчас недоступен. Новый код можно получить после восстановления связи.</p>}
+                  {isOffline && <p className="account-offline" data-notice="status">TreeD сейчас недоступен. Новый код можно получить после восстановления связи.</p>}
                   {hasPairing ? (
                     status.capabilities?.pairing_cancel === true && <button type="button" disabled={!canCancelPairing} onClick={() => void controller.cancelPairing()}>
                       {pending?.type === 'pairing_cancel' ? 'Отменяем…' : 'Отменить привязку'}

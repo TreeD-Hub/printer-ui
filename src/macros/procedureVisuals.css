@@ -14,4 +14,4 @@
 .shaper-spectrum text { fill: var(--color-text-secondary); font: var(--font-size-small) var(--font-family-ui); }
 .shaper-spectrum figcaption { font-size: var(--font-size-small); color: var(--color-text-secondary); }
 .shaper-spectrum > p { margin: 0; align-self: center; font-size: var(--font-size-body); line-height: 1.4; }
-.shaper-spectrum [role="alert"] { border-left: 2px solid var(--color-selection); padding-left: var(--space-sm); }
+.shaper-spectrum [data-notice="error"] { border-left: 2px solid var(--color-selection); padding-left: var(--space-sm); }

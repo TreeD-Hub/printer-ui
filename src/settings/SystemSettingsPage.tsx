@@ -394,7 +394,7 @@ export function SystemSettingsPage({
             </div>
 
             {warnings.length > 0 ? (
-              <section className="system-alert-card" role="status">
+              <section className="system-alert-card" data-notice="status">
                 <div className="system-settings-section-head">
                   <h4>Предупреждения</h4>
                   <span>{warnings.length}</span>
@@ -422,7 +422,7 @@ export function SystemSettingsPage({
               <div>
                 <strong>Заводские настройки профиля</strong>
                 <span>Сбрасывает локальные переопределения. Калибровки сохраняются.</span>
-                {system.factoryReset.notice ? <span role="status">{system.factoryReset.notice}</span> : null}
+                {system.factoryReset.notice ? <span data-notice="status">{system.factoryReset.notice}</span> : null}
               </div>
               <button
                 type="button"
@@ -438,7 +438,7 @@ export function SystemSettingsPage({
       </div>
       {isResetConfirmOpen ? (
         <div className="system-reset-layer">
-          <section ref={resetFocusRef} className="system-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="system-reset-title" aria-describedby="system-reset-detail">
+          <section ref={resetFocusRef} className="system-reset-dialog" role="dialog" aria-modal="true" aria-labelledby="system-reset-title">
             <h2 id="system-reset-title">Сбросить локальные настройки?</h2>
             <p id="system-reset-detail">Локальные переопределения будут заменены заводскими значениями установленного профиля. Сохраним копию файла. Калибровки останутся. Нагрев выключится, Klipper перезапустится.</p>
             <div className="system-reset-actions">

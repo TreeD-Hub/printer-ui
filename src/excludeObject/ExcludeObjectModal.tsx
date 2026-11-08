@@ -76,7 +76,7 @@ export function ExcludeObjectModal(props: ExcludeObjectModalProps) {
                 onSelect={controller.selectObject}
               />
             ) : (
-              <div className="exclude-object-empty-map" aria-live="polite">
+              <div className="exclude-object-empty-map">
                 {emptyStateMessage}
               </div>
             )}
@@ -118,7 +118,7 @@ export function ExcludeObjectModal(props: ExcludeObjectModalProps) {
         </div>
 
         {showConfirmation ? (
-          <div className="exclude-object-confirm" role="alertdialog" aria-modal="true">
+          <div className="exclude-object-confirm" role="dialog" aria-modal="true">
             <div className="exclude-object-confirm-dialog">
               <h3>{`Исключить «${confirmationDisplayName}»?`}</h3>
               <p>Движения и экструзия внутри этой детали будут пропущены.</p>

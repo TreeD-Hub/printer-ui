@@ -175,11 +175,11 @@ export function TopStatusPopups({
         {activeTopPopup === 'power' ? (
           <div className="top-popup-content">
             {transitionPowerAction !== null ? (
-              <p className="top-popup-warning" role="status" aria-live="polite">
+              <p className="top-popup-warning" data-notice="status">
                 {transitionPowerAction.transitionLabel}
               </p>
             ) : armedPowerAction !== null ? (
-              <div className="top-popup-power-confirmation" aria-live="polite">
+              <div className="top-popup-power-confirmation">
                 <p className="top-popup-warning">{armedPowerAction.confirmationPrompt}</p>
                 <p className="top-popup-secondary">{armedPowerAction.description}</p>
               </div>

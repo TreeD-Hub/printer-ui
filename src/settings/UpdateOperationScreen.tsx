@@ -125,14 +125,14 @@ export function UpdateOperationScreen({ operation, isReconnectPending = false, o
   }, [isTerminal])
 
   return createPortal(
-    <section ref={screenRef} tabIndex={-1} className="update-operation-screen" role="dialog" aria-modal="true" aria-labelledby="update-operation-title" aria-describedby="update-operation-detail" data-testid="update-operation-screen">
+    <section ref={screenRef} tabIndex={-1} className="update-operation-screen" role="dialog" aria-modal="true" aria-labelledby="update-operation-title" data-testid="update-operation-screen">
       <header className="update-operation-header">
         <span>{targetLabel(operation.targetId)}</span>
         {operation.targetTag && <span className="update-operation-version">{operation.targetTag}</span>}
       </header>
       <div className="update-operation-content">
         <img className="update-operation-logo" src={watermark} alt="TreeD" width="500" height="144" />
-        <div className="update-operation-status" aria-live="polite" aria-atomic="true">
+        <div className="update-operation-status">
           <h2 id="update-operation-title">{title}</h2>
           <p id="update-operation-detail" className="update-operation-detail">
             {isReconnectPending

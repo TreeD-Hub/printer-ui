@@ -3,6 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { createMockSnapshot } from '../../mocks/runtime'
 import { receivePrinterGcodeResponse } from '../core/store/printerNotifications'
 import { PidCalibrationScreen } from './PidCalibrationScreen'
+import { noticeScreen } from '../test/noticeQueries'
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers() })
 
@@ -30,11 +31,11 @@ it('удерживает полный экран после ошибки и во
   fireEvent.click(screen.getByRole('button', { name: 'Далее →' }))
   expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(false)
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Запустить калибровку' })))
-  expect(screen.getByRole('alert')).toHaveTextContent('Команда завершилась ошибкой')
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('Команда завершилась ошибкой')
   expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
   expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeInTheDocument()
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Аварийная остановка' })))
-  expect(screen.getByRole('alert')).toHaveTextContent('Не удалось подтвердить остановку')
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('Не удалось подтвердить остановку')
   expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
   fireEvent.click(screen.getByRole('button', { name: 'Проверить и повторить' }))
   expect(onCalibrationActivityChange).toHaveBeenLastCalledWith(true)
@@ -98,7 +99,7 @@ it('сохраняет через printer-core и ждёт перезапуск�
   view.rerender(<PidCalibrationScreen {...props} />)
   expect(screen.getByText('PID сохранён')).toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Завершить' })).toBeEnabled()
-  expect(screen.getByRole('status')).toHaveTextContent('Калибровка завершена успешно.')
+  expect(noticeScreen.getByNotice('status')).toHaveTextContent('Калибровка завершена успешно.')
   expect(screen.queryByRole('button', { name: 'Другой нагреватель' })).not.toBeInTheDocument()
   expect(screen.queryByRole('button', { name: 'Запустить калибровку' })).not.toBeInTheDocument()
   expect(executeCommand).toHaveBeenCalledTimes(2)
@@ -137,14 +138,14 @@ it.each([true, false])('не применяет поздний ответ emerge
   expect(props.onBackToList).toHaveBeenCalledTimes(1)
   await act(async () => { finishStop(lateResult); await Promise.resolve() })
   expect(props.onBackToList).toHaveBeenCalledTimes(1)
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('error')).not.toBeInTheDocument()
 })
 
 it('сохраняет коэффициенты на экране при ошибке сохранения', async () => {
   const { executeCommand } = await resultScreen()
   executeCommand.mockResolvedValueOnce(false)
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Сохранить' })))
-  expect(screen.getByRole('alert')).toHaveTextContent('Сохранение не подтверждено')
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('Сохранение не подтверждено')
   expect(screen.getByText('Kp 22.100 · Ki 1.200 · Kd 101.300')).toBeInTheDocument()
   expect(screen.queryByText('PID сохранён')).not.toBeInTheDocument()
 })
@@ -154,7 +155,7 @@ it('не выдаёт отсутствие перезапуска за подт�
   const { executeCommand } = await resultScreen()
   await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Сохранить' })))
   act(() => vi.advanceTimersByTime(90_000))
-  expect(screen.getByRole('alert')).toHaveTextContent('Не удалось подтвердить сохранение')
+  expect(noticeScreen.getByNotice('error')).toHaveTextContent('Не удалось подтвердить сохранение')
   expect(screen.queryByText('PID сохранён')).not.toBeInTheDocument()
   expect(executeCommand).toHaveBeenCalledTimes(2)
 })
@@ -179,7 +180,7 @@ it('считает циклы по смене цели, показывает в�
   act(() => vi.advanceTimersByTime(65_000))
   expect(screen.getByText('01:05')).toBeInTheDocument()
   view.rerender(<PidCalibrationScreen {...props} snapshot={{ ...snapshot, thermalTargets: { ...snapshot.thermalTargets, nozzle: 195 } }} />)
-  expect(screen.getByRole('status')).toHaveTextContent('Остывание')
+  expect(noticeScreen.getByNotice('status')).toHaveTextContent('Остывание')
   view.rerender(<PidCalibrationScreen {...props} />)
   expect(screen.getByText('2 / 6')).toBeInTheDocument()
   view.rerender(<PidCalibrationScreen {...props} snapshot={{ ...snapshot, updatedAt: 'next' }} />)
@@ -193,7 +194,7 @@ it('считает циклы по смене цели, показывает в�
 it('не выдаёт принятый запрос без коэффициентов за успешную калибровку', async () => {
   open()
   fireEvent.click(screen.getByRole('button', { name: 'Запустить калибровку' }))
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('PID-коэффициенты не получены'))
+  await waitFor(() => expect(noticeScreen.getByNotice('error')).toHaveTextContent('PID-коэффициенты не получены'))
   expect(screen.queryByText('Коэффициенты рассчитаны')).not.toBeInTheDocument()
 })
 
@@ -234,7 +235,7 @@ it.each([
     await Promise.resolve()
   })
   expect(screen.queryByText('Коэффициенты рассчитаны')).not.toBeInTheDocument()
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('error')).not.toBeInTheDocument()
   expect(executeCommand).toHaveBeenCalledTimes(1)
 
   expect(onBackToList).toHaveBeenCalledTimes(1)
@@ -257,7 +258,7 @@ it.each([true, false])('игнорирует поздний ответ обду�
   expect(screen.getByText('Калибровка прервана')).toBeInTheDocument()
   await act(async () => { finishFan(lateResult); await Promise.resolve() })
   expect(executeCommand).toHaveBeenCalledTimes(1)
-  expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  expect(noticeScreen.queryByNotice('error')).not.toBeInTheDocument()
   expect(screen.getByText('Калибровка прервана')).toBeInTheDocument()
 })
 
@@ -307,7 +308,7 @@ it('не запускает PID при ошибке установки обду�
   const execute = open(vi.fn().mockResolvedValue(false))
   fireEvent.click(screen.getByRole('checkbox', { name: /Включить обдув/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Запустить калибровку' }))
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('PID-калибровка не запущена'))
+  await waitFor(() => expect(noticeScreen.getByNotice('error')).toHaveTextContent('PID-калибровка не запущена'))
   expect(execute).toHaveBeenCalledTimes(1)
   expect(screen.queryByTestId('pid-temperature-chart')).not.toBeInTheDocument()
 })

@@ -335,7 +335,7 @@
 }
 
 /* Общие роли контролов; палитру каждой темы задаёт foundation.css. */
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button:where(
+:root[data-theme] :is(.screen-shell, [role='dialog']) button:where(
   .segmented-toggle-btn, .files-sort-btn, .step-btn,
   .settings-network-btn, .settings-network-item, .settings-console-chip,
   .settings-console-key, .settings-toggle-row, .settings-select-control,
@@ -356,7 +356,7 @@
   .calibration-catalog-header > button,
   :where(.eddy-workflow, .pid-workflow, .pid-temperature-dialog, .account-panel, .autoprinter-panel,
     .calibration-procedure, .driver-mode-dialog, .driver-fan-power-editor,
-    [role='dialog'], [role='alertdialog']) button
+    [role='dialog']) button
 ):not(:where(.update-operation-dismiss)) {
   --button-surface: var(--color-control-surface);
   --button-border: var(--color-control-border);
@@ -371,7 +371,7 @@
   transition: border-color var(--motion-control);
 }
 
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) :is(
+:root[data-theme] :is(.screen-shell, [role='dialog']) :is(
   button.is-primary:not(.is-danger), .stack-action.action-pause,
   .settings-network-btn-primary, .file-modal-action-start,
   .settings-update-apply, .print-completion-restart, .maintenance-overview-complete-button,
@@ -390,7 +390,7 @@
   --button-pressed-surface: var(--color-control-primary-pressed-surface);
 }
 
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) :is(
+:root[data-theme] :is(.screen-shell, [role='dialog']) :is(
   .action-cancel, .file-modal-action-delete, .file-modal-action-danger,
   .top-popup-action-danger, .control-action-btn-danger, .pid-danger, .eddy-danger,
   .account-danger, .is-danger
@@ -400,13 +400,13 @@
   --button-pressed-surface: var(--color-control-danger-pressed-surface);
 }
 
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) .control-heating-cooldown-btn {
+:root[data-theme] :is(.screen-shell, [role='dialog']) .control-heating-cooldown-btn {
   --button-border: var(--color-cooling);
   --button-text: var(--color-cooling);
 }
 
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) :is(button, select, input):is(:disabled, [aria-disabled='true']),
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button.is-disabled {
+:root[data-theme] :is(.screen-shell, [role='dialog']) :is(button, select, input):is(:disabled, [aria-disabled='true']),
+:root[data-theme] :is(.screen-shell, [role='dialog']) button.is-disabled {
   border-color: var(--color-control-disabled-border);
   background: var(--color-control-disabled-surface);
   color: var(--color-control-disabled-text);
@@ -414,12 +414,12 @@
   opacity: 1;
 }
 
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button:is(:disabled, [aria-disabled='true'], .is-disabled) :where(span, strong, small) {
+:root[data-theme] :is(.screen-shell, [role='dialog']) button:is(:disabled, [aria-disabled='true'], .is-disabled) :where(span, strong, small) {
   color: inherit;
 }
 
 /* Недоступность запрещает изменение, но не скрывает выбранное значение. */
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) :is(
+:root[data-theme] :is(.screen-shell, [role='dialog']) :is(
   button[aria-pressed='true']:not(.settings-sidebar-item),
   button[aria-selected='true'],
   .segmented-toggle-btn.is-active, .files-sort-btn.is-active, .step-btn.is-active,
@@ -432,7 +432,7 @@
   box-shadow: none;
 }
 
-:root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button:active:not(:disabled):not([aria-disabled='true']):not(.is-disabled):not(.update-operation-dismiss) {
+:root[data-theme] :is(.screen-shell, [role='dialog']) button:active:not(:disabled):not([aria-disabled='true']):not(.is-disabled):not(.update-operation-dismiss) {
   background: var(--button-pressed-surface, var(--color-control-pressed-surface));
   box-shadow: none;
   transform: none;
@@ -466,7 +466,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-theme] :is(.screen-shell, [role='dialog'], [role='alertdialog']) button {
+  :root[data-theme] :is(.screen-shell, [role='dialog']) button {
     transition: none;
   }
 

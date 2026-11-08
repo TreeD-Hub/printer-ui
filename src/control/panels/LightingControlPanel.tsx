@@ -70,7 +70,7 @@ export const LightingControlPanel = memo(function LightingControlPanel({
             onChange={(enabled) => onLightPreferenceChange?.(setting, enabled)}
           />
         ))}
-        {lightPreferencesBlockReason ? <p role="status">{lightPreferencesBlockReason}</p> : null}
+        {lightPreferencesBlockReason ? <p data-notice="status">{lightPreferencesBlockReason}</p> : null}
       </section>
     </article>
   )

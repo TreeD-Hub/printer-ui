@@ -113,8 +113,7 @@ export const FanControlPanel = memo(function FanControlPanel({
         <div
           key={lockPopup.id}
           className="control-lock-popup"
-          role="alertdialog"
-          aria-live="assertive"
+          role="dialog"
           aria-label="Причина блокировки"
           data-testid="fan-lock-popup"
         >

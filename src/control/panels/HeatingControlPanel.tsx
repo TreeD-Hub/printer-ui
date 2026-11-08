@@ -124,8 +124,7 @@ export const HeatingControlPanel = memo(function HeatingControlPanel({
           <div
             key={lockPopup.id}
             className="control-lock-popup"
-            role="alertdialog"
-            aria-live="assertive"
+            role="dialog"
             aria-label="Причина блокировки"
             data-testid="heating-lock-popup"
           >

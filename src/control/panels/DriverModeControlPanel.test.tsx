@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { DriverModeControlPanel, type DriverControlsProps } from './DriverModeControlPanel'
+import { noticeScreen } from '../../test/noticeQueries'
 
 function fixture(): DriverControlsProps {
  return {
@@ -77,7 +78,7 @@ describe('Подтверждение режима драйверов', () => {
   render(<DriverModeControlPanel controls={controls} kind="drivers" />)
   fireEvent.click(screen.getByRole('button', {name: 'Тихий'}))
   fireEvent.click(screen.getByRole('button', {name: 'Применить'}))
-  await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('SPI failure'))
+  await waitFor(() => expect(noticeScreen.getByNotice('error')).toHaveTextContent('SPI failure'))
   expect(screen.getByRole('dialog')).toBeInTheDocument()
   expect(controls.onRestart).not.toHaveBeenCalled()
  })
@@ -89,7 +90,7 @@ describe('Подтверждение режима драйверов', () => {
    fireEvent.click(screen.getByRole('button', {name: 'Тихий'}))
    await act(async () => { fireEvent.click(screen.getByRole('button', {name: 'Применить'})) })
    act(() => vi.advanceTimersByTime(13000))
-   expect(screen.getByRole('alert')).toHaveTextContent('Подтверждение режима не получено')
+   expect(noticeScreen.getByNotice('error')).toHaveTextContent('Подтверждение режима не получено')
    expect(controls.onRestart).not.toHaveBeenCalled()
   } finally { vi.useRealTimers() }
  })
